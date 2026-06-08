@@ -3807,6 +3807,83 @@ export const useCreateQrCode = <TError = ErrorType<unknown>,
       return useMutation(getCreateQrCodeMutationOptions(options));
     }
 
+export const getGetQrCodeUrl = (id: number,) => {
+
+
+
+
+  return `/api/qr-codes/${id}`
+}
+
+/**
+ * @summary Get QR code detail
+ */
+export const getQrCode = async (id: number, options?: RequestInit): Promise<QrCode> => {
+
+  return customFetch<QrCode>(getGetQrCodeUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetQrCodeQueryKey = (id: number,) => {
+    return [
+    `/api/qr-codes/${id}`
+    ] as const;
+    }
+
+
+export const getGetQrCodeQueryOptions = <TData = Awaited<ReturnType<typeof getQrCode>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQrCode>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetQrCodeQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getQrCode>>> = ({ signal }) => getQrCode(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getQrCode>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetQrCodeQueryResult = NonNullable<Awaited<ReturnType<typeof getQrCode>>>
+export type GetQrCodeQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get QR code detail
+ */
+
+export function useGetQrCode<TData = Awaited<ReturnType<typeof getQrCode>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQrCode>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetQrCodeQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getUpdateQrCodeUrl = (id: number,) => {
 
 

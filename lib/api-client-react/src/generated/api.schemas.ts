@@ -600,6 +600,7 @@ export const QrCodeStatus = {
   active: 'active',
   inactive: 'inactive',
   expired: 'expired',
+  used: 'used',
 } as const;
 
 export interface QrCode {
@@ -615,6 +616,10 @@ export interface QrCode {
   amount?: string | null;
   /** @nullable */
   orderId?: string | null;
+  /** @nullable */
+  callbackUrl?: string | null;
+  /** @nullable */
+  merchantReference?: string | null;
   /** @nullable */
   expiresAt?: string | null;
   status: QrCodeStatus;
@@ -634,11 +639,14 @@ export interface QrCodeInput {
   type: QrCodeInputType;
   /** @nullable */
   label?: string | null;
-  payload: string;
   /** @nullable */
   amount?: string | null;
   /** @nullable */
   orderId?: string | null;
+  /** @nullable */
+  callbackUrl?: string | null;
+  /** @nullable */
+  merchantReference?: string | null;
   /** @nullable */
   expiresAt?: string | null;
 }
@@ -649,12 +657,17 @@ export type QrCodeUpdateInputStatus = typeof QrCodeUpdateInputStatus[keyof typeo
 export const QrCodeUpdateInputStatus = {
   active: 'active',
   inactive: 'inactive',
+  used: 'used',
 } as const;
 
 export interface QrCodeUpdateInput {
   /** @nullable */
   label?: string | null;
   status?: QrCodeUpdateInputStatus;
+  /** @nullable */
+  callbackUrl?: string | null;
+  /** @nullable */
+  merchantReference?: string | null;
 }
 
 export interface QrCodeListResponse {
@@ -1115,6 +1128,9 @@ type?: ListQrCodesType;
 status?: ListQrCodesStatus;
 search?: string;
 merchantId?: number;
+merchantName?: string;
+dateFrom?: string;
+dateTo?: string;
 page?: number;
 limit?: number;
 };
@@ -1134,6 +1150,8 @@ export type ListQrCodesStatus = typeof ListQrCodesStatus[keyof typeof ListQrCode
 export const ListQrCodesStatus = {
   active: 'active',
   inactive: 'inactive',
+  expired: 'expired',
+  used: 'used',
   all: 'all',
 } as const;
 

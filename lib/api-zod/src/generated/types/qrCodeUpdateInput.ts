@@ -11,4 +11,8 @@ export interface QrCodeUpdateInput {
   /** @nullable */
   label?: string | null;
   status?: QrCodeUpdateInputStatus;
+  /** @nullable */
+  callbackUrl?: string | null;
+  /** @nullable */
+  merchantReference?: string | null;
 }

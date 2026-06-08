@@ -12,5 +12,7 @@ export type ListQrCodesStatus = typeof ListQrCodesStatus[keyof typeof ListQrCode
 export const ListQrCodesStatus = {
   active: 'active',
   inactive: 'inactive',
+  expired: 'expired',
+  used: 'used',
   all: 'all',
 } as const;

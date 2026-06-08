@@ -11,11 +11,14 @@ export interface QrCodeInput {
   type: QrCodeInputType;
   /** @nullable */
   label?: string | null;
-  payload: string;
   /** @nullable */
   amount?: string | null;
   /** @nullable */
   orderId?: string | null;
+  /** @nullable */
+  callbackUrl?: string | null;
+  /** @nullable */
+  merchantReference?: string | null;
   /** @nullable */
   expiresAt?: string | null;
 }

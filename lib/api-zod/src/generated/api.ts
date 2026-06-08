@@ -1031,9 +1031,12 @@ export const DeletePlanResponse = zod.object({
  */
 export const ListQrCodesQueryParams = zod.object({
   "type": zod.enum(['static', 'dynamic', 'all']).optional(),
-  "status": zod.enum(['active', 'inactive', 'all']).optional(),
+  "status": zod.enum(['active', 'inactive', 'expired', 'used', 'all']).optional(),
   "search": zod.coerce.string().optional(),
   "merchantId": zod.coerce.number().optional(),
+  "merchantName": zod.coerce.string().optional(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional(),
   "page": zod.coerce.number().optional(),
   "limit": zod.coerce.number().optional()
 })
@@ -1048,8 +1051,10 @@ export const ListQrCodesResponse = zod.object({
   "payload": zod.string(),
   "amount": zod.string().nullish(),
   "orderId": zod.string().nullish(),
+  "callbackUrl": zod.string().nullish(),
+  "merchantReference": zod.string().nullish(),
   "expiresAt": zod.string().nullish(),
-  "status": zod.enum(['active', 'inactive', 'expired']),
+  "status": zod.enum(['active', 'inactive', 'expired', 'used']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })),
@@ -1065,10 +1070,36 @@ export const ListQrCodesResponse = zod.object({
 export const CreateQrCodeBody = zod.object({
   "type": zod.enum(['static', 'dynamic']),
   "label": zod.string().nullish(),
+  "amount": zod.string().nullish(),
+  "orderId": zod.string().nullish(),
+  "callbackUrl": zod.string().nullish(),
+  "merchantReference": zod.string().nullish(),
+  "expiresAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get QR code detail
+ */
+export const GetQrCodeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetQrCodeResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "type": zod.enum(['static', 'dynamic']),
+  "label": zod.string().nullish(),
   "payload": zod.string(),
   "amount": zod.string().nullish(),
   "orderId": zod.string().nullish(),
-  "expiresAt": zod.string().nullish()
+  "callbackUrl": zod.string().nullish(),
+  "merchantReference": zod.string().nullish(),
+  "expiresAt": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive', 'expired', 'used']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
 })
 
 
@@ -1081,7 +1112,9 @@ export const UpdateQrCodeParams = zod.object({
 
 export const UpdateQrCodeBody = zod.object({
   "label": zod.string().nullish(),
-  "status": zod.enum(['active', 'inactive']).optional()
+  "status": zod.enum(['active', 'inactive', 'used']).optional(),
+  "callbackUrl": zod.string().nullish(),
+  "merchantReference": zod.string().nullish()
 })
 
 export const UpdateQrCodeResponse = zod.object({
@@ -1093,8 +1126,10 @@ export const UpdateQrCodeResponse = zod.object({
   "payload": zod.string(),
   "amount": zod.string().nullish(),
   "orderId": zod.string().nullish(),
+  "callbackUrl": zod.string().nullish(),
+  "merchantReference": zod.string().nullish(),
   "expiresAt": zod.string().nullish(),
-  "status": zod.enum(['active', 'inactive', 'expired']),
+  "status": zod.enum(['active', 'inactive', 'expired', 'used']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })

@@ -1063,7 +1063,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [active, inactive, all]
+            enum: [active, inactive, expired, used, all]
         - name: search
           in: query
           schema:
@@ -1072,6 +1072,18 @@ paths:
           in: query
           schema:
             type: integer
+        - name: merchantName
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+        - name: dateTo
+          in: query
+          schema:
+            type: string
         - name: page
           in: query
           schema:
@@ -1106,6 +1118,29 @@ paths:
                 $ref: "#/components/schemas/QrCode"
 
   /qr-codes/{id}:
+    get:
+      operationId: getQrCode
+      tags: [qr-codes]
+      summary: Get QR code detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: QR code detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QrCode"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     put:
       operationId: updateQrCode
       tags: [qr-codes]
@@ -2469,11 +2504,15 @@ components:
           type: ["string", "null"]
         orderId:
           type: ["string", "null"]
+        callbackUrl:
+          type: ["string", "null"]
+        merchantReference:
+          type: ["string", "null"]
         expiresAt:
           type: ["string", "null"]
         status:
           type: string
-          enum: [active, inactive, expired]
+          enum: [active, inactive, expired, used]
         createdAt:
           type: string
         updatedAt:
@@ -2481,18 +2520,20 @@ components:
 
     QrCodeInput:
       type: object
-      required: [type, payload]
+      required: [type]
       properties:
         type:
           type: string
           enum: [static, dynamic]
         label:
           type: ["string", "null"]
-        payload:
-          type: string
         amount:
           type: ["string", "null"]
         orderId:
+          type: ["string", "null"]
+        callbackUrl:
+          type: ["string", "null"]
+        merchantReference:
           type: ["string", "null"]
         expiresAt:
           type: ["string", "null"]
@@ -2504,7 +2545,11 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [active, inactive]
+          enum: [active, inactive, used]
+        callbackUrl:
+          type: ["string", "null"]
+        merchantReference:
+          type: ["string", "null"]
 
     QrCodeListResponse:
       type: object

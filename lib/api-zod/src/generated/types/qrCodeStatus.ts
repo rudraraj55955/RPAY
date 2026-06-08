@@ -13,4 +13,5 @@ export const QrCodeStatus = {
   active: 'active',
   inactive: 'inactive',
   expired: 'expired',
+  used: 'used',
 } as const;

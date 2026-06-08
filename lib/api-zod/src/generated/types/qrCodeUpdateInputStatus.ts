@@ -12,4 +12,5 @@ export type QrCodeUpdateInputStatus = typeof QrCodeUpdateInputStatus[keyof typeo
 export const QrCodeUpdateInputStatus = {
   active: 'active',
   inactive: 'inactive',
+  used: 'used',
 } as const;

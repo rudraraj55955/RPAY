@@ -1,8 +1,7 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   useListQrCodes,
   useCreateQrCode,
-  useUpdateQrCode,
   useDeleteQrCode,
   useListMerchantConnections,
 } from "@workspace/api-client-react";
@@ -15,7 +14,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2 } from "lucide-react";
+import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
@@ -27,6 +26,8 @@ type QrRow = {
   payload: string;
   amount?: string | null;
   orderId?: string | null;
+  callbackUrl?: string | null;
+  merchantReference?: string | null;
   expiresAt?: string | null;
   status: string;
   createdAt: string;
@@ -59,14 +60,21 @@ function deriveVpaFromConn(provider: string, credentials: string | null): string
   return null;
 }
 
-function QrPreviewModal({ qr, onClose }: { qr: QrRow; onClose: () => void }) {
+function statusBadge(status: string) {
+  if (status === "active") return <Badge className="text-xs bg-emerald-500/15 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">Active</Badge>;
+  if (status === "expired") return <Badge className="text-xs bg-rose-500/15 text-rose-400 border-rose-500/20 hover:bg-rose-500/20">Expired</Badge>;
+  if (status === "used") return <Badge className="text-xs bg-blue-500/15 text-blue-400 border-blue-500/20 hover:bg-blue-500/20">Used</Badge>;
+  return <Badge variant="secondary" className="text-xs">{status}</Badge>;
+}
+
+function InlineQrRow({ qr }: { qr: QrRow }) {
   const handleDownload = useCallback(() => {
-    const canvas = document.querySelector("#qr-download-canvas canvas") as HTMLCanvasElement | null;
+    const canvas = document.querySelector(`#qr-inline-${qr.id} canvas`) as HTMLCanvasElement | null;
     if (!canvas) return;
     const url = canvas.toDataURL("image/png");
     const a = document.createElement("a");
     a.href = url;
-    a.download = `qr-${qr.id}-${qr.label ?? "code"}.png`;
+    a.download = `qr-${qr.id}-${qr.orderId ?? qr.merchantReference ?? "code"}.png`;
     a.click();
     toast.success("QR code downloaded");
   }, [qr]);
@@ -74,43 +82,79 @@ function QrPreviewModal({ qr, onClose }: { qr: QrRow; onClose: () => void }) {
   const isExpired = qr.expiresAt ? new Date(qr.expiresAt) < new Date() : false;
 
   return (
+    <TableRow className="bg-muted/30 border-t-0">
+      <TableCell colSpan={7} className="py-4 px-6">
+        <div className="flex gap-6 items-start">
+          <div id={`qr-inline-${qr.id}`} className="bg-white p-3 rounded-xl shrink-0">
+            <QRCodeCanvas value={qr.payload} size={120} level="H" includeMargin />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm mb-3">
+              {qr.amount && (
+                <div>
+                  <span className="text-xs text-muted-foreground block">Amount</span>
+                  <span className="font-semibold">₹{parseFloat(qr.amount).toLocaleString("en-IN")}</span>
+                </div>
+              )}
+              {qr.orderId && (
+                <div>
+                  <span className="text-xs text-muted-foreground block">Order ID</span>
+                  <span className="font-mono text-xs">{qr.orderId}</span>
+                </div>
+              )}
+              {qr.merchantReference && (
+                <div>
+                  <span className="text-xs text-muted-foreground block">Reference</span>
+                  <span className="font-mono text-xs">{qr.merchantReference}</span>
+                </div>
+              )}
+              {qr.callbackUrl && (
+                <div className="col-span-2">
+                  <span className="text-xs text-muted-foreground block">Callback URL</span>
+                  <span className="font-mono text-xs truncate block">{qr.callbackUrl}</span>
+                </div>
+              )}
+              {qr.expiresAt && (
+                <div>
+                  <span className="text-xs text-muted-foreground block">Expires</span>
+                  <span className={`text-xs ${isExpired ? "text-rose-400" : "text-amber-400"}`}>
+                    {isExpired ? "Expired" : formatDistanceToNow(new Date(qr.expiresAt), { addSuffix: true })}
+                  </span>
+                </div>
+              )}
+            </div>
+            <Button size="sm" variant="outline" onClick={handleDownload} disabled={qr.status === "expired"} className="h-7 text-xs px-3">
+              <Download className="w-3.5 h-3.5 mr-1.5" />Download PNG
+            </Button>
+          </div>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function DownloadModal({ qr, onClose }: { qr: QrRow; onClose: () => void }) {
+  const handleDownload = useCallback(() => {
+    const canvas = document.querySelector("#qr-modal-canvas canvas") as HTMLCanvasElement | null;
+    if (!canvas) return;
+    const url = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `qr-${qr.id}-${qr.orderId ?? qr.merchantReference ?? "code"}.png`;
+    a.click();
+    toast.success("QR code downloaded");
+  }, [qr]);
+
+  return (
     <Dialog open onOpenChange={() => onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>QR Code #{qr.id}</DialogTitle>
-          <p className="text-sm text-muted-foreground">{qr.label ?? qr.type}</p>
+          <p className="text-sm text-muted-foreground">{qr.orderId ?? qr.merchantReference ?? qr.type}</p>
         </DialogHeader>
         <div className="flex flex-col items-center gap-4 py-2">
-          <div id="qr-download-canvas" className="bg-white p-4 rounded-xl">
+          <div id="qr-modal-canvas" className="bg-white p-4 rounded-xl">
             <QRCodeCanvas value={qr.payload} size={200} level="H" includeMargin />
-          </div>
-          <div className="w-full space-y-2 text-sm">
-            {qr.amount && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Amount</span>
-                <span className="font-semibold">₹{parseFloat(qr.amount).toLocaleString("en-IN")}</span>
-              </div>
-            )}
-            {qr.orderId && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Order ID</span>
-                <span className="font-mono text-xs">{qr.orderId}</span>
-              </div>
-            )}
-            {qr.expiresAt && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Expires</span>
-                <span className={isExpired ? "text-rose-400" : "text-amber-400"}>
-                  {isExpired ? "Expired" : formatDistanceToNow(new Date(qr.expiresAt), { addSuffix: true })}
-                </span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Status</span>
-              <Badge variant={qr.status === "active" ? "default" : "secondary"} className="text-xs">
-                {qr.status}
-              </Badge>
-            </div>
           </div>
         </div>
         <DialogFooter>
@@ -126,30 +170,28 @@ function QrPreviewModal({ qr, onClose }: { qr: QrRow; onClose: () => void }) {
 
 export default function MerchantQrCodes() {
   const qc = useQueryClient();
-  const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
-  const [previewQr, setPreviewQr] = useState<QrRow | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [downloadQr, setDownloadQr] = useState<QrRow | null>(null);
 
   const [form, setForm] = useState({
-    type: "dynamic" as "dynamic" | "static",
-    label: "",
     amount: "",
     orderId: "",
     expiresAt: "",
+    callbackUrl: "",
+    merchantReference: "",
   });
 
-  const { data, isLoading } = useListQrCodes({ type: type as any, status: status as any, search, page, limit: 20 });
+  const { data, isLoading } = useListQrCodes({ type: "dynamic" as any, status: status as any, search, page, limit: 20 });
   const { data: connections } = useListMerchantConnections();
   const createMutation = useCreateQrCode();
-  const updateMutation = useUpdateQrCode();
   const deleteMutation = useDeleteQrCode();
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["/api/qr-codes"] });
 
-  // Derive active provider + VPA from connections
   const activeConnections = (connections ?? []).filter((c: any) => c.isActive);
   const sortedConns = [...activeConnections].sort((a: any) => a.provider === "upi_id" ? -1 : 1);
   let activeVpa: string | null = null;
@@ -165,25 +207,22 @@ export default function MerchantQrCodes() {
       toast.error("Please connect a payment provider first");
       return;
     }
-    if (form.type === "static" && !form.amount) {
-      toast.error("Fixed amount is required for static QR");
-      return;
-    }
     createMutation.mutate(
       {
         data: {
-          type: form.type,
-          label: form.label || null,
-          amount: form.type === "static" && form.amount ? form.amount : null,
+          type: "dynamic",
+          amount: form.amount || null,
           orderId: form.orderId || null,
           expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
+          callbackUrl: form.callbackUrl || null,
+          merchantReference: form.merchantReference || null,
         } as any,
       },
       {
         onSuccess: () => {
           toast.success("QR code created");
           setShowCreate(false);
-          setForm({ type: "dynamic", label: "", amount: "", orderId: "", expiresAt: "" });
+          setForm({ amount: "", orderId: "", expiresAt: "", callbackUrl: "", merchantReference: "" });
           invalidate();
         },
         onError: (err: any) => {
@@ -194,15 +233,6 @@ export default function MerchantQrCodes() {
     );
   };
 
-  const handleToggle = (id: number, currentStatus: string) => {
-    if (currentStatus === "expired") { toast.error("Cannot toggle an expired QR code"); return; }
-    const newStatus = currentStatus === "active" ? "inactive" : "active";
-    updateMutation.mutate({ id, data: { status: newStatus as any } }, {
-      onSuccess: () => { toast.success(`QR ${newStatus}`); invalidate(); },
-      onError: () => toast.error("Failed to update"),
-    });
-  };
-
   const handleDelete = (id: number) => {
     if (!confirm("Delete this QR code?")) return;
     deleteMutation.mutate({ id }, {
@@ -211,38 +241,22 @@ export default function MerchantQrCodes() {
     });
   };
 
-  const exportCsv = () => {
-    if (!data?.data?.length) return;
-    const headers = ["ID", "Type", "Label", "Amount", "Order ID", "Expires At", "Status", "Created"];
-    const lines = data.data.map(qr => [
-      String(qr.id), qr.type, qr.label ?? "", qr.amount ?? "", qr.orderId ?? "",
-      qr.expiresAt ? format(new Date(qr.expiresAt), "yyyy-MM-dd HH:mm") : "",
-      qr.status, qr.createdAt,
-    ]);
-    const csv = [headers, ...lines].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "qr-codes.csv"; a.click();
-  };
+  const toggleExpand = (id: number) => setExpandedId(prev => prev === id ? null : id);
 
   const activeCount = data?.data?.filter(q => q.status === "active").length ?? 0;
   const expiredCount = data?.data?.filter(q => q.status === "expired").length ?? 0;
+  const usedCount = data?.data?.filter(q => q.status === "used").length ?? 0;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dynamic QR</h1>
-          <p className="text-muted-foreground mt-1">Generate and manage payment QR codes</p>
+          <p className="text-muted-foreground mt-1">Generate and manage dynamic payment QR codes</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="w-4 h-4 mr-1.5" />Export CSV
-          </Button>
-          <Button size="sm" onClick={() => setShowCreate(true)}>
-            <Plus className="w-4 h-4 mr-1.5" />Create QR
-          </Button>
-        </div>
+        <Button size="sm" onClick={() => setShowCreate(true)}>
+          <Plus className="w-4 h-4 mr-1.5" />Create QR
+        </Button>
       </div>
 
       {/* Provider banner */}
@@ -270,11 +284,12 @@ export default function MerchantQrCodes() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total QR Codes", value: data?.total ?? 0, color: "text-primary", bg: "bg-primary/10" },
+          { label: "Total", value: data?.total ?? 0, color: "text-primary", bg: "bg-primary/10" },
           { label: "Active", value: activeCount, color: "text-emerald-400", bg: "bg-emerald-500/10" },
           { label: "Expired", value: expiredCount, color: "text-rose-400", bg: "bg-rose-500/10" },
+          { label: "Used", value: usedCount, color: "text-blue-400", bg: "bg-blue-500/10" },
         ].map(stat => (
           <Card key={stat.label}>
             <CardContent className="pt-5 pb-4">
@@ -298,24 +313,16 @@ export default function MerchantQrCodes() {
           <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[160px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Search label, order ID..." value={search}
+              <Input className="pl-9" placeholder="Search order ID or reference..." value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }} />
             </div>
-            <Select value={type} onValueChange={v => { setType(v); setPage(1); }}>
-              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="dynamic">Dynamic</SelectItem>
-                <SelectItem value="static">Static</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>
-              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="expired">Expired</SelectItem>
+                <SelectItem value="used">Used</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -324,82 +331,73 @@ export default function MerchantQrCodes() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Label</TableHead>
-                <TableHead>Amount</TableHead>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Order ID</TableHead>
-                <TableHead>Expiry</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Expiry Time</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Merchant Reference</TableHead>
+                <TableHead>Created At</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 7 }).map((_, j) => (
                       <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : !data?.data?.length ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-14">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-14">
                     <QrCode className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     <p className="text-sm">No QR codes yet</p>
                     <p className="text-xs mt-1 opacity-60">Create your first QR code to accept payments</p>
                   </TableCell>
                 </TableRow>
-              ) : data.data.map(qr => {
-                const isExpired = qr.expiresAt ? new Date(qr.expiresAt) < new Date() : false;
-                return (
-                  <TableRow key={qr.id}>
-                    <TableCell className="font-mono text-xs">#{qr.id}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs capitalize">{qr.type}</Badge>
+              ) : data.data.flatMap(qr => {
+                const isExpired = qr.expiresAt ? new Date(qr.expiresAt as string) < new Date() : false;
+                const isExpanded = expandedId === qr.id;
+                return [
+                  <TableRow key={qr.id} className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => toggleExpand(qr.id)}>
+                    <TableCell className="pl-4 pr-0">
+                      {isExpanded
+                        ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                     </TableCell>
-                    <TableCell className="text-sm">{qr.label ?? "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{qr.orderId ?? <span className="text-muted-foreground">—</span>}</TableCell>
                     <TableCell className="font-mono text-sm">
-                      {qr.amount ? `₹${parseFloat(qr.amount).toLocaleString("en-IN")}` : <span className="text-muted-foreground text-xs">Dynamic</span>}
+                      {qr.amount ? `₹${parseFloat(qr.amount).toLocaleString("en-IN")}` : <span className="text-muted-foreground text-xs">Open</span>}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{qr.orderId ?? "—"}</TableCell>
                     <TableCell className="text-xs">
                       {qr.expiresAt ? (
-                        <span className={isExpired ? "text-rose-400" : "text-amber-400"}>
-                          {isExpired ? "Expired" : formatDistanceToNow(new Date(qr.expiresAt), { addSuffix: true })}
-                        </span>
+                        <div>
+                          <span className={isExpired ? "text-rose-400" : "text-amber-400"}>
+                            {format(new Date(qr.expiresAt as string), "MMM d, HH:mm")}
+                          </span>
+                        </div>
                       ) : <span className="text-muted-foreground">Never</span>}
                     </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={qr.status === "active" ? "default" : "secondary"}
-                        className={`text-xs ${qr.status === "expired" ? "bg-rose-500/15 text-rose-400 border-rose-500/20" : ""}`}
-                      >
-                        {qr.status}
-                      </Badge>
+                    <TableCell>{statusBadge(qr.status)}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {(qr as any).merchantReference ?? <span>—</span>}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button size="icon" variant="ghost" className="h-8 w-8" title="Preview & Download"
-                          onClick={() => setPreviewQr(qr as any)}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8" title="Toggle status"
-                          onClick={() => handleToggle(qr.id, qr.status)}
-                          disabled={qr.status === "expired"}>
-                          {qr.status === "active"
-                            ? <ToggleRight className="w-4 h-4 text-emerald-500" />
-                            : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-rose-500 hover:text-rose-400"
-                          onClick={() => handleDelete(qr.id)}>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between gap-2">
+                        <span>{format(new Date(qr.createdAt), "MMM d, yyyy HH:mm")}</span>
+                        <button className="text-rose-500 hover:text-rose-400 p-1 rounded hover:bg-rose-500/10"
+                          onClick={e => { e.stopPropagation(); handleDelete(qr.id); }}
+                          title="Delete">
                           <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        </button>
                       </div>
                     </TableCell>
-                  </TableRow>
-                );
+                  </TableRow>,
+                  ...(isExpanded ? [<InlineQrRow key={`expand-${qr.id}`} qr={qr as any} />] : []),
+                ];
               })}
             </TableBody>
           </Table>
@@ -420,13 +418,12 @@ export default function MerchantQrCodes() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Create QR Code</DialogTitle>
+            <DialogTitle>Create Dynamic QR</DialogTitle>
             <p className="text-sm text-muted-foreground">
               UPI payload is auto-generated from your connected provider.
             </p>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Provider info */}
             {hasProvider ? (
               <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/25 bg-emerald-500/8 px-3 py-2.5">
                 <Link2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -446,38 +443,31 @@ export default function MerchantQrCodes() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5 col-span-2">
-                <Label>QR Type</Label>
-                <Select value={form.type} onValueChange={(v: any) => setForm(f => ({ ...f, type: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dynamic">Dynamic (customer enters amount)</SelectItem>
-                    <SelectItem value="static">Static (fixed amount)</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Amount (₹) <span className="text-muted-foreground text-xs">(optional — leave blank for open amount)</span></Label>
+                <Input type="number" step="0.01" placeholder="e.g. 999.00" value={form.amount}
+                  onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
               </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label>Label <span className="text-muted-foreground text-xs">(used as note in UPI)</span></Label>
-                <Input placeholder="e.g. Checkout QR, Order #123" value={form.label}
-                  onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
-              </div>
-              {form.type === "static" && (
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Fixed Amount (₹) <span className="text-rose-400">*</span></Label>
-                  <Input type="number" step="0.01" placeholder="e.g. 999.00" value={form.amount}
-                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
-                </div>
-              )}
-              <div className="space-y-1.5 col-span-2">
+              <div className="space-y-1.5">
                 <Label>Order ID <span className="text-muted-foreground text-xs">(optional)</span></Label>
-                <Input placeholder="Optional order reference" value={form.orderId}
+                <Input placeholder="e.g. ORD-20240001" value={form.orderId}
                   onChange={e => setForm(f => ({ ...f, orderId: e.target.value }))} />
               </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label>Expiry Date & Time <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <div className="space-y-1.5">
+                <Label>Expiry Time <span className="text-muted-foreground text-xs">(optional)</span></Label>
                 <Input type="datetime-local" value={form.expiresAt}
                   onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Callback URL <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <Input type="url" placeholder="https://your-site.com/webhook" value={form.callbackUrl}
+                  onChange={e => setForm(f => ({ ...f, callbackUrl: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Merchant Reference <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <Input placeholder="Your internal reference ID" value={form.merchantReference}
+                  onChange={e => setForm(f => ({ ...f, merchantReference: e.target.value }))} />
               </div>
             </div>
           </div>
@@ -490,8 +480,7 @@ export default function MerchantQrCodes() {
         </DialogContent>
       </Dialog>
 
-      {/* QR Preview + Download */}
-      {previewQr && <QrPreviewModal qr={previewQr} onClose={() => setPreviewQr(null)} />}
+      {downloadQr && <DownloadModal qr={downloadQr} onClose={() => setDownloadQr(null)} />}
     </div>
   );
 }

@@ -22,6 +22,10 @@ export interface QrCode {
   /** @nullable */
   orderId?: string | null;
   /** @nullable */
+  callbackUrl?: string | null;
+  /** @nullable */
+  merchantReference?: string | null;
+  /** @nullable */
   expiresAt?: string | null;
   status: QrCodeStatus;
   createdAt: string;

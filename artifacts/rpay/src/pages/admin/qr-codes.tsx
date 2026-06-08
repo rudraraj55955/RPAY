@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListQrCodes, useUpdateQrCode, useDeleteQrCode } from "@workspace/api-client-react";
+import { useListQrCodes, useDeleteQrCode } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,31 +7,39 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Trash2, ToggleLeft, ToggleRight, X } from "lucide-react";
+import { Search, Trash2, Download, QrCode, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+function statusBadge(status: string) {
+  if (status === "active") return <Badge className="text-xs bg-emerald-500/15 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">Active</Badge>;
+  if (status === "expired") return <Badge className="text-xs bg-rose-500/15 text-rose-400 border-rose-500/20 hover:bg-rose-500/20">Expired</Badge>;
+  if (status === "used") return <Badge className="text-xs bg-blue-500/15 text-blue-400 border-blue-500/20 hover:bg-blue-500/20">Used</Badge>;
+  return <Badge variant="secondary" className="text-xs capitalize">{status}</Badge>;
+}
+
 export default function AdminQrCodes() {
   const qc = useQueryClient();
-  const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
-  const [merchantSearch, setMerchantSearch] = useState("");
+  const [merchantName, setMerchantName] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useListQrCodes({ type: type as any, status: status as any, search, page, limit: 20 });
-  const updateMutation = useUpdateQrCode();
+  const { data, isLoading } = useListQrCodes({
+    type: "dynamic" as any,
+    status: status as any,
+    search: search || undefined,
+    merchantName: merchantName || undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    page,
+    limit: 50,
+  } as any);
   const deleteMutation = useDeleteQrCode();
 
-  const invalidateQr = () => qc.invalidateQueries({ queryKey: ["list-qr-codes"] });
-
-  const handleToggle = (id: number, currentStatus: string) => {
-    const newStatus = currentStatus === "active" ? "inactive" : "active";
-    updateMutation.mutate({ id, data: { status: newStatus as any } }, {
-      onSuccess: () => { toast.success(`QR ${newStatus}`); invalidateQr(); },
-      onError: () => toast.error("Failed to update"),
-    });
-  };
+  const invalidateQr = () => qc.invalidateQueries({ queryKey: ["/api/qr-codes"] });
 
   const handleDelete = (id: number) => {
     if (!confirm("Delete this QR code?")) return;
@@ -42,59 +50,84 @@ export default function AdminQrCodes() {
   };
 
   const exportCsv = () => {
-    if (!filtered?.length) return;
-    const rows = [["ID", "Merchant", "Type", "Label", "Payload", "Amount", "Status", "Created"]];
-    filtered.forEach(q => rows.push([String(q.id), q.merchantName ?? "", q.type, q.label ?? "", q.payload, q.amount ?? "", q.status, q.createdAt]));
-    const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
-    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv])); a.download = "qr-codes.csv"; a.click();
+    if (!data?.data?.length) return;
+    const headers = ["ID", "Merchant", "Order ID", "Amount", "Expiry Time", "Status", "Merchant Reference", "Created At"];
+    const rows = data.data.map(q => [
+      String(q.id),
+      q.merchantName ?? "",
+      q.orderId ?? "",
+      q.amount ?? "",
+      q.expiresAt ? format(new Date(q.expiresAt as string), "yyyy-MM-dd HH:mm") : "",
+      q.status,
+      (q as any).merchantReference ?? "",
+      q.createdAt,
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `qr-codes-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
   };
 
-  const filtered = merchantSearch
-    ? data?.data?.filter(q => q.merchantName?.toLowerCase().includes(merchantSearch.toLowerCase()))
-    : data?.data;
+  const clearAll = () => { setSearch(""); setMerchantName(""); setDateFrom(""); setDateTo(""); setPage(1); };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">QR Management</h1>
-          <p className="text-muted-foreground mt-1">Monitor and manage all merchant QR codes</p>
+          <p className="text-muted-foreground mt-1">Monitor all dynamic QR codes across merchants</p>
         </div>
-        <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>
+        <Button variant="outline" size="sm" onClick={exportCsv} disabled={!data?.data?.length}>
+          <Download className="w-4 h-4 mr-1.5" />Export CSV
+        </Button>
       </div>
 
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-[160px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Search label or payload..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+              <div className="relative flex-1 min-w-[160px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input className="pl-9" placeholder="Search by order ID or reference..." value={search}
+                  onChange={e => { setSearch(e.target.value); setPage(1); }} />
+              </div>
+              <div className="relative min-w-[170px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input className="pl-9 pr-8" placeholder="Filter by merchant name..." value={merchantName}
+                  onChange={e => { setMerchantName(e.target.value); setPage(1); }} />
+                {merchantName && (
+                  <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => { setMerchantName(""); setPage(1); }}>
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>
+                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                  <SelectItem value="used">Used</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="relative min-w-[160px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input className="pl-9 pr-8" placeholder="Filter by merchant..." value={merchantSearch} onChange={e => setMerchantSearch(e.target.value)} />
-              {merchantSearch && (
-                <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setMerchantSearch("")}>
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+            <div className="flex flex-col sm:flex-row gap-3 items-center">
+              <div className="flex items-center gap-2 flex-1">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Date range:</span>
+                <Input type="date" className="h-9 text-sm" value={dateFrom}
+                  onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+                <span className="text-xs text-muted-foreground">to</span>
+                <Input type="date" className="h-9 text-sm" value={dateTo}
+                  onChange={e => { setDateTo(e.target.value); setPage(1); }} />
+                {(dateFrom || dateTo || search || merchantName) && (
+                  <Button variant="ghost" size="sm" className="h-8 px-2 shrink-0 text-xs" onClick={clearAll}>
+                    <X className="w-3 h-3 mr-1" />Clear all
+                  </Button>
+                )}
+              </div>
             </div>
-            <Select value={type} onValueChange={v => { setType(v); setPage(1); }}>
-              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="dynamic">Dynamic</SelectItem>
-                <SelectItem value="static">Static</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>
-              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -103,57 +136,75 @@ export default function AdminQrCodes() {
               <TableRow>
                 <TableHead>ID</TableHead>
                 <TableHead>Merchant</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Label</TableHead>
+                <TableHead>Order ID</TableHead>
                 <TableHead>Amount</TableHead>
+                <TableHead>Expiry Time</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>Merchant Reference</TableHead>
+                <TableHead>Created At</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>{Array.from({ length: 8 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
+                  <TableRow key={i}>
+                    {Array.from({ length: 9 }).map((_, j) => (
+                      <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>
+                    ))}
+                  </TableRow>
                 ))
-              ) : filtered?.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-10">No QR codes found</TableCell></TableRow>
-              ) : filtered?.map(qr => (
-                <TableRow key={qr.id}>
-                  <TableCell className="font-mono text-xs">#{qr.id}</TableCell>
-                  <TableCell className="text-sm">{qr.merchantName ?? "—"}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-xs">{qr.type}</Badge></TableCell>
-                  <TableCell className="text-sm">{qr.label ?? "—"}</TableCell>
-                  <TableCell className="font-mono text-sm">{qr.amount ? `₹${qr.amount}` : "Dynamic"}</TableCell>
-                  <TableCell>
-                    <Badge variant={qr.status === "active" ? "default" : "secondary"} className="text-xs">
-                      {qr.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{format(new Date(qr.createdAt), "MMM d, yyyy")}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleToggle(qr.id, qr.status)} title="Toggle status">
-                        {qr.status === "active" ? <ToggleRight className="w-4 h-4 text-emerald-500" /> : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-rose-500 hover:text-rose-400" onClick={() => handleDelete(qr.id)}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+              ) : !data?.data?.length ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-14">
+                    <QrCode className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No QR codes found</p>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : data.data.map(qr => {
+                const isExpiredTime = qr.expiresAt ? new Date(qr.expiresAt as string) < new Date() : false;
+                return (
+                  <TableRow key={qr.id}>
+                    <TableCell className="font-mono text-xs">#{qr.id}</TableCell>
+                    <TableCell className="text-sm font-medium">{qr.merchantName ?? "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{qr.orderId ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {qr.amount ? `₹${parseFloat(qr.amount).toLocaleString("en-IN")}` : <span className="text-muted-foreground text-xs">Open</span>}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {qr.expiresAt ? (
+                        <span className={isExpiredTime ? "text-rose-400" : "text-amber-400"}>
+                          {format(new Date(qr.expiresAt as string), "MMM d, HH:mm")}
+                        </span>
+                      ) : <span className="text-muted-foreground">Never</span>}
+                    </TableCell>
+                    <TableCell>{statusBadge(qr.status)}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {(qr as any).merchantReference ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {format(new Date(qr.createdAt), "MMM d, yyyy HH:mm")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-rose-500 hover:text-rose-400"
+                        onClick={() => handleDelete(qr.id)} title="Delete">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {data && data.total > 20 && (
+      {data && data.total > 50 && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{data.total} total</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page * 20 >= data.total}>Next</Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page * 50 >= data.total}>Next</Button>
           </div>
         </div>
       )}

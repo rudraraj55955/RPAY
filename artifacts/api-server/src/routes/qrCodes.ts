@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, qrCodesTable, merchantsTable, merchantConnectionsTable } from "@workspace/db";
-import { eq, and, ilike, count, sql, or, desc } from "drizzle-orm";
+import { eq, and, ilike, count, sql, or, desc, gte, lte } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { checkPlanLimit, rejectWithLimitError } from "../helpers/planLimits";
 
@@ -38,6 +38,14 @@ function buildUpiPayload(vpa: string, name: string, amount: string | null, note:
   return `upi://pay?${params.toString()}`;
 }
 
+function serializeQr(qr: typeof qrCodesTable.$inferSelect, merchantName?: string | null) {
+  return {
+    ...qr,
+    merchantName: merchantName ?? null,
+    expiresAt: qr.expiresAt instanceof Date ? qr.expiresAt.toISOString() : qr.expiresAt,
+  };
+}
+
 const router = Router();
 router.use(requireAuth);
 
@@ -53,20 +61,42 @@ async function expireOldQrCodes() {
 router.get("/", async (req, res) => {
   await expireOldQrCodes().catch(() => {});
   const user = (req as any).user;
-  const { type, status, search, merchantId, page = "1", limit = "20" } = req.query as Record<string, string>;
+  const { type, status, search, merchantId, merchantName, dateFrom, dateTo, page = "1", limit = "20" } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
 
-  const conditions = [];
-  if (user.role !== "admin") conditions.push(eq(qrCodesTable.merchantId, user.merchantId!));
-  if (merchantId && user.role === "admin") conditions.push(eq(qrCodesTable.merchantId, parseInt(merchantId)));
-  if (type && type !== "all") conditions.push(eq(qrCodesTable.type, type));
-  if (status && status !== "all") conditions.push(eq(qrCodesTable.status, status));
-  if (search) conditions.push(or(ilike(qrCodesTable.label, `%${search}%`), ilike(qrCodesTable.payload, `%${search}%`), ilike(qrCodesTable.orderId, `%${search}%`))!);
+  const qrConditions = [];
+  const merchantConditions = [];
+  if (user.role !== "admin") qrConditions.push(eq(qrCodesTable.merchantId, user.merchantId!));
+  if (merchantId && user.role === "admin") qrConditions.push(eq(qrCodesTable.merchantId, parseInt(merchantId)));
+  if (type && type !== "all") qrConditions.push(eq(qrCodesTable.type, type));
+  if (status && status !== "all") qrConditions.push(eq(qrCodesTable.status, status));
+  if (dateFrom) qrConditions.push(gte(qrCodesTable.createdAt, new Date(dateFrom)));
+  if (dateTo) {
+    const to = new Date(dateTo);
+    to.setHours(23, 59, 59, 999);
+    qrConditions.push(lte(qrCodesTable.createdAt, to));
+  }
+  if (search) {
+    qrConditions.push(or(
+      ilike(qrCodesTable.orderId, `%${search}%`),
+      ilike(qrCodesTable.merchantReference, `%${search}%`),
+      ilike(qrCodesTable.label, `%${search}%`),
+    )!);
+  }
+  if (merchantName && user.role === "admin") {
+    merchantConditions.push(ilike(merchantsTable.businessName, `%${merchantName}%`));
+  }
 
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const [{ total }] = await db.select({ total: count() }).from(qrCodesTable).where(where);
+  const allConditions = [...qrConditions, ...merchantConditions];
+  const where = allConditions.length > 0 ? and(...allConditions) : undefined;
+
+  const countRows = await db.select({ total: count() })
+    .from(qrCodesTable)
+    .leftJoin(merchantsTable, eq(qrCodesTable.merchantId, merchantsTable.id))
+    .where(where);
+  const total = countRows[0].total;
 
   const rows = await db.select({ qr: qrCodesTable, merchantName: merchantsTable.businessName })
     .from(qrCodesTable)
@@ -76,20 +106,35 @@ router.get("/", async (req, res) => {
     .orderBy(desc(qrCodesTable.createdAt));
 
   res.json({
-    data: rows.map(r => ({
-      ...r.qr,
-      merchantName: r.merchantName ?? null,
-      expiresAt: r.qr.expiresAt instanceof Date ? r.qr.expiresAt.toISOString() : r.qr.expiresAt,
-    })),
+    data: rows.map(r => serializeQr(r.qr, r.merchantName)),
     total, page: pageNum, limit: limitNum,
   });
+});
+
+// GET /api/qr-codes/:id
+router.get("/:id", async (req, res) => {
+  await expireOldQrCodes().catch(() => {});
+  const user = (req as any).user;
+  const id = parseInt(req.params['id'] as string);
+
+  const conditions = [eq(qrCodesTable.id, id)];
+  if (user.role !== "admin") conditions.push(eq(qrCodesTable.merchantId, user.merchantId!));
+
+  const rows = await db.select({ qr: qrCodesTable, merchantName: merchantsTable.businessName })
+    .from(qrCodesTable)
+    .leftJoin(merchantsTable, eq(qrCodesTable.merchantId, merchantsTable.id))
+    .where(and(...conditions))
+    .limit(1);
+
+  if (!rows.length) { res.status(404).json({ error: "QR code not found" }); return; }
+  res.json(serializeQr(rows[0].qr, rows[0].merchantName));
 });
 
 // POST /api/qr-codes
 router.post("/", async (req, res) => {
   const user = (req as any).user;
   const merchantId = user.merchantId!;
-  const { type, label, amount, orderId, expiresAt } = req.body;
+  const { type, label, amount, orderId, expiresAt, callbackUrl, merchantReference } = req.body;
   if (!type) { res.status(400).json({ error: "type required" }); return; }
 
   // Enforce plan limits
@@ -122,49 +167,48 @@ router.post("/", async (req, res) => {
     .from(merchantsTable).where(eq(merchantsTable.id, merchantId)).limit(1);
   const displayName = deriveDisplayName(activeConn.provider, activeConn.credentials ?? null, merchant?.businessName ?? "Merchant");
 
-  const payload = buildUpiPayload(vpa, displayName, type === "static" && amount ? amount : null, label ?? null);
+  // Include amount in UPI payload for both static (fixed) and dynamic (pre-filled hint)
+  const payload = buildUpiPayload(vpa, displayName, amount ?? null, label ?? merchantReference ?? null);
 
   const [row] = await db.insert(qrCodesTable).values({
     merchantId, type, label: label ?? null, payload,
-    amount: type === "static" ? (amount ?? null) : null,
+    amount: amount ?? null,
     orderId: orderId ?? null,
+    callbackUrl: callbackUrl ?? null,
+    merchantReference: merchantReference ?? null,
     expiresAt: expiresAt ? new Date(expiresAt) : null,
   }).returning();
 
   res.status(201).json({
-    ...row,
-    merchantName: merchant?.businessName ?? null,
+    ...serializeQr(row, merchant?.businessName ?? null),
     vpa,
     provider: activeConn.provider,
-    expiresAt: row.expiresAt instanceof Date ? row.expiresAt.toISOString() : row.expiresAt,
   });
 });
 
 // PUT /api/qr-codes/:id
 router.put("/:id", async (req, res) => {
   const user = (req as any).user;
-  const id = parseInt(req.params.id);
-  const { label, status } = req.body;
+  const id = parseInt(req.params['id'] as string);
+  const { label, status, callbackUrl, merchantReference } = req.body;
   const update: Record<string, unknown> = {};
   if (label !== undefined) update.label = label;
   if (status !== undefined) update.status = status;
+  if (callbackUrl !== undefined) update.callbackUrl = callbackUrl;
+  if (merchantReference !== undefined) update.merchantReference = merchantReference;
 
   const conditions = [eq(qrCodesTable.id, id)];
   if (user.role !== "admin") conditions.push(eq(qrCodesTable.merchantId, user.merchantId!));
 
   const [row] = await db.update(qrCodesTable).set(update).where(and(...conditions)).returning();
   if (!row) { res.status(404).json({ error: "QR code not found" }); return; }
-  res.json({
-    ...row,
-    merchantName: null,
-    expiresAt: row.expiresAt instanceof Date ? row.expiresAt.toISOString() : row.expiresAt,
-  });
+  res.json(serializeQr(row));
 });
 
 // DELETE /api/qr-codes/:id
 router.delete("/:id", async (req, res) => {
   const user = (req as any).user;
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params['id'] as string);
   const conditions = [eq(qrCodesTable.id, id)];
   if (user.role !== "admin") conditions.push(eq(qrCodesTable.merchantId, user.merchantId!));
   await db.delete(qrCodesTable).where(and(...conditions));

@@ -58,6 +58,7 @@ import type {
   ListMerchantFeaturesParams,
   ListMerchantsParams,
   ListPlanHistoryParams,
+  ListProvidersParams,
   ListQrCodesParams,
   ListSettlementsParams,
   ListTransactionsParams,
@@ -86,6 +87,12 @@ import type {
   PlanInput,
   PlanNoteInput,
   PlanUsage,
+  Provider,
+  ProviderBulkVisibilityInput,
+  ProviderInput,
+  ProviderListResponse,
+  ProviderMerchantVisibility,
+  ProviderVisibilityInput,
   QrCode,
   QrCodeInput,
   QrCodeListResponse,
@@ -7317,4 +7324,522 @@ export const useCreateLedgerAdjustment = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getCreateLedgerAdjustmentMutationOptions(options));
     }
+
+export const getListProvidersUrl = (params?: ListProvidersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/providers?${stringifiedParams}` : `/api/providers`
+}
+
+/**
+ * @summary List providers (merchant gets visible ones; admin gets all)
+ */
+export const listProviders = async (params?: ListProvidersParams, options?: RequestInit): Promise<ProviderListResponse> => {
+
+  return customFetch<ProviderListResponse>(getListProvidersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProvidersQueryKey = (params?: ListProvidersParams,) => {
+    return [
+    `/api/providers`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListProvidersQueryOptions = <TData = Awaited<ReturnType<typeof listProviders>>, TError = ErrorType<unknown>>(params?: ListProvidersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProviders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProvidersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProviders>>> = ({ signal }) => listProviders(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProviders>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProvidersQueryResult = NonNullable<Awaited<ReturnType<typeof listProviders>>>
+export type ListProvidersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List providers (merchant gets visible ones; admin gets all)
+ */
+
+export function useListProviders<TData = Awaited<ReturnType<typeof listProviders>>, TError = ErrorType<unknown>>(
+ params?: ListProvidersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProviders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProvidersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateProviderUrl = () => {
+
+
+
+
+  return `/api/providers`
+}
+
+/**
+ * @summary Create a new provider (admin only)
+ */
+export const createProvider = async (providerInput: ProviderInput, options?: RequestInit): Promise<Provider> => {
+
+  return customFetch<Provider>(getCreateProviderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      providerInput,)
+  }
+);}
+
+
+
+
+export const getCreateProviderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProvider>>, TError,{data: BodyType<ProviderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProvider>>, TError,{data: BodyType<ProviderInput>}, TContext> => {
+
+const mutationKey = ['createProvider'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProvider>>, {data: BodyType<ProviderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProvider(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProviderMutationResult = NonNullable<Awaited<ReturnType<typeof createProvider>>>
+    export type CreateProviderMutationBody = BodyType<ProviderInput>
+    export type CreateProviderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a new provider (admin only)
+ */
+export const useCreateProvider = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProvider>>, TError,{data: BodyType<ProviderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createProvider>>,
+        TError,
+        {data: BodyType<ProviderInput>},
+        TContext
+      > => {
+      return useMutation(getCreateProviderMutationOptions(options));
+    }
+
+export const getUpdateProviderUrl = (id: number,) => {
+
+
+
+
+  return `/api/providers/${id}`
+}
+
+/**
+ * @summary Update provider status/sortOrder/name (admin only)
+ */
+export const updateProvider = async (id: number,
+    providerInput: ProviderInput, options?: RequestInit): Promise<Provider> => {
+
+  return customFetch<Provider>(getUpdateProviderUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      providerInput,)
+  }
+);}
+
+
+
+
+export const getUpdateProviderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProvider>>, TError,{id: number;data: BodyType<ProviderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProvider>>, TError,{id: number;data: BodyType<ProviderInput>}, TContext> => {
+
+const mutationKey = ['updateProvider'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProvider>>, {id: number;data: BodyType<ProviderInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateProvider(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProviderMutationResult = NonNullable<Awaited<ReturnType<typeof updateProvider>>>
+    export type UpdateProviderMutationBody = BodyType<ProviderInput>
+    export type UpdateProviderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update provider status/sortOrder/name (admin only)
+ */
+export const useUpdateProvider = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProvider>>, TError,{id: number;data: BodyType<ProviderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProvider>>,
+        TError,
+        {id: number;data: BodyType<ProviderInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateProviderMutationOptions(options));
+    }
+
+export const getDeleteProviderUrl = (id: number,) => {
+
+
+
+
+  return `/api/providers/${id}`
+}
+
+/**
+ * @summary Delete a provider (admin only)
+ */
+export const deleteProvider = async (id: number, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getDeleteProviderUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteProviderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProvider>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteProvider>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteProvider'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteProvider>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteProvider(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteProviderMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProvider>>>
+
+    export type DeleteProviderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a provider (admin only)
+ */
+export const useDeleteProvider = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProvider>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteProvider>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteProviderMutationOptions(options));
+    }
+
+export const getSetProviderVisibilityUrl = (id: number,) => {
+
+
+
+
+  return `/api/providers/${id}/visibility`
+}
+
+/**
+ * @summary Set provider visibility for a merchant or globally (admin only)
+ */
+export const setProviderVisibility = async (id: number,
+    providerVisibilityInput: ProviderVisibilityInput, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getSetProviderVisibilityUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      providerVisibilityInput,)
+  }
+);}
+
+
+
+
+export const getSetProviderVisibilityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setProviderVisibility>>, TError,{id: number;data: BodyType<ProviderVisibilityInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setProviderVisibility>>, TError,{id: number;data: BodyType<ProviderVisibilityInput>}, TContext> => {
+
+const mutationKey = ['setProviderVisibility'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setProviderVisibility>>, {id: number;data: BodyType<ProviderVisibilityInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setProviderVisibility(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetProviderVisibilityMutationResult = NonNullable<Awaited<ReturnType<typeof setProviderVisibility>>>
+    export type SetProviderVisibilityMutationBody = BodyType<ProviderVisibilityInput>
+    export type SetProviderVisibilityMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Set provider visibility for a merchant or globally (admin only)
+ */
+export const useSetProviderVisibility = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setProviderVisibility>>, TError,{id: number;data: BodyType<ProviderVisibilityInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setProviderVisibility>>,
+        TError,
+        {id: number;data: BodyType<ProviderVisibilityInput>},
+        TContext
+      > => {
+      return useMutation(getSetProviderVisibilityMutationOptions(options));
+    }
+
+export const getBulkSetProviderVisibilityUrl = (id: number,) => {
+
+
+
+
+  return `/api/providers/${id}/visibility/bulk`
+}
+
+/**
+ * @summary Bulk enable/disable a provider for multiple merchants (admin only)
+ */
+export const bulkSetProviderVisibility = async (id: number,
+    providerBulkVisibilityInput: ProviderBulkVisibilityInput, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getBulkSetProviderVisibilityUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      providerBulkVisibilityInput,)
+  }
+);}
+
+
+
+
+export const getBulkSetProviderVisibilityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkSetProviderVisibility>>, TError,{id: number;data: BodyType<ProviderBulkVisibilityInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkSetProviderVisibility>>, TError,{id: number;data: BodyType<ProviderBulkVisibilityInput>}, TContext> => {
+
+const mutationKey = ['bulkSetProviderVisibility'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkSetProviderVisibility>>, {id: number;data: BodyType<ProviderBulkVisibilityInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  bulkSetProviderVisibility(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkSetProviderVisibilityMutationResult = NonNullable<Awaited<ReturnType<typeof bulkSetProviderVisibility>>>
+    export type BulkSetProviderVisibilityMutationBody = BodyType<ProviderBulkVisibilityInput>
+    export type BulkSetProviderVisibilityMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Bulk enable/disable a provider for multiple merchants (admin only)
+ */
+export const useBulkSetProviderVisibility = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkSetProviderVisibility>>, TError,{id: number;data: BodyType<ProviderBulkVisibilityInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkSetProviderVisibility>>,
+        TError,
+        {id: number;data: BodyType<ProviderBulkVisibilityInput>},
+        TContext
+      > => {
+      return useMutation(getBulkSetProviderVisibilityMutationOptions(options));
+    }
+
+export const getGetProviderMerchantVisibilityUrl = (id: number,) => {
+
+
+
+
+  return `/api/providers/${id}/merchant-visibility`
+}
+
+/**
+ * @summary Get per-merchant visibility state for a provider (admin only)
+ */
+export const getProviderMerchantVisibility = async (id: number, options?: RequestInit): Promise<ProviderMerchantVisibility[]> => {
+
+  return customFetch<ProviderMerchantVisibility[]>(getGetProviderMerchantVisibilityUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProviderMerchantVisibilityQueryKey = (id: number,) => {
+    return [
+    `/api/providers/${id}/merchant-visibility`
+    ] as const;
+    }
+
+
+export const getGetProviderMerchantVisibilityQueryOptions = <TData = Awaited<ReturnType<typeof getProviderMerchantVisibility>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProviderMerchantVisibility>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProviderMerchantVisibilityQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProviderMerchantVisibility>>> = ({ signal }) => getProviderMerchantVisibility(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProviderMerchantVisibility>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProviderMerchantVisibilityQueryResult = NonNullable<Awaited<ReturnType<typeof getProviderMerchantVisibility>>>
+export type GetProviderMerchantVisibilityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get per-merchant visibility state for a provider (admin only)
+ */
+
+export function useGetProviderMerchantVisibility<TData = Awaited<ReturnType<typeof getProviderMerchantVisibility>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProviderMerchantVisibility>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProviderMerchantVisibilityQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 

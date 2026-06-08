@@ -19,3 +19,5 @@ export * from "./accountVisibilityRules";
 export * from "./planHistory";
 export * from "./invoices";
 export * from "./ledgerEntries";
+export * from "./providers";
+export * from "./providerVisibility";

@@ -16,6 +16,7 @@ import {
   plansTable,
   merchantPlansTable,
   ledgerEntriesTable,
+  providersTable,
 } from "@workspace/db";
 
 const PLAN_TIERS = [
@@ -369,6 +370,25 @@ export async function seed() {
       });
     }
     console.log("Ledger entries seeded");
+  }
+
+  // ── Providers ────────────────────────────────────────────────────────────
+  const provCount = await db.select({ c: count() }).from(providersTable);
+  if (provCount[0].c === 0) {
+    const PROVIDERS = [
+      { name: "UPI ID",          slug: "upi_id",        category: "upi",     status: "live",         description: "Collect payments via any UPI ID",             sortOrder: 1 },
+      { name: "Google Pay",      slug: "google_pay",    category: "upi",     status: "live",         description: "Google Pay for Business",                      sortOrder: 2 },
+      { name: "PhonePe",         slug: "phonepe",       category: "upi",     status: "live",         description: "PhonePe Business payments",                    sortOrder: 3 },
+      { name: "Paytm",           slug: "paytm",         category: "upi",     status: "live",         description: "Paytm Business gateway",                       sortOrder: 4 },
+      { name: "BharatPe",        slug: "bharatpe",      category: "upi",     status: "live",         description: "BharatPe merchant QR payments",                sortOrder: 5 },
+      { name: "Freecharge",      slug: "freecharge",    category: "upi",     status: "coming_soon",  description: "Freecharge UPI — coming soon",                 sortOrder: 6 },
+      { name: "YONO SBI",        slug: "yono_sbi",      category: "bank",    status: "testing",      description: "SBI YONO merchant collection",                 sortOrder: 7 },
+      { name: "HDFC SmartHub",   slug: "hdfc_smarthub", category: "bank",    status: "testing",      description: "HDFC SmartHub Vyapar merchant solution",       sortOrder: 8 },
+    ];
+    for (const p of PROVIDERS) {
+      await db.insert(providersTable).values(p).onConflictDoUpdate({ target: providersTable.slug, set: { name: p.name, status: p.status, sortOrder: p.sortOrder } });
+    }
+    console.log("Providers seeded");
   }
 
   console.log("Seed complete.");

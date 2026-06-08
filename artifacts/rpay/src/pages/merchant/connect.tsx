@@ -1,223 +1,244 @@
 import { useState } from "react";
-import { useListMerchantConnections, useCreateMerchantConnection, useUpdateMerchantConnection, useDeleteMerchantConnection, getListMerchantConnectionsQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useListProviders } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Smartphone, Store, Landmark, Building, AtSign, CheckCircle, PlusCircle, Search } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Search, AtSign, Smartphone, Store, Landmark, Building, Zap, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-const PROVIDERS = [
-  { id: "phonepe", label: "PhonePe Business", icon: <Smartphone className="w-6 h-6 text-purple-400" />, fields: ["Merchant ID", "API Key", "Salt Key"] },
-  { id: "paytm", label: "Paytm Business", icon: <Smartphone className="w-6 h-6 text-blue-400" />, fields: ["MID", "Merchant Key", "Website"] },
-  { id: "bharatpe", label: "BharatPe", icon: <Store className="w-6 h-6 text-green-400" />, fields: ["Merchant ID", "Client ID", "Client Secret"] },
-  { id: "yono_sbi", label: "YONO SBI Merchant", icon: <Landmark className="w-6 h-6 text-red-400" />, fields: ["Terminal ID", "Merchant ID", "API Key"] },
-  { id: "hdfc_smarthub", label: "HDFC SmartHub", icon: <Building className="w-6 h-6 text-yellow-400" />, fields: ["Merchant ID", "API Key", "Salt"] },
-  { id: "upi_id", label: "UPI ID", icon: <AtSign className="w-6 h-6 text-emerald-400" />, fields: ["UPI ID", "Display Name"] },
-];
+const STATUS_META: Record<string, { label: string; color: string; live: boolean }> = {
+  live:         { label: "Live",        color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", live: true },
+  testing:      { label: "Testing",     color: "bg-amber-500/10 text-amber-400 border-amber-500/30",       live: true },
+  coming_soon:  { label: "Coming Soon", color: "bg-sky-500/10 text-sky-400 border-sky-500/30",             live: false },
+  disabled:     { label: "Disabled",    color: "bg-muted text-muted-foreground border-border",             live: false },
+};
 
-type CredMap = Record<string, string>;
+const CATEGORY_META: Record<string, { label: string; color: string }> = {
+  upi:     { label: "UPI",     color: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
+  bank:    { label: "Bank",    color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  gateway: { label: "Gateway", color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
+};
 
-export default function ConnectMerchant() {
-  const qc = useQueryClient();
-  const { data: connections, isLoading } = useListMerchantConnections();
-  const createMutation = useCreateMerchantConnection();
-  const updateMutation = useUpdateMerchantConnection();
-  const deleteMutation = useDeleteMerchantConnection();
+const ICONS: Record<string, React.ReactNode> = {
+  upi_id:        <AtSign className="w-7 h-7 text-emerald-400" />,
+  google_pay:    <Zap className="w-7 h-7 text-blue-400" />,
+  phonepe:       <Smartphone className="w-7 h-7 text-purple-400" />,
+  paytm:         <Smartphone className="w-7 h-7 text-blue-500" />,
+  bharatpe:      <Store className="w-7 h-7 text-green-400" />,
+  freecharge:    <Zap className="w-7 h-7 text-rose-400" />,
+  yono_sbi:      <Landmark className="w-7 h-7 text-red-400" />,
+  hdfc_smarthub: <Building className="w-7 h-7 text-yellow-400" />,
+};
 
-  const [dialogProvider, setDialogProvider] = useState<string | null>(null);
-  const [credFields, setCredFields] = useState<CredMap>({});
-  const [monthlyLimit, setMonthlyLimit] = useState("0");
-  const [isActive, setIsActive] = useState(true);
-  const [editId, setEditId] = useState<number | null>(null);
+function ProviderIcon({ slug }: { slug: string }) {
+  return ICONS[slug] ?? <Zap className="w-7 h-7 text-muted-foreground" />;
+}
+
+export default function MerchantConnect() {
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const connMap = new Map((connections ?? []).map(c => [c.provider, c]));
+  const [connectDialog, setConnectDialog] = useState<any | null>(null);
 
-  const filteredProviders = PROVIDERS.filter(p => {
-    const matchSearch = !search || p.label.toLowerCase().includes(search.toLowerCase());
-    const conn = connMap.get(p.id);
-    const matchStatus =
-      statusFilter === "all" ||
-      (statusFilter === "connected" && !!conn) ||
-      (statusFilter === "not_connected" && !conn) ||
-      (statusFilter === "active" && conn?.isActive) ||
-      (statusFilter === "inactive" && conn && !conn.isActive);
-    return matchSearch && matchStatus;
+  const { data, isLoading, refetch } = useListProviders();
+  const providers = data?.data ?? [];
+
+  const filtered = providers.filter(p => {
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
+    const matchCat = categoryFilter === "all" || p.category === categoryFilter;
+    const matchStatus = statusFilter === "all" || p.status === statusFilter;
+    return matchSearch && matchCat && matchStatus;
   });
 
-  const openDialog = (providerId: string) => {
-    const existing = connMap.get(providerId);
-    let parsed: CredMap = {};
-    if (existing?.credentials) {
-      try { parsed = JSON.parse(existing.credentials); } catch {}
-    }
-    setDialogProvider(providerId);
-    setCredFields(parsed);
-    setMonthlyLimit(existing ? String(existing.monthlyLimit) : "0");
-    setIsActive(existing ? existing.isActive : true);
-    setEditId(existing?.id ?? null);
-  };
-
-  const handleSave = () => {
-    if (!dialogProvider) return;
-    const credentials = JSON.stringify(credFields);
-    const payload = { provider: dialogProvider, credentials, monthlyLimit: parseFloat(monthlyLimit) || 0, isActive };
-
-    if (editId) {
-      updateMutation.mutate({ id: editId, data: payload }, {
-        onSuccess: () => { toast.success("Connection updated"); setDialogProvider(null); qc.invalidateQueries({ queryKey: getListMerchantConnectionsQueryKey() }); },
-        onError: () => toast.error("Failed to update"),
-      });
-    } else {
-      createMutation.mutate({ data: payload }, {
-        onSuccess: () => { toast.success("Provider connected"); setDialogProvider(null); qc.invalidateQueries({ queryKey: getListMerchantConnectionsQueryKey() }); },
-        onError: () => toast.error("Failed to connect"),
-      });
-    }
-  };
-
-  const handleDelete = (id: number) => {
-    deleteMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Connection removed"); qc.invalidateQueries({ queryKey: getListMerchantConnectionsQueryKey() }); },
-      onError: () => toast.error("Failed to remove"),
-    });
-  };
-
-  const exportCsv = () => {
-    const connected = filteredProviders
-      .filter(p => connMap.has(p.id))
-      .map(p => {
-        const c = connMap.get(p.id)!;
-        return [p.label, c.isActive ? "Active" : "Inactive", String(c.monthlyLimit)];
-      });
-    if (!connected.length) { toast.error("No connected providers to export"); return; }
-    const rows = [["Provider", "Status", "Monthly Limit (₹)"], ...connected];
-    const csv = rows.map(r => r.join(",")).join("\n");
-    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv])); a.download = "connections.csv"; a.click();
-  };
-
-  const providerMeta = PROVIDERS.find(p => p.id === dialogProvider);
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  // Group by live-capable vs coming soon
+  const liveProviders = filtered.filter(p => p.status === "live" || p.status === "testing");
+  const comingSoon = filtered.filter(p => p.status === "coming_soon");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Connect Providers</h1>
-          <p className="text-muted-foreground mt-1">Link your payment provider accounts to enable collections.</p>
+          <h1 className="text-2xl font-bold text-foreground">Payment Providers</h1>
+          <p className="text-sm text-muted-foreground mt-1">Connect your payment provider accounts to start collecting payments</p>
         </div>
-        <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+          <RefreshCw className="w-4 h-4" /> Refresh
+        </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      {/* Stats summary */}
+      <div className="flex gap-4 text-sm text-muted-foreground">
+        <span><span className="font-semibold text-foreground">{providers.length}</span> providers available</span>
+        <span>·</span>
+        <span><span className="font-semibold text-emerald-400">{liveProviders.length}</span> ready to connect</span>
+        {comingSoon.length > 0 && (<><span>·</span><span><span className="font-semibold text-sky-400">{comingSoon.length}</span> coming soon</span></>)}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-40">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search providers..." value={search} onChange={e => setSearch(e.target.value)} />
+          <Input className="pl-9" placeholder="Search providers…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-36"><SelectValue placeholder="Category" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Providers</SelectItem>
-            <SelectItem value="connected">Connected</SelectItem>
-            <SelectItem value="not_connected">Not Connected</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="upi">UPI</SelectItem>
+            <SelectItem value="bank">Bank</SelectItem>
+            <SelectItem value="gateway">Gateway</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="live">Live</SelectItem>
+            <SelectItem value="testing">Testing</SelectItem>
+            <SelectItem value="coming_soon">Coming Soon</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {[1,2,3,4,5,6].map(i => <Card key={i} className="animate-pulse h-44 bg-muted/50" />)}
+          {Array.from({ length: 6 }).map((_, i) => <Card key={i} className="animate-pulse h-44 bg-muted/30" />)}
         </div>
-      ) : filteredProviders.length === 0 ? (
-        <p className="text-center text-muted-foreground py-10">No providers match your filter.</p>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <p className="text-sm">No providers match your filters</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredProviders.map(provider => {
-            const conn = connMap.get(provider.id);
-            return (
-              <Card key={provider.id} className={`border ${conn ? "border-primary/40 bg-primary/5" : "border-border"}`}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-card border border-border/60 flex items-center justify-center">
-                        {provider.icon}
-                      </div>
-                      <div>
-                        <CardTitle className="text-base">{provider.label}</CardTitle>
-                        {conn ? (
-                          <Badge variant={conn.isActive ? "default" : "secondary"} className="text-[10px] mt-0.5">
-                            {conn.isActive ? "Connected" : "Inactive"}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] mt-0.5 text-muted-foreground">Not connected</Badge>
+        <>
+          {/* Live / Testing providers */}
+          {liveProviders.length > 0 && (
+            <div className="space-y-3">
+              {(statusFilter === "all" || statusFilter === "live" || statusFilter === "testing") && (
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Available Providers</h2>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {liveProviders.map(p => {
+                  const smeta = STATUS_META[p.status] ?? STATUS_META.disabled;
+                  const cmeta = CATEGORY_META[p.category] ?? { label: p.category, color: "bg-muted text-muted-foreground border-border" };
+                  return (
+                    <Card key={p.id} className="border-border/60 hover:border-primary/40 transition-colors bg-card">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-14 h-14 rounded-xl bg-background border border-border/60 flex items-center justify-center shrink-0">
+                            <ProviderIcon slug={p.slug} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-base truncate">{p.name}</CardTitle>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <Badge variant="outline" className={`text-xs ${cmeta.color}`}>{cmeta.label}</Badge>
+                              <Badge variant="outline" className={`text-xs ${smeta.color}`}>{smeta.label}</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {p.description && (
+                          <p className="text-xs text-muted-foreground leading-relaxed">{p.description}</p>
                         )}
-                      </div>
-                    </div>
-                    {conn && <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {conn && (
-                    <div className="text-xs text-muted-foreground">
-                      Monthly limit: <span className="font-semibold text-foreground">₹{Number(conn.monthlyLimit).toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1" onClick={() => openDialog(provider.id)}>
-                      <PlusCircle className="w-3 h-3 mr-1" />
-                      {conn ? "Edit" : "Connect"}
-                    </Button>
-                    {conn && (
-                      <Button size="sm" variant="ghost" className="text-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
-                        onClick={() => handleDelete(conn.id)} disabled={deleteMutation.isPending}>
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setConnectDialog(p)}
+                        >
+                          Connect
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Coming Soon */}
+          {comingSoon.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Coming Soon</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {comingSoon.map(p => {
+                  const cmeta = CATEGORY_META[p.category] ?? { label: p.category, color: "bg-muted text-muted-foreground border-border" };
+                  return (
+                    <Card key={p.id} className="border-border/30 bg-muted/10 opacity-70">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-14 h-14 rounded-xl bg-background/50 border border-border/30 flex items-center justify-center shrink-0 grayscale">
+                            <ProviderIcon slug={p.slug} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-base text-muted-foreground truncate">{p.name}</CardTitle>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <Badge variant="outline" className={`text-xs ${cmeta.color}`}>{cmeta.label}</Badge>
+                              <Badge variant="outline" className="text-xs bg-sky-500/10 text-sky-400 border-sky-500/30">Coming Soon</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {p.description && (
+                          <p className="text-xs text-muted-foreground mb-3">{p.description}</p>
+                        )}
+                        <Button size="sm" className="w-full" variant="outline" disabled>
+                          Coming Soon
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      <Dialog open={!!dialogProvider} onOpenChange={() => setDialogProvider(null)}>
-        <DialogContent className="max-w-md">
+      {/* Connect Dialog (placeholder) */}
+      <Dialog open={!!connectDialog} onOpenChange={open => !open && setConnectDialog(null)}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editId ? "Edit" : "Connect"} {providerMeta?.label}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {connectDialog && <ProviderIcon slug={connectDialog.slug} />}
+              Connect {connectDialog?.name}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {providerMeta?.fields.map(field => (
-              <div key={field} className="space-y-1.5">
-                <Label>{field}</Label>
-                <Input
-                  placeholder={`Enter ${field}`}
-                  value={credFields[field] ?? ""}
-                  onChange={e => setCredFields(prev => ({ ...prev, [field]: e.target.value }))}
-                />
-              </div>
-            ))}
-            <div className="space-y-1.5">
-              <Label>Monthly Limit (₹)</Label>
-              <Input type="number" placeholder="0" value={monthlyLimit} onChange={e => setMonthlyLimit(e.target.value)} />
+            <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+              <p className="text-sm text-muted-foreground">
+                Provider connection setup is coming soon. Your admin will configure the integration credentials for <strong>{connectDialog?.name}</strong>.
+              </p>
             </div>
-            <div className="flex items-center justify-between">
-              <Label>Active</Label>
-              <Switch checked={isActive} onCheckedChange={setIsActive} />
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Provider</Label>
+                <p className="text-sm font-medium">{connectDialog?.name}</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Category</Label>
+                <p className="text-sm">{CATEGORY_META[connectDialog?.category]?.label ?? connectDialog?.category}</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Status</Label>
+                {connectDialog && (
+                  <Badge variant="outline" className={`text-xs ${STATUS_META[connectDialog.status]?.color}`}>
+                    {STATUS_META[connectDialog.status]?.label}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogProvider(null)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={isPending}>{editId ? "Update" : "Connect"}</Button>
+            <Button variant="outline" onClick={() => setConnectDialog(null)}>Close</Button>
+            <Button disabled onClick={() => { toast.info("Provider connections will be available soon"); setConnectDialog(null); }}>
+              Connect (Coming Soon)
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

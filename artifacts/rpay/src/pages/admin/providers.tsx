@@ -1,0 +1,471 @@
+import { useState } from "react";
+import { useListProviders, useCreateProvider, useUpdateProvider, useDeleteProvider, useSetProviderVisibility, useBulkSetProviderVisibility, getProviderMerchantVisibility, getGetProviderMerchantVisibilityQueryKey } from "@workspace/api-client-react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { toast } from "sonner";
+import { Plus, Pencil, Trash2, Eye, Users, Globe, RefreshCw, Search } from "lucide-react";
+
+const STATUS_META: Record<string, { label: string; color: string }> = {
+  live:         { label: "Live",        color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
+  testing:      { label: "Testing",     color: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+  coming_soon:  { label: "Coming Soon", color: "bg-sky-500/10 text-sky-400 border-sky-500/30" },
+  disabled:     { label: "Disabled",    color: "bg-muted text-muted-foreground border-border" },
+};
+
+const CATEGORY_META: Record<string, string> = {
+  upi:     "UPI",
+  bank:    "Bank",
+  gateway: "Gateway",
+};
+
+type FormState = {
+  name: string; slug: string; category: string; status: string; description: string; sortOrder: string;
+};
+
+const DEFAULT_FORM: FormState = { name: "", slug: "", category: "upi", status: "live", description: "", sortOrder: "0" };
+
+function slugify(s: string) { return s.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, ""); }
+
+export default function AdminProviders() {
+  const qc = useQueryClient();
+
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  // Create / Edit dialog
+  const [dialog, setDialog] = useState<"create" | "edit" | "delete" | null>(null);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+
+  // Visibility drawer
+  const [visDrawer, setVisDrawer] = useState<any | null>(null);  // selected provider
+  const [merchantSearch, setMerchantSearch] = useState("");
+  const [selectedMerchants, setSelectedMerchants] = useState<Set<number>>(new Set());
+
+  const { data, isLoading, refetch } = useListProviders({
+    category: categoryFilter !== "all" ? categoryFilter : undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+  });
+  const providers = (data?.data ?? []).filter(p =>
+    !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.slug.includes(search.toLowerCase())
+  );
+
+  // Mutations
+  const createMut = useCreateProvider();
+  const updateMut = useUpdateProvider();
+  const deleteMut = useDeleteProvider();
+  const setVisMut = useSetProviderVisibility();
+  const bulkVisMut = useBulkSetProviderVisibility();
+
+  // Merchant visibility drawer data
+  const { data: merchantVisData, isLoading: visLoading, refetch: refetchVis } = useQuery({
+    queryKey: getGetProviderMerchantVisibilityQueryKey(visDrawer?.id ?? 0),
+    queryFn: () => getProviderMerchantVisibility(visDrawer!.id),
+    enabled: !!visDrawer,
+  });
+  const merchantVis = (merchantVisData ?? []).filter(
+    m => !merchantSearch || m.businessName.toLowerCase().includes(merchantSearch.toLowerCase())
+  );
+
+  // Stats
+  const allProviders = data?.data ?? [];
+  const statsByStatus = allProviders.reduce((acc: Record<string, number>, p) => {
+    acc[p.status] = (acc[p.status] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  function openCreate() { setForm(DEFAULT_FORM); setEditing(null); setDialog("create"); }
+  function openEdit(p: any) {
+    setForm({ name: p.name, slug: p.slug, category: p.category, status: p.status, description: p.description ?? "", sortOrder: String(p.sortOrder) });
+    setEditing(p);
+    setDialog("edit");
+  }
+
+  function handleSubmit() {
+    const payload = { name: form.name.trim(), slug: form.slug.trim(), category: form.category, status: form.status, description: form.description.trim() || null, sortOrder: parseInt(form.sortOrder) || 0 };
+    if (!payload.name || !payload.slug) { toast.error("Name and slug are required"); return; }
+
+    if (dialog === "create") {
+      createMut.mutate({ data: payload }, {
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Provider created"); setDialog(null); },
+        onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed to create provider"),
+      });
+    } else if (editing) {
+      updateMut.mutate({ id: editing.id, data: payload }, {
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Provider updated"); setDialog(null); },
+        onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed to update provider"),
+      });
+    }
+  }
+
+  function handleDelete() {
+    if (!editing) return;
+    deleteMut.mutate({ id: editing.id }, {
+      onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Provider deleted"); setDialog(null); setEditing(null); },
+      onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed to delete provider"),
+    });
+  }
+
+  function handleInlineStatus(providerId: number, newStatus: string) {
+    updateMut.mutate({ id: providerId, data: { status: newStatus } }, {
+      onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Status updated"); },
+      onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed to update status"),
+    });
+  }
+
+  function handleGlobalVisibility(providerId: number, visible: boolean) {
+    setVisMut.mutate({ id: providerId, data: { merchantId: null, visible } }, {
+      onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); refetchVis(); toast.success(visible ? "Enabled for all merchants" : "Disabled for all merchants"); },
+      onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed to update visibility"),
+    });
+  }
+
+  function handleMerchantToggle(providerId: number, merchantId: number, visible: boolean) {
+    setVisMut.mutate({ id: providerId, data: { merchantId, visible } }, {
+      onSuccess: () => { refetchVis(); qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Visibility updated"); },
+      onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed"),
+    });
+  }
+
+  function handleBulkVisibility(visible: boolean) {
+    if (selectedMerchants.size === 0) { toast.error("Select at least one merchant"); return; }
+    bulkVisMut.mutate({ id: visDrawer.id, data: { merchantIds: Array.from(selectedMerchants), visible } }, {
+      onSuccess: () => { refetchVis(); qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success(`Updated ${selectedMerchants.size} merchants`); setSelectedMerchants(new Set()); },
+      onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed"),
+    });
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Payment Providers</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage provider catalogue and control merchant visibility</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+            <RefreshCw className="w-4 h-4" /> Refresh
+          </Button>
+          <Button size="sm" onClick={openCreate} className="gap-2">
+            <Plus className="w-4 h-4" /> Add Provider
+          </Button>
+        </div>
+      </div>
+
+      {/* Status stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {(["live", "testing", "coming_soon", "disabled"] as const).map(s => (
+          <Card key={s} className="bg-card border-border/50">
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{STATUS_META[s].label}</p>
+                <Badge variant="outline" className={`text-xs ${STATUS_META[s].color}`}>{statsByStatus[s] ?? 0}</Badge>
+              </div>
+              <p className="text-2xl font-bold mt-1">{statsByStatus[s] ?? 0}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input className="pl-9" placeholder="Search providers…" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-36"><SelectValue placeholder="Category" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="upi">UPI</SelectItem>
+            <SelectItem value="bank">Bank</SelectItem>
+            <SelectItem value="gateway">Gateway</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="live">Live</SelectItem>
+            <SelectItem value="testing">Testing</SelectItem>
+            <SelectItem value="coming_soon">Coming Soon</SelectItem>
+            <SelectItem value="disabled">Disabled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Providers table */}
+      <Card className="bg-card border-border/50">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border/50">
+                <TableHead>#</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Visibility</TableHead>
+                <TableHead>Sort</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <TableCell key={j}><div className="h-4 bg-muted/40 rounded animate-pulse" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : providers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">No providers found</TableCell>
+                </TableRow>
+              ) : (
+                providers.map(p => {
+                  const meta = STATUS_META[p.status] ?? STATUS_META.disabled;
+                  return (
+                    <TableRow key={p.id} className="border-border/30 hover:bg-muted/20">
+                      <TableCell className="text-muted-foreground text-sm">{p.id}</TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-sm">{p.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{p.slug}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">{CATEGORY_META[p.category] ?? p.category}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={p.status} onValueChange={v => handleInlineStatus(p.id, v)}>
+                          <SelectTrigger className="h-7 w-36 text-xs">
+                            <Badge variant="outline" className={`text-xs ${meta.color}`}>{meta.label}</Badge>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(STATUS_META).map(([k, v]) => (
+                              <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Users className="w-3 h-3" />
+                            <span className="text-emerald-400">{p.visibleCount ?? 0} visible</span>
+                            <span>·</span>
+                            <span className="text-rose-400">{p.hiddenCount ?? 0} hidden</span>
+                          </div>
+                          {p.globalVisible !== null && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Globe className="w-3 h-3" />
+                              <span>Global: {p.globalVisible ? "visible" : "hidden"}</span>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{p.sortOrder}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Manage visibility" onClick={() => { setVisDrawer(p); setSelectedMerchants(new Set()); setMerchantSearch(""); }}>
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-400 hover:text-rose-300" onClick={() => { setEditing(p); setDialog("delete"); }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Create / Edit Dialog */}
+      <Dialog open={dialog === "create" || dialog === "edit"} onOpenChange={open => !open && setDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{dialog === "create" ? "Add Provider" : "Edit Provider"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Name</Label>
+                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value, slug: dialog === "create" ? slugify(e.target.value) : f.slug }))} placeholder="PhonePe Business" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Slug</Label>
+                <Input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: slugify(e.target.value) }))} placeholder="phonepe" className="font-mono text-sm" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Category</Label>
+                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="upi">UPI</SelectItem>
+                    <SelectItem value="bank">Bank</SelectItem>
+                    <SelectItem value="gateway">Gateway</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="live">Live</SelectItem>
+                    <SelectItem value="testing">Testing</SelectItem>
+                    <SelectItem value="coming_soon">Coming Soon</SelectItem>
+                    <SelectItem value="disabled">Disabled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Short description…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Sort Order</Label>
+              <Input type="number" value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={createMut.isPending || updateMut.isPending}>
+              {createMut.isPending || updateMut.isPending ? "Saving…" : dialog === "create" ? "Add Provider" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog open={dialog === "delete"} onOpenChange={open => !open && setDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Provider</DialogTitle>
+            <DialogDescription>
+              Delete <strong>{editing?.name}</strong>? This will also remove all visibility rules for this provider. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteMut.isPending}>
+              {deleteMut.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Visibility Drawer */}
+      <Sheet open={!!visDrawer} onOpenChange={open => !open && setVisDrawer(null)}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          {visDrawer && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Visibility — {visDrawer.name}
+                </SheetTitle>
+              </SheetHeader>
+
+              <div className="mt-6 space-y-4">
+                {/* Global toggle */}
+                <Card className="bg-card border-border/50">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Global Rule</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Applies to all merchants without a specific rule</p>
+                        {visDrawer.globalVisible !== null && (
+                          <p className="text-xs text-muted-foreground mt-0.5">Currently: <span className={visDrawer.globalVisible ? "text-emerald-400" : "text-rose-400"}>{visDrawer.globalVisible ? "Visible" : "Hidden"}</span></p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="text-emerald-400 border-emerald-500/30 h-7 text-xs" onClick={() => handleGlobalVisibility(visDrawer.id, true)}>Enable All</Button>
+                        <Button size="sm" variant="outline" className="text-rose-400 border-rose-500/30 h-7 text-xs" onClick={() => handleGlobalVisibility(visDrawer.id, false)}>Disable All</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Bulk actions */}
+                {selectedMerchants.size > 0 && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <span className="text-xs text-muted-foreground flex-1">{selectedMerchants.size} merchant{selectedMerchants.size > 1 ? "s" : ""} selected</span>
+                    <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleBulkVisibility(true)} disabled={bulkVisMut.isPending}>Enable</Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-rose-400 border-rose-500/30" onClick={() => handleBulkVisibility(false)} disabled={bulkVisMut.isPending}>Disable</Button>
+                  </div>
+                )}
+
+                {/* Per-merchant search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input className="pl-8 h-8 text-sm" placeholder="Search merchants…" value={merchantSearch} onChange={e => setMerchantSearch(e.target.value)} />
+                </div>
+
+                {/* Per-merchant list */}
+                {visLoading ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 bg-muted/40 rounded animate-pulse" />)}
+                  </div>
+                ) : merchantVis.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No approved merchants found</p>
+                ) : (
+                  <div className="space-y-1">
+                    {merchantVis.map(m => (
+                      <div key={m.merchantId} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/20 border border-transparent hover:border-border/30">
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          checked={selectedMerchants.has(m.merchantId)}
+                          onChange={e => {
+                            const s = new Set(selectedMerchants);
+                            e.target.checked ? s.add(m.merchantId) : s.delete(m.merchantId);
+                            setSelectedMerchants(s);
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{m.businessName}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {m.email}
+                            {m.source !== "merchant" && <span className="ml-1 text-muted-foreground/60">({m.source})</span>}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={m.visible}
+                          onCheckedChange={v => handleMerchantToggle(visDrawer.id, m.merchantId, v)}
+                          className="shrink-0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}

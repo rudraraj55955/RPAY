@@ -2277,3 +2277,142 @@ export const CreateLedgerAdjustmentBody = zod.object({
 })
 
 
+/**
+ * @summary List providers (merchant gets visible ones; admin gets all)
+ */
+export const ListProvidersQueryParams = zod.object({
+  "category": zod.coerce.string().optional(),
+  "status": zod.coerce.string().optional()
+})
+
+export const ListProvidersResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "logoUrl": zod.string().nullish(),
+  "category": zod.string(),
+  "status": zod.string(),
+  "description": zod.string().nullish(),
+  "sortOrder": zod.number(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "visibleCount": zod.number().nullish(),
+  "hiddenCount": zod.number().nullish(),
+  "globalVisible": zod.boolean().nullish()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Create a new provider (admin only)
+ */
+export const CreateProviderBody = zod.object({
+  "name": zod.string().optional(),
+  "slug": zod.string().optional(),
+  "category": zod.string().optional(),
+  "status": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "sortOrder": zod.number().optional(),
+  "logoUrl": zod.string().nullish()
+})
+
+
+/**
+ * @summary Update provider status/sortOrder/name (admin only)
+ */
+export const UpdateProviderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateProviderBody = zod.object({
+  "name": zod.string().optional(),
+  "slug": zod.string().optional(),
+  "category": zod.string().optional(),
+  "status": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "sortOrder": zod.number().optional(),
+  "logoUrl": zod.string().nullish()
+})
+
+export const UpdateProviderResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "logoUrl": zod.string().nullish(),
+  "category": zod.string(),
+  "status": zod.string(),
+  "description": zod.string().nullish(),
+  "sortOrder": zod.number(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "visibleCount": zod.number().nullish(),
+  "hiddenCount": zod.number().nullish(),
+  "globalVisible": zod.boolean().nullish()
+})
+
+
+/**
+ * @summary Delete a provider (admin only)
+ */
+export const DeleteProviderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteProviderResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Set provider visibility for a merchant or globally (admin only)
+ */
+export const SetProviderVisibilityParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SetProviderVisibilityBody = zod.object({
+  "merchantId": zod.number().nullish(),
+  "visible": zod.boolean()
+})
+
+export const SetProviderVisibilityResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Bulk enable/disable a provider for multiple merchants (admin only)
+ */
+export const BulkSetProviderVisibilityParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const BulkSetProviderVisibilityBody = zod.object({
+  "merchantIds": zod.array(zod.number()),
+  "visible": zod.boolean()
+})
+
+export const BulkSetProviderVisibilityResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Get per-merchant visibility state for a provider (admin only)
+ */
+export const GetProviderMerchantVisibilityParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetProviderMerchantVisibilityResponseItem = zod.object({
+  "merchantId": zod.number(),
+  "businessName": zod.string(),
+  "email": zod.string(),
+  "visible": zod.boolean(),
+  "source": zod.string()
+})
+export const GetProviderMerchantVisibilityResponse = zod.array(GetProviderMerchantVisibilityResponseItem)
+
+

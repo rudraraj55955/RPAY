@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import { UserRole, useGetMyPlanUsage } from "@workspace/api-client-react";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
-import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, ShieldCheck, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked } from "lucide-react";
+import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, ShieldCheck, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -155,6 +155,7 @@ export function DashboardLayout({ children, publicMode = false }: DashboardLayou
       items: [
         { title: "Feature Control", icon: Sliders, href: "/admin/feature-control" },
         { title: "Account Details", icon: CreditCard, href: "/admin/account-details" },
+        { title: "Payment Providers", icon: Zap, href: "/admin/providers" },
         { title: "QR Providers", icon: QrCode, href: "/admin/qr-providers" },
         { title: "Visibility Rules", icon: Eye, href: "/admin/visibility-rules" },
         { title: "Merchant Access", icon: LayoutGrid, href: "/admin/merchant-access" },

@@ -1203,6 +1203,63 @@ export interface LedgerAdjustmentInput {
   description: string;
 }
 
+export interface Provider {
+  id: number;
+  name: string;
+  slug: string;
+  /** @nullable */
+  logoUrl?: string | null;
+  category: string;
+  status: string;
+  /** @nullable */
+  description?: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  visibleCount?: number | null;
+  /** @nullable */
+  hiddenCount?: number | null;
+  /** @nullable */
+  globalVisible?: boolean | null;
+}
+
+export interface ProviderListResponse {
+  data: Provider[];
+  total: number;
+}
+
+export interface ProviderInput {
+  name?: string;
+  slug?: string;
+  category?: string;
+  status?: string;
+  /** @nullable */
+  description?: string | null;
+  sortOrder?: number;
+  /** @nullable */
+  logoUrl?: string | null;
+}
+
+export interface ProviderVisibilityInput {
+  /** @nullable */
+  merchantId?: number | null;
+  visible: boolean;
+}
+
+export interface ProviderBulkVisibilityInput {
+  merchantIds: number[];
+  visible: boolean;
+}
+
+export interface ProviderMerchantVisibility {
+  merchantId: number;
+  businessName: string;
+  email: string;
+  visible: boolean;
+  source: string;
+}
+
 export type ListMerchantsParams = {
 status?: ListMerchantsStatus;
 search?: string;
@@ -1430,5 +1487,10 @@ dateFrom?: string;
 dateTo?: string;
 page?: number;
 limit?: number;
+};
+
+export type ListProvidersParams = {
+category?: string;
+status?: string;
 };
 

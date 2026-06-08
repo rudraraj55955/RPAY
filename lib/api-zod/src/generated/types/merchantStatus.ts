@@ -13,4 +13,5 @@ export const MerchantStatus = {
   pending: 'pending',
   approved: 'approved',
   rejected: 'rejected',
+  suspended: 'suspended',
 } as const;

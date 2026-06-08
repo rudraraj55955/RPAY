@@ -48,6 +48,8 @@ export interface User {
   isActive?: boolean;
   /** @nullable */
   merchantId?: number | null;
+  /** @nullable */
+  merchantStatus?: string | null;
   createdAt: string;
 }
 
@@ -63,6 +65,7 @@ export const MerchantStatus = {
   pending: 'pending',
   approved: 'approved',
   rejected: 'rejected',
+  suspended: 'suspended',
 } as const;
 
 export interface Merchant {

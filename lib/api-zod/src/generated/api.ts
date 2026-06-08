@@ -33,6 +33,7 @@ export const LoginResponse = zod.object({
   "name": zod.string(),
   "isActive": zod.boolean().optional(),
   "merchantId": zod.number().nullish(),
+  "merchantStatus": zod.string().nullish(),
   "createdAt": zod.string()
 })
 })
@@ -61,6 +62,7 @@ export const GetMeResponse = zod.object({
   "name": zod.string(),
   "isActive": zod.boolean().optional(),
   "merchantId": zod.number().nullish(),
+  "merchantStatus": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -121,7 +123,7 @@ export const ListMerchantsResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string(),
   "website": zod.string().nullish(),
-  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'suspended']),
   "rejectionReason": zod.string().nullish(),
   "totalDeposits": zod.number().optional(),
   "totalWithdrawals": zod.number().optional(),
@@ -148,7 +150,7 @@ export const GetMerchantResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string(),
   "website": zod.string().nullish(),
-  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'suspended']),
   "rejectionReason": zod.string().nullish(),
   "totalDeposits": zod.number().optional(),
   "totalWithdrawals": zod.number().optional(),
@@ -213,7 +215,7 @@ export const ApproveMerchantResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string(),
   "website": zod.string().nullish(),
-  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'suspended']),
   "rejectionReason": zod.string().nullish(),
   "totalDeposits": zod.number().optional(),
   "totalWithdrawals": zod.number().optional(),
@@ -240,7 +242,53 @@ export const RejectMerchantResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string(),
   "website": zod.string().nullish(),
-  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'suspended']),
+  "rejectionReason": zod.string().nullish(),
+  "totalDeposits": zod.number().optional(),
+  "totalWithdrawals": zod.number().optional(),
+  "balance": zod.number().optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Suspend merchant
+ */
+export const SuspendMerchantParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SuspendMerchantResponse = zod.object({
+  "id": zod.number(),
+  "businessName": zod.string(),
+  "contactName": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string(),
+  "website": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'suspended']),
+  "rejectionReason": zod.string().nullish(),
+  "totalDeposits": zod.number().optional(),
+  "totalWithdrawals": zod.number().optional(),
+  "balance": zod.number().optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Unsuspend merchant (restore to approved)
+ */
+export const UnsuspendMerchantParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UnsuspendMerchantResponse = zod.object({
+  "id": zod.number(),
+  "businessName": zod.string(),
+  "contactName": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string(),
+  "website": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'suspended']),
   "rejectionReason": zod.string().nullish(),
   "totalDeposits": zod.number().optional(),
   "totalWithdrawals": zod.number().optional(),
@@ -1106,6 +1154,7 @@ export const ListUsersResponse = zod.object({
   "name": zod.string(),
   "isActive": zod.boolean().optional(),
   "merchantId": zod.number().nullish(),
+  "merchantStatus": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -1146,6 +1195,7 @@ export const UpdateUserResponse = zod.object({
   "name": zod.string(),
   "isActive": zod.boolean().optional(),
   "merchantId": zod.number().nullish(),
+  "merchantStatus": zod.string().nullish(),
   "createdAt": zod.string()
 })
 

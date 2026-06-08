@@ -1032,6 +1032,146 @@ export const useRejectMerchant = <TError = ErrorType<unknown>,
       return useMutation(getRejectMerchantMutationOptions(options));
     }
 
+export const getSuspendMerchantUrl = (id: number,) => {
+
+
+
+
+  return `/api/merchants/${id}/suspend`
+}
+
+/**
+ * @summary Suspend merchant
+ */
+export const suspendMerchant = async (id: number, options?: RequestInit): Promise<Merchant> => {
+
+  return customFetch<Merchant>(getSuspendMerchantUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSuspendMerchantMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suspendMerchant>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof suspendMerchant>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['suspendMerchant'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof suspendMerchant>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  suspendMerchant(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SuspendMerchantMutationResult = NonNullable<Awaited<ReturnType<typeof suspendMerchant>>>
+
+    export type SuspendMerchantMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Suspend merchant
+ */
+export const useSuspendMerchant = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suspendMerchant>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof suspendMerchant>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getSuspendMerchantMutationOptions(options));
+    }
+
+export const getUnsuspendMerchantUrl = (id: number,) => {
+
+
+
+
+  return `/api/merchants/${id}/unsuspend`
+}
+
+/**
+ * @summary Unsuspend merchant (restore to approved)
+ */
+export const unsuspendMerchant = async (id: number, options?: RequestInit): Promise<Merchant> => {
+
+  return customFetch<Merchant>(getUnsuspendMerchantUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getUnsuspendMerchantMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unsuspendMerchant>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unsuspendMerchant>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['unsuspendMerchant'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unsuspendMerchant>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  unsuspendMerchant(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnsuspendMerchantMutationResult = NonNullable<Awaited<ReturnType<typeof unsuspendMerchant>>>
+
+    export type UnsuspendMerchantMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Unsuspend merchant (restore to approved)
+ */
+export const useUnsuspendMerchant = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unsuspendMerchant>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unsuspendMerchant>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getUnsuspendMerchantMutationOptions(options));
+    }
+
 export const getGetMerchantPlanHistoryUrl = (id: number,) => {
 
 

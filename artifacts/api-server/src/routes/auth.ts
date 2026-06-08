@@ -94,6 +94,11 @@ router.post("/register", async (req, res, next) => {
 router.get("/me", requireAuth, async (req, res, next) => {
   try {
     const user = (req as any).user;
+    let merchantStatus: string | null = null;
+    if (user.role === "merchant" && user.merchantId) {
+      const [merchant] = await db.select({ status: merchantsTable.status }).from(merchantsTable).where(eq(merchantsTable.id, user.merchantId)).limit(1);
+      merchantStatus = merchant?.status ?? null;
+    }
     res.json({
       id: user.id,
       email: user.email,
@@ -101,6 +106,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
       name: user.name,
       isActive: user.isActive,
       merchantId: user.merchantId,
+      merchantStatus,
       createdAt: user.createdAt,
     });
   } catch (err) {

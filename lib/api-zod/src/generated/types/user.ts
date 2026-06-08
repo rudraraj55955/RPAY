@@ -15,5 +15,7 @@ export interface User {
   isActive?: boolean;
   /** @nullable */
   merchantId?: number | null;
+  /** @nullable */
+  merchantStatus?: string | null;
   createdAt: string;
 }

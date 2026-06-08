@@ -9,7 +9,7 @@ export const merchantsTable = pgTable("merchants", {
   email: text("email").notNull().unique(),
   phone: text("phone").notNull(),
   website: text("website"),
-  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  status: text("status").notNull().default("pending"), // pending | approved | rejected | suspended
   rejectionReason: text("rejection_reason"),
   totalDeposits: numeric("total_deposits", { precision: 18, scale: 2 }).notNull().default("0"),
   totalWithdrawals: numeric("total_withdrawals", { precision: 18, scale: 2 }).notNull().default("0"),

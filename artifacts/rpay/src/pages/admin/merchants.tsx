@@ -1,7 +1,8 @@
 import { useState } from "react";
 import {
-  useListMerchants, useApproveMerchant, useRejectMerchant, useListPlans,
-  useAssignMerchantPlan, useGetMerchantPlan, useGetMerchantPlanHistory,
+  useListMerchants, useApproveMerchant, useRejectMerchant,
+  useSuspendMerchant, useUnsuspendMerchant,
+  useListPlans, useAssignMerchantPlan, useGetMerchantPlan, useGetMerchantPlanHistory,
   useUpgradeMerchantPlan, useDowngradeMerchantPlan, useSuspendMerchantPlan,
   useReinstateMerchantPlan, useRenewMerchantPlan,
   getListMerchantsQueryKey,
@@ -18,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, CheckCircle2, XCircle as XIcon, Infinity, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw } from "lucide-react";
+import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -67,11 +68,13 @@ export default function AdminMerchants() {
   );
   const approveMutation = useApproveMerchant();
   const rejectMutation = useRejectMerchant();
+  const merchantSuspendMutation = useSuspendMerchant();
+  const merchantUnsuspendMutation = useUnsuspendMerchant();
   const assignPlanMutation = useAssignMerchantPlan();
   const upgradeMutation = useUpgradeMerchantPlan();
   const downgradeMutation = useDowngradeMerchantPlan();
-  const suspendMutation = useSuspendMerchantPlan();
-  const reinstateMutation = useReinstateMerchantPlan();
+  const suspendPlanMutation = useSuspendMerchantPlan();
+  const reinstatePlanMutation = useReinstateMerchantPlan();
   const renewMutation = useRenewMerchantPlan();
 
   const invalidatePlanData = (id: number) => {
@@ -92,12 +95,12 @@ export default function AdminMerchants() {
         onError: () => toast.error(`Failed to ${action} plan`),
       });
     } else if (action === "suspend") {
-      suspendMutation.mutate({ id, data: { notes } }, {
+      suspendPlanMutation.mutate({ id, data: { notes } }, {
         onSuccess: () => { toast.success("Plan suspended"); invalidatePlanData(id); setConfirmAction(null); setActionNotes(""); },
         onError: () => toast.error("Failed to suspend plan"),
       });
     } else if (action === "reinstate") {
-      reinstateMutation.mutate({ id, data: { notes } }, {
+      reinstatePlanMutation.mutate({ id, data: { notes } }, {
         onSuccess: () => { toast.success("Plan reinstated"); invalidatePlanData(id); setConfirmAction(null); setActionNotes(""); },
         onError: () => toast.error("Failed to reinstate plan"),
       });
@@ -110,12 +113,26 @@ export default function AdminMerchants() {
     }
   };
 
-  const isActionPending = upgradeMutation.isPending || downgradeMutation.isPending || suspendMutation.isPending || reinstateMutation.isPending || renewMutation.isPending;
+  const isActionPending = upgradeMutation.isPending || downgradeMutation.isPending || suspendPlanMutation.isPending || reinstatePlanMutation.isPending || renewMutation.isPending;
 
   const handleApprove = (id: number) => {
     approveMutation.mutate({ id }, {
       onSuccess: () => { toast.success("Merchant approved"); qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() }); },
       onError: () => toast.error("Failed to approve merchant"),
+    });
+  };
+
+  const handleSuspend = (id: number) => {
+    merchantSuspendMutation.mutate({ id }, {
+      onSuccess: () => { toast.success("Merchant suspended"); qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() }); },
+      onError: () => toast.error("Failed to suspend merchant"),
+    });
+  };
+
+  const handleUnsuspend = (id: number) => {
+    merchantUnsuspendMutation.mutate({ id }, {
+      onSuccess: () => { toast.success("Merchant reinstated"); qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() }); },
+      onError: () => toast.error("Failed to unsuspend merchant"),
     });
   };
 
@@ -191,20 +208,26 @@ export default function AdminMerchants() {
         <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search merchants..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>
-          <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex gap-1 flex-wrap">
+          {(["all", "pending", "approved", "rejected", "suspended"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => { setStatus(tab); setPage(1); }}
+              className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors border ${
+                status === tab
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-transparent"
+              }`}
+            >
+              {tab === "all" ? "All" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
       <Card>
@@ -259,6 +282,16 @@ export default function AdminMerchants() {
                             <XCircle className="w-4 h-4 mr-1" /> Reject
                           </Button>
                         </>
+                      )}
+                      {merchant.status === "approved" && (
+                        <Button size="sm" variant="ghost" className="text-orange-500 hover:bg-orange-500/10" onClick={() => handleSuspend(merchant.id)}>
+                          <ShieldOff className="w-4 h-4 mr-1" /> Suspend
+                        </Button>
+                      )}
+                      {merchant.status === "suspended" && (
+                        <Button size="sm" variant="ghost" className="text-emerald-500 hover:bg-emerald-500/10" onClick={() => handleUnsuspend(merchant.id)}>
+                          <ShieldCheck className="w-4 h-4 mr-1" /> Reinstate
+                        </Button>
                       )}
                       <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => openAssignPlan(merchant.id, merchant.businessName)}>
                         <CreditCard className="w-4 h-4 mr-1" /> Plan

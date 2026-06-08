@@ -96,6 +96,46 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
   res.json(serializeMerchant(merchant));
 });
 
+// POST /api/merchants/:id/suspend
+router.post("/:id/suspend", async (req, res) => {
+  const id = parseInt(req.params['id'] as string);
+  const [merchant] = await db
+    .update(merchantsTable)
+    .set({ status: "suspended" })
+    .where(eq(merchantsTable.id, id))
+    .returning();
+  if (!merchant) {
+    res.status(404).json({ error: "Merchant not found" });
+    return;
+  }
+  res.json({
+    ...merchant,
+    totalDeposits: Number(merchant.totalDeposits),
+    totalWithdrawals: Number(merchant.totalWithdrawals),
+    balance: Number(merchant.balance),
+  });
+});
+
+// POST /api/merchants/:id/unsuspend
+router.post("/:id/unsuspend", async (req, res) => {
+  const id = parseInt(req.params['id'] as string);
+  const [merchant] = await db
+    .update(merchantsTable)
+    .set({ status: "approved" })
+    .where(eq(merchantsTable.id, id))
+    .returning();
+  if (!merchant) {
+    res.status(404).json({ error: "Merchant not found" });
+    return;
+  }
+  res.json({
+    ...merchant,
+    totalDeposits: Number(merchant.totalDeposits),
+    totalWithdrawals: Number(merchant.totalWithdrawals),
+    balance: Number(merchant.balance),
+  });
+});
+
 // POST /api/merchants/:id/reject
 router.post("/:id/reject", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id as string);

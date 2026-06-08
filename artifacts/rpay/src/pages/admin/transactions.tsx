@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useListTransactions, useSearchByUtr } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,10 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash } from "lucide-react";
+import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
+import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
+import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 
 export default function AdminTransactions() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [utrSearch, setUtrSearch] = useState("");
   const [type, setType] = useState("all");
@@ -18,6 +22,10 @@ export default function AdminTransactions() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
+
+  const { lastRefreshed, isRefreshing, handleRefresh } = useMonitoringRefresh(
+    () => qc.invalidateQueries({ queryKey: ["/api/transactions"] })
+  );
 
   const { data, isLoading } = useListTransactions({
     type: type as any,
@@ -33,29 +41,29 @@ export default function AdminTransactions() {
     { query: { enabled: !!utrSearch } as any }
   );
 
-  const exportCsv = async () => {
-    const params = new URLSearchParams();
-    if (type && type !== "all") params.set("type", type);
-    if (status && status !== "all") params.set("status", status);
-    if (search) params.set("search", search);
-    if (dateFrom) params.set("dateFrom", dateFrom);
-    if (dateTo) params.set("dateTo", dateTo);
-    const res = await fetch(`/api/transactions/export/csv?${params.toString()}`, { credentials: "include" });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "transactions.csv";
-    a.click();
-  };
+  const exportCsv = () => downloadCsvFromUrl("/api/transactions/export/csv", "transactions.csv", {
+    type: type !== "all" ? type : undefined,
+    status: status !== "all" ? status : undefined,
+    search: search || undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+  });
 
   const stats = data?.stats;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-3xl font-bold tracking-tight">Transactions</h1><p className="text-muted-foreground mt-1">Complete transaction history</p></div>
-        <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
+          <p className="text-muted-foreground mt-1">Complete transaction history · refreshed {format(lastRefreshed, "HH:mm:ss")}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+          <ExportCsvButton onExport={exportCsv} />
+        </div>
       </div>
 
       {/* Stats Bar */}

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { UserRole } from "@workspace/api-client-react";
@@ -13,6 +14,7 @@ import AdminLogin from "@/pages/admin/login";
 import MerchantLogin from "@/pages/merchant/login";
 import MerchantRegister from "@/pages/merchant/register";
 import MerchantPending from "@/pages/merchant/pending";
+import MerchantSuspended from "@/pages/merchant/suspended";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -75,6 +77,10 @@ function AdminRoute({ component: Component }: { component: React.ComponentType }
 }
 
 function MerchantRoute({ component: Component }: { component: React.ComponentType }) {
+  const { user } = useAuth();
+  if (user?.merchantStatus === "suspended") {
+    return <MerchantSuspended />;
+  }
   return (
     <ProtectedRoute allowedRoles={[UserRole.merchant]}>
       <DashboardLayout>
@@ -100,6 +106,7 @@ function Router() {
       <Route path="/merchant/login" component={MerchantLogin} />
       <Route path="/merchant/register" component={MerchantRegister} />
       <Route path="/merchant/pending" component={MerchantPending} />
+      <Route path="/merchant/suspended" component={MerchantSuspended} />
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard"><AdminRoute component={AdminDashboard} /></Route>

@@ -8,7 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Search, XCircle, Trash2, X, Eye, Download, Calendar } from "lucide-react";
+import { ExportCsvButton } from "@/components/ui/export-csv-button";
+import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
+import { Search, XCircle, Trash2, X, Eye, Download, Calendar, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -35,7 +37,10 @@ export default function AdminVirtualAccounts() {
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [selectedVa, setSelectedVa] = useState<VaRow | null>(null);
-  const [exporting, setExporting] = useState(false);
+
+  const { lastRefreshed, isRefreshing, handleRefresh } = useMonitoringRefresh(
+    () => qc.invalidateQueries({ queryKey: ["/api/virtual-accounts"] })
+  );
 
   const { data, isLoading } = useListVirtualAccounts({
     status: status as "active" | "closed" | "all",
@@ -77,27 +82,14 @@ export default function AdminVirtualAccounts() {
   const hasFilters = search || merchantName || status !== "all" || dateFrom || dateTo;
 
   const exportCsv = async () => {
-    setExporting(true);
-    try {
-      const params = new URLSearchParams();
-      if (status && status !== "all") params.set("status", status);
-      if (search) params.set("search", search);
-      if (merchantName) params.set("merchantName", merchantName);
-      if (dateFrom) params.set("dateFrom", dateFrom);
-      if (dateTo) params.set("dateTo", dateTo);
-
-      const res = await fetch(`/api/virtual-accounts/export/csv?${params.toString()}`, { credentials: "include" });
-      if (!res.ok) { toast.error("Export failed"); return; }
-      const blob = await res.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `virtual-accounts-${format(new Date(), "yyyy-MM-dd")}.csv`;
-      a.click();
-    } catch {
-      toast.error("Export failed");
-    } finally {
-      setExporting(false);
-    }
+    const { downloadCsvFromUrl } = await import("@/components/ui/export-csv-button");
+    await downloadCsvFromUrl("/api/virtual-accounts/export/csv", `virtual-accounts-${format(new Date(), "yyyy-MM-dd")}.csv`, {
+      status: status !== "all" ? status : undefined,
+      search: search || undefined,
+      merchantName: merchantName || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    });
   };
 
   const txList = historyData?.data ?? [];
@@ -108,11 +100,14 @@ export default function AdminVirtualAccounts() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Virtual Accounts</h1>
-          <p className="text-muted-foreground mt-1">Monitor all merchant virtual accounts</p>
+          <p className="text-muted-foreground mt-1">Monitor all merchant virtual accounts · refreshed {format(lastRefreshed, "HH:mm:ss")}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={exportCsv} disabled={exporting}>
-          <Download className="w-4 h-4 mr-1.5" />{exporting ? "Exporting…" : "Export CSV"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+          <ExportCsvButton onExport={exportCsv} />
+        </div>
       </div>
 
       <Card>

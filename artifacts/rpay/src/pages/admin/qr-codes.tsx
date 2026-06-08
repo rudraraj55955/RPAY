@@ -7,7 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Trash2, Download, QrCode, X } from "lucide-react";
+import { ExportCsvButton } from "@/components/ui/export-csv-button";
+import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
+import { Search, Trash2, Download, QrCode, X, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -26,6 +28,10 @@ export default function AdminQrCodes() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
+
+  const { lastRefreshed, isRefreshing, handleRefresh } = useMonitoringRefresh(
+    () => qc.invalidateQueries({ queryKey: ["/api/qr-codes"] })
+  );
 
   const { data, isLoading } = useListQrCodes({
     type: "dynamic" as any,
@@ -76,11 +82,14 @@ export default function AdminQrCodes() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">QR Management</h1>
-          <p className="text-muted-foreground mt-1">Monitor all dynamic QR codes across merchants</p>
+          <p className="text-muted-foreground mt-1">Monitor all dynamic QR codes across merchants · refreshed {format(lastRefreshed, "HH:mm:ss")}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={exportCsv} disabled={!data?.data?.length}>
-          <Download className="w-4 h-4 mr-1.5" />Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+          <ExportCsvButton onExport={exportCsv} disabled={!data?.data?.length} />
+        </div>
       </div>
 
       <Card>

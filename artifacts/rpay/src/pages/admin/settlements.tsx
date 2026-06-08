@@ -22,7 +22,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ChevronDown, ChevronRight, Search, X, MoreHorizontal, TrendingUp, Clock, CheckCircle2, DollarSign } from "lucide-react";
+import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
+import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
+import { ChevronDown, ChevronRight, Search, X, MoreHorizontal, TrendingUp, Clock, CheckCircle2, DollarSign, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 
 type ActionType = "process" | "approve" | "reject" | "hold" | "mark-paid";
@@ -34,7 +36,9 @@ interface ActionModal {
   amount: number;
 }
 
+
 export default function AdminSettlements() {
+  const qc = useQueryClient();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [search, setSearch] = useState("");
@@ -46,7 +50,10 @@ export default function AdminSettlements() {
   const [refNumber, setRefNumber] = useState("");
   const [actionError, setActionError] = useState("");
 
-  const qc = useQueryClient();
+  const { lastRefreshed, isRefreshing, handleRefresh } = useMonitoringRefresh(() => {
+    qc.invalidateQueries({ queryKey: getListSettlementsQueryKey() });
+    qc.invalidateQueries({ queryKey: getGetSettlementStatsQueryKey() });
+  });
 
   const { data, isLoading } = useListSettlements({
     status: status !== "all" ? (status as any) : undefined,
@@ -106,20 +113,12 @@ export default function AdminSettlements() {
     setActionModal({ id, type, merchantName, amount: amount ?? 0 });
   };
 
-  const exportCsv = async () => {
-    const params = new URLSearchParams();
-    if (dateFrom) params.set("dateFrom", dateFrom);
-    if (dateTo) params.set("dateTo", dateTo);
-    if (search) params.set("search", search);
-    if (status && status !== "all") params.set("status", status);
-    const res = await fetch(`/api/settlements/export/csv?${params.toString()}`, { credentials: "include" });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "settlements.csv";
-    a.click();
-  };
+  const exportCsv = () => downloadCsvFromUrl("/api/settlements/export/csv", "settlements.csv", {
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    search: search || undefined,
+    status: status !== "all" ? status : undefined,
+  });
 
   const filtered = data?.data?.filter(s =>
     !search || (s.merchantName?.toLowerCase().includes(search.toLowerCase()))
@@ -146,9 +145,14 @@ export default function AdminSettlements() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Settlements</h1>
-          <p className="text-muted-foreground mt-1">Review and process merchant settlement requests</p>
+          <p className="text-muted-foreground mt-1">Review and process merchant settlement requests · refreshed {format(lastRefreshed, "HH:mm:ss")}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+          <ExportCsvButton onExport={exportCsv} />
+        </div>
       </div>
 
       {/* Stats bar */}

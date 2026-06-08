@@ -296,6 +296,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/Merchant"
 
+  /merchants/{id}/suspend:
+    post:
+      operationId: suspendMerchant
+      tags: [merchants]
+      summary: Suspend merchant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Merchant suspended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Merchant"
+
+  /merchants/{id}/unsuspend:
+    post:
+      operationId: unsuspendMerchant
+      tags: [merchants]
+      summary: Unsuspend merchant (restore to approved)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Merchant unsuspended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Merchant"
+
   /merchants/{id}/plan/history:
     get:
       operationId: getMerchantPlanHistory
@@ -2213,6 +2251,8 @@ components:
           type: boolean
         merchantId:
           type: ["integer", "null"]
+        merchantStatus:
+          type: ["string", "null"]
         createdAt:
           type: string
 
@@ -2234,7 +2274,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [pending, approved, rejected]
+          enum: [pending, approved, rejected, suspended]
         rejectionReason:
           type: ["string", "null"]
         totalDeposits:

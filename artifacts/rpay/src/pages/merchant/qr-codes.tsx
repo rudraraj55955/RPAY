@@ -4,6 +4,7 @@ import {
   useCreateQrCode,
   useUpdateQrCode,
   useDeleteQrCode,
+  useListMerchantConnections,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Download, QrCode, Eye } from "lucide-react";
+import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
@@ -31,9 +32,34 @@ type QrRow = {
   createdAt: string;
 };
 
-function QrPreviewModal({ qr, onClose }: { qr: QrRow; onClose: () => void }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+const PROVIDER_LABELS: Record<string, string> = {
+  phonepe: "PhonePe Business",
+  paytm: "Paytm Business",
+  bharatpe: "BharatPe",
+  yono_sbi: "YONO SBI",
+  hdfc_smarthub: "HDFC SmartHub",
+  upi_id: "UPI ID",
+};
 
+const PROVIDER_VPA_SUFFIX: Record<string, string> = {
+  phonepe: "ybl",
+  paytm: "paytm",
+  bharatpe: "bharatpe",
+  yono_sbi: "sbi",
+  hdfc_smarthub: "hdfcbank",
+};
+
+function deriveVpaFromConn(provider: string, credentials: string | null): string | null {
+  let creds: Record<string, string> = {};
+  try { if (credentials) creds = JSON.parse(credentials); } catch {}
+  if (provider === "upi_id") return creds["UPI ID"] ?? null;
+  const suffix = PROVIDER_VPA_SUFFIX[provider];
+  const mid = creds["Merchant ID"] ?? creds["MID"] ?? null;
+  if (mid && suffix) return `${mid}@${suffix}`;
+  return null;
+}
+
+function QrPreviewModal({ qr, onClose }: { qr: QrRow; onClose: () => void }) {
   const handleDownload = useCallback(() => {
     const canvas = document.querySelector("#qr-download-canvas canvas") as HTMLCanvasElement | null;
     if (!canvas) return;
@@ -55,16 +81,8 @@ function QrPreviewModal({ qr, onClose }: { qr: QrRow; onClose: () => void }) {
           <p className="text-sm text-muted-foreground">{qr.label ?? qr.type}</p>
         </DialogHeader>
         <div className="flex flex-col items-center gap-4 py-2">
-          <div
-            id="qr-download-canvas"
-            className="bg-white p-4 rounded-xl"
-          >
-            <QRCodeCanvas
-              value={qr.payload}
-              size={200}
-              level="H"
-              includeMargin
-            />
+          <div id="qr-download-canvas" className="bg-white p-4 rounded-xl">
+            <QRCodeCanvas value={qr.payload} size={200} level="H" includeMargin />
           </div>
           <div className="w-full space-y-2 text-sm">
             {qr.amount && (
@@ -112,46 +130,66 @@ export default function MerchantQrCodes() {
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-
   const [showCreate, setShowCreate] = useState(false);
   const [previewQr, setPreviewQr] = useState<QrRow | null>(null);
 
   const [form, setForm] = useState({
     type: "dynamic" as "dynamic" | "static",
     label: "",
-    payload: "",
     amount: "",
     orderId: "",
     expiresAt: "",
   });
 
   const { data, isLoading } = useListQrCodes({ type: type as any, status: status as any, search, page, limit: 20 });
+  const { data: connections } = useListMerchantConnections();
   const createMutation = useCreateQrCode();
   const updateMutation = useUpdateQrCode();
   const deleteMutation = useDeleteQrCode();
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["list-qr-codes"] });
 
+  // Derive active provider + VPA from connections
+  const activeConnections = (connections ?? []).filter((c: any) => c.isActive);
+  const sortedConns = [...activeConnections].sort((a: any) => a.provider === "upi_id" ? -1 : 1);
+  let activeVpa: string | null = null;
+  let activeProvider: string | null = null;
+  for (const conn of sortedConns as any[]) {
+    const vpa = deriveVpaFromConn(conn.provider, conn.credentials ?? null);
+    if (vpa) { activeVpa = vpa; activeProvider = conn.provider; break; }
+  }
+  const hasProvider = !!activeVpa;
+
   const handleCreate = () => {
-    if (!form.payload) { toast.error("Payload / UPI ID is required"); return; }
+    if (!hasProvider) {
+      toast.error("Please connect a payment provider first");
+      return;
+    }
+    if (form.type === "static" && !form.amount) {
+      toast.error("Fixed amount is required for static QR");
+      return;
+    }
     createMutation.mutate(
       {
         data: {
           type: form.type,
           label: form.label || null,
-          payload: form.payload,
           amount: form.type === "static" && form.amount ? form.amount : null,
           orderId: form.orderId || null,
           expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
-        },
+        } as any,
       },
       {
         onSuccess: () => {
-          toast.success("QR code created"); setShowCreate(false);
-          setForm({ type: "dynamic", label: "", payload: "", amount: "", orderId: "", expiresAt: "" });
+          toast.success("QR code created");
+          setShowCreate(false);
+          setForm({ type: "dynamic", label: "", amount: "", orderId: "", expiresAt: "" });
           invalidate();
         },
-        onError: () => toast.error("Failed to create QR code"),
+        onError: (err: any) => {
+          const msg = err?.response?.data?.error ?? "Failed to create QR code";
+          toast.error(msg);
+        },
       }
     );
   };
@@ -206,6 +244,30 @@ export default function MerchantQrCodes() {
           </Button>
         </div>
       </div>
+
+      {/* Provider banner */}
+      {hasProvider ? (
+        <div className="flex items-center gap-3 rounded-lg border border-emerald-500/25 bg-emerald-500/8 px-4 py-3">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div className="text-sm">
+            <span className="text-muted-foreground">QR codes will use </span>
+            <span className="font-semibold text-foreground">{PROVIDER_LABELS[activeProvider!] ?? activeProvider}</span>
+            <span className="text-muted-foreground"> · VPA: </span>
+            <span className="font-mono text-emerald-400">{activeVpa}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/25 bg-amber-500/8 px-4 py-3">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+          <div className="text-sm text-amber-300 flex-1">
+            No active payment provider connected.{" "}
+            <a href="/merchant/connect" className="underline underline-offset-2 font-medium hover:text-amber-200">
+              Connect a provider
+            </a>{" "}
+            to generate QR codes.
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -359,53 +421,70 @@ export default function MerchantQrCodes() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create QR Code</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              UPI payload is auto-generated from your connected provider.
+            </p>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* Provider info */}
+            {hasProvider ? (
+              <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/25 bg-emerald-500/8 px-3 py-2.5">
+                <Link2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Provider: </span>
+                  <span className="font-semibold text-foreground">{PROVIDER_LABELS[activeProvider!] ?? activeProvider}</span>
+                  <span className="mx-1 text-muted-foreground">·</span>
+                  <span className="font-mono text-emerald-400">{activeVpa}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2.5 rounded-lg border border-rose-500/25 bg-rose-500/8 px-3 py-2.5">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <p className="text-xs text-rose-300">
+                  No provider connected. <a href="/merchant/connect" className="underline">Connect one</a> to create QR codes.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
                 <Label>QR Type</Label>
                 <Select value={form.type} onValueChange={(v: any) => setForm(f => ({ ...f, type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="dynamic">Dynamic (variable amount)</SelectItem>
+                    <SelectItem value="dynamic">Dynamic (customer enters amount)</SelectItem>
                     <SelectItem value="static">Static (fixed amount)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label>UPI / Payload <span className="text-rose-400">*</span></Label>
-                <Input placeholder="e.g. upi://pay?pa=merchant@upi&pn=Name" value={form.payload}
-                  onChange={e => setForm(f => ({ ...f, payload: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label>Label</Label>
+                <Label>Label <span className="text-muted-foreground text-xs">(used as note in UPI)</span></Label>
                 <Input placeholder="e.g. Checkout QR, Order #123" value={form.label}
                   onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
               </div>
               {form.type === "static" && (
-                <div className="space-y-1.5">
-                  <Label>Fixed Amount (₹)</Label>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Fixed Amount (₹) <span className="text-rose-400">*</span></Label>
                   <Input type="number" step="0.01" placeholder="e.g. 999.00" value={form.amount}
                     onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
                 </div>
               )}
-              <div className="space-y-1.5">
-                <Label>Order ID</Label>
-                <Input placeholder="Optional order ref" value={form.orderId}
+              <div className="space-y-1.5 col-span-2">
+                <Label>Order ID <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <Input placeholder="Optional order reference" value={form.orderId}
                   onChange={e => setForm(f => ({ ...f, orderId: e.target.value }))} />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label>Expiry Date & Time</Label>
+                <Label>Expiry Date & Time <span className="text-muted-foreground text-xs">(optional)</span></Label>
                 <Input type="datetime-local" value={form.expiresAt}
                   onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value }))} />
-                <p className="text-xs text-muted-foreground">Leave blank for no expiry</p>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Creating..." : "Create QR"}
+            <Button onClick={handleCreate} disabled={createMutation.isPending || !hasProvider}>
+              {createMutation.isPending ? "Creating..." : "Generate QR"}
             </Button>
           </DialogFooter>
         </DialogContent>

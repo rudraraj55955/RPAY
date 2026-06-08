@@ -219,15 +219,29 @@ export async function seed() {
 
   const settCount = await db.select({ c: count() }).from(settlementsTable);
   if (settCount[0].c === 0) {
-    for (let i = 0; i < 15; i++) {
-      const merchantId = i % 2 === 0 ? m1.id : m2.id;
-      const amount = (Math.random() * 8000 + 1000).toFixed(2);
+    const settlementSamples = [
+      { merchantId: m1.id, status: "paid", amount: "12500.00", requestedAmount: "12500.00", adminRemark: "Approved and transferred", referenceNumber: "REF20240601001", paidAt: new Date(Date.now() - 20 * 86400000), processedBy: admin.id },
+      { merchantId: m2.id, status: "paid", amount: "8200.00", requestedAmount: "8200.00", adminRemark: "Bank transfer completed", referenceNumber: "REF20240602001", paidAt: new Date(Date.now() - 15 * 86400000), processedBy: admin.id },
+      { merchantId: m1.id, status: "paid", amount: "5000.00", requestedAmount: "5000.00", adminRemark: "Processed successfully", referenceNumber: "REF20240605001", paidAt: new Date(Date.now() - 5 * 86400000), processedBy: admin.id },
+      { merchantId: m2.id, status: "paid", amount: "9750.00", requestedAmount: "9750.00", adminRemark: "NEFT transfer done", referenceNumber: "REF20240607001", paidAt: new Date(Date.now() - 1 * 86400000), processedBy: admin.id },
+      { merchantId: m1.id, status: "approved", amount: "7300.00", requestedAmount: "7300.00", adminRemark: "Approved — awaiting disbursement", processedBy: admin.id },
+      { merchantId: m2.id, status: "approved", amount: "3800.00", requestedAmount: "3800.00", adminRemark: "Verified and approved", processedBy: admin.id },
+      { merchantId: m1.id, status: "processing", amount: "6100.00", requestedAmount: "6100.00", adminRemark: "Under review", processedBy: admin.id, processedAt: new Date(Date.now() - 2 * 3600000) },
+      { merchantId: m2.id, status: "processing", amount: "4500.00", requestedAmount: "4500.00", adminRemark: "Verifying bank details", processedBy: admin.id, processedAt: new Date(Date.now() - 1 * 3600000) },
+      { merchantId: m1.id, status: "rejected", amount: "2000.00", requestedAmount: "2000.00", adminRemark: "Insufficient supporting documents", processedBy: admin.id, processedAt: new Date(Date.now() - 10 * 86400000) },
+      { merchantId: m2.id, status: "rejected", amount: "1500.00", requestedAmount: "1500.00", adminRemark: "Invalid bank account details", processedBy: admin.id, processedAt: new Date(Date.now() - 8 * 86400000) },
+      { merchantId: m1.id, status: "pending", amount: "4200.00", requestedAmount: "4200.00", requestedNote: "Monthly settlement request" },
+      { merchantId: m2.id, status: "pending", amount: "3100.00", requestedAmount: "3100.00", requestedNote: "Urgent — need funds for operations" },
+    ] as const;
+
+    for (const s of settlementSamples) {
       await db.insert(settlementsTable).values({
-        merchantId, amount,
-        status: i < 12 ? "processed" : "pending",
-        periodFrom: new Date(Date.now() - (i + 1) * 86400000).toISOString().split("T")[0],
-        periodTo: new Date(Date.now() - i * 86400000).toISOString().split("T")[0],
-        transactionCount: Math.floor(Math.random() * 50 + 5),
+        ...s,
+        currency: "INR",
+        transactionCount: Math.floor(Math.random() * 30 + 5),
+        processedAt: "processedAt" in s ? (s as any).processedAt : undefined,
+        paidAt: "paidAt" in s ? (s as any).paidAt : undefined,
+        referenceNumber: "referenceNumber" in s ? (s as any).referenceNumber : undefined,
       });
     }
   }

@@ -870,6 +870,7 @@ export const ListCallbackLogsResponse = zod.object({
  */
 export const ListSettlementsQueryParams = zod.object({
   "merchantId": zod.coerce.number().optional(),
+  "status": zod.enum(['pending', 'processing', 'approved', 'rejected', 'paid', 'all']).optional(),
   "dateFrom": zod.coerce.string().optional(),
   "dateTo": zod.coerce.string().optional(),
   "page": zod.coerce.number().optional(),
@@ -882,16 +883,209 @@ export const ListSettlementsResponse = zod.object({
   "merchantId": zod.number(),
   "merchantName": zod.string().nullish(),
   "amount": zod.number(),
+  "requestedAmount": zod.number().nullish(),
+  "requestedNote": zod.string().nullish(),
   "currency": zod.string(),
-  "status": zod.enum(['pending', 'processed', 'failed']),
-  "periodFrom": zod.string(),
-  "periodTo": zod.string(),
+  "status": zod.enum(['pending', 'processing', 'approved', 'rejected', 'paid']),
+  "periodFrom": zod.string().nullish(),
+  "periodTo": zod.string().nullish(),
   "transactionCount": zod.number(),
-  "createdAt": zod.string()
+  "adminRemark": zod.string().nullish(),
+  "processedBy": zod.number().nullish(),
+  "processedAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "referenceNumber": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
 })),
   "total": zod.number(),
   "page": zod.number(),
   "limit": zod.number()
+})
+
+
+/**
+ * @summary Create settlement request (merchant)
+ */
+export const CreateSettlementBody = zod.object({
+  "requestedAmount": zod.number(),
+  "requestedNote": zod.string().optional()
+})
+
+
+/**
+ * @summary Get settlement stats (admin only)
+ */
+export const GetSettlementStatsResponse = zod.object({
+  "pendingTotal": zod.number(),
+  "paidMTD": zod.number(),
+  "counts": zod.record(zod.string(), zod.number())
+})
+
+
+/**
+ * @summary Mark settlement as processing (admin)
+ */
+export const ProcessSettlementParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ProcessSettlementBody = zod.object({
+  "remark": zod.string()
+})
+
+export const ProcessSettlementResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "amount": zod.number(),
+  "requestedAmount": zod.number().nullish(),
+  "requestedNote": zod.string().nullish(),
+  "currency": zod.string(),
+  "status": zod.enum(['pending', 'processing', 'approved', 'rejected', 'paid']),
+  "periodFrom": zod.string().nullish(),
+  "periodTo": zod.string().nullish(),
+  "transactionCount": zod.number(),
+  "adminRemark": zod.string().nullish(),
+  "processedBy": zod.number().nullish(),
+  "processedAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "referenceNumber": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Approve settlement and deduct balance (admin)
+ */
+export const ApproveSettlementParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ApproveSettlementBody = zod.object({
+  "remark": zod.string()
+})
+
+export const ApproveSettlementResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "amount": zod.number(),
+  "requestedAmount": zod.number().nullish(),
+  "requestedNote": zod.string().nullish(),
+  "currency": zod.string(),
+  "status": zod.enum(['pending', 'processing', 'approved', 'rejected', 'paid']),
+  "periodFrom": zod.string().nullish(),
+  "periodTo": zod.string().nullish(),
+  "transactionCount": zod.number(),
+  "adminRemark": zod.string().nullish(),
+  "processedBy": zod.number().nullish(),
+  "processedAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "referenceNumber": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Reject settlement (admin)
+ */
+export const RejectSettlementParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RejectSettlementBody = zod.object({
+  "remark": zod.string()
+})
+
+export const RejectSettlementResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "amount": zod.number(),
+  "requestedAmount": zod.number().nullish(),
+  "requestedNote": zod.string().nullish(),
+  "currency": zod.string(),
+  "status": zod.enum(['pending', 'processing', 'approved', 'rejected', 'paid']),
+  "periodFrom": zod.string().nullish(),
+  "periodTo": zod.string().nullish(),
+  "transactionCount": zod.number(),
+  "adminRemark": zod.string().nullish(),
+  "processedBy": zod.number().nullish(),
+  "processedAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "referenceNumber": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Put settlement on hold (admin)
+ */
+export const HoldSettlementParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const HoldSettlementBody = zod.object({
+  "remark": zod.string()
+})
+
+export const HoldSettlementResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "amount": zod.number(),
+  "requestedAmount": zod.number().nullish(),
+  "requestedNote": zod.string().nullish(),
+  "currency": zod.string(),
+  "status": zod.enum(['pending', 'processing', 'approved', 'rejected', 'paid']),
+  "periodFrom": zod.string().nullish(),
+  "periodTo": zod.string().nullish(),
+  "transactionCount": zod.number(),
+  "adminRemark": zod.string().nullish(),
+  "processedBy": zod.number().nullish(),
+  "processedAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "referenceNumber": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Mark settlement as paid (admin)
+ */
+export const MarkSettlementPaidParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkSettlementPaidBody = zod.object({
+  "remark": zod.string(),
+  "referenceNumber": zod.string()
+})
+
+export const MarkSettlementPaidResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "amount": zod.number(),
+  "requestedAmount": zod.number().nullish(),
+  "requestedNote": zod.string().nullish(),
+  "currency": zod.string(),
+  "status": zod.enum(['pending', 'processing', 'approved', 'rejected', 'paid']),
+  "periodFrom": zod.string().nullish(),
+  "periodTo": zod.string().nullish(),
+  "transactionCount": zod.number(),
+  "adminRemark": zod.string().nullish(),
+  "processedBy": zod.number().nullish(),
+  "processedAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "referenceNumber": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
 })
 
 

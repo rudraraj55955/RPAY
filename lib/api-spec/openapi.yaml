@@ -923,6 +923,11 @@ paths:
           in: query
           schema:
             type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, approved, rejected, paid, all]
         - name: dateFrom
           in: query
           schema:
@@ -946,6 +951,173 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SettlementListResponse"
+    post:
+      operationId: createSettlement
+      tags: [settlements]
+      summary: Create settlement request (merchant)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSettlementInput"
+      responses:
+        "201":
+          description: Settlement request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settlement"
+        "400":
+          description: Validation error or insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settlements/stats:
+    get:
+      operationId: getSettlementStats
+      tags: [settlements]
+      summary: Get settlement stats (admin only)
+      responses:
+        "200":
+          description: Settlement statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementStats"
+
+  /settlements/{id}/process:
+    post:
+      operationId: processSettlement
+      tags: [settlements]
+      summary: Mark settlement as processing (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettlementActionInput"
+      responses:
+        "200":
+          description: Settlement updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settlement"
+        "400":
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settlements/{id}/approve:
+    post:
+      operationId: approveSettlement
+      tags: [settlements]
+      summary: Approve settlement and deduct balance (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettlementActionInput"
+      responses:
+        "200":
+          description: Settlement approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settlement"
+
+  /settlements/{id}/reject:
+    post:
+      operationId: rejectSettlement
+      tags: [settlements]
+      summary: Reject settlement (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettlementActionInput"
+      responses:
+        "200":
+          description: Settlement rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settlement"
+
+  /settlements/{id}/hold:
+    post:
+      operationId: holdSettlement
+      tags: [settlements]
+      summary: Put settlement on hold (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettlementActionInput"
+      responses:
+        "200":
+          description: Settlement put on hold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settlement"
+
+  /settlements/{id}/mark-paid:
+    post:
+      operationId: markSettlementPaid
+      tags: [settlements]
+      summary: Mark settlement as paid (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettlementMarkPaidInput"
+      responses:
+        "200":
+          description: Settlement marked paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settlement"
 
   /users:
     get:
@@ -2296,7 +2468,7 @@ components:
 
     Settlement:
       type: object
-      required: [id, merchantId, amount, currency, status, periodFrom, periodTo, transactionCount, createdAt]
+      required: [id, merchantId, amount, currency, status, transactionCount, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -2306,18 +2478,34 @@ components:
           type: ["string", "null"]
         amount:
           type: number
+        requestedAmount:
+          type: ["number", "null"]
+        requestedNote:
+          type: ["string", "null"]
         currency:
           type: string
         status:
           type: string
-          enum: [pending, processed, failed]
+          enum: [pending, processing, approved, rejected, paid]
         periodFrom:
-          type: string
+          type: ["string", "null"]
         periodTo:
-          type: string
+          type: ["string", "null"]
         transactionCount:
           type: integer
+        adminRemark:
+          type: ["string", "null"]
+        processedBy:
+          type: ["integer", "null"]
+        processedAt:
+          type: ["string", "null"]
+        paidAt:
+          type: ["string", "null"]
+        referenceNumber:
+          type: ["string", "null"]
         createdAt:
+          type: string
+        updatedAt:
           type: string
 
     SettlementListResponse:
@@ -2334,6 +2522,44 @@ components:
           type: integer
         limit:
           type: integer
+
+    CreateSettlementInput:
+      type: object
+      required: [requestedAmount]
+      properties:
+        requestedAmount:
+          type: number
+        requestedNote:
+          type: string
+
+    SettlementActionInput:
+      type: object
+      required: [remark]
+      properties:
+        remark:
+          type: string
+
+    SettlementMarkPaidInput:
+      type: object
+      required: [remark, referenceNumber]
+      properties:
+        remark:
+          type: string
+        referenceNumber:
+          type: string
+
+    SettlementStats:
+      type: object
+      required: [pendingTotal, paidMTD, counts]
+      properties:
+        pendingTotal:
+          type: number
+        paidMTD:
+          type: number
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
 
     UserListResponse:
       type: object

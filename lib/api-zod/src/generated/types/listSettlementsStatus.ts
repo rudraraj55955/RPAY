@@ -6,13 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SettlementStatus = typeof SettlementStatus[keyof typeof SettlementStatus];
+export type ListSettlementsStatus = typeof ListSettlementsStatus[keyof typeof ListSettlementsStatus];
 
 
-export const SettlementStatus = {
+export const ListSettlementsStatus = {
   pending: 'pending',
   processing: 'processing',
   approved: 'approved',
   rejected: 'rejected',
   paid: 'paid',
+  all: 'all',
 } as const;

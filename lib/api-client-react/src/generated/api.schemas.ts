@@ -281,8 +281,10 @@ export type SettlementStatus = typeof SettlementStatus[keyof typeof SettlementSt
 
 export const SettlementStatus = {
   pending: 'pending',
-  processed: 'processed',
-  failed: 'failed',
+  processing: 'processing',
+  approved: 'approved',
+  rejected: 'rejected',
+  paid: 'paid',
 } as const;
 
 export interface Settlement {
@@ -291,12 +293,29 @@ export interface Settlement {
   /** @nullable */
   merchantName?: string | null;
   amount: number;
+  /** @nullable */
+  requestedAmount?: number | null;
+  /** @nullable */
+  requestedNote?: string | null;
   currency: string;
   status: SettlementStatus;
-  periodFrom: string;
-  periodTo: string;
+  /** @nullable */
+  periodFrom?: string | null;
+  /** @nullable */
+  periodTo?: string | null;
   transactionCount: number;
+  /** @nullable */
+  adminRemark?: string | null;
+  /** @nullable */
+  processedBy?: number | null;
+  /** @nullable */
+  processedAt?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  referenceNumber?: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface SettlementListResponse {
@@ -304,6 +323,28 @@ export interface SettlementListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface CreateSettlementInput {
+  requestedAmount: number;
+  requestedNote?: string;
+}
+
+export interface SettlementActionInput {
+  remark: string;
+}
+
+export interface SettlementMarkPaidInput {
+  remark: string;
+  referenceNumber: string;
+}
+
+export type SettlementStatsCounts = {[key: string]: number};
+
+export interface SettlementStats {
+  pendingTotal: number;
+  paidMTD: number;
+  counts: SettlementStatsCounts;
 }
 
 export interface UserListResponse {
@@ -1216,11 +1257,24 @@ export const ListCallbackLogsStatus = {
 
 export type ListSettlementsParams = {
 merchantId?: number;
+status?: ListSettlementsStatus;
 dateFrom?: string;
 dateTo?: string;
 page?: number;
 limit?: number;
 };
+
+export type ListSettlementsStatus = typeof ListSettlementsStatus[keyof typeof ListSettlementsStatus];
+
+
+export const ListSettlementsStatus = {
+  pending: 'pending',
+  processing: 'processing',
+  approved: 'approved',
+  rejected: 'rejected',
+  paid: 'paid',
+  all: 'all',
+} as const;
 
 export type ListUsersParams = {
 role?: ListUsersRole;

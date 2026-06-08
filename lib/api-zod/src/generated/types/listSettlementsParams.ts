@@ -5,9 +5,11 @@
  * RPay Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListSettlementsStatus } from './listSettlementsStatus';
 
 export type ListSettlementsParams = {
 merchantId?: number;
+status?: ListSettlementsStatus;
 dateFrom?: string;
 dateTo?: string;
 page?: number;

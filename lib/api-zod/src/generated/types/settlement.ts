@@ -13,10 +13,27 @@ export interface Settlement {
   /** @nullable */
   merchantName?: string | null;
   amount: number;
+  /** @nullable */
+  requestedAmount?: number | null;
+  /** @nullable */
+  requestedNote?: string | null;
   currency: string;
   status: SettlementStatus;
-  periodFrom: string;
-  periodTo: string;
+  /** @nullable */
+  periodFrom?: string | null;
+  /** @nullable */
+  periodTo?: string | null;
   transactionCount: number;
+  /** @nullable */
+  adminRemark?: string | null;
+  /** @nullable */
+  processedBy?: number | null;
+  /** @nullable */
+  processedAt?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  referenceNumber?: string | null;
   createdAt: string;
+  updatedAt: string;
 }

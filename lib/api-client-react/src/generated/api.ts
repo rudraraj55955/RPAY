@@ -39,6 +39,7 @@ import type {
   BulkUpdateMerchantFeatures200,
   CallbackLogListResponse,
   ChartDataPoint,
+  CreateSettlementInput,
   DashboardStats,
   DeleteAccountDetail200,
   ErrorResponse,
@@ -88,7 +89,11 @@ import type {
   RejectInput,
   RenewPlanInput,
   SearchByUtrParams,
+  Settlement,
+  SettlementActionInput,
   SettlementListResponse,
+  SettlementMarkPaidInput,
+  SettlementStats,
   SimulatePaymentInput,
   ToggleProductInput,
   Transaction,
@@ -3126,6 +3131,514 @@ export function useListSettlements<TData = Awaited<ReturnType<typeof listSettlem
 
 
 
+
+export const getCreateSettlementUrl = () => {
+
+
+
+
+  return `/api/settlements`
+}
+
+/**
+ * @summary Create settlement request (merchant)
+ */
+export const createSettlement = async (createSettlementInput: CreateSettlementInput, options?: RequestInit): Promise<Settlement> => {
+
+  return customFetch<Settlement>(getCreateSettlementUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createSettlementInput,)
+  }
+);}
+
+
+
+
+export const getCreateSettlementMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSettlement>>, TError,{data: BodyType<CreateSettlementInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSettlement>>, TError,{data: BodyType<CreateSettlementInput>}, TContext> => {
+
+const mutationKey = ['createSettlement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSettlement>>, {data: BodyType<CreateSettlementInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSettlement(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSettlementMutationResult = NonNullable<Awaited<ReturnType<typeof createSettlement>>>
+    export type CreateSettlementMutationBody = BodyType<CreateSettlementInput>
+    export type CreateSettlementMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Create settlement request (merchant)
+ */
+export const useCreateSettlement = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSettlement>>, TError,{data: BodyType<CreateSettlementInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSettlement>>,
+        TError,
+        {data: BodyType<CreateSettlementInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSettlementMutationOptions(options));
+    }
+
+export const getGetSettlementStatsUrl = () => {
+
+
+
+
+  return `/api/settlements/stats`
+}
+
+/**
+ * @summary Get settlement stats (admin only)
+ */
+export const getSettlementStats = async ( options?: RequestInit): Promise<SettlementStats> => {
+
+  return customFetch<SettlementStats>(getGetSettlementStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSettlementStatsQueryKey = () => {
+    return [
+    `/api/settlements/stats`
+    ] as const;
+    }
+
+
+export const getGetSettlementStatsQueryOptions = <TData = Awaited<ReturnType<typeof getSettlementStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettlementStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSettlementStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSettlementStats>>> = ({ signal }) => getSettlementStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSettlementStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSettlementStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getSettlementStats>>>
+export type GetSettlementStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get settlement stats (admin only)
+ */
+
+export function useGetSettlementStats<TData = Awaited<ReturnType<typeof getSettlementStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettlementStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSettlementStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getProcessSettlementUrl = (id: number,) => {
+
+
+
+
+  return `/api/settlements/${id}/process`
+}
+
+/**
+ * @summary Mark settlement as processing (admin)
+ */
+export const processSettlement = async (id: number,
+    settlementActionInput: SettlementActionInput, options?: RequestInit): Promise<Settlement> => {
+
+  return customFetch<Settlement>(getProcessSettlementUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      settlementActionInput,)
+  }
+);}
+
+
+
+
+export const getProcessSettlementMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof processSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof processSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext> => {
+
+const mutationKey = ['processSettlement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof processSettlement>>, {id: number;data: BodyType<SettlementActionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  processSettlement(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProcessSettlementMutationResult = NonNullable<Awaited<ReturnType<typeof processSettlement>>>
+    export type ProcessSettlementMutationBody = BodyType<SettlementActionInput>
+    export type ProcessSettlementMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Mark settlement as processing (admin)
+ */
+export const useProcessSettlement = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof processSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof processSettlement>>,
+        TError,
+        {id: number;data: BodyType<SettlementActionInput>},
+        TContext
+      > => {
+      return useMutation(getProcessSettlementMutationOptions(options));
+    }
+
+export const getApproveSettlementUrl = (id: number,) => {
+
+
+
+
+  return `/api/settlements/${id}/approve`
+}
+
+/**
+ * @summary Approve settlement and deduct balance (admin)
+ */
+export const approveSettlement = async (id: number,
+    settlementActionInput: SettlementActionInput, options?: RequestInit): Promise<Settlement> => {
+
+  return customFetch<Settlement>(getApproveSettlementUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      settlementActionInput,)
+  }
+);}
+
+
+
+
+export const getApproveSettlementMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext> => {
+
+const mutationKey = ['approveSettlement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveSettlement>>, {id: number;data: BodyType<SettlementActionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  approveSettlement(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveSettlementMutationResult = NonNullable<Awaited<ReturnType<typeof approveSettlement>>>
+    export type ApproveSettlementMutationBody = BodyType<SettlementActionInput>
+    export type ApproveSettlementMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Approve settlement and deduct balance (admin)
+ */
+export const useApproveSettlement = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveSettlement>>,
+        TError,
+        {id: number;data: BodyType<SettlementActionInput>},
+        TContext
+      > => {
+      return useMutation(getApproveSettlementMutationOptions(options));
+    }
+
+export const getRejectSettlementUrl = (id: number,) => {
+
+
+
+
+  return `/api/settlements/${id}/reject`
+}
+
+/**
+ * @summary Reject settlement (admin)
+ */
+export const rejectSettlement = async (id: number,
+    settlementActionInput: SettlementActionInput, options?: RequestInit): Promise<Settlement> => {
+
+  return customFetch<Settlement>(getRejectSettlementUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      settlementActionInput,)
+  }
+);}
+
+
+
+
+export const getRejectSettlementMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext> => {
+
+const mutationKey = ['rejectSettlement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectSettlement>>, {id: number;data: BodyType<SettlementActionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  rejectSettlement(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RejectSettlementMutationResult = NonNullable<Awaited<ReturnType<typeof rejectSettlement>>>
+    export type RejectSettlementMutationBody = BodyType<SettlementActionInput>
+    export type RejectSettlementMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Reject settlement (admin)
+ */
+export const useRejectSettlement = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rejectSettlement>>,
+        TError,
+        {id: number;data: BodyType<SettlementActionInput>},
+        TContext
+      > => {
+      return useMutation(getRejectSettlementMutationOptions(options));
+    }
+
+export const getHoldSettlementUrl = (id: number,) => {
+
+
+
+
+  return `/api/settlements/${id}/hold`
+}
+
+/**
+ * @summary Put settlement on hold (admin)
+ */
+export const holdSettlement = async (id: number,
+    settlementActionInput: SettlementActionInput, options?: RequestInit): Promise<Settlement> => {
+
+  return customFetch<Settlement>(getHoldSettlementUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      settlementActionInput,)
+  }
+);}
+
+
+
+
+export const getHoldSettlementMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof holdSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof holdSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext> => {
+
+const mutationKey = ['holdSettlement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof holdSettlement>>, {id: number;data: BodyType<SettlementActionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  holdSettlement(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HoldSettlementMutationResult = NonNullable<Awaited<ReturnType<typeof holdSettlement>>>
+    export type HoldSettlementMutationBody = BodyType<SettlementActionInput>
+    export type HoldSettlementMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Put settlement on hold (admin)
+ */
+export const useHoldSettlement = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof holdSettlement>>, TError,{id: number;data: BodyType<SettlementActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof holdSettlement>>,
+        TError,
+        {id: number;data: BodyType<SettlementActionInput>},
+        TContext
+      > => {
+      return useMutation(getHoldSettlementMutationOptions(options));
+    }
+
+export const getMarkSettlementPaidUrl = (id: number,) => {
+
+
+
+
+  return `/api/settlements/${id}/mark-paid`
+}
+
+/**
+ * @summary Mark settlement as paid (admin)
+ */
+export const markSettlementPaid = async (id: number,
+    settlementMarkPaidInput: SettlementMarkPaidInput, options?: RequestInit): Promise<Settlement> => {
+
+  return customFetch<Settlement>(getMarkSettlementPaidUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      settlementMarkPaidInput,)
+  }
+);}
+
+
+
+
+export const getMarkSettlementPaidMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markSettlementPaid>>, TError,{id: number;data: BodyType<SettlementMarkPaidInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markSettlementPaid>>, TError,{id: number;data: BodyType<SettlementMarkPaidInput>}, TContext> => {
+
+const mutationKey = ['markSettlementPaid'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markSettlementPaid>>, {id: number;data: BodyType<SettlementMarkPaidInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  markSettlementPaid(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkSettlementPaidMutationResult = NonNullable<Awaited<ReturnType<typeof markSettlementPaid>>>
+    export type MarkSettlementPaidMutationBody = BodyType<SettlementMarkPaidInput>
+    export type MarkSettlementPaidMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark settlement as paid (admin)
+ */
+export const useMarkSettlementPaid = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markSettlementPaid>>, TError,{id: number;data: BodyType<SettlementMarkPaidInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markSettlementPaid>>,
+        TError,
+        {id: number;data: BodyType<SettlementMarkPaidInput>},
+        TContext
+      > => {
+      return useMutation(getMarkSettlementPaidMutationOptions(options));
+    }
 
 export const getListUsersUrl = (params?: ListUsersParams,) => {
   const normalizedParams = new URLSearchParams();

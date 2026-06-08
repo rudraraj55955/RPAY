@@ -15,7 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, XCircle, CheckCircle2, Trash2, Eye, Download, Building2, TrendingUp, ArrowUpDown } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Search, Plus, XCircle, CheckCircle2, Trash2, Eye, Download, Building2, TrendingUp, ArrowUpDown, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -27,6 +28,7 @@ type VaRow = {
   accountHolder: string;
   label?: string | null;
   balance: string;
+  totalCollection: string;
   status: string;
   createdAt: string;
   merchantName?: string | null;
@@ -39,11 +41,11 @@ export default function MerchantVirtualAccounts() {
   const [page, setPage] = useState(1);
 
   const [showCreate, setShowCreate] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [selectedVa, setSelectedVa] = useState<VaRow | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
 
   const [form, setForm] = useState({
-    accountNumber: "", ifsc: "", bankName: "", accountHolder: "", label: "", balance: "0.00",
+    accountNumber: "", ifsc: "", bankName: "", accountHolder: "",
   });
 
   const { data, isLoading } = useListVirtualAccounts({ status: status as any, search, page, limit: 20 });
@@ -53,24 +55,31 @@ export default function MerchantVirtualAccounts() {
 
   const { data: historyData, isLoading: historyLoading } = useGetVirtualAccountTransactions(
     selectedVa?.id ?? 0,
-    { query: { enabled: showHistory && !!selectedVa } as any }
+    { query: { enabled: !!selectedVa } as any }
   );
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["/api/virtual-accounts"] });
 
   const handleCreate = () => {
+    setCreateError(null);
     if (!form.accountNumber || !form.ifsc || !form.bankName || !form.accountHolder) {
-      toast.error("Fill in all required fields"); return;
+      setCreateError("Please fill in all required fields."); return;
     }
     createMutation.mutate(
-      { data: { accountNumber: form.accountNumber, ifsc: form.ifsc, bankName: form.bankName, accountHolder: form.accountHolder, label: form.label || null, balance: form.balance } },
+      { data: { accountNumber: form.accountNumber, ifsc: form.ifsc, bankName: form.bankName, accountHolder: form.accountHolder } },
       {
         onSuccess: () => {
-          toast.success("Virtual account created"); setShowCreate(false);
-          setForm({ accountNumber: "", ifsc: "", bankName: "", accountHolder: "", label: "", balance: "0.00" });
+          toast.success("Virtual account created");
+          setShowCreate(false);
+          setCreateError(null);
+          setForm({ accountNumber: "", ifsc: "", bankName: "", accountHolder: "" });
           invalidate();
         },
-        onError: () => toast.error("Failed to create virtual account"),
+        onError: (err: any) => {
+          const msg = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
+          if (msg) setCreateError(msg);
+          else setCreateError("Failed to create virtual account.");
+        },
       }
     );
   };
@@ -94,10 +103,10 @@ export default function MerchantVirtualAccounts() {
   const exportCsv = () => {
     const rows = data?.data;
     if (!rows?.length) return;
-    const headers = ["ID", "Account Number", "Bank", "IFSC", "Account Holder", "Label", "Balance", "Status", "Created"];
+    const headers = ["ID", "Account Number", "Bank", "IFSC", "Account Holder", "Balance", "Total Collection", "Status", "Created"];
     const lines = rows.map(va => [
       String(va.id), va.accountNumber, va.bankName, va.ifsc, va.accountHolder,
-      va.label ?? "", `₹${va.balance}`, va.status, va.createdAt,
+      `₹${va.balance}`, `₹${va.totalCollection}`, va.status, va.createdAt,
     ]);
     const csv = [headers, ...lines].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const a = document.createElement("a");
@@ -105,9 +114,14 @@ export default function MerchantVirtualAccounts() {
     a.download = "virtual-accounts.csv"; a.click();
   };
 
-  const total = data?.data?.length ?? 0;
-  const activeCount = data?.data?.filter(v => v.status === "active").length ?? 0;
   const totalBalance = data?.data?.reduce((s, v) => s + parseFloat(v.balance || "0"), 0) ?? 0;
+  const totalCollectionSum = data?.data?.reduce((s, v) => s + parseFloat((v as any).totalCollection || "0"), 0) ?? 0;
+  const activeCount = data?.data?.filter(v => v.status === "active").length ?? 0;
+
+  // Drawer transaction stats
+  const txList = historyData?.data ?? [];
+  const txTotalIn = txList.filter(t => t.status === "success").reduce((s, t) => s + parseFloat(t.amount), 0);
+  const txCount = txList.length;
 
   return (
     <div className="space-y-6">
@@ -120,7 +134,7 @@ export default function MerchantVirtualAccounts() {
           <Button variant="outline" size="sm" onClick={exportCsv}>
             <Download className="w-4 h-4 mr-1.5" />Export CSV
           </Button>
-          <Button size="sm" onClick={() => setShowCreate(true)}>
+          <Button size="sm" onClick={() => { setCreateError(null); setShowCreate(true); }}>
             <Plus className="w-4 h-4 mr-1.5" />Create Account
           </Button>
         </div>
@@ -192,13 +206,13 @@ export default function MerchantVirtualAccounts() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Account Number</TableHead>
-                <TableHead>Bank</TableHead>
-                <TableHead>IFSC</TableHead>
                 <TableHead>Account Holder</TableHead>
-                <TableHead>Balance</TableHead>
+                <TableHead>Bank Name</TableHead>
+                <TableHead>Account Number</TableHead>
+                <TableHead>IFSC</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>Current Balance</TableHead>
+                <TableHead>Total Collection</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -220,26 +234,26 @@ export default function MerchantVirtualAccounts() {
                   </TableCell>
                 </TableRow>
               ) : data.data.map(va => (
-                <TableRow key={va.id}>
+                <TableRow key={va.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setSelectedVa(va as any)}>
+                  <TableCell className="text-sm font-medium">{va.accountHolder}</TableCell>
+                  <TableCell className="text-sm">{va.bankName}</TableCell>
                   <TableCell className="font-mono text-xs">{va.accountNumber}</TableCell>
-                  <TableCell className="text-sm font-medium">{va.bankName}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{va.ifsc}</TableCell>
-                  <TableCell className="text-sm">{va.accountHolder}</TableCell>
-                  <TableCell className="font-mono text-sm font-semibold text-emerald-400">
-                    ₹{parseFloat(va.balance || "0").toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell>
+                  <TableCell onClick={e => e.stopPropagation()}>
                     <Badge variant={va.status === "active" ? "default" : "secondary"} className="text-xs">
                       {va.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {format(new Date(va.createdAt), "MMM d, yyyy")}
+                  <TableCell className="font-mono text-sm font-semibold text-emerald-400">
+                    ₹{parseFloat(va.balance || "0").toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="font-mono text-sm text-blue-400">
+                    ₹{parseFloat((va as any).totalCollection || "0").toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
-                      <Button size="icon" variant="ghost" className="h-8 w-8" title="Transaction History"
-                        onClick={() => { setSelectedVa(va as any); setShowHistory(true); }}>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" title="View Transactions"
+                        onClick={() => setSelectedVa(va as any)}>
                         <Eye className="w-4 h-4" />
                       </Button>
                       <Button size="sm" variant="ghost"
@@ -276,17 +290,23 @@ export default function MerchantVirtualAccounts() {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={v => { setShowCreate(v); if (!v) setCreateError(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create Virtual Account</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {createError && (
+              <div className="flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-400">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{createError}</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
-                <Label>Account Number <span className="text-rose-400">*</span></Label>
-                <Input placeholder="e.g. 9876543210001234" value={form.accountNumber}
-                  onChange={e => setForm(f => ({ ...f, accountNumber: e.target.value }))} />
+                <Label>Account Holder Name <span className="text-rose-400">*</span></Label>
+                <Input placeholder="e.g. TechMart Pvt Ltd" value={form.accountHolder}
+                  onChange={e => setForm(f => ({ ...f, accountHolder: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Bank Name <span className="text-rose-400">*</span></Label>
@@ -299,19 +319,9 @@ export default function MerchantVirtualAccounts() {
                   onChange={e => setForm(f => ({ ...f, ifsc: e.target.value.toUpperCase() }))} />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label>Account Holder <span className="text-rose-400">*</span></Label>
-                <Input placeholder="e.g. TechMart Pvt Ltd" value={form.accountHolder}
-                  onChange={e => setForm(f => ({ ...f, accountHolder: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Label</Label>
-                <Input placeholder="Optional label" value={form.label}
-                  onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Initial Balance (₹)</Label>
-                <Input type="number" step="0.01" placeholder="0.00" value={form.balance}
-                  onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} />
+                <Label>Account Number <span className="text-rose-400">*</span></Label>
+                <Input placeholder="e.g. 9876543210001234" value={form.accountNumber}
+                  onChange={e => setForm(f => ({ ...f, accountNumber: e.target.value }))} />
               </div>
             </div>
           </div>
@@ -324,70 +334,98 @@ export default function MerchantVirtualAccounts() {
         </DialogContent>
       </Dialog>
 
-      {/* Transaction History Dialog */}
-      <Dialog open={showHistory} onOpenChange={v => { setShowHistory(v); if (!v) setSelectedVa(null); }}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Transaction History</DialogTitle>
+      {/* Transaction Drawer */}
+      <Sheet open={!!selectedVa} onOpenChange={v => { if (!v) setSelectedVa(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Transaction History</SheetTitle>
             {selectedVa && (
-              <p className="text-sm text-muted-foreground mt-1">
-                {selectedVa.accountNumber} · {selectedVa.bankName}
-              </p>
+              <div className="text-sm text-muted-foreground space-y-0.5">
+                <p className="font-medium text-foreground">{selectedVa.accountHolder}</p>
+                <p>{selectedVa.accountNumber} · {selectedVa.bankName} · {selectedVa.ifsc}</p>
+              </div>
             )}
-          </DialogHeader>
-          <div className="max-h-[400px] overflow-y-auto">
-            {historyLoading ? (
-              <div className="space-y-2 py-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-12 bg-muted/50 rounded animate-pulse" />
-                ))}
-              </div>
-            ) : !historyData?.data?.length ? (
-              <div className="text-center text-muted-foreground py-10">
-                <p className="text-sm">No transactions found</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>UTR</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
+          </SheetHeader>
+
+          {/* Mini stats */}
+          {selectedVa && (
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Current Balance</p>
+                  <p className="text-lg font-bold text-emerald-400 mt-1">
+                    ₹{parseFloat(selectedVa.balance || "0").toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Collected</p>
+                  <p className="text-lg font-bold text-blue-400 mt-1">
+                    ₹{parseFloat(selectedVa.totalCollection || "0").toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Transactions</p>
+                  <p className="text-lg font-bold mt-1">{historyLoading ? "—" : txCount}</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {historyLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-12 bg-muted/50 rounded animate-pulse" />
+              ))}
+            </div>
+          ) : !txList.length ? (
+            <div className="text-center text-muted-foreground py-12">
+              <p className="text-sm">No transactions found for this account</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>UTR</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {txList.map(tx => (
+                  <TableRow key={tx.id}>
+                    <TableCell className="font-mono text-xs">#{tx.id}</TableCell>
+                    <TableCell className="font-mono text-sm font-semibold">
+                      ₹{parseFloat(tx.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs capitalize">{tx.type}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{tx.utr ?? "—"}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={tx.status === "success" ? "default" : tx.status === "failed" ? "destructive" : "secondary"}
+                        className="text-xs"
+                      >
+                        {tx.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {format(new Date(tx.createdAt), "MMM d, yyyy HH:mm")}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {historyData.data.map(tx => (
-                    <TableRow key={tx.id}>
-                      <TableCell className="font-mono text-xs">#{tx.id}</TableCell>
-                      <TableCell className="font-mono text-sm font-semibold">
-                        ₹{parseFloat(tx.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs capitalize">{tx.type}</Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{tx.utr ?? "—"}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={tx.status === "success" ? "default" : tx.status === "failed" ? "destructive" : "secondary"}
-                          className="text-xs"
-                        >
-                          {tx.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {format(new Date(tx.createdAt), "MMM d, yyyy HH:mm")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

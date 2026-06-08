@@ -11,6 +11,9 @@ export type ListVirtualAccountsParams = {
 status?: ListVirtualAccountsStatus;
 search?: string;
 merchantId?: number;
+merchantName?: string;
+dateFrom?: string;
+dateTo?: string;
 page?: number;
 limit?: number;
 };

@@ -976,6 +976,9 @@ export const ListVirtualAccountsQueryParams = zod.object({
   "status": zod.enum(['active', 'closed', 'all']).optional(),
   "search": zod.coerce.string().optional(),
   "merchantId": zod.coerce.number().optional(),
+  "merchantName": zod.coerce.string().optional(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional(),
   "page": zod.coerce.number().optional(),
   "limit": zod.coerce.number().optional()
 })
@@ -991,6 +994,7 @@ export const ListVirtualAccountsResponse = zod.object({
   "accountHolder": zod.string(),
   "label": zod.string().nullish(),
   "balance": zod.string(),
+  "totalCollection": zod.string(),
   "status": zod.enum(['active', 'closed']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
@@ -1060,6 +1064,7 @@ export const UpdateVirtualAccountResponse = zod.object({
   "accountHolder": zod.string(),
   "label": zod.string().nullish(),
   "balance": zod.string(),
+  "totalCollection": zod.string(),
   "status": zod.enum(['active', 'closed']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()

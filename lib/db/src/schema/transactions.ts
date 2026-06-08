@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const transactionsTable = pgTable("transactions", {
   id: serial("id").primaryKey(),
   merchantId: integer("merchant_id").notNull(),
+  virtualAccountId: integer("virtual_account_id"),
   type: text("type").notNull(), // deposit | withdrawal
   status: text("status").notNull().default("pending"), // pending | success | failed
   amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),

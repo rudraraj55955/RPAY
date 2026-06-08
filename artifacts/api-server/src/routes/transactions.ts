@@ -132,9 +132,12 @@ router.post("/simulate", async (req, res, next) => {
     const finalUtr = utr || generateUtr();
     const finalStatus = ["success", "failed", "pending"].includes(expectedStatus) ? expectedStatus : "success";
 
+    const vaId = sourceType === "va" ? parseInt(sourceId) : null;
+
     // Insert pending first
     const [pending] = await db.insert(transactionsTable).values({
       merchantId: user.merchantId,
+      virtualAccountId: vaId,
       type: "deposit",
       status: "pending",
       amount: Number(amount).toFixed(2),
@@ -165,6 +168,18 @@ router.post("/simulate", async (req, res, next) => {
             updatedAt: new Date(),
           })
           .where(eq(merchantsTable.id, user.merchantId));
+
+        // Update VA balance and totalCollection when transaction is linked to a VA
+        if (vaId !== null) {
+          await db
+            .update(virtualAccountsTable)
+            .set({
+              balance: sql`CAST(COALESCE(${virtualAccountsTable.balance}, '0') AS DECIMAL) + ${Number(amount).toFixed(2)}`,
+              totalCollection: sql`CAST(COALESCE(${virtualAccountsTable.totalCollection}, '0') AS DECIMAL) + ${Number(amount).toFixed(2)}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(virtualAccountsTable.id, vaId));
+        }
       }
     }
 

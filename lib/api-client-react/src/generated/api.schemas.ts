@@ -600,6 +600,7 @@ export interface VirtualAccount {
   /** @nullable */
   label?: string | null;
   balance: string;
+  totalCollection: string;
   status: VirtualAccountStatus;
   createdAt: string;
   updatedAt?: string;
@@ -1050,6 +1051,9 @@ export type ListVirtualAccountsParams = {
 status?: ListVirtualAccountsStatus;
 search?: string;
 merchantId?: number;
+merchantName?: string;
+dateFrom?: string;
+dateTo?: string;
 page?: number;
 limit?: number;
 };

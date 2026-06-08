@@ -1104,6 +1104,18 @@ paths:
           in: query
           schema:
             type: integer
+        - name: merchantName
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+        - name: dateTo
+          in: query
+          schema:
+            type: string
         - name: page
           in: query
           schema:
@@ -2321,7 +2333,7 @@ components:
 
     VirtualAccount:
       type: object
-      required: [id, merchantId, accountNumber, ifsc, bankName, accountHolder, status, balance, createdAt]
+      required: [id, merchantId, accountNumber, ifsc, bankName, accountHolder, status, balance, totalCollection, createdAt]
       properties:
         id:
           type: integer
@@ -2340,6 +2352,8 @@ components:
         label:
           type: ["string", "null"]
         balance:
+          type: string
+        totalCollection:
           type: string
         status:
           type: string

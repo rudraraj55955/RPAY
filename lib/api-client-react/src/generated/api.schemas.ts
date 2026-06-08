@@ -1165,6 +1165,39 @@ export interface VisibilityRuleUpdateInput {
   resetToDefault?: boolean;
 }
 
+export interface LedgerEntry {
+  id: number;
+  merchantId: number;
+  type: string;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  /** @nullable */
+  referenceType?: string | null;
+  /** @nullable */
+  referenceId?: number | null;
+  description: string;
+  /** @nullable */
+  createdBy?: number | null;
+  createdAt: string;
+  /** @nullable */
+  merchantName?: string | null;
+}
+
+export interface LedgerListResponse {
+  data: LedgerEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  currentBalance: number;
+}
+
+export interface LedgerAdjustmentInput {
+  merchantId: number;
+  amount: number;
+  description: string;
+}
+
 export type ListMerchantsParams = {
 status?: ListMerchantsStatus;
 search?: string;
@@ -1383,5 +1416,14 @@ export type DeleteAccountDetail200 = {
 
 export type UpdateAccountDetailVisibility200 = {
   success?: boolean;
+};
+
+export type ListLedgerEntriesParams = {
+merchantId?: number;
+type?: string;
+dateFrom?: string;
+dateTo?: string;
+page?: number;
+limit?: number;
 };
 

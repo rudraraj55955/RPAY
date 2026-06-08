@@ -15,6 +15,7 @@ import {
   accountDetailsTable,
   plansTable,
   merchantPlansTable,
+  ledgerEntriesTable,
 } from "@workspace/db";
 
 const PLAN_TIERS = [
@@ -306,6 +307,75 @@ export async function seed() {
       isActive: true,
     });
     console.log("Account details seeded");
+  }
+
+  // ── Ledger Entries ────────────────────────────────────────────────────────
+  const ledgerCount = await db.select({ c: count() }).from(ledgerEntriesTable);
+  if (ledgerCount[0].c === 0) {
+    // Reconstruct a plausible running balance for m1 (starting at 0, ending near 15000)
+    const m1Entries = [
+      { type: "deposit", amount: 25000, desc: "Deposit via QR Code: QR-1" },
+      { type: "deposit", amount: 18000, desc: "Deposit via Virtual Account: VA-1" },
+      { type: "settlement", amount: -12500, desc: "Settlement approved — Approved and transferred" },
+      { type: "deposit", amount: 15000, desc: "Deposit via QR Code: QR-3" },
+      { type: "settlement", amount: -5000, desc: "Settlement approved — Processed successfully" },
+      { type: "deposit", amount: 9500, desc: "Deposit via Virtual Account: VA-1" },
+      { type: "adjustment", amount: 2000, desc: "Credit adjustment — Reversal of duplicate charge", createdBy: admin.id },
+      { type: "settlement", amount: -7000, desc: "Settlement approved — Approved — awaiting disbursement" },
+      { type: "deposit", amount: 12000, desc: "Deposit via QR Code: QR-5" },
+      { type: "settlement", amount: -7300, desc: "Settlement approved — Verified and approved" },
+      { type: "deposit", amount: 6000, desc: "Deposit via Virtual Account: VA-3" },
+      { type: "deposit", amount: 4300, desc: "Deposit via QR Code: QR-7" },
+    ];
+
+    let bal = 0;
+    for (let i = 0; i < m1Entries.length; i++) {
+      const e = m1Entries[i];
+      const before = bal;
+      bal = Math.max(0, bal + e.amount);
+      const daysAgo = m1Entries.length - i + 2;
+      await db.insert(ledgerEntriesTable).values({
+        merchantId: m1.id,
+        type: e.type,
+        amount: e.amount.toFixed(2),
+        balanceBefore: before.toFixed(2),
+        balanceAfter: bal.toFixed(2),
+        referenceType: e.type === "adjustment" ? "manual" : (e.type === "deposit" ? "transaction" : "settlement"),
+        description: e.desc,
+        createdBy: "createdBy" in e ? (e as any).createdBy : null,
+        createdAt: new Date(Date.now() - daysAgo * 86400000),
+      });
+    }
+
+    // m2 entries
+    const m2Entries = [
+      { type: "deposit", amount: 20000, desc: "Deposit via QR Code: QR-2" },
+      { type: "settlement", amount: -8200, desc: "Settlement approved — Bank transfer completed" },
+      { type: "deposit", amount: 12000, desc: "Deposit via Virtual Account: VA-2" },
+      { type: "settlement", amount: -9750, desc: "Settlement approved — NEFT transfer done" },
+      { type: "deposit", amount: 8000, desc: "Deposit via QR Code: QR-4" },
+      { type: "deposit", amount: 6450, desc: "Deposit via Virtual Account: VA-4" },
+    ];
+
+    let bal2 = 0;
+    for (let i = 0; i < m2Entries.length; i++) {
+      const e = m2Entries[i];
+      const before = bal2;
+      bal2 = Math.max(0, bal2 + e.amount);
+      const daysAgo = m2Entries.length - i + 2;
+      await db.insert(ledgerEntriesTable).values({
+        merchantId: m2.id,
+        type: e.type,
+        amount: e.amount.toFixed(2),
+        balanceBefore: before.toFixed(2),
+        balanceAfter: bal2.toFixed(2),
+        referenceType: e.type === "deposit" ? "transaction" : "settlement",
+        description: e.desc,
+        createdBy: null,
+        createdAt: new Date(Date.now() - daysAgo * 86400000),
+      });
+    }
+    console.log("Ledger entries seeded");
   }
 
   console.log("Seed complete.");

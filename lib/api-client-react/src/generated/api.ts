@@ -47,10 +47,14 @@ import type {
   Invoice,
   InvoiceInput,
   InvoiceListResponse,
+  LedgerAdjustmentInput,
+  LedgerEntry,
+  LedgerListResponse,
   ListAccountDetailsParams,
   ListAdminAuditLogsParams,
   ListCallbackLogsParams,
   ListInvoicesParams,
+  ListLedgerEntriesParams,
   ListMerchantFeaturesParams,
   ListMerchantsParams,
   ListPlanHistoryParams,
@@ -7017,5 +7021,160 @@ export const useUpdateAccountDetailVisibility = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateAccountDetailVisibilityMutationOptions(options));
+    }
+
+export const getListLedgerEntriesUrl = (params?: ListLedgerEntriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/ledger?${stringifiedParams}` : `/api/ledger`
+}
+
+/**
+ * @summary List ledger entries (merchant sees own, admin sees all with optional merchantId filter)
+ */
+export const listLedgerEntries = async (params?: ListLedgerEntriesParams, options?: RequestInit): Promise<LedgerListResponse> => {
+
+  return customFetch<LedgerListResponse>(getListLedgerEntriesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLedgerEntriesQueryKey = (params?: ListLedgerEntriesParams,) => {
+    return [
+    `/api/ledger`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListLedgerEntriesQueryOptions = <TData = Awaited<ReturnType<typeof listLedgerEntries>>, TError = ErrorType<unknown>>(params?: ListLedgerEntriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLedgerEntries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLedgerEntriesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLedgerEntries>>> = ({ signal }) => listLedgerEntries(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLedgerEntries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLedgerEntriesQueryResult = NonNullable<Awaited<ReturnType<typeof listLedgerEntries>>>
+export type ListLedgerEntriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List ledger entries (merchant sees own, admin sees all with optional merchantId filter)
+ */
+
+export function useListLedgerEntries<TData = Awaited<ReturnType<typeof listLedgerEntries>>, TError = ErrorType<unknown>>(
+ params?: ListLedgerEntriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLedgerEntries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLedgerEntriesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateLedgerAdjustmentUrl = () => {
+
+
+
+
+  return `/api/ledger/adjustment`
+}
+
+/**
+ * @summary Create a manual balance adjustment (admin only)
+ */
+export const createLedgerAdjustment = async (ledgerAdjustmentInput: LedgerAdjustmentInput, options?: RequestInit): Promise<LedgerEntry> => {
+
+  return customFetch<LedgerEntry>(getCreateLedgerAdjustmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      ledgerAdjustmentInput,)
+  }
+);}
+
+
+
+
+export const getCreateLedgerAdjustmentMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLedgerAdjustment>>, TError,{data: BodyType<LedgerAdjustmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLedgerAdjustment>>, TError,{data: BodyType<LedgerAdjustmentInput>}, TContext> => {
+
+const mutationKey = ['createLedgerAdjustment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLedgerAdjustment>>, {data: BodyType<LedgerAdjustmentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLedgerAdjustment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLedgerAdjustmentMutationResult = NonNullable<Awaited<ReturnType<typeof createLedgerAdjustment>>>
+    export type CreateLedgerAdjustmentMutationBody = BodyType<LedgerAdjustmentInput>
+    export type CreateLedgerAdjustmentMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Create a manual balance adjustment (admin only)
+ */
+export const useCreateLedgerAdjustment = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLedgerAdjustment>>, TError,{data: BodyType<LedgerAdjustmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createLedgerAdjustment>>,
+        TError,
+        {data: BodyType<LedgerAdjustmentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateLedgerAdjustmentMutationOptions(options));
     }
 

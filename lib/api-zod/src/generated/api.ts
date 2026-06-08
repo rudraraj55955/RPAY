@@ -2181,3 +2181,47 @@ export const UpdateAccountDetailVisibilityResponse = zod.object({
 })
 
 
+/**
+ * @summary List ledger entries (merchant sees own, admin sees all with optional merchantId filter)
+ */
+export const ListLedgerEntriesQueryParams = zod.object({
+  "merchantId": zod.coerce.number().optional(),
+  "type": zod.coerce.string().optional(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional(),
+  "page": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListLedgerEntriesResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "type": zod.string(),
+  "amount": zod.number(),
+  "balanceBefore": zod.number(),
+  "balanceAfter": zod.number(),
+  "referenceType": zod.string().nullish(),
+  "referenceId": zod.number().nullish(),
+  "description": zod.string(),
+  "createdBy": zod.number().nullish(),
+  "createdAt": zod.string(),
+  "merchantName": zod.string().nullish()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number(),
+  "currentBalance": zod.number()
+})
+
+
+/**
+ * @summary Create a manual balance adjustment (admin only)
+ */
+export const CreateLedgerAdjustmentBody = zod.object({
+  "merchantId": zod.number(),
+  "amount": zod.number(),
+  "description": zod.string()
+})
+
+

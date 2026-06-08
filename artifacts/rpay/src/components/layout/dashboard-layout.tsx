@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import { UserRole, useGetMyPlanUsage } from "@workspace/api-client-react";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
-import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, ShieldCheck, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt } from "lucide-react";
+import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, ShieldCheck, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -31,6 +31,7 @@ function MerchantSidebar() {
         { title: "Transactions", icon: ArrowRightLeft, href: "/merchant/transactions", locked: false, lockReason: null },
         { title: "Withdrawals", icon: Landmark, href: "/merchant/withdrawals", locked: false, lockReason: null },
         { title: "Settlements", icon: FileText, href: "/merchant/settlements", locked: false, lockReason: null },
+        { title: "Balance Ledger", icon: BookMarked, href: "/merchant/ledger", locked: false, lockReason: null },
       ],
     },
     {
@@ -131,6 +132,7 @@ export function DashboardLayout({ children, publicMode = false }: DashboardLayou
         { title: "Withdrawals", icon: Landmark, href: "/admin/withdrawals" },
         { title: "Settlements", icon: FileText, href: "/admin/settlements" },
         { title: "Transactions", icon: ArrowRightLeft, href: "/admin/transactions" },
+        { title: "Balance Ledger", icon: BookMarked, href: "/admin/ledger" },
       ],
     },
     {

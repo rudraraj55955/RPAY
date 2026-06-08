@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, settlementsTable, merchantsTable } from "@workspace/db";
+import { db, settlementsTable, merchantsTable, ledgerEntriesTable } from "@workspace/db";
 import { eq, and, count, sql, gte, lte, sum } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 
@@ -252,6 +252,9 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
       }
 
       // Atomically deduct balance and update settlement status
+      const balanceBefore = Number(merchant.balance);
+      const balanceAfter = balanceBefore - requestedAmt;
+
       await tx.update(merchantsTable)
         .set({ balance: sql`${merchantsTable.balance} - ${requestedAmt}::numeric` })
         .where(eq(merchantsTable.id, s.merchantId));
@@ -267,6 +270,18 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
           { statusCode: 409 }
         );
       }
+
+      await tx.insert(ledgerEntriesTable).values({
+        merchantId: s.merchantId,
+        type: "settlement",
+        amount: (-requestedAmt).toFixed(2),
+        balanceBefore: balanceBefore.toFixed(2),
+        balanceAfter: balanceAfter.toFixed(2),
+        referenceType: "settlement",
+        referenceId: result.id,
+        description: `Settlement approved — ${remark}`,
+        createdBy: user.id,
+      });
 
       return result;
     });

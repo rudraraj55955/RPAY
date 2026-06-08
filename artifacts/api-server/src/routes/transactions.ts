@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, transactionsTable, merchantsTable, qrCodesTable, virtualAccountsTable } from "@workspace/db";
+import { db, transactionsTable, merchantsTable, qrCodesTable, virtualAccountsTable, ledgerEntriesTable } from "@workspace/db";
 import { eq, ilike, and, count, sum, sql, gte, lte, or } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
@@ -160,6 +160,15 @@ router.post("/simulate", async (req, res, next) => {
 
       // Update merchant balance on success
       if (finalStatus === "success") {
+        const [merchantRow] = await db
+          .select({ balance: merchantsTable.balance })
+          .from(merchantsTable)
+          .where(eq(merchantsTable.id, user.merchantId))
+          .limit(1);
+        const balanceBefore = Number(merchantRow?.balance ?? 0);
+        const depositAmt = Number(amount);
+        const balanceAfter = balanceBefore + depositAmt;
+
         await db
           .update(merchantsTable)
           .set({
@@ -168,6 +177,18 @@ router.post("/simulate", async (req, res, next) => {
             updatedAt: new Date(),
           })
           .where(eq(merchantsTable.id, user.merchantId));
+
+        await db.insert(ledgerEntriesTable).values({
+          merchantId: user.merchantId,
+          type: "deposit",
+          amount: depositAmt.toFixed(2),
+          balanceBefore: balanceBefore.toFixed(2),
+          balanceAfter: balanceAfter.toFixed(2),
+          referenceType: "transaction",
+          referenceId: finalTx.id,
+          description: `Deposit via ${sourceType === "qr" ? "QR Code" : "Virtual Account"}: ${sourceLabel}`,
+          createdBy: null,
+        });
 
         // Update VA balance and totalCollection when transaction is linked to a VA
         if (vaId !== null) {

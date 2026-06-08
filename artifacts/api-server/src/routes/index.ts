@@ -20,6 +20,7 @@ import auditLogsRouter from "./auditLogs";
 import featureControlRouter from "./featureControl";
 import accountDetailsRouter from "./accountDetails";
 import invoicesRouter from "./invoices";
+import ledgerRouter from "./ledger";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use("/audit-logs", auditLogsRouter);
 router.use("/feature-control", featureControlRouter);
 router.use("/account-details", accountDetailsRouter);
 router.use("/invoices", invoicesRouter);
+router.use("/ledger", ledgerRouter);
 
 export default router;

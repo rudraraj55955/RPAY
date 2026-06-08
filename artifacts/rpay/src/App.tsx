@@ -36,6 +36,7 @@ import AdminAccountDetails from "@/pages/admin/account-details";
 import AdminQrProviders from "@/pages/admin/qr-providers";
 import AdminVisibilityRules from "@/pages/admin/visibility-rules";
 import AdminMerchantAccess from "@/pages/admin/merchant-access";
+import AdminLedger from "@/pages/admin/ledger";
 
 // Merchant Pages
 import MerchantDashboard from "@/pages/merchant/dashboard";
@@ -52,6 +53,7 @@ import MerchantVirtualAccounts from "@/pages/merchant/virtual-accounts";
 import MerchantPlanPage from "@/pages/merchant/plan";
 import MerchantQrCodes from "@/pages/merchant/qr-codes";
 import MerchantDeposits from "@/pages/merchant/deposits";
+import MerchantLedger from "@/pages/merchant/ledger";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -121,6 +123,7 @@ function Router() {
       <Route path="/admin/qr-providers"><AdminRoute component={AdminQrProviders} /></Route>
       <Route path="/admin/visibility-rules"><AdminRoute component={AdminVisibilityRules} /></Route>
       <Route path="/admin/merchant-access"><AdminRoute component={AdminMerchantAccess} /></Route>
+      <Route path="/admin/ledger"><AdminRoute component={AdminLedger} /></Route>
 
       {/* Merchant Routes */}
       <Route path="/merchant/dashboard"><MerchantRoute component={MerchantDashboard} /></Route>
@@ -136,6 +139,7 @@ function Router() {
       <Route path="/merchant/qr-codes"><MerchantRoute component={MerchantQrCodes} /></Route>
       <Route path="/merchant/deposits"><MerchantRoute component={MerchantDeposits} /></Route>
       <Route path="/merchant/plan"><MerchantRoute component={MerchantPlanPage} /></Route>
+      <Route path="/merchant/ledger"><MerchantRoute component={MerchantLedger} /></Route>
       <Route path="/merchant/api-docs"><PublicPage component={MerchantApiDocs} /></Route>
 
       <Route component={NotFound} />

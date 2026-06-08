@@ -45,6 +45,8 @@ tags:
     description: Admin-managed payment collection accounts
   - name: invoices
     description: Merchant subscription invoices
+  - name: ledger
+    description: Merchant balance ledger entries
 paths:
   /healthz:
     get:
@@ -2070,6 +2072,69 @@ paths:
                   success:
                     type: boolean
 
+  /ledger:
+    get:
+      operationId: listLedgerEntries
+      tags: [ledger]
+      summary: List ledger entries (merchant sees own, admin sees all with optional merchantId filter)
+      parameters:
+        - name: merchantId
+          in: query
+          schema:
+            type: integer
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ledger entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerListResponse"
+
+  /ledger/adjustment:
+    post:
+      operationId: createLedgerAdjustment
+      tags: [ledger]
+      summary: Create a manual balance adjustment (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LedgerAdjustmentInput"
+      responses:
+        "201":
+          description: Adjustment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerEntry"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -3620,3 +3685,41 @@ components:
         visible: { type: boolean }
         allMerchants: { type: boolean }
         resetToDefault: { type: boolean }
+
+    LedgerEntry:
+      type: object
+      required: [id, merchantId, type, amount, balanceBefore, balanceAfter, description, createdAt]
+      properties:
+        id: { type: integer }
+        merchantId: { type: integer }
+        type: { type: string }
+        amount: { type: number }
+        balanceBefore: { type: number }
+        balanceAfter: { type: number }
+        referenceType: { type: ["string", "null"] }
+        referenceId: { type: ["integer", "null"] }
+        description: { type: string }
+        createdBy: { type: ["integer", "null"] }
+        createdAt: { type: string }
+        merchantName: { type: ["string", "null"] }
+
+    LedgerListResponse:
+      type: object
+      required: [data, total, page, limit, currentBalance]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LedgerEntry"
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        currentBalance: { type: number }
+
+    LedgerAdjustmentInput:
+      type: object
+      required: [merchantId, amount, description]
+      properties:
+        merchantId: { type: integer }
+        amount: { type: number }
+        description: { type: string }

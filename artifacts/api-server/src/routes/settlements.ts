@@ -306,7 +306,7 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
       title: "Settlement Approved",
       body: `Your settlement of ₹${requestedAmt.toLocaleString("en-IN")} has been approved. Disbursement will be initiated shortly.`,
       metadata: { settlementId: updated.id, amount: requestedAmt },
-    }).catch(() => {});
+    }).catch(err => req.log.warn({ err }, "settlement_approved notification failed"));
   });
 
   res.json(mapSettlement(updated));
@@ -345,7 +345,7 @@ router.post("/:id/reject", requireAdmin, async (req, res) => {
       title: "Settlement Rejected",
       body: `Your settlement of ₹${Number(s.requestedAmount ?? s.amount).toLocaleString("en-IN")} was rejected. Reason: ${remark}`,
       metadata: { settlementId: id, remark },
-    }).catch(() => {});
+    }).catch(err => req.log.warn({ err }, "settlement_rejected notification failed"));
   });
 
   res.json(mapSettlement(updated));
@@ -424,7 +424,7 @@ router.post("/:id/mark-paid", requireAdmin, async (req, res) => {
       title: "Settlement Paid",
       body: `Your settlement of ₹${Number(s.requestedAmount ?? s.amount).toLocaleString("en-IN")} has been paid. Reference: ${referenceNumber.trim()}`,
       metadata: { settlementId: id, referenceNumber: referenceNumber.trim() },
-    }).catch(() => {});
+    }).catch(err => req.log.warn({ err }, "settlement_paid notification failed"));
   });
 
   res.json(mapSettlement(updated));

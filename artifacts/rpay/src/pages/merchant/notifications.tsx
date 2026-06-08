@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useListNotifications, useMarkAllNotificationsRead, useMarkNotificationRead } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Check, CheckCheck, Info, AlertCircle, CreditCard, Zap, Megaphone } from "lucide-react";
+import { Bell, Check, CheckCheck, AlertCircle, CreditCard, Zap, Megaphone } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -29,24 +29,57 @@ const TYPE_LABELS: Record<string, string> = {
   settlement_rejected: "Rejected",
   settlement_paid: "Paid",
   plan_expiring: "Plan Expiring",
-  plan_expired: "Expired",
+  plan_expired: "Plan Expired",
   limit_exceeded: "Limit",
   system_notice: "Notice",
 };
 
+type TypeFilter =
+  | "all"
+  | "settlement_approved"
+  | "settlement_rejected"
+  | "settlement_paid"
+  | "plan_expiring"
+  | "plan_expired"
+  | "limit_exceeded"
+  | "system_notice";
+
+const TYPE_CHIPS: { value: TypeFilter; label: string; icon: React.ReactNode }[] = [
+  { value: "all", label: "All Types", icon: <Bell className="w-3 h-3" /> },
+  { value: "settlement_approved", label: "Approved", icon: <CreditCard className="w-3 h-3" /> },
+  { value: "settlement_rejected", label: "Rejected", icon: <CreditCard className="w-3 h-3" /> },
+  { value: "settlement_paid", label: "Paid", icon: <CreditCard className="w-3 h-3" /> },
+  { value: "plan_expiring", label: "Expiring", icon: <Zap className="w-3 h-3" /> },
+  { value: "plan_expired", label: "Expired", icon: <Zap className="w-3 h-3" /> },
+  { value: "limit_exceeded", label: "Limit Alert", icon: <AlertCircle className="w-3 h-3" /> },
+  { value: "system_notice", label: "Notice", icon: <Megaphone className="w-3 h-3" /> },
+];
+
 export default function NotificationsPage() {
   const [tab, setTab] = useState<"all" | "unread">("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [page, setPage] = useState(1);
   const qc = useQueryClient();
 
   const { data, isLoading, refetch } = useListNotifications({
     isRead: tab === "unread" ? "false" : undefined,
+    type: typeFilter !== "all" ? typeFilter : undefined,
     page,
     limit: 20,
   });
 
   const markAll = useMarkAllNotificationsRead();
   const markOne = useMarkNotificationRead();
+
+  function handleTabChange(v: string) {
+    setTab(v as "all" | "unread");
+    setPage(1);
+  }
+
+  function handleTypeFilter(v: TypeFilter) {
+    setTypeFilter(v);
+    setPage(1);
+  }
 
   function handleMarkAll() {
     markAll.mutate(undefined, {
@@ -92,7 +125,7 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => { setTab(v as "all" | "unread"); setPage(1); }}>
+      <Tabs value={tab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="unread">
@@ -104,6 +137,23 @@ export default function NotificationsPage() {
         </TabsList>
       </Tabs>
 
+      <div className="flex flex-wrap gap-2">
+        {TYPE_CHIPS.map(chip => (
+          <button
+            key={chip.value}
+            onClick={() => handleTypeFilter(chip.value)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              typeFilter === chip.value
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border/60 text-muted-foreground hover:text-foreground hover:border-border bg-transparent"
+            }`}
+          >
+            {chip.icon}
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
@@ -111,7 +161,9 @@ export default function NotificationsPage() {
           ) : notifications.length === 0 ? (
             <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
               <Bell className="w-10 h-10 opacity-20" />
-              <p className="text-sm">{tab === "unread" ? "No unread notifications" : "No notifications yet"}</p>
+              <p className="text-sm">
+                {tab === "unread" ? "No unread notifications" : typeFilter !== "all" ? "No notifications for this filter" : "No notifications yet"}
+              </p>
             </div>
           ) : (
             <ul className="divide-y divide-border/50">

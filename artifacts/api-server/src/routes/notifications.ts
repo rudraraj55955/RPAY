@@ -116,15 +116,22 @@ router.post("/broadcast", requireAdmin, async (req, res, next) => {
 });
 
 // GET /api/notifications/check-expiry (admin triggered — creates plan_expiring / plan_expired notifications)
+// Emits plan_expiring ONLY at exactly 7 days and 1 day before expiry.
+// Idempotency key: one notification per (userId, type, targetDayKey) so running multiple times in a day is safe.
 router.get("/check-expiry", requireAdmin, async (req, res, next) => {
   try {
     const now = new Date();
-    const in7d = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const in1d = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
 
-    // Find plans expiring within 7 days (not yet expired)
-    const expiring = await db
+    // Helper: does a row expire within [windowStart, windowEnd)?
+    function inWindow(expiresAt: Date, daysFromNow: number): boolean {
+      const windowStart = new Date(now.getTime() + (daysFromNow - 0.5) * 24 * 60 * 60 * 1000);
+      const windowEnd   = new Date(now.getTime() + (daysFromNow + 0.5) * 24 * 60 * 60 * 1000);
+      return expiresAt >= windowStart && expiresAt < windowEnd;
+    }
+
+    // Fetch all active plans that haven't yet expired
+    const activePlans = await db
       .select({
         userId: usersTable.id,
         merchantId: merchantsTable.id,
@@ -138,10 +145,9 @@ router.get("/check-expiry", requireAdmin, async (req, res, next) => {
       .where(and(
         eq(merchantPlansTable.status, "active"),
         gte(merchantPlansTable.expiresAt, now),
-        lt(merchantPlansTable.expiresAt, in7d),
       ));
 
-    // Find expired plans (expired within last 24h to avoid re-notifying)
+    // Fetch plans that just expired (within last 24h)
     const justExpired = await db
       .select({
         userId: usersTable.id,
@@ -161,36 +167,44 @@ router.get("/check-expiry", requireAdmin, async (req, res, next) => {
 
     const notifications: { userId: number; type: any; title: string; body: string; metadata?: any }[] = [];
 
-    for (const row of expiring) {
+    for (const row of activePlans) {
       if (!row.expiresAt || !row.userId) continue;
-      const daysLeft = Math.ceil((row.expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      // Check if we already sent this today
+      // Only fire at exactly 7 days or 1 day (±12h window)
+      const is7Day = inWindow(row.expiresAt, 7);
+      const is1Day = inWindow(row.expiresAt, 1);
+      if (!is7Day && !is1Day) continue;
+
+      const daysLeft = is1Day ? 1 : 7;
+      // Idempotency key: type + targetDay — prevent duplicate on same calendar day
+      const dedupeKey = `plan_expiring_${daysLeft}d_${todayStr}`;
       const [existing] = await db.select({ id: notificationsTable.id })
         .from(notificationsTable)
         .where(and(
           eq(notificationsTable.userId, row.userId),
           eq(notificationsTable.type, "plan_expiring"),
-          gte(notificationsTable.createdAt, today),
+          sql`${notificationsTable.metadata}->>'dedupeKey' = ${dedupeKey}`,
         ))
         .limit(1);
       if (existing) continue;
+
       notifications.push({
         userId: row.userId,
         type: "plan_expiring",
-        title: daysLeft <= 1 ? "Plan Expiring Tomorrow" : `Plan Expiring in ${daysLeft} Days`,
-        body: `Your ${row.planName} plan expires on ${row.expiresAt.toLocaleDateString("en-IN")}. Contact support to renew.`,
-        metadata: { planName: row.planName, expiresAt: row.expiresAt.toISOString(), daysLeft },
+        title: daysLeft === 1 ? "Plan Expiring Tomorrow" : "Plan Expiring in 7 Days",
+        body: `Your ${row.planName} plan expires on ${row.expiresAt.toLocaleDateString("en-IN")}. Contact support to renew before your access is interrupted.`,
+        metadata: { planName: row.planName, expiresAt: row.expiresAt.toISOString(), daysLeft, dedupeKey },
       });
     }
 
     for (const row of justExpired) {
       if (!row.userId) continue;
+      const dedupeKey = `plan_expired_${todayStr}`;
       const [existing] = await db.select({ id: notificationsTable.id })
         .from(notificationsTable)
         .where(and(
           eq(notificationsTable.userId, row.userId),
           eq(notificationsTable.type, "plan_expired"),
-          gte(notificationsTable.createdAt, today),
+          sql`${notificationsTable.metadata}->>'dedupeKey' = ${dedupeKey}`,
         ))
         .limit(1);
       if (existing) continue;
@@ -199,7 +213,7 @@ router.get("/check-expiry", requireAdmin, async (req, res, next) => {
         type: "plan_expired",
         title: "Plan Expired",
         body: `Your ${row.planName} plan has expired. Please contact your account manager to renew.`,
-        metadata: { planName: row.planName, expiresAt: row.expiresAt?.toISOString() },
+        metadata: { planName: row.planName, expiresAt: row.expiresAt?.toISOString(), dedupeKey },
       });
     }
 
@@ -207,7 +221,7 @@ router.get("/check-expiry", requireAdmin, async (req, res, next) => {
       await createBulkNotifications(notifications);
     }
 
-    res.json({ message: "Expiry check complete", notificationsSent: notifications.length, expiringCount: expiring.length, expiredCount: justExpired.length });
+    res.json({ message: "Expiry check complete", notificationsSent: notifications.length, expiringCount: activePlans.length, expiredCount: justExpired.length });
   } catch (err) {
     next(err);
   }

@@ -139,7 +139,7 @@ router.post("/", async (req, res) => {
 
   // Enforce plan limits
   const limitType = type === "dynamic" ? "dynamicQr" : "staticQr";
-  const limitCheck = await checkPlanLimit(merchantId, limitType);
+  const limitCheck = await checkPlanLimit(merchantId, limitType, user.id);
   if (!limitCheck.allowed) { rejectWithLimitError(res, limitCheck.message!); return; }
 
   // Fetch active connection to auto-generate UPI payload

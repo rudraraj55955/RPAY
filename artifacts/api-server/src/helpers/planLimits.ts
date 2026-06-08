@@ -1,6 +1,7 @@
-import { db, merchantPlansTable, plansTable, qrCodesTable, virtualAccountsTable, withdrawalsTable, transactionsTable } from "@workspace/db";
+import { db, merchantPlansTable, plansTable, qrCodesTable, virtualAccountsTable, withdrawalsTable, transactionsTable, notificationsTable } from "@workspace/db";
 import { eq, and, count, ne, gte, sql } from "drizzle-orm";
 import type { Response } from "express";
+import { createNotification } from "./notifications";
 
 export interface PlanLimitCheck {
   allowed: boolean;
@@ -41,6 +42,7 @@ export async function checkPlanFeatureAccess(merchantId: number, feature: "api" 
 export async function checkPlanLimit(
   merchantId: number,
   limitType: LimitType,
+  userId?: number,
 ): Promise<PlanLimitCheck> {
   const result = await getPlanForMerchant(merchantId);
   if (!result) return { allowed: false, message: "No plan assigned. Please contact support to get a plan." };
@@ -114,12 +116,41 @@ export async function checkPlanLimit(
   }
 
   if (used >= limit) {
+    // Fire-and-forget a limit_exceeded notification (deduped once per limit type per calendar day)
+    if (userId) {
+      void fireExceededNotification(userId, limitType, label, used, limit);
+    }
     return {
       allowed: false,
       message: `${label} limit reached (${used}/${limit}). Upgrade your plan to continue.`,
     };
   }
   return { allowed: true };
+}
+
+async function fireExceededNotification(userId: number, limitType: LimitType, label: string, used: number, limit: number) {
+  try {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const dedupeKey = `limit_exceeded_${limitType}_${todayStr}`;
+    const [existing] = await db.select({ id: notificationsTable.id })
+      .from(notificationsTable)
+      .where(and(
+        eq(notificationsTable.userId, userId),
+        eq(notificationsTable.type, "limit_exceeded"),
+        sql`${notificationsTable.metadata}->>'dedupeKey' = ${dedupeKey}`,
+      ))
+      .limit(1);
+    if (existing) return;
+    await createNotification({
+      userId,
+      type: "limit_exceeded",
+      title: `${label} Limit Reached`,
+      body: `You have reached your plan limit for ${label.toLowerCase()} (${used}/${limit}). Upgrade your plan to continue using this feature.`,
+      metadata: { limitType, used, limit, dedupeKey },
+    });
+  } catch {
+    // best-effort — do not block the request
+  }
 }
 
 export async function getMerchantPlanUsage(merchantId: number) {

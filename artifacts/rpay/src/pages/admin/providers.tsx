@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useListProviders, useCreateProvider, useUpdateProvider, useDeleteProvider, useSetProviderVisibility, useBulkSetProviderVisibility, getProviderMerchantVisibility, getGetProviderMerchantVisibilityQueryKey } from "@workspace/api-client-react";
+import { useListProviders, useCreateProvider, useUpdateProvider, useDeleteProvider, useSetProviderVisibility, useBulkSetProviderVisibility, getProviderMerchantVisibility, getGetProviderMerchantVisibilityQueryKey, useListMerchants } from "@workspace/api-client-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { getToken } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,14 +68,21 @@ export default function AdminProviders() {
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastBody, setBroadcastBody] = useState("");
+  const [broadcastTarget, setBroadcastTarget] = useState<"all" | "merchant">("all");
+  const [broadcastMerchantId, setBroadcastMerchantId] = useState("");
+
+  const { data: merchantsData } = useListMerchants({ status: "approved", limit: 200 });
+  const approvedMerchants = merchantsData?.data ?? [];
 
   const broadcastMut = useMutation({
-    mutationFn: (data: { title: string; body: string }) => apiPost("/notifications/broadcast", data),
+    mutationFn: (data: { title: string; body: string; merchantId?: number }) => apiPost("/notifications/broadcast", data),
     onSuccess: (res: { count: number }) => {
       toast.success(`Notification sent to ${res.count} merchant(s)`);
       setBroadcastOpen(false);
       setBroadcastTitle("");
       setBroadcastBody("");
+      setBroadcastTarget("all");
+      setBroadcastMerchantId("");
     },
     onError: () => toast.error("Failed to send broadcast"),
   });
@@ -495,17 +502,44 @@ export default function AdminProviders() {
       </Dialog>
 
       {/* Broadcast Dialog */}
-      <Dialog open={broadcastOpen} onOpenChange={open => { if (!open) { setBroadcastOpen(false); setBroadcastTitle(""); setBroadcastBody(""); } }}>
+      <Dialog open={broadcastOpen} onOpenChange={open => { if (!open) { setBroadcastOpen(false); setBroadcastTitle(""); setBroadcastBody(""); setBroadcastTarget("all"); setBroadcastMerchantId(""); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Megaphone className="w-4 h-4" /> Broadcast Notification
             </DialogTitle>
             <DialogDescription>
-              Send a system notice to <strong>all active merchants</strong>. They will see it in their notification centre.
+              Send a system notice to merchants. They will see it in their notification centre.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Send to</Label>
+              <Select value={broadcastTarget} onValueChange={v => { setBroadcastTarget(v as "all" | "merchant"); setBroadcastMerchantId(""); }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All active merchants</SelectItem>
+                  <SelectItem value="merchant">Specific merchant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {broadcastTarget === "merchant" && (
+              <div className="space-y-1.5">
+                <Label>Merchant</Label>
+                <Select value={broadcastMerchantId} onValueChange={setBroadcastMerchantId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a merchant…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {approvedMerchants.map(m => (
+                      <SelectItem key={m.id} value={String(m.id)}>{m.businessName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Title</Label>
               <Input
@@ -530,10 +564,19 @@ export default function AdminProviders() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setBroadcastOpen(false)}>Cancel</Button>
             <Button
-              onClick={() => broadcastMut.mutate({ title: broadcastTitle.trim(), body: broadcastBody.trim() })}
-              disabled={!broadcastTitle.trim() || !broadcastBody.trim() || broadcastMut.isPending}
+              onClick={() => broadcastMut.mutate({
+                title: broadcastTitle.trim(),
+                body: broadcastBody.trim(),
+                ...(broadcastTarget === "merchant" && broadcastMerchantId ? { merchantId: parseInt(broadcastMerchantId) } : {}),
+              })}
+              disabled={
+                !broadcastTitle.trim() ||
+                !broadcastBody.trim() ||
+                (broadcastTarget === "merchant" && !broadcastMerchantId) ||
+                broadcastMut.isPending
+              }
             >
-              {broadcastMut.isPending ? "Sending…" : "Send to All Merchants"}
+              {broadcastMut.isPending ? "Sending…" : broadcastTarget === "merchant" ? "Send to Merchant" : "Send to All Merchants"}
             </Button>
           </DialogFooter>
         </DialogContent>

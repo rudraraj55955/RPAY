@@ -170,7 +170,11 @@ export default function NotificationsPage() {
               {notifications.map((n) => (
                 <li
                   key={n.id}
-                  className={`flex items-start gap-4 px-5 py-4 transition-colors ${!n.isRead ? "bg-primary/5" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => !n.isRead && handleMarkOne(n.id)}
+                  onKeyDown={(e) => e.key === "Enter" && !n.isRead && handleMarkOne(n.id)}
+                  className={`flex items-start gap-4 px-5 py-4 transition-colors ${!n.isRead ? "bg-primary/5 cursor-pointer hover:bg-primary/10" : "cursor-default"}`}
                 >
                   <div className={`mt-0.5 shrink-0 ${notifColor(n.type)}`}>
                     {notifIcon(n.type)}
@@ -193,15 +197,9 @@ export default function NotificationsPage() {
                     </p>
                   </div>
                   {!n.isRead && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 h-7 w-7 text-muted-foreground hover:text-foreground"
-                      onClick={() => handleMarkOne(n.id)}
-                      title="Mark as read"
-                    >
+                    <div className="shrink-0 h-7 w-7 flex items-center justify-center text-muted-foreground" title="Click row to mark as read">
                       <Check className="w-3.5 h-3.5" />
-                    </Button>
+                    </div>
                   )}
                 </li>
               ))}

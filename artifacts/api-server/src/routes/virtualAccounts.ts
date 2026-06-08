@@ -124,7 +124,7 @@ router.post("/", async (req, res) => {
     res.status(400).json({ error: "accountNumber, ifsc, bankName, accountHolder required" }); return;
   }
 
-  const limitCheck = await checkPlanLimit(merchantId, "virtualAccount");
+  const limitCheck = await checkPlanLimit(merchantId, "virtualAccount", user.id);
   if (!limitCheck.allowed) { rejectWithLimitError(res, limitCheck.message!); return; }
 
   const [row] = await db.insert(virtualAccountsTable)

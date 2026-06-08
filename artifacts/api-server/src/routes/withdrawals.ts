@@ -61,7 +61,7 @@ router.post("/", async (req, res) => {
   }
 
   // Enforce plan payout limits
-  const limitCheck = await checkPlanLimit(user.merchantId!, "payout");
+  const limitCheck = await checkPlanLimit(user.merchantId!, "payout", user.id);
   if (!limitCheck.allowed) { rejectWithLimitError(res, limitCheck.message!); return; }
 
   const [withdrawal] = await db.insert(withdrawalsTable).values({

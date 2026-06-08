@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListTransactions, useSearchByUtr } from "@workspace/api-client-react";
+import { useListTransactions, useSearchByUtr, useGetTransaction } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,118 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
 import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
-import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash, RefreshCw } from "lucide-react";
+import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash, RefreshCw, Loader2, Building2, CreditCard, FileText, Info } from "lucide-react";
 import { format } from "date-fns";
+
+function TransactionDetailPanel({ id, open, onClose }: { id: number | null; open: boolean; onClose: () => void }) {
+  const { data: tx, isLoading } = useGetTransaction(id ?? 0, {
+    query: { enabled: open && id != null } as any,
+  });
+
+  const metadataParsed = (() => {
+    if (!tx?.metadata) return null;
+    try { return JSON.parse(tx.metadata); } catch { return tx.metadata; }
+  })();
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+        <SheetHeader className="mb-6">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <CreditCard className="w-4 h-4 text-primary" />
+            Transaction Details
+          </SheetTitle>
+        </SheetHeader>
+
+        {isLoading || !tx ? (
+          <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Loading transaction…</span>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Status & Amount Hero */}
+            <div className="rounded-xl border bg-card/60 p-5 flex items-center gap-5">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${tx.type === "deposit" ? "bg-primary/10" : "bg-violet-500/10"}`}>
+                {tx.type === "deposit"
+                  ? <ArrowDownLeft className="w-5 h-5 text-primary" />
+                  : <ArrowUpRight className="w-5 h-5 text-violet-500" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-2xl font-bold font-mono">₹{Number(tx.amount).toLocaleString()}</p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <Badge variant="outline" className="text-xs capitalize">{tx.type}</Badge>
+                  <StatusBadge status={tx.status} />
+                  <span className="text-xs text-muted-foreground font-mono">{tx.currency}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Transaction Fields */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" /> Transaction Info
+              </p>
+              <div className="space-y-0 rounded-lg border divide-y divide-border bg-card/40">
+                <DetailRow label="ID" value={`#${tx.id}`} mono />
+                <DetailRow label="UTR" value={tx.utr} mono />
+                {tx.referenceId && <DetailRow label="Reference ID" value={tx.referenceId} mono />}
+                {tx.description && <DetailRow label="Description" value={tx.description} />}
+              </div>
+            </div>
+
+            {/* Merchant Info */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5" /> Merchant
+              </p>
+              <div className="space-y-0 rounded-lg border divide-y divide-border bg-card/40">
+                <DetailRow label="Business Name" value={tx.merchantName ?? "—"} />
+                <DetailRow label="Merchant ID" value={`#${tx.merchantId}`} mono />
+              </div>
+            </div>
+
+            {/* Timestamps */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5" /> Timestamps
+              </p>
+              <div className="space-y-0 rounded-lg border divide-y divide-border bg-card/40">
+                <DetailRow label="Created" value={format(new Date(tx.createdAt), "MMM d, yyyy HH:mm:ss")} />
+                {tx.updatedAt && <DetailRow label="Updated" value={format(new Date(tx.updatedAt), "MMM d, yyyy HH:mm:ss")} />}
+              </div>
+            </div>
+
+            {/* Metadata */}
+            {metadataParsed != null && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Metadata</p>
+                <pre className="text-xs rounded-lg border bg-muted/30 p-4 overflow-x-auto whitespace-pre-wrap break-all font-mono leading-relaxed">
+                  {typeof metadataParsed === "string"
+                    ? metadataParsed
+                    : JSON.stringify(metadataParsed, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-4 px-4 py-3">
+      <span className="text-sm text-muted-foreground shrink-0">{label}</span>
+      <span className={`text-sm text-right break-all ${mono ? "font-mono" : "font-medium"}`}>{value}</span>
+    </div>
+  );
+}
 
 export default function AdminTransactions() {
   const qc = useQueryClient();
@@ -22,6 +130,7 @@ export default function AdminTransactions() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
+  const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
 
   const { lastRefreshed, isRefreshing, handleRefresh } = useMonitoringRefresh(
     () => qc.invalidateQueries({ queryKey: ["/api/transactions"] })
@@ -153,12 +262,13 @@ export default function AdminTransactions() {
               {utrLoading && <p className="text-sm text-muted-foreground">Searching...</p>}
               {utrError && <p className="text-sm text-rose-500">Transaction not found for UTR: {utrSearch}</p>}
               {utrResult && (
-                <div className="flex flex-wrap gap-4 text-sm">
+                <div className="flex flex-wrap gap-4 text-sm items-center">
                   <div><span className="text-muted-foreground">UTR:</span> <span className="font-mono font-medium">{utrResult.utr}</span></div>
                   <div><span className="text-muted-foreground">Amount:</span> <span className="font-semibold">₹{Number(utrResult.amount).toLocaleString()}</span></div>
                   <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{utrResult.type}</Badge></div>
                   <div><span className="text-muted-foreground">Status:</span> <StatusBadge status={utrResult.status} /></div>
                   <div><span className="text-muted-foreground">Date:</span> {format(new Date(utrResult.createdAt), "MMM d, yyyy HH:mm")}</div>
+                  <Button variant="outline" size="sm" onClick={() => setSelectedTxId(utrResult.id)}>View Details</Button>
                 </div>
               )}
             </div>
@@ -230,7 +340,11 @@ export default function AdminTransactions() {
               ) : data?.data?.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-10">No transactions found</TableCell></TableRow>
               ) : data?.data?.map(tx => (
-                <TableRow key={tx.id}>
+                <TableRow
+                  key={tx.id}
+                  className="cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => setSelectedTxId(tx.id)}
+                >
                   <TableCell className="font-mono text-xs">{tx.utr}</TableCell>
                   <TableCell className="text-sm">{tx.merchantName || "—"}</TableCell>
                   <TableCell><Badge variant="outline" className="text-xs">{tx.type}</Badge></TableCell>
@@ -254,6 +368,12 @@ export default function AdminTransactions() {
           </div>
         </div>
       )}
+
+      <TransactionDetailPanel
+        id={selectedTxId}
+        open={selectedTxId != null}
+        onClose={() => setSelectedTxId(null)}
+      />
     </div>
   );
 }

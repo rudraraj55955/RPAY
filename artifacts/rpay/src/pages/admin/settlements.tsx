@@ -18,12 +18,19 @@ export default function AdminSettlements() {
 
   const { data, isLoading } = useListSettlements({ dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, page, limit: 20 });
 
-  const exportCsv = () => {
-    if (!data?.data) return;
-    const rows = [["ID", "Merchant", "Amount", "Currency", "Status", "From", "To", "Transactions", "Created"]];
-    data.data.forEach(s => rows.push([String(s.id), s.merchantName || "", String(s.amount), s.currency, s.status, s.periodFrom, s.periodTo, String(s.transactionCount), s.createdAt]));
-    const csv = rows.map(r => r.join(",")).join("\n");
-    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv])); a.download = "settlements.csv"; a.click();
+  const exportCsv = async () => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    if (search) params.set("search", search);
+    if (status && status !== "all") params.set("status", status);
+    const res = await fetch(`/api/settlements/export/csv?${params.toString()}`, { credentials: "include" });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "settlements.csv";
+    a.click();
   };
 
   const total = data?.data?.reduce((acc, s) => acc + Number(s.amount), 0) || 0;

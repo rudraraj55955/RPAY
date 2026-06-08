@@ -153,6 +153,65 @@ router.post("/simulate", async (req, res, next) => {
   }
 });
 
+// GET /api/transactions/export/csv
+router.get("/export/csv", async (req, res) => {
+  const user = (req as any).user;
+  if (user.role !== "admin") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const { type, status, search, merchantId, dateFrom, dateTo } = req.query as Record<string, string>;
+
+  const conditions = [];
+  if (type && type !== "all") conditions.push(eq(transactionsTable.type, type));
+  if (status && status !== "all") conditions.push(eq(transactionsTable.status, status));
+  if (merchantId) conditions.push(eq(transactionsTable.merchantId, parseInt(merchantId)));
+  if (search) {
+    conditions.push(
+      or(
+        ilike(transactionsTable.utr, `%${search}%`),
+        ilike(transactionsTable.referenceId, `%${search}%`),
+      )!
+    );
+  }
+  if (dateFrom) conditions.push(gte(transactionsTable.createdAt, new Date(dateFrom)));
+  if (dateTo) {
+    const end = new Date(dateTo);
+    end.setHours(23, 59, 59, 999);
+    conditions.push(lte(transactionsTable.createdAt, end));
+  }
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const rows = await db
+    .select({
+      transaction: transactionsTable,
+      merchantName: merchantsTable.businessName,
+    })
+    .from(transactionsTable)
+    .leftJoin(merchantsTable, eq(transactionsTable.merchantId, merchantsTable.id))
+    .where(where)
+    .orderBy(sql`${transactionsTable.createdAt} DESC`);
+
+  const header = ["ID", "UTR", "Merchant", "Type", "Status", "Amount", "Currency", "Reference", "Date"];
+  const csvRows = rows.map(r => [
+    String(r.transaction.id),
+    r.transaction.utr,
+    r.merchantName ?? "",
+    r.transaction.type,
+    r.transaction.status,
+    String(Number(r.transaction.amount)),
+    r.transaction.currency,
+    r.transaction.referenceId ?? "",
+    r.transaction.createdAt instanceof Date ? r.transaction.createdAt.toISOString() : String(r.transaction.createdAt),
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(","));
+
+  const csv = [header.join(","), ...csvRows].join("\n");
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", "attachment; filename=\"transactions.csv\"");
+  res.send(csv);
+});
+
 // GET /api/transactions/search/utr
 router.get("/search/utr", async (req, res, next) => {
   try {

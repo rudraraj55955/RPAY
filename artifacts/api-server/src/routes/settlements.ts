@@ -47,4 +47,54 @@ router.get("/", async (req, res) => {
   });
 });
 
+// GET /api/settlements/export/csv
+router.get("/export/csv", async (req, res) => {
+  const user = (req as any).user;
+  if (user.role !== "admin") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const { merchantId, dateFrom, dateTo, search, status } = req.query as Record<string, string>;
+
+  const conditions = [];
+  if (merchantId) conditions.push(eq(settlementsTable.merchantId, parseInt(merchantId)));
+  if (dateFrom) conditions.push(gte(settlementsTable.periodFrom, dateFrom));
+  if (dateTo) conditions.push(lte(settlementsTable.periodTo, dateTo));
+  if (status && status !== "all") conditions.push(eq(settlementsTable.status, status));
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const rows = await db
+    .select({
+      settlement: settlementsTable,
+      merchantName: merchantsTable.businessName,
+    })
+    .from(settlementsTable)
+    .leftJoin(merchantsTable, eq(settlementsTable.merchantId, merchantsTable.id))
+    .where(where)
+    .orderBy(sql`${settlementsTable.createdAt} DESC`);
+
+  const filtered = search
+    ? rows.filter(r => r.merchantName?.toLowerCase().includes(search.toLowerCase()))
+    : rows;
+
+  const header = ["ID", "Merchant", "Amount", "Currency", "Status", "Period From", "Period To", "Transactions", "Created"];
+  const csvRows = filtered.map(r => [
+    String(r.settlement.id),
+    r.merchantName ?? "",
+    String(Number(r.settlement.amount)),
+    r.settlement.currency,
+    r.settlement.status,
+    r.settlement.periodFrom,
+    r.settlement.periodTo,
+    String(r.settlement.transactionCount),
+    r.settlement.createdAt instanceof Date ? r.settlement.createdAt.toISOString() : String(r.settlement.createdAt),
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(","));
+
+  const csv = [header.join(","), ...csvRows].join("\n");
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", "attachment; filename=\"settlements.csv\"");
+  res.send(csv);
+});
+
 export default router;

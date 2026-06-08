@@ -33,12 +33,20 @@ export default function AdminTransactions() {
     { query: { enabled: !!utrSearch } as any }
   );
 
-  const exportCsv = () => {
-    if (!data?.data) return;
-    const rows = [["ID", "UTR", "Merchant", "Type", "Status", "Amount", "Currency", "Reference", "Date"]];
-    data.data.forEach(t => rows.push([String(t.id), t.utr, t.merchantName || "", t.type, t.status, String(t.amount), t.currency, t.referenceId || "", t.createdAt]));
-    const csv = rows.map(r => r.join(",")).join("\n");
-    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv])); a.download = "transactions.csv"; a.click();
+  const exportCsv = async () => {
+    const params = new URLSearchParams();
+    if (type && type !== "all") params.set("type", type);
+    if (status && status !== "all") params.set("status", status);
+    if (search) params.set("search", search);
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    const res = await fetch(`/api/transactions/export/csv?${params.toString()}`, { credentials: "include" });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "transactions.csv";
+    a.click();
   };
 
   return (

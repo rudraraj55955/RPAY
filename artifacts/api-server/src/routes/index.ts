@@ -19,6 +19,7 @@ import apiMonitoringRouter from "./apiMonitoring";
 import auditLogsRouter from "./auditLogs";
 import featureControlRouter from "./featureControl";
 import accountDetailsRouter from "./accountDetails";
+import invoicesRouter from "./invoices";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use("/api-monitoring", apiMonitoringRouter);
 router.use("/audit-logs", auditLogsRouter);
 router.use("/feature-control", featureControlRouter);
 router.use("/account-details", accountDetailsRouter);
+router.use("/invoices", invoicesRouter);
 
 export default router;

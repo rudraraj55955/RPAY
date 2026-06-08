@@ -17,3 +17,4 @@ export * from "./merchantFeatures";
 export * from "./accountDetails";
 export * from "./accountVisibilityRules";
 export * from "./planHistory";
+export * from "./invoices";

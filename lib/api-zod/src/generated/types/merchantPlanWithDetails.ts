@@ -5,6 +5,7 @@
  * RPay Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { MerchantPlanWithDetailsStatus } from './merchantPlanWithDetailsStatus';
 
 export interface MerchantPlanWithDetails {
   id: number;
@@ -14,8 +15,12 @@ export interface MerchantPlanWithDetails {
   /** @nullable */
   description?: string | null;
   price: string;
+  monthlyFee: string;
+  yearlyFee: string;
+  setupFee: string;
   pricing: string;
   features: string;
+  customFeatures: string;
   dynamicQrLimit: number;
   staticQrLimit: number;
   virtualAccountLimit: number;
@@ -27,6 +32,8 @@ export interface MerchantPlanWithDetails {
   depositFee: string;
   apiAccess: boolean;
   webhookAccess: boolean;
+  providerAccess: boolean;
+  status: MerchantPlanWithDetailsStatus;
   assignedAt: string;
   /** @nullable */
   expiresAt?: string | null;

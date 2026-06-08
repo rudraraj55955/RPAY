@@ -23,6 +23,7 @@ import AdminSettlements from "@/pages/admin/settlements";
 import AdminCallbacks from "@/pages/admin/callbacks";
 import AdminUsers from "@/pages/admin/users";
 import AdminPlans from "@/pages/admin/plans";
+import AdminInvoices from "@/pages/admin/invoices";
 import AdminQrCodes from "@/pages/admin/qr-codes";
 import AdminVirtualAccounts from "@/pages/admin/virtual-accounts";
 import AdminDeposits from "@/pages/admin/deposits";
@@ -107,6 +108,7 @@ function Router() {
       <Route path="/admin/callbacks"><AdminRoute component={AdminCallbacks} /></Route>
       <Route path="/admin/users"><AdminRoute component={AdminUsers} /></Route>
       <Route path="/admin/plans"><AdminRoute component={AdminPlans} /></Route>
+      <Route path="/admin/invoices"><AdminRoute component={AdminInvoices} /></Route>
       <Route path="/admin/qr-codes"><AdminRoute component={AdminQrCodes} /></Route>
       <Route path="/admin/virtual-accounts"><AdminRoute component={AdminVirtualAccounts} /></Route>
       <Route path="/admin/deposits"><AdminRoute component={AdminDeposits} /></Route>

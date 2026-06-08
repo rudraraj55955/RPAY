@@ -43,6 +43,8 @@ tags:
     description: Merchant feature toggles
   - name: account-details
     description: Admin-managed payment collection accounts
+  - name: invoices
+    description: Merchant subscription invoices
 paths:
   /healthz:
     get:
@@ -337,6 +339,237 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MerchantPlan"
+
+  /merchants/{id}/plan/upgrade:
+    post:
+      operationId: upgradeMerchantPlan
+      tags: [merchants]
+      summary: Upgrade merchant to a higher plan (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanActionInput"
+      responses:
+        "200":
+          description: Plan upgraded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantPlan"
+
+  /merchants/{id}/plan/downgrade:
+    post:
+      operationId: downgradeMerchantPlan
+      tags: [merchants]
+      summary: Downgrade merchant to a lower plan (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanActionInput"
+      responses:
+        "200":
+          description: Plan downgraded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantPlan"
+
+  /merchants/{id}/plan/suspend:
+    post:
+      operationId: suspendMerchantPlan
+      tags: [merchants]
+      summary: Suspend a merchant's plan (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanNoteInput"
+      responses:
+        "200":
+          description: Plan suspended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantPlan"
+
+  /merchants/{id}/plan/reinstate:
+    post:
+      operationId: reinstateMerchantPlan
+      tags: [merchants]
+      summary: Reinstate a suspended merchant plan (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanNoteInput"
+      responses:
+        "200":
+          description: Plan reinstated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantPlan"
+
+  /merchants/{id}/plan/renew:
+    post:
+      operationId: renewMerchantPlan
+      tags: [merchants]
+      summary: Renew a merchant's plan (extend expiry) (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenewPlanInput"
+      responses:
+        "200":
+          description: Plan renewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantPlan"
+
+  /invoices:
+    get:
+      operationId: listInvoices
+      tags: [invoices]
+      summary: List invoices (admin sees all, merchant sees own)
+      parameters:
+        - name: merchantId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Invoice list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceListResponse"
+    post:
+      operationId: createInvoice
+      tags: [invoices]
+      summary: Create invoice for a merchant (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceInput"
+      responses:
+        "201":
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      summary: Get invoice by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /invoices/{id}/mark-paid:
+    post:
+      operationId: markInvoicePaid
+      tags: [invoices]
+      summary: Mark invoice as paid (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice marked paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /invoices/{id}/void:
+    post:
+      operationId: voidInvoice
+      tags: [invoices]
+      summary: Void an invoice (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice voided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
 
   /transactions:
     get:
@@ -2243,7 +2476,7 @@ components:
 
     Plan:
       type: object
-      required: [id, name, price, pricing, features, dynamicQrLimit, staticQrLimit, virtualAccountLimit, paymentLinkLimit, payoutLimit, dailyTransactionLimit, monthlyTransactionLimit, settlementFee, depositFee, apiAccess, webhookAccess, isActive, createdAt]
+      required: [id, name, price, monthlyFee, yearlyFee, setupFee, pricing, features, customFeatures, dynamicQrLimit, staticQrLimit, virtualAccountLimit, paymentLinkLimit, payoutLimit, dailyTransactionLimit, monthlyTransactionLimit, settlementFee, depositFee, apiAccess, webhookAccess, providerAccess, isActive, createdAt]
       properties:
         id:
           type: integer
@@ -2253,9 +2486,17 @@ components:
           type: ["string", "null"]
         price:
           type: string
+        monthlyFee:
+          type: string
+        yearlyFee:
+          type: string
+        setupFee:
+          type: string
         pricing:
           type: string
         features:
+          type: string
+        customFeatures:
           type: string
         dynamicQrLimit:
           type: integer
@@ -2279,6 +2520,8 @@ components:
           type: boolean
         webhookAccess:
           type: boolean
+        providerAccess:
+          type: boolean
         isActive:
           type: boolean
         createdAt:
@@ -2288,7 +2531,7 @@ components:
 
     MerchantPlanWithDetails:
       type: object
-      required: [id, merchantId, planId, planName, price, pricing, features, dynamicQrLimit, staticQrLimit, virtualAccountLimit, paymentLinkLimit, payoutLimit, dailyTransactionLimit, monthlyTransactionLimit, settlementFee, depositFee, apiAccess, webhookAccess, assignedAt, isExpired]
+      required: [id, merchantId, planId, planName, price, monthlyFee, yearlyFee, setupFee, pricing, features, customFeatures, dynamicQrLimit, staticQrLimit, virtualAccountLimit, paymentLinkLimit, payoutLimit, dailyTransactionLimit, monthlyTransactionLimit, settlementFee, depositFee, apiAccess, webhookAccess, providerAccess, assignedAt, isExpired, status]
       properties:
         id:
           type: integer
@@ -2302,9 +2545,17 @@ components:
           type: ["string", "null"]
         price:
           type: string
+        monthlyFee:
+          type: string
+        yearlyFee:
+          type: string
+        setupFee:
+          type: string
         pricing:
           type: string
         features:
+          type: string
+        customFeatures:
           type: string
         dynamicQrLimit:
           type: integer
@@ -2328,6 +2579,11 @@ components:
           type: boolean
         webhookAccess:
           type: boolean
+        providerAccess:
+          type: boolean
+        status:
+          type: string
+          enum: [active, suspended, expired]
         assignedAt:
           type: string
         expiresAt:
@@ -2349,9 +2605,17 @@ components:
           type: ["string", "null"]
         price:
           type: string
+        monthlyFee:
+          type: string
+        yearlyFee:
+          type: string
+        setupFee:
+          type: string
         pricing:
           type: string
         features:
+          type: string
+        customFeatures:
           type: string
         dynamicQrLimit:
           type: integer
@@ -2374,6 +2638,8 @@ components:
         apiAccess:
           type: boolean
         webhookAccess:
+          type: boolean
+        providerAccess:
           type: boolean
         isActive:
           type: boolean
@@ -2476,6 +2742,114 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PlanHistory"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    PlanActionInput:
+      type: object
+      required: [planId]
+      properties:
+        planId:
+          type: integer
+        expiresAt:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    PlanNoteInput:
+      type: object
+      properties:
+        notes:
+          type: ["string", "null"]
+
+    RenewPlanInput:
+      type: object
+      required: [expiresAt]
+      properties:
+        expiresAt:
+          type: string
+        notes:
+          type: ["string", "null"]
+
+    Invoice:
+      type: object
+      required: [id, merchantId, invoiceNumber, amount, currency, status, createdAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        merchantName:
+          type: ["string", "null"]
+        merchantEmail:
+          type: ["string", "null"]
+        planId:
+          type: ["integer", "null"]
+        planName:
+          type: ["string", "null"]
+        invoiceNumber:
+          type: string
+        amount:
+          type: string
+        currency:
+          type: string
+        period:
+          type: ["string", "null"]
+        periodFrom:
+          type: ["string", "null"]
+        periodTo:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, issued, paid, void]
+        dueDate:
+          type: ["string", "null"]
+        paidAt:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    InvoiceInput:
+      type: object
+      required: [merchantId, amount]
+      properties:
+        merchantId:
+          type: integer
+        planId:
+          type: ["integer", "null"]
+        amount:
+          type: string
+        currency:
+          type: string
+        period:
+          type: ["string", "null"]
+        periodFrom:
+          type: ["string", "null"]
+        periodTo:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+
+    InvoiceListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
         total:
           type: integer
         page:

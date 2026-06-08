@@ -6,8 +6,10 @@ export const merchantPlansTable = pgTable("merchant_plans", {
   id: serial("id").primaryKey(),
   merchantId: integer("merchant_id").notNull().unique(),
   planId: integer("plan_id").notNull(),
+  status: text("status").notNull().default("active"),
   assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
+  renewedAt: timestamp("renewed_at", { withTimezone: true }),
   assignedBy: integer("assigned_by"),
   notes: text("notes"),
 });

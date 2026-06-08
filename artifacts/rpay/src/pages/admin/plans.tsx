@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, Trash2, PlusCircle, Search, Infinity, KeyRound, Webhook, Percent, CheckCircle2, XCircle } from "lucide-react";
+import { Pencil, Trash2, PlusCircle, Search, Infinity, KeyRound, Webhook, Percent, CheckCircle2, XCircle, Network } from "lucide-react";
 import { toast } from "sonner";
 import type { Plan } from "@workspace/api-client-react";
 
@@ -31,8 +31,12 @@ interface PlanFormState {
   name: string;
   description: string;
   price: string;
+  monthlyFee: string;
+  yearlyFee: string;
+  setupFee: string;
   pricing: PricingObj;
   features: string;
+  customFeatures: string;
   dynamicQrLimit: number;
   staticQrLimit: number;
   virtualAccountLimit: number;
@@ -44,16 +48,18 @@ interface PlanFormState {
   depositFee: string;
   apiAccess: boolean;
   webhookAccess: boolean;
+  providerAccess: boolean;
   isActive: boolean;
 }
 
 const DEFAULT_FORM: PlanFormState = {
-  name: "", description: "", price: "0", pricing: DEFAULT_PRICING, features: "",
+  name: "", description: "", price: "0", monthlyFee: "0", yearlyFee: "0", setupFee: "0",
+  pricing: DEFAULT_PRICING, features: "", customFeatures: "",
   dynamicQrLimit: 10, staticQrLimit: 10, virtualAccountLimit: 5,
   paymentLinkLimit: 10, payoutLimit: 20,
   dailyTransactionLimit: 999, monthlyTransactionLimit: 9999,
   settlementFee: "2.0", depositFee: "0.0",
-  apiAccess: true, webhookAccess: true, isActive: true,
+  apiAccess: true, webhookAccess: true, providerAccess: false, isActive: true,
 };
 
 export default function AdminPlans() {
@@ -82,8 +88,12 @@ export default function AdminPlans() {
       name: plan.name,
       description: plan.description ?? "",
       price: plan.price ?? "0",
+      monthlyFee: plan.monthlyFee ?? plan.price ?? "0",
+      yearlyFee: plan.yearlyFee ?? "0",
+      setupFee: plan.setupFee ?? "0",
       pricing: parsePricing(plan.pricing),
       features: plan.features,
+      customFeatures: plan.customFeatures ?? "",
       dynamicQrLimit: plan.dynamicQrLimit,
       staticQrLimit: plan.staticQrLimit,
       virtualAccountLimit: plan.virtualAccountLimit,
@@ -95,6 +105,7 @@ export default function AdminPlans() {
       depositFee: plan.depositFee,
       apiAccess: plan.apiAccess,
       webhookAccess: plan.webhookAccess,
+      providerAccess: plan.providerAccess ?? false,
       isActive: plan.isActive,
     });
     setDialogOpen(true);
@@ -103,9 +114,13 @@ export default function AdminPlans() {
   const buildPayload = () => ({
     name: form.name,
     description: form.description || null,
-    price: form.price || "0",
+    price: form.monthlyFee || "0",
+    monthlyFee: form.monthlyFee || "0",
+    yearlyFee: form.yearlyFee || "0",
+    setupFee: form.setupFee || "0",
     pricing: JSON.stringify(form.pricing),
     features: form.features || "[]",
+    customFeatures: form.customFeatures || "[]",
     dynamicQrLimit: form.dynamicQrLimit,
     staticQrLimit: form.staticQrLimit,
     virtualAccountLimit: form.virtualAccountLimit,
@@ -117,6 +132,7 @@ export default function AdminPlans() {
     depositFee: form.depositFee,
     apiAccess: form.apiAccess,
     webhookAccess: form.webhookAccess,
+    providerAccess: form.providerAccess,
     isActive: form.isActive,
   });
 
@@ -166,28 +182,29 @@ export default function AdminPlans() {
             <TableHeader>
               <TableRow>
                 <TableHead>Plan</TableHead>
-                <TableHead className="text-right">Price/mo</TableHead>
+                <TableHead className="text-right">Monthly</TableHead>
+                <TableHead className="text-right">Yearly</TableHead>
+                <TableHead className="text-right">Setup</TableHead>
                 <TableHead className="text-right">DQR</TableHead>
                 <TableHead className="text-right">VA</TableHead>
-                <TableHead className="text-right">Payouts</TableHead>
-                <TableHead className="text-right">Daily Tx</TableHead>
                 <TableHead className="text-right">Settlement</TableHead>
                 <TableHead className="text-center">API</TableHead>
                 <TableHead className="text-center">WH</TableHead>
+                <TableHead className="text-center">Provider</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                [1,2,3,4,5].map(i => (
+                [1,2,3,4,5,6].map(i => (
                   <TableRow key={i}>
-                    {[1,2,3,4,5,6,7,8,9,10,11].map(j => <TableCell key={j}><div className="h-4 bg-muted/50 animate-pulse rounded" /></TableCell>)}
+                    {[1,2,3,4,5,6,7,8,9,10,11,12].map(j => <TableCell key={j}><div className="h-4 bg-muted/50 animate-pulse rounded" /></TableCell>)}
                   </TableRow>
                 ))
               ) : filteredPlans?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground py-10">No plans found</TableCell>
+                  <TableCell colSpan={12} className="text-center text-muted-foreground py-10">No plans found</TableCell>
                 </TableRow>
               ) : filteredPlans?.map(plan => (
                 <TableRow key={plan.id}>
@@ -198,18 +215,25 @@ export default function AdminPlans() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">
-                    {plan.price === "0" ? <span className="text-emerald-400">Free</span> : `₹${parseInt(plan.price).toLocaleString()}`}
+                    {plan.monthlyFee === "0" ? <span className="text-emerald-400">Free</span> : `₹${parseInt(plan.monthlyFee).toLocaleString()}`}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                    {plan.yearlyFee === "0" ? "—" : `₹${parseInt(plan.yearlyFee).toLocaleString()}`}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                    {plan.setupFee === "0" ? "—" : `₹${parseInt(plan.setupFee).toLocaleString()}`}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm"><LimitCell value={plan.dynamicQrLimit} /></TableCell>
                   <TableCell className="text-right font-mono text-sm"><LimitCell value={plan.virtualAccountLimit} /></TableCell>
-                  <TableCell className="text-right font-mono text-sm"><LimitCell value={plan.payoutLimit} /></TableCell>
-                  <TableCell className="text-right font-mono text-sm"><LimitCell value={plan.dailyTransactionLimit} /></TableCell>
                   <TableCell className="text-right font-mono text-sm">{plan.settlementFee}%</TableCell>
                   <TableCell className="text-center">
                     {plan.apiAccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-muted-foreground mx-auto" />}
                   </TableCell>
                   <TableCell className="text-center">
                     {plan.webhookAccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-muted-foreground mx-auto" />}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {plan.providerAccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-muted-foreground mx-auto" />}
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant={plan.isActive ? "outline" : "secondary"} className={plan.isActive ? "text-emerald-400 border-emerald-500/30" : ""}>
@@ -241,8 +265,16 @@ export default function AdminPlans() {
                 <Input placeholder="e.g. Starter, Silver, Gold..." value={form.name} onChange={e => setField("name", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label>Monthly Price (₹)</Label>
-                <Input type="number" min={0} placeholder="0 = Free" value={form.price} onChange={e => setField("price", e.target.value)} />
+                <Label>Monthly Fee (₹)</Label>
+                <Input type="number" min={0} placeholder="0 = Free" value={form.monthlyFee} onChange={e => { setField("monthlyFee", e.target.value); }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Yearly Fee (₹)</Label>
+                <Input type="number" min={0} placeholder="0 = not offered" value={form.yearlyFee} onChange={e => setField("yearlyFee", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Setup Fee (₹)</Label>
+                <Input type="number" min={0} placeholder="0 = no setup fee" value={form.setupFee} onChange={e => setField("setupFee", e.target.value)} />
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label>Description</Label>
@@ -290,7 +322,7 @@ export default function AdminPlans() {
 
             {/* Fees */}
             <div>
-              <p className="text-sm font-semibold mb-3">Fees</p>
+              <p className="text-sm font-semibold mb-3">Transaction Fees</p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1 text-xs text-muted-foreground"><Percent className="w-3 h-3" /> Settlement Fee (%)</Label>
@@ -308,7 +340,7 @@ export default function AdminPlans() {
             {/* Feature Access */}
             <div>
               <p className="text-sm font-semibold mb-3">Feature Access</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20">
                   <div className="flex items-center gap-2">
                     <KeyRound className="w-4 h-4 text-muted-foreground" />
@@ -324,6 +356,13 @@ export default function AdminPlans() {
                   <Switch checked={form.webhookAccess} onCheckedChange={v => setField("webhookAccess", v)} />
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20">
+                  <div className="flex items-center gap-2">
+                    <Network className="w-4 h-4 text-muted-foreground" />
+                    <Label className="text-sm cursor-pointer">Provider Access</Label>
+                  </div>
+                  <Switch checked={form.providerAccess} onCheckedChange={v => setField("providerAccess", v)} />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20">
                   <Label className="text-sm cursor-pointer">Plan Active</Label>
                   <Switch checked={form.isActive} onCheckedChange={v => setField("isActive", v)} />
                 </div>
@@ -332,7 +371,7 @@ export default function AdminPlans() {
 
             <Separator />
 
-            {/* Pricing */}
+            {/* Per-Tx Pricing */}
             <div>
               <p className="text-sm font-semibold mb-3">Per-Transaction Pricing</p>
               <div className="grid grid-cols-2 gap-4">
@@ -365,11 +404,20 @@ export default function AdminPlans() {
               </div>
             </div>
 
+            <Separator />
+
             <div className="space-y-1.5">
-              <Label>Features (JSON array)</Label>
+              <Label>Standard Features (JSON array)</Label>
               <Textarea placeholder='["API Access", "Priority Support", "Custom Webhooks"]' rows={2} value={form.features} onChange={e => setField("features", e.target.value)} />
-              <p className="text-xs text-muted-foreground">JSON array of feature strings shown to merchants on their plan page</p>
+              <p className="text-xs text-muted-foreground">JSON array of feature strings shown on merchant plan page.</p>
             </div>
+
+            <div className="space-y-1.5">
+              <Label>Custom Features / Add-ons (JSON array)</Label>
+              <Textarea placeholder='["T+1 settlement", "Dedicated manager", "Custom SLA"]' rows={2} value={form.customFeatures} onChange={e => setField("customFeatures", e.target.value)} />
+              <p className="text-xs text-muted-foreground">Extra premium features negotiated per plan.</p>
+            </div>
+
           </div>
 
           <DialogFooter>

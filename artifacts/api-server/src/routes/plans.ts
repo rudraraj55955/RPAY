@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, plansTable, merchantPlansTable, merchantsTable, planHistoryTable, transactionsTable, usersTable, auditLogsTable } from "@workspace/db";
+import { db, plansTable, merchantPlansTable, merchantsTable, planHistoryTable, auditLogsTable } from "@workspace/db";
 import { eq, and, gte, count, desc, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { getMerchantPlanUsage } from "../helpers/planLimits";
@@ -8,36 +8,11 @@ const router = Router();
 router.use(requireAuth);
 
 function serializePlan(p: typeof plansTable.$inferSelect) {
-  return { ...p, createdAt: p.createdAt.toISOString(), updatedAt: p.updatedAt.toISOString() };
-}
-
-function serializeAssignment(mp: typeof merchantPlansTable.$inferSelect, planName?: string) {
   return {
-    ...mp,
-    assignedAt: mp.assignedAt.toISOString(),
-    expiresAt: mp.expiresAt ? mp.expiresAt.toISOString() : null,
-    planName,
+    ...p,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
   };
-}
-
-async function logPlanHistory(opts: {
-  merchantId: number;
-  fromPlanId: number | null;
-  toPlanId: number | null;
-  action: string;
-  adminId?: number;
-  adminEmail?: string;
-  notes?: string;
-}) {
-  await db.insert(planHistoryTable).values({
-    merchantId: opts.merchantId,
-    fromPlanId: opts.fromPlanId ?? null,
-    toPlanId: opts.toPlanId ?? null,
-    action: opts.action,
-    assignedBy: opts.adminId ?? null,
-    adminEmail: opts.adminEmail ?? null,
-    notes: opts.notes ?? null,
-  });
 }
 
 async function logAudit(req: any, action: string, targetId: number | null, details: object) {
@@ -63,31 +38,22 @@ router.get("/me", async (req, res) => {
   const { mp, plan } = rows[0];
   const isExpired = mp.expiresAt ? new Date() > mp.expiresAt : false;
   res.json({
-    id: mp.id,
-    merchantId: mp.merchantId,
-    planId: mp.planId,
-    planName: plan!.name,
-    description: plan!.description ?? null,
-    price: plan!.price,
-    pricing: plan!.pricing,
-    features: plan!.features,
-    dynamicQrLimit: plan!.dynamicQrLimit,
-    staticQrLimit: plan!.staticQrLimit,
-    virtualAccountLimit: plan!.virtualAccountLimit,
-    paymentLinkLimit: plan!.paymentLinkLimit,
-    payoutLimit: plan!.payoutLimit,
-    dailyTransactionLimit: plan!.dailyTransactionLimit,
+    id: mp.id, merchantId: mp.merchantId, planId: mp.planId,
+    planName: plan!.name, description: plan!.description ?? null,
+    price: plan!.price, monthlyFee: plan!.monthlyFee, yearlyFee: plan!.yearlyFee, setupFee: plan!.setupFee,
+    pricing: plan!.pricing, features: plan!.features, customFeatures: plan!.customFeatures,
+    dynamicQrLimit: plan!.dynamicQrLimit, staticQrLimit: plan!.staticQrLimit,
+    virtualAccountLimit: plan!.virtualAccountLimit, paymentLinkLimit: plan!.paymentLinkLimit,
+    payoutLimit: plan!.payoutLimit, dailyTransactionLimit: plan!.dailyTransactionLimit,
     monthlyTransactionLimit: plan!.monthlyTransactionLimit,
-    settlementFee: plan!.settlementFee,
-    depositFee: plan!.depositFee,
-    apiAccess: plan!.apiAccess,
-    webhookAccess: plan!.webhookAccess,
-    assignedAt: mp.assignedAt,
-    expiresAt: mp.expiresAt ?? null,
-    isExpired,
+    settlementFee: plan!.settlementFee, depositFee: plan!.depositFee,
+    apiAccess: plan!.apiAccess, webhookAccess: plan!.webhookAccess, providerAccess: plan!.providerAccess,
+    status: mp.status,
+    assignedAt: mp.assignedAt, expiresAt: mp.expiresAt ?? null, isExpired,
     daysUntilExpiry: mp.expiresAt
       ? Math.max(0, Math.ceil((mp.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
       : null,
+    notes: mp.notes ?? null,
   });
 });
 
@@ -106,7 +72,7 @@ router.get("/me/history", async (req, res) => {
   if (!user.merchantId) { res.json([]); return; }
 
   const rows = await db
-    .select({ h: planHistoryTable, fromPlan: plansTable })
+    .select({ h: planHistoryTable, toPlan: { id: plansTable.id, name: plansTable.name } })
     .from(planHistoryTable)
     .leftJoin(plansTable, eq(planHistoryTable.toPlanId, plansTable.id))
     .where(eq(planHistoryTable.merchantId, user.merchantId))
@@ -115,7 +81,7 @@ router.get("/me/history", async (req, res) => {
 
   res.json(rows.map(r => ({
     ...r.h,
-    toPlanName: r.fromPlan?.name ?? null,
+    toPlanName: r.toPlan?.name ?? null,
     createdAt: r.h.createdAt.toISOString(),
   })));
 });
@@ -147,8 +113,7 @@ router.get("/history", requireAdmin, async (req, res) => {
     .leftJoin(merchantsTable, eq(planHistoryTable.merchantId, merchantsTable.id))
     .where(where)
     .orderBy(desc(planHistoryTable.createdAt))
-    .limit(limitNum)
-    .offset(offset);
+    .limit(limitNum).offset(offset);
 
   res.json({
     data: rows.map(r => ({
@@ -157,9 +122,7 @@ router.get("/history", requireAdmin, async (req, res) => {
       businessName: r.merchant?.businessName ?? null,
       createdAt: r.h.createdAt.toISOString(),
     })),
-    total,
-    page: pageNum,
-    limit: limitNum,
+    total, page: pageNum, limit: limitNum,
   });
 });
 
@@ -174,29 +137,25 @@ router.get("/:id", requireAdmin, async (req, res) => {
 // POST /api/plans (admin only)
 router.post("/", requireAdmin, async (req, res) => {
   const {
-    name, description, price, pricing, features,
+    name, description, price, monthlyFee, yearlyFee, setupFee, pricing, features, customFeatures,
     dynamicQrLimit, staticQrLimit, virtualAccountLimit, paymentLinkLimit, payoutLimit,
     dailyTransactionLimit, monthlyTransactionLimit,
-    settlementFee, depositFee, apiAccess, webhookAccess, isActive,
+    settlementFee, depositFee, apiAccess, webhookAccess, providerAccess, isActive,
   } = req.body;
   if (!name || !pricing || !features) { res.status(400).json({ error: "name, pricing, features required" }); return; }
 
   const [row] = await db.insert(plansTable).values({
     name, description: description ?? null,
-    price: price ?? "0",
-    pricing, features,
-    dynamicQrLimit: dynamicQrLimit ?? 10,
-    staticQrLimit: staticQrLimit ?? 10,
-    virtualAccountLimit: virtualAccountLimit ?? 5,
-    paymentLinkLimit: paymentLinkLimit ?? 10,
-    payoutLimit: payoutLimit ?? 20,
-    dailyTransactionLimit: dailyTransactionLimit ?? 999,
+    price: price ?? "0", monthlyFee: monthlyFee ?? price ?? "0",
+    yearlyFee: yearlyFee ?? "0", setupFee: setupFee ?? "0",
+    pricing, features, customFeatures: customFeatures ?? "[]",
+    dynamicQrLimit: dynamicQrLimit ?? 10, staticQrLimit: staticQrLimit ?? 10,
+    virtualAccountLimit: virtualAccountLimit ?? 5, paymentLinkLimit: paymentLinkLimit ?? 10,
+    payoutLimit: payoutLimit ?? 20, dailyTransactionLimit: dailyTransactionLimit ?? 999,
     monthlyTransactionLimit: monthlyTransactionLimit ?? 9999,
-    settlementFee: settlementFee ?? "2.0",
-    depositFee: depositFee ?? "0.0",
-    apiAccess: apiAccess !== false,
-    webhookAccess: webhookAccess !== false,
-    isActive: isActive !== false,
+    settlementFee: settlementFee ?? "2.0", depositFee: depositFee ?? "0.0",
+    apiAccess: apiAccess !== false, webhookAccess: webhookAccess !== false,
+    providerAccess: providerAccess === true, isActive: isActive !== false,
   }).returning();
 
   await logAudit(req, "plan_created", row.id, { name: row.name });
@@ -207,18 +166,22 @@ router.post("/", requireAdmin, async (req, res) => {
 router.put("/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id as string);
   const {
-    name, description, price, pricing, features,
+    name, description, price, monthlyFee, yearlyFee, setupFee, pricing, features, customFeatures,
     dynamicQrLimit, staticQrLimit, virtualAccountLimit, paymentLinkLimit, payoutLimit,
     dailyTransactionLimit, monthlyTransactionLimit,
-    settlementFee, depositFee, apiAccess, webhookAccess, isActive,
+    settlementFee, depositFee, apiAccess, webhookAccess, providerAccess, isActive,
   } = req.body;
 
   const update: Record<string, unknown> = {};
   if (name !== undefined) update.name = name;
   if (description !== undefined) update.description = description;
   if (price !== undefined) update.price = price;
+  if (monthlyFee !== undefined) update.monthlyFee = monthlyFee;
+  if (yearlyFee !== undefined) update.yearlyFee = yearlyFee;
+  if (setupFee !== undefined) update.setupFee = setupFee;
   if (pricing !== undefined) update.pricing = pricing;
   if (features !== undefined) update.features = features;
+  if (customFeatures !== undefined) update.customFeatures = customFeatures;
   if (dynamicQrLimit !== undefined) update.dynamicQrLimit = dynamicQrLimit;
   if (staticQrLimit !== undefined) update.staticQrLimit = staticQrLimit;
   if (virtualAccountLimit !== undefined) update.virtualAccountLimit = virtualAccountLimit;
@@ -230,6 +193,7 @@ router.put("/:id", requireAdmin, async (req, res) => {
   if (depositFee !== undefined) update.depositFee = depositFee;
   if (apiAccess !== undefined) update.apiAccess = apiAccess;
   if (webhookAccess !== undefined) update.webhookAccess = webhookAccess;
+  if (providerAccess !== undefined) update.providerAccess = providerAccess;
   if (isActive !== undefined) update.isActive = isActive;
 
   const [row] = await db.update(plansTable).set(update).where(eq(plansTable.id, id)).returning();

@@ -432,8 +432,12 @@ export interface Plan {
   /** @nullable */
   description?: string | null;
   price: string;
+  monthlyFee: string;
+  yearlyFee: string;
+  setupFee: string;
   pricing: string;
   features: string;
+  customFeatures: string;
   dynamicQrLimit: number;
   staticQrLimit: number;
   virtualAccountLimit: number;
@@ -445,10 +449,20 @@ export interface Plan {
   depositFee: string;
   apiAccess: boolean;
   webhookAccess: boolean;
+  providerAccess: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
 }
+
+export type MerchantPlanWithDetailsStatus = typeof MerchantPlanWithDetailsStatus[keyof typeof MerchantPlanWithDetailsStatus];
+
+
+export const MerchantPlanWithDetailsStatus = {
+  active: 'active',
+  suspended: 'suspended',
+  expired: 'expired',
+} as const;
 
 export interface MerchantPlanWithDetails {
   id: number;
@@ -458,8 +472,12 @@ export interface MerchantPlanWithDetails {
   /** @nullable */
   description?: string | null;
   price: string;
+  monthlyFee: string;
+  yearlyFee: string;
+  setupFee: string;
   pricing: string;
   features: string;
+  customFeatures: string;
   dynamicQrLimit: number;
   staticQrLimit: number;
   virtualAccountLimit: number;
@@ -471,6 +489,8 @@ export interface MerchantPlanWithDetails {
   depositFee: string;
   apiAccess: boolean;
   webhookAccess: boolean;
+  providerAccess: boolean;
+  status: MerchantPlanWithDetailsStatus;
   assignedAt: string;
   /** @nullable */
   expiresAt?: string | null;
@@ -486,8 +506,12 @@ export interface PlanInput {
   /** @nullable */
   description?: string | null;
   price?: string;
+  monthlyFee?: string;
+  yearlyFee?: string;
+  setupFee?: string;
   pricing: string;
   features: string;
+  customFeatures?: string;
   dynamicQrLimit?: number;
   staticQrLimit?: number;
   virtualAccountLimit?: number;
@@ -499,6 +523,7 @@ export interface PlanInput {
   depositFee?: string;
   apiAccess?: boolean;
   webhookAccess?: boolean;
+  providerAccess?: boolean;
   isActive?: boolean;
 }
 
@@ -580,6 +605,92 @@ export interface PlanHistory {
 
 export interface PlanHistoryListResponse {
   data: PlanHistory[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface PlanActionInput {
+  planId: number;
+  /** @nullable */
+  expiresAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface PlanNoteInput {
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface RenewPlanInput {
+  expiresAt: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type InvoiceStatus = typeof InvoiceStatus[keyof typeof InvoiceStatus];
+
+
+export const InvoiceStatus = {
+  draft: 'draft',
+  issued: 'issued',
+  paid: 'paid',
+  void: 'void',
+} as const;
+
+export interface Invoice {
+  id: number;
+  merchantId: number;
+  /** @nullable */
+  merchantName?: string | null;
+  /** @nullable */
+  merchantEmail?: string | null;
+  /** @nullable */
+  planId?: number | null;
+  /** @nullable */
+  planName?: string | null;
+  invoiceNumber: string;
+  amount: string;
+  currency: string;
+  /** @nullable */
+  period?: string | null;
+  /** @nullable */
+  periodFrom?: string | null;
+  /** @nullable */
+  periodTo?: string | null;
+  status: InvoiceStatus;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface InvoiceInput {
+  merchantId: number;
+  /** @nullable */
+  planId?: number | null;
+  amount: string;
+  currency?: string;
+  /** @nullable */
+  period?: string | null;
+  /** @nullable */
+  periodFrom?: string | null;
+  /** @nullable */
+  periodTo?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  status?: string;
+}
+
+export interface InvoiceListResponse {
+  data: Invoice[];
   total: number;
   page: number;
   limit: number;
@@ -1027,6 +1138,13 @@ export const ListMerchantsStatus = {
   rejected: 'rejected',
   all: 'all',
 } as const;
+
+export type ListInvoicesParams = {
+merchantId?: number;
+status?: string;
+page?: number;
+limit?: number;
+};
 
 export type ListTransactionsParams = {
 type?: ListTransactionsType;

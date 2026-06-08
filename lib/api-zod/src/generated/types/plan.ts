@@ -12,8 +12,12 @@ export interface Plan {
   /** @nullable */
   description?: string | null;
   price: string;
+  monthlyFee: string;
+  yearlyFee: string;
+  setupFee: string;
   pricing: string;
   features: string;
+  customFeatures: string;
   dynamicQrLimit: number;
   staticQrLimit: number;
   virtualAccountLimit: number;
@@ -25,6 +29,7 @@ export interface Plan {
   depositFee: string;
   apiAccess: boolean;
   webhookAccess: boolean;
+  providerAccess: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;

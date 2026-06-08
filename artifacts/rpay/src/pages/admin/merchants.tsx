@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { useListMerchants, useApproveMerchant, useRejectMerchant, useListPlans, useAssignMerchantPlan, useGetMerchantPlan, useGetMerchantPlanHistory, getListMerchantsQueryKey } from "@workspace/api-client-react";
+import {
+  useListMerchants, useApproveMerchant, useRejectMerchant, useListPlans,
+  useAssignMerchantPlan, useGetMerchantPlan, useGetMerchantPlanHistory,
+  useUpgradeMerchantPlan, useDowngradeMerchantPlan, useSuspendMerchantPlan,
+  useReinstateMerchantPlan, useRenewMerchantPlan,
+  getListMerchantsQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, CheckCircle2, XCircle as XIcon, Infinity } from "lucide-react";
+import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, CheckCircle2, XCircle as XIcon, Infinity, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -21,8 +27,16 @@ const ACTION_COLOR: Record<string, string> = {
   upgraded: "text-emerald-400",
   downgraded: "text-amber-400",
   renewed: "text-violet-400",
+  suspended: "text-orange-400",
+  reinstated: "text-emerald-400",
   expired: "text-rose-400",
   removed: "text-muted-foreground",
+};
+
+const PLAN_SUB_STATUS_COLOR: Record<string, string> = {
+  active: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
+  suspended: "text-orange-400 border-orange-500/30 bg-orange-500/10",
+  expired: "text-rose-400 border-rose-500/30 bg-rose-500/10",
 };
 
 export default function AdminMerchants() {
@@ -36,7 +50,10 @@ export default function AdminMerchants() {
   const [selectedPlanId, setSelectedPlanId] = useState<string>("");
   const [expiresAt, setExpiresAt] = useState<string>("");
   const [assignNotes, setAssignNotes] = useState<string>("");
+  const [actionNotes, setActionNotes] = useState<string>("");
   const [showHistory, setShowHistory] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<"upgrade" | "downgrade" | "suspend" | "reinstate" | "renew" | null>(null);
+  const [renewExpiresAt, setRenewExpiresAt] = useState<string>("");
 
   const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20 });
   const { data: plans } = useListPlans();
@@ -51,6 +68,49 @@ export default function AdminMerchants() {
   const approveMutation = useApproveMerchant();
   const rejectMutation = useRejectMerchant();
   const assignPlanMutation = useAssignMerchantPlan();
+  const upgradeMutation = useUpgradeMerchantPlan();
+  const downgradeMutation = useDowngradeMerchantPlan();
+  const suspendMutation = useSuspendMerchantPlan();
+  const reinstateMutation = useReinstateMerchantPlan();
+  const renewMutation = useRenewMerchantPlan();
+
+  const invalidatePlanData = (id: number) => {
+    qc.invalidateQueries({ queryKey: ["getMerchantPlan", id] });
+    qc.invalidateQueries({ queryKey: ["getMerchantPlanHistory", id] });
+  };
+
+  const handlePlanAction = (action: typeof confirmAction) => {
+    if (!assignPlanMerchant) return;
+    const id = assignPlanMerchant.id;
+    const notes = actionNotes || null;
+
+    if (action === "upgrade" || action === "downgrade") {
+      if (!selectedPlanId) return;
+      const mutation = action === "upgrade" ? upgradeMutation : downgradeMutation;
+      mutation.mutate({ id, data: { planId: parseInt(selectedPlanId), notes } }, {
+        onSuccess: () => { toast.success(`Plan ${action}d`); invalidatePlanData(id); setConfirmAction(null); setActionNotes(""); setSelectedPlanId(""); },
+        onError: () => toast.error(`Failed to ${action} plan`),
+      });
+    } else if (action === "suspend") {
+      suspendMutation.mutate({ id, data: { notes } }, {
+        onSuccess: () => { toast.success("Plan suspended"); invalidatePlanData(id); setConfirmAction(null); setActionNotes(""); },
+        onError: () => toast.error("Failed to suspend plan"),
+      });
+    } else if (action === "reinstate") {
+      reinstateMutation.mutate({ id, data: { notes } }, {
+        onSuccess: () => { toast.success("Plan reinstated"); invalidatePlanData(id); setConfirmAction(null); setActionNotes(""); },
+        onError: () => toast.error("Failed to reinstate plan"),
+      });
+    } else if (action === "renew") {
+      const defaultExpiry = new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
+      renewMutation.mutate({ id, data: { expiresAt: renewExpiresAt || defaultExpiry, notes } }, {
+        onSuccess: () => { toast.success("Plan renewed"); invalidatePlanData(id); setConfirmAction(null); setActionNotes(""); setRenewExpiresAt(""); },
+        onError: () => toast.error("Failed to renew plan"),
+      });
+    }
+  };
+
+  const isActionPending = upgradeMutation.isPending || downgradeMutation.isPending || suspendMutation.isPending || reinstateMutation.isPending || renewMutation.isPending;
 
   const handleApprove = (id: number) => {
     approveMutation.mutate({ id }, {
@@ -281,16 +341,84 @@ export default function AdminMerchants() {
               </div>
             )}
 
-            {/* Plan selector */}
+            {/* Plan Actions (if plan exists) */}
+            {currentMerchantPlan && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick Actions</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10" onClick={() => { setConfirmAction("upgrade"); setSelectedPlanId(""); setActionNotes(""); }}>
+                    <TrendingUp className="w-3.5 h-3.5 mr-1" />Upgrade
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-amber-400 border-amber-500/30 hover:bg-amber-500/10" onClick={() => { setConfirmAction("downgrade"); setSelectedPlanId(""); setActionNotes(""); }}>
+                    <TrendingDown className="w-3.5 h-3.5 mr-1" />Downgrade
+                  </Button>
+                  {currentMerchantPlan.status !== "suspended" ? (
+                    <Button size="sm" variant="outline" className="text-orange-400 border-orange-500/30 hover:bg-orange-500/10" onClick={() => { setConfirmAction("suspend"); setActionNotes(""); }}>
+                      <PauseCircle className="w-3.5 h-3.5 mr-1" />Suspend
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10" onClick={() => { setConfirmAction("reinstate"); setActionNotes(""); }}>
+                      <PlayCircle className="w-3.5 h-3.5 mr-1" />Reinstate
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="text-violet-400 border-violet-500/30 hover:bg-violet-500/10" onClick={() => { setConfirmAction("renew"); setRenewExpiresAt(""); setActionNotes(""); }}>
+                    <RefreshCw className="w-3.5 h-3.5 mr-1" />Renew
+                  </Button>
+                </div>
+
+                {/* Inline action confirmation */}
+                {confirmAction && (
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-3">
+                    <p className="text-sm font-medium capitalize">{confirmAction} Plan</p>
+                    {(confirmAction === "upgrade" || confirmAction === "downgrade") && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Select Target Plan</Label>
+                        <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Choose plan..." /></SelectTrigger>
+                          <SelectContent>
+                            {plans?.filter(p => String(p.id) !== String(currentMerchantPlan.planId))
+                              .map(plan => (
+                              <SelectItem key={plan.id} value={String(plan.id)}>
+                                {plan.name}{plan.monthlyFee !== "0" ? ` — ₹${parseInt(plan.monthlyFee).toLocaleString()}/mo` : " — Free"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {confirmAction === "renew" && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">New Expiry Date</Label>
+                        <Input type="date" className="h-8 text-sm" value={renewExpiresAt} onChange={e => setRenewExpiresAt(e.target.value)} min={new Date().toISOString().split("T")[0]} />
+                        <p className="text-xs text-muted-foreground">Leave empty to clear expiry (no expiry).</p>
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Notes (optional)</Label>
+                      <Input className="h-8 text-sm" value={actionNotes} onChange={e => setActionNotes(e.target.value)} placeholder="Internal note..." />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => { setConfirmAction(null); setActionNotes(""); }}>Cancel</Button>
+                      <Button size="sm" onClick={() => handlePlanAction(confirmAction)} disabled={isActionPending || ((confirmAction === "upgrade" || confirmAction === "downgrade") && !selectedPlanId)}>
+                        {isActionPending ? "Processing..." : `Confirm ${confirmAction.charAt(0).toUpperCase() + confirmAction.slice(1)}`}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <Separator />
+              </div>
+            )}
+
+            {/* Plan selector (initial assign) */}
             <div className="space-y-2">
-              <Label>{currentMerchantPlan ? "Change Plan" : "Select Plan"}</Label>
-              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+              <Label>{currentMerchantPlan ? "Force Change Plan" : "Select Plan"}</Label>
+              <Select value={selectedPlanId} onValueChange={v => { setSelectedPlanId(v); setConfirmAction(null); }}>
                 <SelectTrigger><SelectValue placeholder="Choose a plan..." /></SelectTrigger>
                 <SelectContent>
                   {plans?.map(plan => (
                     <SelectItem key={plan.id} value={String(plan.id)}>
                       {plan.name}
-                      {plan.price !== "0" ? ` — ₹${parseInt(plan.price).toLocaleString()}/mo` : " — Free"}
+                      {plan.monthlyFee !== "0" ? ` — ₹${parseInt(plan.monthlyFee).toLocaleString()}/mo` : " — Free"}
                     </SelectItem>
                   ))}
                 </SelectContent>

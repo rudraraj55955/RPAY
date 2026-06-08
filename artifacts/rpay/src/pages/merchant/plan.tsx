@@ -69,7 +69,9 @@ export default function MerchantPlanPage() {
                 <div className="flex-1 space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`text-2xl font-bold ${tierColor}`}>{plan.planName}</span>
-                    {plan.isExpired ? (
+                    {plan.status === "suspended" ? (
+                      <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Suspended</Badge>
+                    ) : plan.isExpired ? (
                       <Badge variant="destructive" className="text-xs">Expired</Badge>
                     ) : isExpiringSoon ? (
                       <Badge className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30">Expiring Soon</Badge>

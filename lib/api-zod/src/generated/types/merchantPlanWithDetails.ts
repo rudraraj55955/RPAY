@@ -41,5 +41,7 @@ export interface MerchantPlanWithDetails {
   /** @nullable */
   daysUntilExpiry?: number | null;
   /** @nullable */
+  renewedAt?: string | null;
+  /** @nullable */
   notes?: string | null;
 }

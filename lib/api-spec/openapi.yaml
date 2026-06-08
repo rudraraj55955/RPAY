@@ -2611,6 +2611,8 @@ components:
           type: boolean
         daysUntilExpiry:
           type: ["integer", "null"]
+        renewedAt:
+          type: ["string", "null"]
         notes:
           type: ["string", "null"]
 

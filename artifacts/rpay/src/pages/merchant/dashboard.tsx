@@ -12,6 +12,7 @@ interface UsageRowProps { label: string; used: number; limit: number; }
 
 function UsageRow({ label, used, limit }: UsageRowProps) {
   const isUnlimited = limit >= 999;
+  const remaining = isUnlimited ? null : Math.max(0, limit - used);
   const pct = isUnlimited ? 0 : Math.min(100, (used / limit) * 100);
   const isNearLimit = !isUnlimited && pct >= 80;
   const isAtLimit = !isUnlimited && used >= limit;
@@ -22,8 +23,8 @@ function UsageRow({ label, used, limit }: UsageRowProps) {
         <span className="text-muted-foreground">{label}</span>
         <span className={`font-medium tabular-nums ${isAtLimit ? "text-rose-400" : isNearLimit ? "text-amber-400" : "text-foreground"}`}>
           {isUnlimited
-            ? <span className="flex items-center gap-1">{used} / <Infinity className="w-3.5 h-3.5 text-emerald-400" /></span>
-            : `${used} / ${limit}`}
+            ? <span className="flex items-center gap-1">{used} used · <Infinity className="w-3.5 h-3.5 text-emerald-400" /></span>
+            : `${used} used · ${remaining} left`}
         </span>
       </div>
       {!isUnlimited && (

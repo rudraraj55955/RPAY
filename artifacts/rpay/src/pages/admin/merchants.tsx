@@ -390,7 +390,7 @@ export default function AdminMerchants() {
                       <div className="space-y-1.5">
                         <Label className="text-xs">New Expiry Date</Label>
                         <Input type="date" className="h-8 text-sm" value={renewExpiresAt} onChange={e => setRenewExpiresAt(e.target.value)} min={new Date().toISOString().split("T")[0]} />
-                        <p className="text-xs text-muted-foreground">Leave empty to clear expiry (no expiry).</p>
+                        <p className="text-xs text-muted-foreground">Required. Set the new expiry date for the plan.</p>
                       </div>
                     )}
                     <div className="space-y-1.5">

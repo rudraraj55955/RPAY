@@ -33,7 +33,8 @@ const ACTION_META: Record<string, { label: string; color: string }> = {
 
 const INVOICE_STATUS_STYLE: Record<string, string> = {
   paid: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-  pending: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  issued: "bg-sky-500/10 text-sky-400 border-sky-500/30",
+  draft: "bg-muted/30 text-muted-foreground border-border/40",
   overdue: "bg-rose-500/10 text-rose-400 border-rose-500/30",
   void: "bg-muted/30 text-muted-foreground border-border/40",
 };
@@ -127,6 +128,12 @@ export default function MerchantPlanPage() {
                     <p className="font-medium text-emerald-400">No expiry</p>
                   )}
                 </div>
+                {plan.renewedAt && (
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground">Last Renewed</p>
+                    <p className="font-medium text-violet-400">{format(new Date(plan.renewedAt), "MMM d, yyyy")}</p>
+                  </div>
+                )}
                 <div className="space-y-0.5">
                   <p className="text-xs text-muted-foreground">Settlement Fee</p>
                   <p className="font-medium flex items-center gap-1"><Percent className="w-3 h-3" />{plan.settlementFee}%</p>

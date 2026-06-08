@@ -194,6 +194,7 @@ export const GetMerchantPlanResponse = zod.object({
   "expiresAt": zod.string().nullish(),
   "isExpired": zod.boolean(),
   "daysUntilExpiry": zod.number().nullish(),
+  "renewedAt": zod.string().nullish(),
   "notes": zod.string().nullish()
 })
 
@@ -1111,6 +1112,7 @@ export const GetMyPlanResponse = zod.object({
   "expiresAt": zod.string().nullish(),
   "isExpired": zod.boolean(),
   "daysUntilExpiry": zod.number().nullish(),
+  "renewedAt": zod.string().nullish(),
   "notes": zod.string().nullish()
 })
 

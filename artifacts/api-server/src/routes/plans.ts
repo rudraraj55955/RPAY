@@ -50,6 +50,7 @@ router.get("/me", async (req, res) => {
     apiAccess: plan!.apiAccess, webhookAccess: plan!.webhookAccess, providerAccess: plan!.providerAccess,
     status: mp.status,
     assignedAt: mp.assignedAt, expiresAt: mp.expiresAt ?? null, isExpired,
+    renewedAt: mp.renewedAt?.toISOString() ?? null,
     daysUntilExpiry: mp.expiresAt
       ? Math.max(0, Math.ceil((mp.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
       : null,

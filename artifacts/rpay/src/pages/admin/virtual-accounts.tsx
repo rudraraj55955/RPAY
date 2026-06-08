@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useListVirtualAccounts, useUpdateVirtualAccount, useDeleteVirtualAccount, useGetVirtualAccountTransactions } from "@workspace/api-client-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ExportCsvButton } from "@/components/ui/export-csv-button";
 import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
-import { Search, XCircle, Trash2, X, Eye, Download, Calendar, RefreshCw } from "lucide-react";
+import { Search, XCircle, Trash2, X, Eye, Download, Calendar, RefreshCw, Pencil, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -37,6 +39,9 @@ export default function AdminVirtualAccounts() {
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [selectedVa, setSelectedVa] = useState<VaRow | null>(null);
+  const [editVa, setEditVa] = useState<VaRow | null>(null);
+  const [editForm, setEditForm] = useState({ balance: "", totalCollection: "" });
+  const [editError, setEditError] = useState<string | null>(null);
 
   const { lastRefreshed, isRefreshing, handleRefresh } = useMonitoringRefresh(
     () => qc.invalidateQueries({ queryKey: ["/api/virtual-accounts"] })
@@ -73,6 +78,27 @@ export default function AdminVirtualAccounts() {
       onSuccess: () => { toast.success("Virtual account deleted"); qc.invalidateQueries({ queryKey: ["/api/virtual-accounts"] }); },
       onError: () => toast.error("Failed to delete"),
     });
+  };
+
+  const openEditBalance = (va: VaRow) => {
+    setEditVa(va);
+    setEditForm({ balance: va.balance ?? "0.00", totalCollection: va.totalCollection ?? "0.00" });
+    setEditError(null);
+  };
+
+  const handleEditBalance = () => {
+    setEditError(null);
+    const balance = parseFloat(editForm.balance);
+    const totalCollection = parseFloat(editForm.totalCollection);
+    if (isNaN(balance) || balance < 0) { setEditError("Balance must be a non-negative number."); return; }
+    if (isNaN(totalCollection) || totalCollection < 0) { setEditError("Total collection must be a non-negative number."); return; }
+    updateMutation.mutate(
+      { id: editVa!.id, data: { balance: balance.toFixed(2), totalCollection: totalCollection.toFixed(2) } as any },
+      {
+        onSuccess: () => { toast.success("Balance updated"); setEditVa(null); qc.invalidateQueries({ queryKey: ["/api/virtual-accounts"] }); },
+        onError: () => setEditError("Failed to update balance."),
+      }
+    );
   };
 
   const clearFilters = () => {
@@ -214,6 +240,10 @@ export default function AdminVirtualAccounts() {
                         onClick={() => setSelectedVa(va)}>
                         <Eye className="w-4 h-4" />
                       </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-violet-400 hover:text-violet-300 hover:bg-violet-500/10"
+                        title="Update Balance" onClick={() => openEditBalance(va)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
                       {va.status === "active" && (
                         <Button size="sm" variant="ghost" className="text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 h-8 text-xs"
                           onClick={() => handleClose(va.id)}>
@@ -242,6 +272,56 @@ export default function AdminVirtualAccounts() {
           </div>
         </div>
       )}
+
+      {/* Edit Balance Dialog */}
+      <Dialog open={!!editVa} onOpenChange={v => { if (!v) setEditVa(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Update Balance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {editError && (
+              <div className="flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-400">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{editError}</span>
+              </div>
+            )}
+            {editVa && (
+              <p className="text-sm text-muted-foreground">
+                {editVa.merchantName ?? "—"} · {editVa.accountHolder} · <span className="font-mono">{editVa.accountNumber}</span>
+              </p>
+            )}
+            <div className="space-y-1.5">
+              <Label>Current Balance (₹)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={editForm.balance}
+                onChange={e => setEditForm(f => ({ ...f, balance: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Total Collection (₹)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={editForm.totalCollection}
+                onChange={e => setEditForm(f => ({ ...f, totalCollection: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditVa(null)}>Cancel</Button>
+            <Button onClick={handleEditBalance} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Transaction Drawer */}
       <Sheet open={!!selectedVa} onOpenChange={v => { if (!v) setSelectedVa(null); }}>

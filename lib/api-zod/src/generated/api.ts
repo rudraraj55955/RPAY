@@ -278,7 +278,14 @@ export const ListTransactionsResponse = zod.object({
 })),
   "total": zod.number(),
   "page": zod.number(),
-  "limit": zod.number()
+  "limit": zod.number(),
+  "stats": zod.object({
+  "depositVolume": zod.number(),
+  "withdrawalVolume": zod.number(),
+  "successCount": zod.number(),
+  "failedCount": zod.number(),
+  "pendingCount": zod.number()
+})
 })
 
 

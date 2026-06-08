@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, transactionsTable, merchantsTable, qrCodesTable, virtualAccountsTable } from "@workspace/db";
-import { eq, ilike, and, count, sql, gte, lte, or } from "drizzle-orm";
+import { eq, ilike, and, count, sum, sql, gte, lte, or } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
 const router = Router();
@@ -44,7 +44,21 @@ router.get("/", async (req, res, next) => {
     if (dateTo) conditions.push(lte(transactionsTable.createdAt, new Date(dateTo)));
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
+
     const [{ total }] = await db.select({ total: count() }).from(transactionsTable).where(where);
+
+    const aggRows = await db
+      .select({
+        depositVolume: sql<string>`COALESCE(SUM(CASE WHEN ${transactionsTable.type} = 'deposit' THEN CAST(${transactionsTable.amount} AS DECIMAL) ELSE 0 END), 0)`,
+        withdrawalVolume: sql<string>`COALESCE(SUM(CASE WHEN ${transactionsTable.type} = 'withdrawal' THEN CAST(${transactionsTable.amount} AS DECIMAL) ELSE 0 END), 0)`,
+        successCount: sql<number>`CAST(COUNT(CASE WHEN ${transactionsTable.status} = 'success' THEN 1 END) AS INTEGER)`,
+        failedCount: sql<number>`CAST(COUNT(CASE WHEN ${transactionsTable.status} = 'failed' THEN 1 END) AS INTEGER)`,
+        pendingCount: sql<number>`CAST(COUNT(CASE WHEN ${transactionsTable.status} = 'pending' THEN 1 END) AS INTEGER)`,
+      })
+      .from(transactionsTable)
+      .where(where);
+
+    const agg = aggRows[0];
 
     const rows = await db
       .select({ transaction: transactionsTable, merchantName: merchantsTable.businessName })
@@ -60,6 +74,13 @@ router.get("/", async (req, res, next) => {
       total,
       page: pageNum,
       limit: limitNum,
+      stats: {
+        depositVolume: Number(agg.depositVolume),
+        withdrawalVolume: Number(agg.withdrawalVolume),
+        successCount: Number(agg.successCount),
+        failedCount: Number(agg.failedCount),
+        pendingCount: Number(agg.pendingCount),
+      },
     });
   } catch (err) {
     next(err);

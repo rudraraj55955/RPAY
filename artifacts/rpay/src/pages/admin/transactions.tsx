@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, X } from "lucide-react";
+import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash } from "lucide-react";
 import { format } from "date-fns";
 
 export default function AdminTransactions() {
@@ -49,11 +49,82 @@ export default function AdminTransactions() {
     a.click();
   };
 
+  const stats = data?.stats;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-3xl font-bold tracking-tight">Transactions</h1><p className="text-muted-foreground mt-1">Complete transaction history</p></div>
         <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>
+      </div>
+
+      {/* Stats Bar */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <ArrowDownLeft className="w-4 h-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Deposit Volume</p>
+                <p className="text-lg font-bold font-mono truncate">₹{(stats?.depositVolume ?? 0).toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                <ArrowUpRight className="w-4 h-4 text-violet-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Withdrawal Volume</p>
+                <p className="text-lg font-bold font-mono truncate">₹{(stats?.withdrawalVolume ?? 0).toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Successful</p>
+                <p className="text-lg font-bold">{stats?.successCount ?? 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-sky-500/10 flex items-center justify-center flex-shrink-0">
+                <Hash className="w-4 h-4 text-sky-500" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Count</p>
+                <p className="text-lg font-bold">{data?.total ?? 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+                <XCircle className="w-4 h-4 text-rose-500" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Failed</p>
+                <p className="text-lg font-bold">{stats?.failedCount ?? 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* UTR Search */}

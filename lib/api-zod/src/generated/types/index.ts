@@ -79,6 +79,7 @@ export * from './simulatePaymentInputSourceType';
 export * from './toggleProductInput';
 export * from './transaction';
 export * from './transactionListResponse';
+export * from './transactionListResponseStats';
 export * from './transactionStatus';
 export * from './transactionType';
 export * from './user';

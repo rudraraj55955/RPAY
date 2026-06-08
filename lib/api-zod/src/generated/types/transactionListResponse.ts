@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Transaction } from './transaction';
+import type { TransactionListResponseStats } from './transactionListResponseStats';
 
 export interface TransactionListResponse {
   data: Transaction[];
   total: number;
   page: number;
   limit: number;
+  stats: TransactionListResponseStats;
 }

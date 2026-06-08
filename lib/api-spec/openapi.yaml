@@ -1460,7 +1460,7 @@ components:
 
     TransactionListResponse:
       type: object
-      required: [data, total, page, limit]
+      required: [data, total, page, limit, stats]
       properties:
         data:
           type: array
@@ -1472,6 +1472,20 @@ components:
           type: integer
         limit:
           type: integer
+        stats:
+          type: object
+          required: [depositVolume, withdrawalVolume, successCount, failedCount, pendingCount]
+          properties:
+            depositVolume:
+              type: number
+            withdrawalVolume:
+              type: number
+            successCount:
+              type: integer
+            failedCount:
+              type: integer
+            pendingCount:
+              type: integer
 
     Withdrawal:
       type: object

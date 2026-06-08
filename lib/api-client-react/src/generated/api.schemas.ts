@@ -143,11 +143,20 @@ export interface Transaction {
   updatedAt?: string;
 }
 
+export type TransactionListResponseStats = {
+  depositVolume: number;
+  withdrawalVolume: number;
+  successCount: number;
+  failedCount: number;
+  pendingCount: number;
+};
+
 export interface TransactionListResponse {
   data: Transaction[];
   total: number;
   page: number;
   limit: number;
+  stats: TransactionListResponseStats;
 }
 
 export type WithdrawalStatus = typeof WithdrawalStatus[keyof typeof WithdrawalStatus];

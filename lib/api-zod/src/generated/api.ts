@@ -2211,7 +2211,9 @@ export const ListLedgerEntriesResponse = zod.object({
   "total": zod.number(),
   "page": zod.number(),
   "limit": zod.number(),
-  "currentBalance": zod.number()
+  "currentBalance": zod.number(),
+  "openingBalance": zod.number(),
+  "closingBalance": zod.number()
 })
 
 

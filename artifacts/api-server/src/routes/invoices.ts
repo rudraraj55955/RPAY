@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, invoicesTable, merchantsTable, plansTable } from "@workspace/db";
-import { eq, and, count, desc } from "drizzle-orm";
+import { db, invoicesTable, merchantsTable, plansTable, ledgerEntriesTable } from "@workspace/db";
+import { eq, and, count, desc, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 
 const router = Router();
@@ -77,25 +77,79 @@ router.post("/", requireAdmin, async (req, res) => {
   if (!merchant) { res.status(404).json({ error: "Merchant not found" }); return; }
 
   const invoiceNumber = generateInvoiceNumber();
-  const [inv] = await db.insert(invoicesTable).values({
-    merchantId,
-    planId: planId ?? null,
-    invoiceNumber,
-    amount,
-    currency: currency ?? "INR",
-    period: period ?? null,
-    periodFrom: periodFrom ? new Date(periodFrom) : null,
-    periodTo: periodTo ? new Date(periodTo) : null,
-    status: status ?? "issued",
-    dueDate: dueDate ? new Date(dueDate) : null,
-    notes: notes ?? null,
-    createdBy: user.id,
-  }).returning();
+  const invoiceStatus = status ?? "issued";
+  const invoiceAmount = Number(amount);
 
+  let inv: typeof invoicesTable.$inferSelect;
   let planName: string | null = null;
+
   if (planId) {
     const [plan] = await db.select({ name: plansTable.name }).from(plansTable).where(eq(plansTable.id, planId)).limit(1);
     planName = plan?.name ?? null;
+  }
+
+  if (invoiceStatus === "issued") {
+    // Atomic: insert invoice + deduct merchant balance + ledger fee entry
+    [inv] = await db.transaction(async (tx) => {
+      const [merchantRow] = await tx
+        .select({ balance: merchantsTable.balance })
+        .from(merchantsTable)
+        .where(eq(merchantsTable.id, merchantId))
+        .limit(1);
+
+      const balanceBefore = Number(merchantRow?.balance ?? 0);
+      const balanceAfter = balanceBefore - invoiceAmount;
+
+      const [created] = await tx.insert(invoicesTable).values({
+        merchantId,
+        planId: planId ?? null,
+        invoiceNumber,
+        amount,
+        currency: currency ?? "INR",
+        period: period ?? null,
+        periodFrom: periodFrom ? new Date(periodFrom) : null,
+        periodTo: periodTo ? new Date(periodTo) : null,
+        status: invoiceStatus,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        notes: notes ?? null,
+        createdBy: user.id,
+      }).returning();
+
+      if (balanceBefore > 0 && invoiceAmount > 0) {
+        await tx.update(merchantsTable)
+          .set({ balance: sql`${merchantsTable.balance} - ${invoiceAmount}::numeric`, updatedAt: new Date() })
+          .where(eq(merchantsTable.id, merchantId));
+
+        await tx.insert(ledgerEntriesTable).values({
+          merchantId,
+          type: "fee",
+          amount: (-invoiceAmount).toFixed(2),
+          balanceBefore: balanceBefore.toFixed(2),
+          balanceAfter: Math.max(0, balanceAfter).toFixed(2),
+          referenceType: "invoice",
+          referenceId: created.id,
+          description: `Fee charged — ${planName ? `${planName} plan` : "subscription"} invoice ${invoiceNumber}`,
+          createdBy: user.id,
+        });
+      }
+
+      return [created];
+    });
+  } else {
+    [inv] = await db.insert(invoicesTable).values({
+      merchantId,
+      planId: planId ?? null,
+      invoiceNumber,
+      amount,
+      currency: currency ?? "INR",
+      period: period ?? null,
+      periodFrom: periodFrom ? new Date(periodFrom) : null,
+      periodTo: periodTo ? new Date(periodTo) : null,
+      status: invoiceStatus,
+      dueDate: dueDate ? new Date(dueDate) : null,
+      notes: notes ?? null,
+      createdBy: user.id,
+    }).returning();
   }
 
   res.status(201).json(serializeInvoice(inv, { merchantName: merchant.businessName, merchantEmail: merchant.email, planName }));

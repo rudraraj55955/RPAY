@@ -151,57 +151,58 @@ router.post("/simulate", async (req, res, next) => {
     // Resolve to final status (non-pending: update immediately)
     let finalTx = pending;
     if (finalStatus !== "pending") {
-      const [resolved] = await db
-        .update(transactionsTable)
-        .set({ status: finalStatus, updatedAt: new Date() })
-        .where(eq(transactionsTable.id, pending.id))
-        .returning();
-      finalTx = resolved;
+      finalTx = await db.transaction(async (tx) => {
+        const [resolved] = await tx
+          .update(transactionsTable)
+          .set({ status: finalStatus, updatedAt: new Date() })
+          .where(eq(transactionsTable.id, pending.id))
+          .returning();
 
-      // Update merchant balance on success
-      if (finalStatus === "success") {
-        const [merchantRow] = await db
-          .select({ balance: merchantsTable.balance })
-          .from(merchantsTable)
-          .where(eq(merchantsTable.id, user.merchantId))
-          .limit(1);
-        const balanceBefore = Number(merchantRow?.balance ?? 0);
-        const depositAmt = Number(amount);
-        const balanceAfter = balanceBefore + depositAmt;
+        if (finalStatus === "success") {
+          const [merchantRow] = await tx
+            .select({ balance: merchantsTable.balance })
+            .from(merchantsTable)
+            .where(eq(merchantsTable.id, user.merchantId))
+            .limit(1);
+          const balanceBefore = Number(merchantRow?.balance ?? 0);
+          const depositAmt = Number(amount);
+          const balanceAfter = balanceBefore + depositAmt;
 
-        await db
-          .update(merchantsTable)
-          .set({
-            balance: sql`CAST(COALESCE(balance, '0') AS DECIMAL) + ${Number(amount).toFixed(2)}`,
-            totalDeposits: sql`CAST(COALESCE(total_deposits, '0') AS DECIMAL) + ${Number(amount).toFixed(2)}`,
-            updatedAt: new Date(),
-          })
-          .where(eq(merchantsTable.id, user.merchantId));
-
-        await db.insert(ledgerEntriesTable).values({
-          merchantId: user.merchantId,
-          type: "deposit",
-          amount: depositAmt.toFixed(2),
-          balanceBefore: balanceBefore.toFixed(2),
-          balanceAfter: balanceAfter.toFixed(2),
-          referenceType: "transaction",
-          referenceId: finalTx.id,
-          description: `Deposit via ${sourceType === "qr" ? "QR Code" : "Virtual Account"}: ${sourceLabel}`,
-          createdBy: null,
-        });
-
-        // Update VA balance and totalCollection when transaction is linked to a VA
-        if (vaId !== null) {
-          await db
-            .update(virtualAccountsTable)
+          await tx
+            .update(merchantsTable)
             .set({
-              balance: sql`CAST(COALESCE(${virtualAccountsTable.balance}, '0') AS DECIMAL) + ${Number(amount).toFixed(2)}`,
-              totalCollection: sql`CAST(COALESCE(${virtualAccountsTable.totalCollection}, '0') AS DECIMAL) + ${Number(amount).toFixed(2)}`,
+              balance: sql`CAST(COALESCE(balance, '0') AS DECIMAL) + ${depositAmt.toFixed(2)}`,
+              totalDeposits: sql`CAST(COALESCE(total_deposits, '0') AS DECIMAL) + ${depositAmt.toFixed(2)}`,
               updatedAt: new Date(),
             })
-            .where(eq(virtualAccountsTable.id, vaId));
+            .where(eq(merchantsTable.id, user.merchantId));
+
+          await tx.insert(ledgerEntriesTable).values({
+            merchantId: user.merchantId,
+            type: "deposit",
+            amount: depositAmt.toFixed(2),
+            balanceBefore: balanceBefore.toFixed(2),
+            balanceAfter: balanceAfter.toFixed(2),
+            referenceType: "transaction",
+            referenceId: resolved.id,
+            description: `Deposit via ${sourceType === "qr" ? "QR Code" : "Virtual Account"}: ${sourceLabel}`,
+            createdBy: null,
+          });
+
+          if (vaId !== null) {
+            await tx
+              .update(virtualAccountsTable)
+              .set({
+                balance: sql`CAST(COALESCE(${virtualAccountsTable.balance}, '0') AS DECIMAL) + ${depositAmt.toFixed(2)}`,
+                totalCollection: sql`CAST(COALESCE(${virtualAccountsTable.totalCollection}, '0') AS DECIMAL) + ${depositAmt.toFixed(2)}`,
+                updatedAt: new Date(),
+              })
+              .where(eq(virtualAccountsTable.id, vaId));
+          }
         }
-      }
+
+        return resolved;
+      });
     }
 
     res.status(201).json({ ...finalTx, amount: Number(finalTx.amount), merchantName: null });

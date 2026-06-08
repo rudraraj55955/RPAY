@@ -3705,7 +3705,7 @@ components:
 
     LedgerListResponse:
       type: object
-      required: [data, total, page, limit, currentBalance]
+      required: [data, total, page, limit, currentBalance, openingBalance, closingBalance]
       properties:
         data:
           type: array
@@ -3715,6 +3715,8 @@ components:
         page: { type: integer }
         limit: { type: integer }
         currentBalance: { type: number }
+        openingBalance: { type: number }
+        closingBalance: { type: number }
 
     LedgerAdjustmentInput:
       type: object

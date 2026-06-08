@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, ledgerEntriesTable, merchantsTable } from "@workspace/db";
-import { eq, and, count, gte, lte, sql, desc } from "drizzle-orm";
+import { db, ledgerEntriesTable, merchantsTable, auditLogsTable } from "@workspace/db";
+import { eq, and, count, gte, lte, sql, desc, asc, min, max } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 
 const router = Router();
@@ -44,18 +44,28 @@ router.get("/", async (req, res, next) => {
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
-    const [{ total }] = await db.select({ total: count() }).from(ledgerEntriesTable).where(where);
 
-    const rows = await db
-      .select({ entry: ledgerEntriesTable, merchantName: merchantsTable.businessName })
-      .from(ledgerEntriesTable)
-      .leftJoin(merchantsTable, eq(ledgerEntriesTable.merchantId, merchantsTable.id))
-      .where(where)
-      .orderBy(desc(ledgerEntriesTable.createdAt))
-      .limit(limitNum)
-      .offset(offset);
+    // Fetch total count, period boundary rows (for opening/closing balance), and page of data in parallel
+    const [countResult, oldestEntry, newestEntry, rows] = await Promise.all([
+      db.select({ total: count() }).from(ledgerEntriesTable).where(where),
+      // Oldest entry in the filtered window (for opening balance)
+      db.select({ balanceBefore: ledgerEntriesTable.balanceBefore })
+        .from(ledgerEntriesTable).where(where)
+        .orderBy(asc(ledgerEntriesTable.createdAt)).limit(1),
+      // Newest entry in the filtered window (for closing balance)
+      db.select({ balanceAfter: ledgerEntriesTable.balanceAfter })
+        .from(ledgerEntriesTable).where(where)
+        .orderBy(desc(ledgerEntriesTable.createdAt)).limit(1),
+      db.select({ entry: ledgerEntriesTable, merchantName: merchantsTable.businessName })
+        .from(ledgerEntriesTable)
+        .leftJoin(merchantsTable, eq(ledgerEntriesTable.merchantId, merchantsTable.id))
+        .where(where)
+        .orderBy(desc(ledgerEntriesTable.createdAt))
+        .limit(limitNum)
+        .offset(offset),
+    ]);
 
-    // current balance: fetch from merchants table for scoped merchant, or 0 for cross-merchant admin view
+    // Current balance: fetch from merchants table for scoped merchant
     let currentBalance = 0;
     const scopedMerchantId = user.role !== "admin" ? user.merchantId : (merchantId ? parseInt(merchantId) : null);
     if (scopedMerchantId) {
@@ -63,12 +73,17 @@ router.get("/", async (req, res, next) => {
       if (m) currentBalance = Number(m.balance);
     }
 
+    const openingBalance = oldestEntry[0] ? Number(oldestEntry[0].balanceBefore) : currentBalance;
+    const closingBalance = newestEntry[0] ? Number(newestEntry[0].balanceAfter) : currentBalance;
+
     res.json({
       data: rows.map(r => mapEntry(r.entry, r.merchantName)),
-      total: Number(total),
+      total: Number(countResult[0].total),
       page: pageNum,
       limit: limitNum,
       currentBalance,
+      openingBalance,
+      closingBalance,
     });
   } catch (err) {
     next(err);
@@ -130,6 +145,22 @@ router.post("/adjustment", requireAdmin, async (req, res, next) => {
             createdBy: user.id,
           })
           .returning();
+
+        await tx.insert(auditLogsTable).values({
+          adminId: user.id,
+          adminEmail: user.email,
+          action: "ledger_adjustment",
+          targetType: "merchant",
+          targetId: merchantId,
+          details: JSON.stringify({
+            amount,
+            balanceBefore,
+            balanceAfter,
+            description: description.trim(),
+            ledgerEntryId: created.id,
+          }),
+          ipAddress: (req as any).ip ?? null,
+        });
 
         return created;
       });

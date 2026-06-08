@@ -1190,6 +1190,8 @@ export interface LedgerListResponse {
   page: number;
   limit: number;
   currentBalance: number;
+  openingBalance: number;
+  closingBalance: number;
 }
 
 export interface LedgerAdjustmentInput {

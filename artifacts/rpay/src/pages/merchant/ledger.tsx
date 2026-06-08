@@ -6,14 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, RefreshCw } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronRight } from "lucide-react";
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  deposit: { label: "Deposit", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  deposit:    { label: "Deposit",    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
   settlement: { label: "Settlement", color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
   adjustment: { label: "Adjustment", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  fee: { label: "Fee", color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
-  refund: { label: "Refund", color: "bg-sky-500/10 text-sky-400 border-sky-500/20" },
+  fee:        { label: "Fee",        color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
+  refund:     { label: "Refund",     color: "bg-sky-500/10 text-sky-400 border-sky-500/20" },
 };
 
 function fmt(v: number) {
@@ -24,13 +24,46 @@ function fmtDate(s: string) {
   return new Date(s).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 }
 
+function toDateStr(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 const PAGE_SIZE = 50;
+
+type Preset = "all" | "mtd" | "30d" | "7d" | "custom";
+
+function getPresetDates(preset: Preset): { dateFrom: string; dateTo: string } {
+  const now = new Date();
+  if (preset === "mtd") {
+    return { dateFrom: toDateStr(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: toDateStr(now) };
+  }
+  if (preset === "30d") {
+    const from = new Date(now); from.setDate(from.getDate() - 30);
+    return { dateFrom: toDateStr(from), dateTo: toDateStr(now) };
+  }
+  if (preset === "7d") {
+    const from = new Date(now); from.setDate(from.getDate() - 7);
+    return { dateFrom: toDateStr(from), dateTo: toDateStr(now) };
+  }
+  return { dateFrom: "", dateTo: "" };
+}
 
 export default function MerchantLedger() {
   const [type, setType] = useState("all");
+  const [preset, setPreset] = useState<Preset>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
+
+  function applyPreset(p: Preset) {
+    setPreset(p);
+    setPage(1);
+    if (p !== "custom") {
+      const { dateFrom: f, dateTo: t } = getPresetDates(p);
+      setDateFrom(f);
+      setDateTo(t);
+    }
+  }
 
   const params = {
     type: type !== "all" ? type : undefined,
@@ -45,10 +78,17 @@ export default function MerchantLedger() {
   const entries = data?.data ?? [];
   const total = data?.total ?? 0;
   const currentBalance = data?.currentBalance ?? 0;
+  const openingBalance = data?.openingBalance ?? 0;
+  const closingBalance = data?.closingBalance ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const credits = entries.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0);
-  const debits = entries.filter(e => e.amount < 0).reduce((s, e) => s + Math.abs(e.amount), 0);
+  const PRESETS: { key: Preset; label: string }[] = [
+    { key: "all",    label: "All Time" },
+    { key: "mtd",    label: "This Month" },
+    { key: "30d",    label: "Last 30 Days" },
+    { key: "7d",     label: "Last 7 Days" },
+    { key: "custom", label: "Custom" },
+  ];
 
   return (
     <div className="space-y-6 p-6">
@@ -64,45 +104,64 @@ export default function MerchantLedger() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-card border-border/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Wallet className="w-4 h-4" />
-              Current Balance
+            <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Wallet className="w-3.5 h-3.5" /> Current Balance
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-foreground">{fmt(currentBalance)}</p>
+            <p className="text-xl font-bold text-foreground">{fmt(currentBalance)}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-400" />
-              Credits (filtered)
-            </CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">Opening Balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-emerald-400">{fmt(credits)}</p>
+            <p className="text-xl font-bold text-muted-foreground">{fmt(openingBalance)}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingDown className="w-4 h-4 text-rose-400" />
-              Debits (filtered)
+            <CardTitle className="text-xs font-medium text-muted-foreground">Closing Balance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xl font-bold">{fmt(closingBalance)}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <ChevronRight className="w-3.5 h-3.5" /> Net Movement
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-rose-400">{fmt(debits)}</p>
+            <p className={`text-xl font-bold ${closingBalance - openingBalance >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              {closingBalance - openingBalance >= 0 ? "+" : ""}{fmt(closingBalance - openingBalance)}
+            </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
       <Card className="bg-card border-border/50">
-        <CardContent className="pt-4">
+        <CardContent className="pt-4 space-y-3">
+          {/* Period presets */}
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map(p => (
+              <Button
+                key={p.key}
+                variant={preset === p.key ? "default" : "outline"}
+                size="sm"
+                onClick={() => applyPreset(p.key)}
+              >
+                {p.label}
+              </Button>
+            ))}
+          </div>
+          {/* Filters row */}
           <div className="flex flex-wrap gap-3">
             <Select value={type} onValueChange={(v) => { setType(v); setPage(1); }}>
               <SelectTrigger className="w-40">
@@ -117,11 +176,22 @@ export default function MerchantLedger() {
                 <SelectItem value="refund">Refund</SelectItem>
               </SelectContent>
             </Select>
-            <Input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} className="w-40" placeholder="From" />
-            <Input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} className="w-40" placeholder="To" />
-            <Button variant="ghost" size="sm" onClick={() => { setType("all"); setDateFrom(""); setDateTo(""); setPage(1); }}>
-              Clear
-            </Button>
+            {(preset === "custom" || preset === "all") && (
+              <>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => { setDateFrom(e.target.value); setPreset("custom"); setPage(1); }}
+                  className="w-40"
+                />
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={e => { setDateTo(e.target.value); setPreset("custom"); setPage(1); }}
+                  className="w-40"
+                />
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

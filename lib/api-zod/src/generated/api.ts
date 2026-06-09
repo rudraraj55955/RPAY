@@ -655,6 +655,7 @@ export const ListTransactionsResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.number(),
   "merchantId": zod.number(),
+  "virtualAccountId": zod.number().nullish(),
   "merchantName": zod.string().nullish(),
   "type": zod.enum(['deposit', 'withdrawal']),
   "status": zod.enum(['pending', 'success', 'failed']),
@@ -702,6 +703,7 @@ export const GetTransactionParams = zod.object({
 export const GetTransactionResponse = zod.object({
   "id": zod.number(),
   "merchantId": zod.number(),
+  "virtualAccountId": zod.number().nullish(),
   "merchantName": zod.string().nullish(),
   "type": zod.enum(['deposit', 'withdrawal']),
   "status": zod.enum(['pending', 'success', 'failed']),
@@ -726,6 +728,7 @@ export const SearchByUtrQueryParams = zod.object({
 export const SearchByUtrResponse = zod.object({
   "id": zod.number(),
   "merchantId": zod.number(),
+  "virtualAccountId": zod.number().nullish(),
   "merchantName": zod.string().nullish(),
   "type": zod.enum(['deposit', 'withdrawal']),
   "status": zod.enum(['pending', 'success', 'failed']),

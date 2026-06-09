@@ -138,6 +138,8 @@ export interface Transaction {
   id: number;
   merchantId: number;
   /** @nullable */
+  virtualAccountId?: number | null;
+  /** @nullable */
   merchantName?: string | null;
   type: TransactionType;
   status: TransactionStatus;

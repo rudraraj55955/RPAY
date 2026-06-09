@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, isNotNull } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -291,6 +291,76 @@ export async function seed() {
     }
   }
   console.log("Virtual accounts seeded");
+
+  // ── VA-linked transactions ────────────────────────────────────────────────
+  // Seed demo transactions explicitly tagged with virtualAccountId so the
+  // VA payment history drawer shows real data in the demo environment.
+  const m1VAs = await db.select({ id: virtualAccountsTable.id }).from(virtualAccountsTable)
+    .where(eq(virtualAccountsTable.merchantId, m1.id)).limit(2);
+  const m2VAs = await db.select({ id: virtualAccountsTable.id }).from(virtualAccountsTable)
+    .where(eq(virtualAccountsTable.merchantId, m2.id)).limit(2);
+
+  if (m1VAs.length > 0) {
+    const [vaLinked] = await db.select({ c: count() }).from(transactionsTable)
+      .where(and(eq(transactionsTable.merchantId, m1.id), isNotNull(transactionsTable.virtualAccountId)));
+    if (vaLinked.c === 0) {
+      const va1 = m1VAs[0].id;
+      const va2 = m1VAs[1]?.id ?? va1;
+      const vaDeposits = [
+        { vaId: va1, amount: "15000.00", status: "success", hoursAgo: 5 * 24 },
+        { vaId: va1, amount: "8500.50",  status: "success", hoursAgo: 3 * 24 },
+        { vaId: va1, amount: "3200.00",  status: "failed",  hoursAgo: 2 * 24 },
+        { vaId: va1, amount: "12000.00", status: "success", hoursAgo: 1 * 24 },
+        { vaId: va2, amount: "25000.00", status: "success", hoursAgo: 4 * 24 },
+        { vaId: va2, amount: "9800.00",  status: "success", hoursAgo: 2 * 24 + 3 },
+        { vaId: va2, amount: "4500.00",  status: "pending", hoursAgo: 6 },
+      ];
+      for (const d of vaDeposits) {
+        const utrSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+        await db.insert(transactionsTable).values({
+          merchantId: m1.id,
+          virtualAccountId: d.vaId,
+          type: "deposit",
+          status: d.status as "success" | "failed" | "pending",
+          amount: d.amount,
+          currency: "INR",
+          utr: `VAUTR${Date.now()}${utrSuffix}`,
+          description: `Deposit via Virtual Account`,
+          createdAt: new Date(Date.now() - d.hoursAgo * 3600000),
+        });
+      }
+    }
+  }
+
+  if (m2VAs.length > 0) {
+    const [vaLinked2] = await db.select({ c: count() }).from(transactionsTable)
+      .where(and(eq(transactionsTable.merchantId, m2.id), isNotNull(transactionsTable.virtualAccountId)));
+    if (vaLinked2.c === 0) {
+      const va3 = m2VAs[0].id;
+      const va4 = m2VAs[1]?.id ?? va3;
+      const vaDeposits2 = [
+        { vaId: va3, amount: "30000.00", status: "success", hoursAgo: 6 * 24 },
+        { vaId: va3, amount: "11200.00", status: "success", hoursAgo: 2 * 24 },
+        { vaId: va4, amount: "18500.00", status: "success", hoursAgo: 3 * 24 },
+        { vaId: va4, amount: "6750.00",  status: "failed",  hoursAgo: 1 * 24 },
+      ];
+      for (const d of vaDeposits2) {
+        const utrSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+        await db.insert(transactionsTable).values({
+          merchantId: m2.id,
+          virtualAccountId: d.vaId,
+          type: "deposit",
+          status: d.status as "success" | "failed" | "pending",
+          amount: d.amount,
+          currency: "INR",
+          utr: `VAUTR${Date.now()}${utrSuffix}`,
+          description: `Deposit via Virtual Account`,
+          createdAt: new Date(Date.now() - d.hoursAgo * 3600000),
+        });
+      }
+    }
+  }
+  console.log("VA-linked transactions seeded");
 
   // ── API Keys — merchant-scoped guard ────────────────────────────────────
   const [m1KeyCount] = await db.select({ c: count() }).from(apiKeysTable).where(eq(apiKeysTable.merchantId, m1.id));

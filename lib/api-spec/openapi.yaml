@@ -2871,6 +2871,8 @@ components:
           type: integer
         merchantId:
           type: integer
+        virtualAccountId:
+          type: ["integer", "null"]
         merchantName:
           type: ["string", "null"]
         type:

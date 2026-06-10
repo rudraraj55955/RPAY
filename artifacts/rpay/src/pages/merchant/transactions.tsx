@@ -346,7 +346,7 @@ export default function MerchantTransactions() {
               {utrError && <p className="text-sm text-rose-500">No transaction found for UTR: {utrSearch}</p>}
               {utrResult && (
                 <div className="flex flex-wrap gap-4 text-sm">
-                  <div><span className="text-muted-foreground">UTR:</span> <span className="font-mono font-medium">{utrResult.utr}</span></div>
+                  <div><span className="text-muted-foreground">UTR:</span> <span className="font-mono font-medium">{highlightUtr(utrResult.utr, utrSearch)}</span></div>
                   <div><span className="text-muted-foreground">Amount:</span> <span className="font-semibold">₹{Number(utrResult.amount).toLocaleString()}</span></div>
                   <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{utrResult.type}</Badge></div>
                   <div><span className="text-muted-foreground">Status:</span> <StatusBadge status={utrResult.status} /></div>

@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronRight } from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronRight } from "lucide-react";
+import { ExportCsvButton } from "@/components/ui/export-csv-button";
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   deposit:    { label: "Deposit",    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
@@ -22,6 +23,25 @@ function fmt(v: number) {
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function buildAndDownloadLedgerCsv(entries: any[]) {
+  if (!entries.length) return;
+  const rows = [["ID", "Type", "Description", "Amount", "Balance Before", "Balance After", "Date"]];
+  entries.forEach(e => rows.push([
+    String(e.id),
+    e.type,
+    e.description ?? "",
+    String(e.amount),
+    String(e.balanceBefore),
+    String(e.balanceAfter),
+    e.createdAt,
+  ]));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = `ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
 }
 
 function toDateStr(d: Date): string {
@@ -97,10 +117,16 @@ export default function MerchantLedger() {
           <h1 className="text-2xl font-bold text-foreground">Balance Ledger</h1>
           <p className="text-sm text-muted-foreground mt-1">Full audit trail of every balance-affecting event</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <ExportCsvButton
+            onExport={() => buildAndDownloadLedgerCsv(entries)}
+            disabled={entries.length === 0}
+          />
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}

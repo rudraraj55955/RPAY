@@ -24,13 +24,13 @@ import {
   Plus,
   QrCode,
   Building2,
-  Download,
   TrendingUp,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { ExportCsvButton } from "@/components/ui/export-csv-button";
 
-function exportCsv(data: any[]) {
+function buildAndDownloadCsv(data: any[]) {
   if (!data.length) return;
   const rows = [["ID", "Amount", "Currency", "UTR", "Reference", "Status", "Description", "Source", "Date"]];
   data.forEach(t => rows.push([
@@ -126,10 +126,10 @@ export default function MerchantDeposits() {
           <p className="text-muted-foreground mt-1">All incoming payments via QR and Virtual Accounts</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => exportCsv(data?.data ?? [])}>
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
+          <ExportCsvButton
+            onExport={() => buildAndDownloadCsv(data?.data ?? [])}
+            disabled={!data?.data?.length}
+          />
           <Button size="sm" onClick={() => setShowSimulate(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Simulate Payment

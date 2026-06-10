@@ -47,6 +47,7 @@ import type {
   BulkFeatureUpdateInput,
   BulkMerchantActionInput,
   BulkMerchantActionResult,
+  BulkRejectInput,
   BulkSuspendInput,
   BulkUpdateMerchantFeatures200,
   CallbackLogListResponse,
@@ -1385,6 +1386,77 @@ export function useGetMerchantPlanHistory<TData = Awaited<ReturnType<typeof getM
 
 
 
+
+export const getBulkRejectMerchantsUrl = () => {
+
+
+
+
+  return `/api/merchants/bulk-reject`
+}
+
+/**
+ * @summary Bulk-reject multiple pending merchants (admin only)
+ */
+export const bulkRejectMerchants = async (bulkRejectInput: BulkRejectInput, options?: RequestInit): Promise<BulkMerchantActionResult> => {
+
+  return customFetch<BulkMerchantActionResult>(getBulkRejectMerchantsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      bulkRejectInput,)
+  }
+);}
+
+
+
+
+export const getBulkRejectMerchantsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkRejectMerchants>>, TError,{data: BodyType<BulkRejectInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkRejectMerchants>>, TError,{data: BodyType<BulkRejectInput>}, TContext> => {
+
+const mutationKey = ['bulkRejectMerchants'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkRejectMerchants>>, {data: BodyType<BulkRejectInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  bulkRejectMerchants(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkRejectMerchantsMutationResult = NonNullable<Awaited<ReturnType<typeof bulkRejectMerchants>>>
+    export type BulkRejectMerchantsMutationBody = BodyType<BulkRejectInput>
+    export type BulkRejectMerchantsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Bulk-reject multiple pending merchants (admin only)
+ */
+export const useBulkRejectMerchants = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkRejectMerchants>>, TError,{data: BodyType<BulkRejectInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkRejectMerchants>>,
+        TError,
+        {data: BodyType<BulkRejectInput>},
+        TContext
+      > => {
+      return useMutation(getBulkRejectMerchantsMutationOptions(options));
+    }
 
 export const getBulkApproveMerchantsUrl = () => {
 

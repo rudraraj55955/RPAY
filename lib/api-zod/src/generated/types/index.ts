@@ -42,6 +42,7 @@ export * from './bulkDeleteQrCodesInputStatus';
 export * from './bulkFeatureUpdateInput';
 export * from './bulkMerchantActionInput';
 export * from './bulkMerchantActionResult';
+export * from './bulkRejectInput';
 export * from './bulkSuspendInput';
 export * from './bulkSuspendInputAction';
 export * from './bulkUpdateMerchantFeatures200';

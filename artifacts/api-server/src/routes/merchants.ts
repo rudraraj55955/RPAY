@@ -272,6 +272,44 @@ router.get("/:id/plan/history", requireAdmin, async (req, res) => {
   res.json(rows.map(r => ({ ...r.h, toPlanName: r.toPlan?.name ?? null, createdAt: r.h.createdAt.toISOString() })));
 });
 
+// POST /api/merchants/bulk-reject
+router.post("/bulk-reject", requireAdmin, async (req, res) => {
+  const user = (req as any).user;
+  const { merchantIds, reason } = req.body;
+  if (!Array.isArray(merchantIds) || merchantIds.length === 0) {
+    res.status(400).json({ error: "merchantIds[] required" });
+    return;
+  }
+  if (!reason || typeof reason !== "string" || !reason.trim()) {
+    res.status(400).json({ error: "reason is required" });
+    return;
+  }
+
+  let updated = 0;
+  let failed = 0;
+
+  for (const merchantId of merchantIds as number[]) {
+    try {
+      const [merchant] = await db.update(merchantsTable)
+        .set({ status: "rejected", rejectionReason: reason.trim() })
+        .where(eq(merchantsTable.id, merchantId))
+        .returning();
+      if (!merchant) { failed++; continue; }
+      await db.insert(auditLogsTable).values({
+        adminId: user.id, adminEmail: user.email, action: "merchant_rejected",
+        targetType: "merchant", targetId: merchantId,
+        details: JSON.stringify({ reason: reason.trim(), bulk: true }),
+        ipAddress: (req as any).ip ?? null,
+      });
+      updated++;
+    } catch {
+      failed++;
+    }
+  }
+
+  res.json({ updated, failed });
+});
+
 // POST /api/merchants/bulk-approve
 router.post("/bulk-approve", requireAdmin, async (req, res) => {
   const user = (req as any).user;

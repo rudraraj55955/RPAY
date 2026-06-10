@@ -397,6 +397,25 @@ paths:
                 items:
                   $ref: "#/components/schemas/PlanHistory"
 
+  /merchants/bulk-reject:
+    post:
+      operationId: bulkRejectMerchants
+      tags: [merchants]
+      summary: Bulk-reject multiple pending merchants (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkRejectInput"
+      responses:
+        "200":
+          description: Merchants rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkMerchantActionResult"
+
   /merchants/bulk-approve:
     post:
       operationId: bulkApproveMerchants
@@ -3600,6 +3619,17 @@ components:
       type: object
       required: [reason]
       properties:
+        reason:
+          type: string
+
+    BulkRejectInput:
+      type: object
+      required: [merchantIds, reason]
+      properties:
+        merchantIds:
+          type: array
+          items:
+            type: integer
         reason:
           type: string
 

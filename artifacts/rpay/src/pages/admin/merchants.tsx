@@ -7,7 +7,7 @@ import {
   useListPlans, useAssignMerchantPlan, useGetMerchantPlan, useGetMerchantPlanHistory,
   useUpgradeMerchantPlan, useDowngradeMerchantPlan, useSuspendMerchantPlan,
   useReinstateMerchantPlan, useRenewMerchantPlan, useBulkAssignMerchantPlan,
-  useBulkApproveMerchants, useBulkSuspendMerchants,
+  useBulkApproveMerchants, useBulkSuspendMerchants, useBulkRejectMerchants,
   useUpdateMerchantBranding, useGetMerchantPlanUsageAdmin,
   getListMerchantsQueryKey,
   listMerchants,
@@ -90,6 +90,8 @@ export default function AdminMerchants() {
   const [bulkExpiresAt, setBulkExpiresAt] = useState<string>("");
   const [bulkNotes, setBulkNotes] = useState<string>("");
   const [bulkStatusAction, setBulkStatusAction] = useState<"approve" | "suspend" | "reinstate" | null>(null);
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkRejectReason, setBulkRejectReason] = useState("");
 
   const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined });
   const { data: plans } = useListPlans();
@@ -119,6 +121,7 @@ export default function AdminMerchants() {
   const bulkAssignMutation = useBulkAssignMerchantPlan();
   const bulkApproveMutation = useBulkApproveMerchants();
   const bulkSuspendMutation = useBulkSuspendMerchants();
+  const bulkRejectMutation = useBulkRejectMerchants();
 
   const invalidatePlanData = (id: number) => {
     qc.invalidateQueries({ queryKey: ["getMerchantPlan", id] });
@@ -336,6 +339,21 @@ export default function AdminMerchants() {
 
   const isBulkStatusPending = bulkApproveMutation.isPending || bulkSuspendMutation.isPending;
 
+  const handleBulkReject = () => {
+    if (!bulkRejectReason.trim() || selected.size === 0) return;
+    const ids = [...selected];
+    bulkRejectMutation.mutate({ data: { merchantIds: ids, reason: bulkRejectReason.trim() } }, {
+      onSuccess: (result) => {
+        toast.success(`${result.updated} merchant${result.updated !== 1 ? "s" : ""} rejected${result.failed > 0 ? `, ${result.failed} failed` : ""}`);
+        setBulkRejectOpen(false);
+        setBulkRejectReason("");
+        clearSelection();
+        qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+      },
+      onError: () => toast.error("Bulk reject failed"),
+    });
+  };
+
   const exportCsv = () => {
     if (!data?.data) return;
     const rows = [["ID", "Business Name", "Contact", "Email", "Phone", "Status", "Balance", "Created"]];
@@ -511,6 +529,15 @@ export default function AdminMerchants() {
               >
                 <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
                 Reinstate
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
+                onClick={() => { setBulkRejectReason(""); setBulkRejectOpen(true); }}
+              >
+                <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                Reject
               </Button>
               <Button
                 size="sm"
@@ -706,6 +733,40 @@ export default function AdminMerchants() {
             <Button variant="outline" onClick={() => { setRejectId(null); setRejectReason(""); }}>Cancel</Button>
             <Button variant="destructive" onClick={handleReject} disabled={!rejectReason.trim() || rejectMutation.isPending}>
               {rejectMutation.isPending ? "Rejecting..." : "Reject Merchant"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Reject Dialog */}
+      <Dialog open={bulkRejectOpen} onOpenChange={open => { if (!open) { setBulkRejectOpen(false); setBulkRejectReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="w-4 h-4 text-rose-400" />
+              Reject {selected.size} Merchant{selected.size !== 1 ? "s" : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Provide a shared rejection reason. This will be applied to all {selected.size} selected merchant{selected.size !== 1 ? "s" : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label>Rejection reason *</Label>
+            <Textarea
+              placeholder="Explain why these merchants are being rejected..."
+              rows={3}
+              value={bulkRejectReason}
+              onChange={e => setBulkRejectReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setBulkRejectOpen(false); setBulkRejectReason(""); }}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkReject}
+              disabled={!bulkRejectReason.trim() || bulkRejectMutation.isPending}
+            >
+              {bulkRejectMutation.isPending ? "Rejecting..." : `Reject ${selected.size} Merchant${selected.size !== 1 ? "s" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -115,6 +115,11 @@ export interface RejectInput {
   reason: string;
 }
 
+export interface BulkRejectInput {
+  merchantIds: number[];
+  reason: string;
+}
+
 export interface BulkMerchantActionInput {
   merchantIds: number[];
 }

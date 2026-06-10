@@ -409,6 +409,20 @@ export const GetMerchantPlanHistoryResponse = zod.array(GetMerchantPlanHistoryRe
 
 
 /**
+ * @summary Bulk-reject multiple pending merchants (admin only)
+ */
+export const BulkRejectMerchantsBody = zod.object({
+  "merchantIds": zod.array(zod.number()),
+  "reason": zod.string()
+})
+
+export const BulkRejectMerchantsResponse = zod.object({
+  "updated": zod.number(),
+  "failed": zod.number()
+})
+
+
+/**
  * @summary Bulk-approve multiple merchants (admin only)
  */
 export const BulkApproveMerchantsBody = zod.object({

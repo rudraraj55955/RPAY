@@ -85,15 +85,26 @@ router.put("/:key", async (req, res, next) => {
 // POST /api/settings/test-email
 router.post("/test-email", async (req, res, next) => {
   try {
-    const rows = await db
-      .select()
-      .from(systemSettingsTable)
-      .where(eq(systemSettingsTable.key, "finance_report_email"));
+    const overrideTo: string | undefined = typeof req.body?.to === "string" && req.body.to.trim() ? req.body.to.trim() : undefined;
 
-    const email = rows[0]?.value ?? null;
+    let email: string | null = overrideTo ?? null;
 
     if (!email) {
-      res.status(400).json({ error: "No finance report email configured" });
+      const rows = await db
+        .select()
+        .from(systemSettingsTable)
+        .where(eq(systemSettingsTable.key, "finance_report_email"));
+      email = rows[0]?.value ?? null;
+    }
+
+    if (!email) {
+      res.status(400).json({ error: "No recipient address — enter one in the 'Send to' field or save a finance report email first" });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (overrideTo && !emailRegex.test(overrideTo)) {
+      res.status(400).json({ error: "Invalid email address in 'Send to' field" });
       return;
     }
 

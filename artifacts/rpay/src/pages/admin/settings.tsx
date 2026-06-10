@@ -33,10 +33,14 @@ async function apiPut(path: string, body: object) {
   return res.json();
 }
 
-async function apiPost(path: string) {
+async function apiPost(path: string, body?: object) {
   const res = await fetch(`/api${path}`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
     const text = await res.text();
@@ -75,6 +79,7 @@ interface SettingsData {
 export default function AdminSettings() {
   const qc = useQueryClient();
   const [financeEmail, setFinanceEmail] = useState<string>("");
+  const [testEmailTo, setTestEmailTo] = useState<string>("");
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("daily");
   const [initialized, setInitialized] = useState(false);
 
@@ -118,8 +123,11 @@ export default function AdminSettings() {
   });
 
   const { mutate: sendTestEmail, isPending: sendingTest } = useMutation({
-    mutationFn: () => apiPost("/settings/test-email"),
-    onSuccess: () => toast.success("Test email sent — check your inbox"),
+    mutationFn: () => {
+      const overrideTrimmed = testEmailTo.trim();
+      return apiPost("/settings/test-email", overrideTrimmed ? { to: overrideTrimmed } : undefined);
+    },
+    onSuccess: (res: { to: string }) => toast.success(`Test email sent to ${res.to} — check your inbox`),
     onError: (err: Error) => toast.error(`Test email failed: ${err.message}`),
   });
 
@@ -279,16 +287,6 @@ export default function AdminSettings() {
                 disabled={isLoading}
                 className="max-w-lg"
               />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => sendTestEmail()}
-                disabled={sendingTest || isLoading || !currentEmail}
-                title={!currentEmail ? "Save an email address first to send a test" : "Send a test email to the saved address"}
-              >
-                <Send className="w-3.5 h-3.5 mr-1.5" />
-                {sendingTest ? "Sending…" : "Send test"}
-              </Button>
             </div>
             <p className="text-xs text-muted-foreground">
               Separate multiple addresses with commas.
@@ -296,7 +294,40 @@ export default function AdminSettings() {
                 <span className="ml-1 text-violet-400">{recipientCount} recipients configured.</span>
               )}
               {" "}Reports include run stats and a full CSV attachment.
-              {currentEmail && ' Use "Send test" to verify SMTP is working.'}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="test-email-to" className="text-sm">Send test email</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="test-email-to"
+                type="email"
+                placeholder={currentEmail ? `Leave blank to use ${currentEmail.split(",")[0]?.trim()}` : "Enter recipient address"}
+                value={testEmailTo}
+                onChange={e => setTestEmailTo(e.target.value)}
+                disabled={isLoading || sendingTest}
+                className="max-w-sm"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => sendTestEmail()}
+                disabled={sendingTest || isLoading || (!testEmailTo.trim() && !currentEmail)}
+                title={
+                  !testEmailTo.trim() && !currentEmail
+                    ? "Enter an address above or save a finance report email first"
+                    : testEmailTo.trim()
+                    ? `Send test to ${testEmailTo.trim()}`
+                    : `Send test to ${currentEmail}`
+                }
+              >
+                <Send className="w-3.5 h-3.5 mr-1.5" />
+                {sendingTest ? "Sending…" : "Send test"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Optional override — if blank, the test goes to the saved finance report email.
             </p>
           </div>
 

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useListTransactions, useSearchByUtr } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Search, X, Info, Sparkles, Zap, TrendingUp, CheckCircle2, XCircle, Hash } from "lucide-react";
+import { Download, Search, X, Info, Sparkles, Zap, TrendingUp, CheckCircle2, XCircle, Hash, Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getToken } from "@/lib/auth";
 
@@ -136,6 +136,29 @@ function parseAmountToken(token: string): Pick<SmartFilter, "amountMin" | "amoun
   return null;
 }
 
+interface SavedFilter {
+  id: string;
+  name: string;
+  filter: SmartFilter;
+  rawInput: string;
+}
+
+const SAVED_FILTERS_KEY = "rasokart_saved_filters";
+
+function loadSavedFilters(): SavedFilter[] {
+  try {
+    const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as SavedFilter[];
+  } catch {
+    return [];
+  }
+}
+
+function storeSavedFilters(filters: SavedFilter[]): void {
+  localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filters));
+}
+
 function parseSmartQuery(raw: string): SmartFilter | null {
   const q = raw.trim().toLowerCase();
   if (!q) return null;
@@ -235,6 +258,19 @@ export default function MerchantTransactions() {
   const [smartError, setSmartError] = useState("");
   const smartInputRef = useRef<HTMLInputElement>(null);
 
+  // Saved filters state
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => loadSavedFilters());
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [saveFilterName, setSaveFilterName] = useState("");
+  const [saveFilterNameError, setSaveFilterNameError] = useState("");
+  const saveNameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showSaveInput) {
+      setTimeout(() => saveNameInputRef.current?.focus(), 50);
+    }
+  }, [showSaveInput]);
+
   const amountMin = smartFilter?.amountMin;
   const amountMax = smartFilter?.amountMax;
   const smartDateFrom = smartFilter?.dateFrom;
@@ -295,14 +331,82 @@ export default function MerchantTransactions() {
       setDateTo("");
     }
     setPage(1);
+    setShowSaveInput(false);
+    setSaveFilterName("");
   };
 
   const clearSmartFilter = () => {
     setSmartFilter(null);
     setSmartInput("");
     setSmartError("");
+    setShowSaveInput(false);
+    setSaveFilterName("");
+    setSaveFilterNameError("");
     setPage(1);
     smartInputRef.current?.focus();
+  };
+
+  // Apply a saved filter (one-click)
+  const applySavedFilter = (saved: SavedFilter) => {
+    setSmartFilter(saved.filter);
+    setSmartInput(saved.rawInput);
+    setSmartError("");
+    setShowSaveInput(false);
+    setSaveFilterName("");
+    setSaveFilterNameError("");
+    if (saved.filter.dateFrom != null) {
+      setDateFrom("");
+      setDateTo("");
+    }
+    setPage(1);
+  };
+
+  const openSaveInput = () => {
+    setSaveFilterName("");
+    setSaveFilterNameError("");
+    setShowSaveInput(true);
+  };
+
+  const confirmSaveFilter = () => {
+    const trimmed = saveFilterName.trim();
+    if (!trimmed) {
+      setSaveFilterNameError("Please enter a name for this filter.");
+      saveNameInputRef.current?.focus();
+      return;
+    }
+    if (!smartFilter) return;
+    const alreadyExists = savedFilters.some(
+      f => f.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (alreadyExists) {
+      setSaveFilterNameError("A filter with this name already exists.");
+      saveNameInputRef.current?.focus();
+      return;
+    }
+    const newFilter: SavedFilter = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name: trimmed,
+      filter: smartFilter,
+      rawInput: smartInput,
+    };
+    const updated = [...savedFilters, newFilter];
+    setSavedFilters(updated);
+    storeSavedFilters(updated);
+    setShowSaveInput(false);
+    setSaveFilterName("");
+    setSaveFilterNameError("");
+  };
+
+  const cancelSaveFilter = () => {
+    setShowSaveInput(false);
+    setSaveFilterName("");
+    setSaveFilterNameError("");
+  };
+
+  const deleteSavedFilter = (id: string) => {
+    const updated = savedFilters.filter(f => f.id !== id);
+    setSavedFilters(updated);
+    storeSavedFilters(updated);
   };
 
   const exportCsv = async () => {
@@ -335,6 +439,11 @@ export default function MerchantTransactions() {
   const hasDateFilter = !!(activeDateFrom || activeDateTo);
   const anyFilterActive = hasSmartFilter || hasUtrSearch || hasTypeFilter || hasStatusFilter || hasDateFilter;
 
+  // Check if the current active smart filter is already saved
+  const isCurrentFilterSaved = hasSmartFilter && savedFilters.some(
+    f => f.rawInput === smartInput && JSON.stringify(f.filter) === JSON.stringify(smartFilter)
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -346,6 +455,37 @@ export default function MerchantTransactions() {
       <Card>
         <CardContent className="pt-4 pb-4">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Smart Search</p>
+
+          {/* Saved filter chips */}
+          {savedFilters.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="text-xs text-muted-foreground font-medium">Saved:</span>
+              {savedFilters.map(saved => (
+                <span
+                  key={saved.id}
+                  className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2.5 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
+                >
+                  <button
+                    onClick={() => applySavedFilter(saved)}
+                    className="flex items-center gap-1 hover:text-violet-100 transition-colors"
+                    title={`Apply: ${saved.rawInput}`}
+                  >
+                    <BookmarkCheck className="w-3 h-3 shrink-0" />
+                    {saved.name}
+                  </button>
+                  <button
+                    onClick={() => deleteSavedFilter(saved.id)}
+                    className="ml-0.5 rounded-full p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                    aria-label={`Delete saved filter "${saved.name}"`}
+                    title="Delete this saved filter"
+                  >
+                    <Trash2 className="w-2.5 h-2.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
           <div className="flex gap-3">
             <div className="relative flex-1">
               <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-violet-400" />
@@ -361,7 +501,52 @@ export default function MerchantTransactions() {
             <Button onClick={applySmartSearch} disabled={!smartInput.trim()}>
               <Search className="w-4 h-4 mr-2" />Apply
             </Button>
+            {hasSmartFilter && !isCurrentFilterSaved && !showSaveInput && (
+              <Button
+                variant="outline"
+                onClick={openSaveInput}
+                className="border-violet-500/40 text-violet-300 hover:bg-violet-500/10 hover:text-violet-200"
+                title="Save this filter for quick access"
+              >
+                <Bookmark className="w-4 h-4 mr-2" />Save filter
+              </Button>
+            )}
+            {hasSmartFilter && isCurrentFilterSaved && (
+              <Button variant="outline" disabled className="border-violet-500/20 text-violet-400/50 cursor-default">
+                <BookmarkCheck className="w-4 h-4 mr-2" />Saved
+              </Button>
+            )}
           </div>
+
+          {/* Save filter inline form */}
+          {showSaveInput && (
+            <div className="mt-3 flex items-start gap-2">
+              <div className="flex-1">
+                <Input
+                  ref={saveNameInputRef}
+                  className="h-8 text-sm"
+                  placeholder="Name this filter (e.g. Large deposits)"
+                  value={saveFilterName}
+                  onChange={e => { setSaveFilterName(e.target.value); setSaveFilterNameError(""); }}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") confirmSaveFilter();
+                    if (e.key === "Escape") cancelSaveFilter();
+                  }}
+                  maxLength={40}
+                />
+                {saveFilterNameError && (
+                  <p className="mt-1 text-xs text-rose-400">{saveFilterNameError}</p>
+                )}
+              </div>
+              <Button size="sm" onClick={confirmSaveFilter} className="h-8 shrink-0">
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" onClick={cancelSaveFilter} className="h-8 shrink-0 px-2">
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
           {smartError && (
             <p className="mt-2 text-xs text-amber-400">{smartError}</p>
           )}

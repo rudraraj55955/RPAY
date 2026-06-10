@@ -1,4 +1,4 @@
-import { db, reconciliationRunsTable, reconciliationItemsTable, transactionsTable, settlementsTable, merchantsTable, systemSettingsTable } from "@workspace/db";
+import { db, reconciliationRunsTable, reconciliationItemsTable, transactionsTable, settlementsTable, merchantsTable, systemSettingsTable, usersTable } from "@workspace/db";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendMail } from "./mailer";
@@ -124,6 +124,131 @@ function buildEmailHtml(run: typeof reconciliationRunsTable.$inferSelect): strin
   </div>
 </body>
 </html>`;
+}
+
+function buildUnmatchedAlertHtml(run: typeof reconciliationRunsTable.$inferSelect): string {
+  const dateRange = `${run.dateFrom} to ${run.dateTo}`;
+  const unmatchedCount = run.totalUnmatched ?? 0;
+  const unmatchedAmountFmt = formatAmount(run.unmatchedAmount);
+  const matchedCount = run.totalMatched ?? 0;
+  const matchedAmountFmt = formatAmount(run.matchedAmount);
+  const appDomain = process.env["APP_DOMAIN"] ?? "https://rasokart.com";
+  const runLink = `${appDomain}/admin/reconciliation?runId=${run.id}`;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; background: #0f0f0f; color: #e5e5e5; margin: 0; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #2a2a2a;">
+    <div style="background: #991b1b; padding: 20px 24px;">
+      <h1 style="margin: 0; font-size: 20px; color: #fff; letter-spacing: 0.5px;">RasoKart — Unmatched Items Alert</h1>
+      <p style="margin: 4px 0 0; color: #fecaca; font-size: 13px;">Auto-reconciliation Run #${run.id} · ${dateRange}</p>
+    </div>
+    <div style="padding: 24px;">
+      <p style="margin: 0 0 16px; color: #f87171; font-size: 14px; font-weight: 600;">
+        ⚠️ The scheduled auto-reconciliation run found ${unmatchedCount} unmatched item${unmatchedCount === 1 ? "" : "s"} requiring review.
+      </p>
+      <p style="margin: 0 0 20px; color: #a1a1aa; font-size: 13px;">
+        Please review these discrepancies in the admin portal as soon as possible.
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px; width: 50%;">Period</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600;">${dateRange}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Total Deposits Checked</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px;">${run.totalDeposits ?? 0}</td>
+        </tr>
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Total Settlements Checked</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px;">${run.totalSettlements ?? 0}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Matched</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; color: #4ade80; font-weight: 600;">
+            ${matchedCount} item${matchedCount === 1 ? "" : "s"} · ${matchedAmountFmt}
+          </td>
+        </tr>
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Unmatched</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; color: #f87171; font-weight: 600;">
+            ${unmatchedCount} item${unmatchedCount === 1 ? "" : "s"} · ${unmatchedAmountFmt}
+          </td>
+        </tr>
+      </table>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <a href="${runLink}"
+           style="display: inline-block; background: #7c3aed; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: 600; letter-spacing: 0.3px;">
+          Review Run #${run.id} in Admin Portal
+        </a>
+      </div>
+
+      <p style="margin: 0; color: #71717a; font-size: 12px;">
+        If the link above doesn't work, copy this URL into your browser:<br>
+        <span style="color: #818cf8;">${runLink}</span>
+      </p>
+    </div>
+    <div style="padding: 14px 24px; background: #111; border-top: 1px solid #2a2a2a;">
+      <p style="margin: 0; color: #52525b; font-size: 11px;">
+        This alert was triggered by the RasoKart scheduled auto-reconciliation job. All active admin accounts receive this notice.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export async function notifyAdminsOfUnmatchedItems(runId: number): Promise<void> {
+  try {
+    const [run] = await db
+      .select()
+      .from(reconciliationRunsTable)
+      .where(eq(reconciliationRunsTable.id, runId))
+      .limit(1);
+
+    if (!run) {
+      logger.warn({ runId }, "Reconciliation run not found for unmatched-items admin alert");
+      return;
+    }
+
+    if ((run.totalUnmatched ?? 0) === 0) {
+      logger.info({ runId }, "No unmatched items — skipping admin unmatched-items alert email");
+      return;
+    }
+
+    const admins = await db
+      .select({ id: usersTable.id, email: usersTable.email })
+      .from(usersTable)
+      .where(and(eq(usersTable.role, "admin"), eq(usersTable.isActive, true)));
+
+    if (admins.length === 0) {
+      logger.info({ runId }, "No active admins found — skipping unmatched-items alert emails");
+      return;
+    }
+
+    const html = buildUnmatchedAlertHtml(run);
+    const subject = `[RasoKart] ⚠️ Unmatched Items Found — Auto-Reconciliation Run #${runId} (${run.dateFrom} to ${run.dateTo})`;
+
+    const results = await Promise.allSettled(
+      admins.map(admin =>
+        sendMail({ to: admin.email, subject, html })
+      )
+    );
+
+    const sent = results.filter(r => r.status === "fulfilled" && r.value).length;
+    const failed = results.length - sent;
+
+    logger.info(
+      { runId, totalAdmins: admins.length, sent, failed },
+      "Admin unmatched-items alert emails dispatched"
+    );
+  } catch (err) {
+    logger.error({ err, runId }, "Failed to send admin unmatched-items alert emails");
+  }
 }
 
 export async function sendReconciliationReportEmail(runId: number): Promise<void> {

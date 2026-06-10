@@ -2,6 +2,7 @@ import cron, { type ScheduledTask } from "node-cron";
 import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 import { runReconciliation, notifyAdminsOfReconciliationFailure } from "./reconcileEngine";
+import { notifyAdminsOfUnmatchedItems } from "./reconcileEmail";
 import { logger } from "../lib/logger";
 
 let scheduledTask: ScheduledTask | null = null;
@@ -98,6 +99,12 @@ async function runAutoReconciliation(): Promise<void> {
       },
       "Scheduled auto-reconciliation complete"
     );
+
+    if ((result.totalUnmatched ?? 0) > 0) {
+      notifyAdminsOfUnmatchedItems(result.id).catch(err => {
+        logger.error({ err, runId: result.id }, "Unexpected error sending unmatched-items admin alert");
+      });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     logger.error({ err }, "Scheduled auto-reconciliation failed");

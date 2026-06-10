@@ -134,6 +134,7 @@ import type {
   ReconciliationItem,
   ReconciliationItemListResponse,
   ReconciliationItemResolveInput,
+  ReconciliationNextRun,
   ReconciliationRun,
   ReconciliationRunInput,
   ReconciliationRunListResponse,
@@ -10566,6 +10567,83 @@ export const useResolveReconciliationItem = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getResolveReconciliationItemMutationOptions(options));
     }
+
+export const getGetReconciliationNextRunUrl = () => {
+
+
+
+
+  return `/api/system-config/reconciliation/next-run`
+}
+
+/**
+ * @summary Get the next scheduled reconciliation run time (admin only)
+ */
+export const getReconciliationNextRun = async ( options?: RequestInit): Promise<ReconciliationNextRun> => {
+
+  return customFetch<ReconciliationNextRun>(getGetReconciliationNextRunUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetReconciliationNextRunQueryKey = () => {
+    return [
+    `/api/system-config/reconciliation/next-run`
+    ] as const;
+    }
+
+
+export const getGetReconciliationNextRunQueryOptions = <TData = Awaited<ReturnType<typeof getReconciliationNextRun>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReconciliationNextRun>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReconciliationNextRunQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReconciliationNextRun>>> = ({ signal }) => getReconciliationNextRun({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReconciliationNextRun>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetReconciliationNextRunQueryResult = NonNullable<Awaited<ReturnType<typeof getReconciliationNextRun>>>
+export type GetReconciliationNextRunQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the next scheduled reconciliation run time (admin only)
+ */
+
+export function useGetReconciliationNextRun<TData = Awaited<ReturnType<typeof getReconciliationNextRun>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReconciliationNextRun>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetReconciliationNextRunQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetReconciliationScheduleConfigUrl = () => {
 

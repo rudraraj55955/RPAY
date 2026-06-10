@@ -3269,6 +3269,14 @@ export const ResolveReconciliationItemResponse = zod.object({
 
 
 /**
+ * @summary Get the next scheduled reconciliation run time (admin only)
+ */
+export const GetReconciliationNextRunResponse = zod.object({
+  "nextRunAt": zod.string().nullable().describe('ISO timestamp of the next scheduled reconciliation run')
+})
+
+
+/**
  * @summary Get scheduled reconciliation configuration (admin only)
  */
 export const getReconciliationScheduleConfigResponseHourMin = 0;

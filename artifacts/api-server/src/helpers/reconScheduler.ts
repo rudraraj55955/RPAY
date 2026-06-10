@@ -115,6 +115,15 @@ export function scheduleReconciliation(cronExpr: string): void {
   logger.info({ cronExpr }, "Reconciliation scheduler registered");
 }
 
+export function getNextRunTime(): Date | null {
+  if (!scheduledTask) return null;
+  try {
+    return scheduledTask.getNextRun();
+  } catch {
+    return null;
+  }
+}
+
 export async function initReconciliationScheduler(): Promise<void> {
   const config = await loadReconConfig();
   const cronExpr = buildCronExpr(config.hour, config.minute);

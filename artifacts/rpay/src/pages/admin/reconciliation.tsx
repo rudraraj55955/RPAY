@@ -14,7 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { useGetReconciliationScheduleConfig, useUpdateReconciliationScheduleConfig } from "@workspace/api-client-react";
+import { useGetReconciliationScheduleConfig, useUpdateReconciliationScheduleConfig, useGetReconciliationNextRun } from "@workspace/api-client-react";
 
 async function apiPost(path: string, body: object) {
   const res = await fetch(`/api${path}`, {
@@ -355,6 +355,7 @@ function padTwo(n: number) {
 
 function ScheduleSettingsCard() {
   const { data: config, isLoading: configLoading } = useGetReconciliationScheduleConfig();
+  const { data: nextRunData } = useGetReconciliationNextRun();
 
   const [editing, setEditing] = useState(false);
   const [hour, setHour] = useState(0);
@@ -453,6 +454,22 @@ function ScheduleSettingsCard() {
                     ? <>Auto-reconciliation runs <span className="text-foreground font-medium">{scheduleLabel}</span>, covering the previous {currentLookback === 1 ? "day" : `${currentLookback} days`}.</>
                     : "The scheduler is paused and will not run until re-enabled."}
                 </p>
+                {nextRunData?.nextRunAt && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-400/80">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span>
+                      Next run{" "}
+                      <span className="font-medium text-emerald-400">
+                        {formatDistanceToNow(new Date(nextRunData.nextRunAt), { addSuffix: true })}
+                      </span>
+                      <span className="text-muted-foreground/60 ml-1">
+                        ({new Date(nextRunData.nextRunAt).toLocaleString(undefined, {
+                          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+                        })})
+                      </span>
+                    </span>
+                  </div>
+                )}
               </>
             )}
           </div>

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
-import { rescheduleFromDb } from "../helpers/reconScheduler";
+import { rescheduleFromDb, getNextRunTime } from "../helpers/reconScheduler";
 import { sql } from "drizzle-orm";
 
 const router = Router();
@@ -43,6 +43,12 @@ async function getReconConfig() {
     enabled: enabledRaw !== "false",
   };
 }
+
+// GET /api/system-config/reconciliation/next-run
+router.get("/reconciliation/next-run", (req, res) => {
+  const nextRun = getNextRunTime();
+  res.json({ nextRunAt: nextRun ? nextRun.toISOString() : null });
+});
 
 // GET /api/system-config/reconciliation
 router.get("/reconciliation", async (req, res, next) => {

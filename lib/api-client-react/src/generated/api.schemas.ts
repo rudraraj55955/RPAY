@@ -1801,6 +1801,11 @@ export interface ExpiryCheckResult {
   expiredCount: number;
 }
 
+export interface ReconciliationNextRun {
+  /** ISO timestamp of the next scheduled reconciliation run */
+  nextRunAt: string | null;
+}
+
 export interface ReconciliationScheduleConfig {
   /**
      * Hour of day (0-23) to run the scheduled reconciliation

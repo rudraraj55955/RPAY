@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListCallbackLogs } from "@workspace/api-client-react";
+import { useListCallbackLogs, useGetCallbackStats } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, QrCode, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, QrCode, ShieldAlert, X } from "lucide-react";
 import { format } from "date-fns";
 
 function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }) {
@@ -66,15 +66,18 @@ function CallbackRow({ log }: { log: any }) {
 
 export default function MerchantCallbacks() {
   const [status, setStatus] = useState("all");
-  const [sigVerified, setSigVerified] = useState("all");
   const [qrCodeIdInput, setQrCodeIdInput] = useState("");
   const [qrCodeId, setQrCodeId] = useState<number | undefined>(undefined);
+  const [sigFilter, setSigFilter] = useState<"failed" | undefined>(undefined);
   const [page, setPage] = useState(1);
+
+  const { data: stats } = useGetCallbackStats();
+  const failureCount = stats?.signatureFailures24h ?? 0;
 
   const { data, isLoading } = useListCallbackLogs({
     status: status as any,
     qrCodeId,
-    signatureVerified: sigVerified as any,
+    signatureVerified: sigFilter as any,
     page,
     limit: 20,
   });
@@ -95,12 +98,54 @@ export default function MerchantCallbacks() {
     setPage(1);
   };
 
+  const applySigFailureFilter = () => {
+    setSigFilter("failed");
+    setPage(1);
+  };
+
+  const clearSigFilter = () => {
+    setSigFilter(undefined);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Callback Logs</h1>
         <p className="text-muted-foreground mt-1">Webhook delivery history for your endpoint</p>
       </div>
+
+      {failureCount > 0 && (
+        <button
+          type="button"
+          onClick={sigFilter === "failed" ? clearSigFilter : applySigFailureFilter}
+          className="w-full text-left"
+        >
+          <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${
+            sigFilter === "failed"
+              ? "border-rose-500/50 bg-rose-500/15"
+              : "border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/15"
+          }`}>
+            <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-rose-400">
+                {failureCount} signature verification {failureCount === 1 ? "failure" : "failures"} in the last 24 hours
+              </p>
+              <p className="text-xs text-rose-400/70 mt-0.5">
+                {sigFilter === "failed"
+                  ? "Showing filtered results — click to clear filter"
+                  : "Your callback secret may be misconfigured — click to filter these logs"}
+              </p>
+            </div>
+            {sigFilter === "failed" ? (
+              <X className="w-4 h-4 text-rose-400 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400/70 shrink-0" />
+            )}
+          </div>
+        </button>
+      )}
+
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
@@ -148,6 +193,15 @@ export default function MerchantCallbacks() {
                 <span>QR #{qrCodeId}</span>
               </div>
             )}
+            {sigFilter === "failed" && (
+              <div className="flex items-center gap-1.5 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded px-2.5 py-1">
+                <ShieldAlert className="w-3 h-3" />
+                <span>Sig. failures only</span>
+                <button type="button" onClick={clearSigFilter} className="ml-0.5 hover:text-rose-300">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -169,7 +223,9 @@ export default function MerchantCallbacks() {
               )) : data?.data?.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
-                    {qrCodeId ? `No webhook logs for QR #${qrCodeId}` : "No callback logs yet"}
+                    {sigFilter === "failed"
+                      ? "No signature failure logs found"
+                      : qrCodeId ? `No webhook logs for QR #${qrCodeId}` : "No callback logs yet"}
                   </TableCell>
                 </TableRow>
               ) : data?.data?.map(log => <CallbackRow key={log.id} log={log} />)}

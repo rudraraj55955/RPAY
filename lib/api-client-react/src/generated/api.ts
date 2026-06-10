@@ -52,6 +52,7 @@ import type {
   CallbackLogListResponse,
   CallbackSecretRotateResponse,
   CallbackSecretStatus,
+  CallbackStatsResponse,
   ChartDataPoint,
   CreateSettlementInput,
   DashboardStats,
@@ -3905,6 +3906,84 @@ export const useUpdateWebhookConfig = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getUpdateWebhookConfigMutationOptions(options));
     }
+
+export const getGetCallbackStatsUrl = () => {
+
+
+
+
+  return `/api/callbacks/stats`
+}
+
+/**
+ * Returns the count of signature verification failures in the last 24 hours for the authenticated merchant.
+ * @summary Get callback signature failure stats
+ */
+export const getCallbackStats = async ( options?: RequestInit): Promise<CallbackStatsResponse> => {
+
+  return customFetch<CallbackStatsResponse>(getGetCallbackStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCallbackStatsQueryKey = () => {
+    return [
+    `/api/callbacks/stats`
+    ] as const;
+    }
+
+
+export const getGetCallbackStatsQueryOptions = <TData = Awaited<ReturnType<typeof getCallbackStats>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCallbackStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCallbackStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCallbackStats>>> = ({ signal }) => getCallbackStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCallbackStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCallbackStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getCallbackStats>>>
+export type GetCallbackStatsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get callback signature failure stats
+ */
+
+export function useGetCallbackStats<TData = Awaited<ReturnType<typeof getCallbackStats>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCallbackStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCallbackStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getReceivePaymentCallbackUrl = () => {
 

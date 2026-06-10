@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable } from "@workspace/db";
-import { eq, and, count, sql, isNull } from "drizzle-orm";
+import { eq, and, count, sql, gte, isNull } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { requireApiKey, verifyCallbackSignature } from "../middlewares/callbackAuth";
 import { logger } from "../lib/logger";
@@ -163,6 +163,30 @@ router.post("/", requireApiKey, verifyCallbackSignature, async (req, res) => {
 
 // Authenticated routes below
 router.use(requireAuth);
+
+// GET /api/callbacks/stats — signature failure stats for the authenticated merchant
+router.get("/stats", async (req, res) => {
+  const user = (req as any).user;
+  if (user.role !== "merchant") {
+    res.status(403).json({ error: "Merchant access only" });
+    return;
+  }
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(callbackLogsTable)
+    .where(
+      and(
+        eq(callbackLogsTable.merchantId, user.merchantId),
+        eq(callbackLogsTable.signatureVerified, false),
+        gte(callbackLogsTable.createdAt, since),
+      )
+    );
+
+  res.json({ signatureFailures24h: total });
+});
 
 // GET /api/callbacks/secret — returns callback secret status for the authenticated merchant
 router.get("/secret", async (req, res) => {

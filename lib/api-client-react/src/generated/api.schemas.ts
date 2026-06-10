@@ -535,6 +535,11 @@ export interface CallbackLogListResponse {
   limit: number;
 }
 
+export interface CallbackStatsResponse {
+  /** Number of signature verification failures in the last 24 hours for this merchant */
+  signatureFailures24h: number;
+}
+
 export type SettlementStatus = typeof SettlementStatus[keyof typeof SettlementStatus];
 
 

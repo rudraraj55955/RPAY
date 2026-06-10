@@ -51,6 +51,7 @@ export * from './callbackLogListResponse';
 export * from './callbackLogStatus';
 export * from './callbackSecretRotateResponse';
 export * from './callbackSecretStatus';
+export * from './callbackStatsResponse';
 export * from './chartDataPoint';
 export * from './createSettlementInput';
 export * from './dashboardStats';

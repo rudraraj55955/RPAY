@@ -1207,6 +1207,15 @@ export const UpdateWebhookConfigResponse = zod.object({
 
 
 /**
+ * Returns the count of signature verification failures in the last 24 hours for the authenticated merchant.
+ * @summary Get callback signature failure stats
+ */
+export const GetCallbackStatsResponse = zod.object({
+  "signatureFailures24h": zod.number().describe('Number of signature verification failures in the last 24 hours for this merchant')
+})
+
+
+/**
  * Called by a payment provider or merchant back-end when a payment is received.
 Authentication is via the merchant's API key supplied in the X-Api-Key header.
 The merchantId is derived from the key — it does not need to be in the body.

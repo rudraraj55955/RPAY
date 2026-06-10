@@ -381,6 +381,27 @@ export interface WebhookConfig {
   createdAt?: string;
 }
 
+export interface WebhookTestResult {
+  /** True if the remote server responded with 2xx */
+  delivered: boolean;
+  /**
+     * HTTP status code returned by the remote endpoint, or null if the request failed to connect
+     * @nullable
+     */
+  httpStatus: number | null;
+  /**
+     * First 500 characters of the response body, or null if no response body
+     * @nullable
+     */
+  responseBody: string | null;
+  /** Round-trip time in milliseconds */
+  durationMs: number;
+  /** The URL the test event was sent to */
+  targetUrl: string;
+  /** Whether the test payload was signed with the webhook secret */
+  signed: boolean;
+}
+
 export interface WebhookConfigInput {
   url: string;
   isActive?: boolean;

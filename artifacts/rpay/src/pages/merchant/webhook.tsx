@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs } from "@workspace/api-client-react";
+import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, useSendWebhookTest } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity } from "lucide-react";
+import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const EVENTS = [
@@ -48,6 +48,93 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+type TestResult = {
+  delivered: boolean;
+  httpStatus: number | null;
+  responseBody: string | null;
+  durationMs: number;
+  targetUrl: string;
+  signed: boolean;
+};
+
+function WebhookTestPanel({ result, onDismiss }: { result: TestResult; onDismiss: () => void }) {
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
+  };
+
+  return (
+    <div className={`rounded-lg border p-4 space-y-3 ${result.delivered ? "border-emerald-500/30 bg-emerald-500/5" : "border-rose-500/30 bg-rose-500/5"}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {result.delivered ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <XCircle className="w-4 h-4 text-rose-400" />
+          )}
+          <span className={`text-sm font-semibold ${result.delivered ? "text-emerald-400" : "text-rose-400"}`}>
+            {result.delivered ? "Test delivered successfully" : "Test delivery failed"}
+          </span>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="text-muted-foreground/50 hover:text-muted-foreground text-xs transition-colors"
+        >
+          Dismiss
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 text-xs">
+        <div className="rounded bg-black/30 p-2 border border-border/30">
+          <p className="text-muted-foreground/60 mb-0.5">HTTP Status</p>
+          <p className={`font-mono font-semibold ${result.httpStatus != null && result.httpStatus >= 200 && result.httpStatus < 300 ? "text-emerald-400" : "text-rose-400"}`}>
+            {result.httpStatus != null ? result.httpStatus : "No response"}
+          </p>
+        </div>
+        <div className="rounded bg-black/30 p-2 border border-border/30">
+          <p className="text-muted-foreground/60 mb-0.5">Duration</p>
+          <p className="font-mono font-semibold text-foreground">{result.durationMs}ms</p>
+        </div>
+        <div className="rounded bg-black/30 p-2 border border-border/30">
+          <p className="text-muted-foreground/60 mb-0.5">Signature</p>
+          <p className={`font-semibold ${result.signed ? "text-emerald-400" : "text-amber-400"}`}>
+            {result.signed ? "Signed" : "Unsigned"}
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs text-muted-foreground/60 mb-1">Target URL</p>
+        <p className="text-xs font-mono text-muted-foreground truncate" title={result.targetUrl}>{result.targetUrl}</p>
+      </div>
+
+      {result.responseBody != null && (
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-muted-foreground/60">Response Body</p>
+            <button
+              onClick={() => copy(result.responseBody!)}
+              className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+              title="Copy response body"
+            >
+              <Copy className="w-3 h-3" />
+            </button>
+          </div>
+          <pre className="text-xs font-mono bg-black/40 border border-border/30 rounded p-2.5 overflow-x-auto whitespace-pre-wrap break-all text-muted-foreground max-h-32 overflow-y-auto">
+            {result.responseBody}
+          </pre>
+        </div>
+      )}
+
+      {!result.signed && (
+        <p className="text-xs text-amber-400/80">
+          No signing secret set — add one in the configuration above so your server can verify payload authenticity.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function MerchantWebhook() {
   const qc = useQueryClient();
   const { data: config, isLoading } = useGetWebhookConfig();
@@ -55,12 +142,14 @@ export default function MerchantWebhook() {
   const { data: logsData, isLoading: logsLoading } = useGetWebhookLogs({ limit: 10 });
   const updateMutation = useUpdateWebhookConfig();
   const rotateMutation = useRotateCallbackSecret();
+  const testMutation = useSendWebhookTest();
 
   const [url, setUrl] = useState("");
   const [secret, setSecret] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [events, setEvents] = useState<string[]>([]);
   const [newSecret, setNewSecret] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   useEffect(() => {
     if (config) {
@@ -80,6 +169,25 @@ export default function MerchantWebhook() {
     updateMutation.mutate({ data: { url: url.trim(), isActive, events, secret: secret || null } }, {
       onSuccess: () => { toast.success("Webhook configuration saved"); qc.invalidateQueries({ queryKey: getGetWebhookConfigQueryKey() }); },
       onError: () => toast.error("Failed to save configuration"),
+    });
+  };
+
+  const handleSendTest = () => {
+    if (!url.trim()) {
+      toast.error("Save a webhook URL first before sending a test event");
+      return;
+    }
+    setTestResult(null);
+    testMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        setTestResult(data);
+        if (data.delivered) {
+          toast.success("Test event delivered successfully");
+        } else {
+          toast.error(`Test event failed — HTTP ${data.httpStatus ?? "no response"}`);
+        }
+      },
+      onError: () => toast.error("Failed to send test event"),
     });
   };
 
@@ -148,10 +256,35 @@ export default function MerchantWebhook() {
         </CardContent>
       </Card>
 
-      <Button onClick={handleSave} disabled={updateMutation.isPending} className="w-full sm:w-auto">
-        <Save className="w-4 h-4 mr-2" />
-        {updateMutation.isPending ? "Saving..." : "Save Configuration"}
-      </Button>
+      <div className="flex items-center gap-3 flex-wrap">
+        <Button onClick={handleSave} disabled={updateMutation.isPending} className="w-full sm:w-auto">
+          <Save className="w-4 h-4 mr-2" />
+          {updateMutation.isPending ? "Saving..." : "Save Configuration"}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleSendTest}
+          disabled={testMutation.isPending || !url.trim()}
+          className="w-full sm:w-auto gap-2"
+          title={!url.trim() ? "Configure and save a webhook URL first" : undefined}
+        >
+          {testMutation.isPending ? (
+            <>
+              <Zap className="w-4 h-4 animate-pulse" />
+              Sending test…
+            </>
+          ) : (
+            <>
+              <FlaskConical className="w-4 h-4" />
+              Send test event
+            </>
+          )}
+        </Button>
+      </div>
+
+      {testResult && (
+        <WebhookTestPanel result={testResult} onDismiss={() => setTestResult(null)} />
+      )}
 
       {/* Recent Deliveries */}
       <Card>

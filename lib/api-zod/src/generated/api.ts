@@ -1153,6 +1153,25 @@ export const GetWebhookLogsResponse = zod.object({
 
 
 /**
+ * Fires a sample `payment.success` payload to the merchant's configured webhook URL.
+If the merchant has set a webhook signing secret, the payload is signed with
+HMAC-SHA256 and the `X-Signature` header is included.
+Returns the HTTP status and truncated response body so the merchant can verify
+their endpoint is reachable and accepting signed payloads correctly.
+
+ * @summary Send a test webhook event
+ */
+export const SendWebhookTestResponse = zod.object({
+  "delivered": zod.boolean().describe('True if the remote server responded with 2xx'),
+  "httpStatus": zod.number().nullable().describe('HTTP status code returned by the remote endpoint, or null if the request failed to connect'),
+  "responseBody": zod.string().nullable().describe('First 500 characters of the response body, or null if no response body'),
+  "durationMs": zod.number().describe('Round-trip time in milliseconds'),
+  "targetUrl": zod.string().describe('The URL the test event was sent to'),
+  "signed": zod.boolean().describe('Whether the test payload was signed with the webhook secret')
+})
+
+
+/**
  * @summary Get webhook configuration
  */
 export const GetWebhookConfigResponse = zod.object({

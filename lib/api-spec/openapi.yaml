@@ -1152,6 +1152,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/CallbackLogListResponse"
 
+  /webhooks/test:
+    post:
+      operationId: sendWebhookTest
+      tags: [webhooks]
+      summary: Send a test webhook event
+      description: |
+        Fires a sample `payment.success` payload to the merchant's configured webhook URL.
+        If the merchant has set a webhook signing secret, the payload is signed with
+        HMAC-SHA256 and the `X-Signature` header is included.
+        Returns the HTTP status and truncated response body so the merchant can verify
+        their endpoint is reachable and accepting signed payloads correctly.
+      responses:
+        "200":
+          description: Test delivery result (regardless of remote response code)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookTestResult"
+        "400":
+          description: No webhook URL configured
+        "403":
+          description: Merchant access only
+
   /webhooks:
     get:
       operationId: getWebhookConfig
@@ -3959,6 +3982,29 @@ components:
           type: ["string", "null"]
         createdAt:
           type: string
+
+    WebhookTestResult:
+      type: object
+      required: [delivered, httpStatus, responseBody, durationMs, targetUrl, signed]
+      properties:
+        delivered:
+          type: boolean
+          description: True if the remote server responded with 2xx
+        httpStatus:
+          type: ["integer", "null"]
+          description: HTTP status code returned by the remote endpoint, or null if the request failed to connect
+        responseBody:
+          type: ["string", "null"]
+          description: First 500 characters of the response body, or null if no response body
+        durationMs:
+          type: integer
+          description: Round-trip time in milliseconds
+        targetUrl:
+          type: string
+          description: The URL the test event was sent to
+        signed:
+          type: boolean
+          description: Whether the test payload was signed with the webhook secret
 
     WebhookConfigInput:
       type: object

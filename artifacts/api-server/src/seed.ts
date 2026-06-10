@@ -725,6 +725,22 @@ export async function seed() {
       WHERE type IN ('provider_limit_warning', 'provider_limit_reached')
   `);
 
+  // Backfill connectionId on historical transactions that have a provider but no connectionId.
+  // Idempotent: WHERE clause limits to rows where connection_id IS NULL AND provider IS NOT NULL.
+  await db.execute(sql`
+    UPDATE transactions
+    SET connection_id = (
+      SELECT id
+      FROM merchant_connections
+      WHERE merchant_id = transactions.merchant_id
+        AND provider   = transactions.provider
+      LIMIT 1
+    )
+    WHERE connection_id IS NULL
+      AND provider IS NOT NULL
+  `);
+  console.log("Connection ID backfill complete.");
+
   console.log("Seed complete.");
 }
 

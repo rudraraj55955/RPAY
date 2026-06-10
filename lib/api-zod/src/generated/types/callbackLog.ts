@@ -11,6 +11,8 @@ export interface CallbackLog {
   id: number;
   merchantId: number;
   /** @nullable */
+  qrCodeId?: number | null;
+  /** @nullable */
   transactionId: number | null;
   url: string;
   status: CallbackLogStatus;

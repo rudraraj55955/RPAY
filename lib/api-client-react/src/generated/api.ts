@@ -117,6 +117,7 @@ import type {
   ProviderVisibilityInput,
   PublicPaymentLink,
   QrCode,
+  QrCodeActivityResponse,
   QrCodeInput,
   QrCodeListResponse,
   QrCodeUpdateInput,
@@ -5624,6 +5625,83 @@ export const useCreateQrCode = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getCreateQrCodeMutationOptions(options));
     }
+
+export const getGetQrCodeActivityUrl = (id: number,) => {
+
+
+
+
+  return `/api/qr-codes/${id}/activity`
+}
+
+/**
+ * @summary Get payment activity for a QR code
+ */
+export const getQrCodeActivity = async (id: number, options?: RequestInit): Promise<QrCodeActivityResponse> => {
+
+  return customFetch<QrCodeActivityResponse>(getGetQrCodeActivityUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetQrCodeActivityQueryKey = (id: number,) => {
+    return [
+    `/api/qr-codes/${id}/activity`
+    ] as const;
+    }
+
+
+export const getGetQrCodeActivityQueryOptions = <TData = Awaited<ReturnType<typeof getQrCodeActivity>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQrCodeActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetQrCodeActivityQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getQrCodeActivity>>> = ({ signal }) => getQrCodeActivity(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getQrCodeActivity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetQrCodeActivityQueryResult = NonNullable<Awaited<ReturnType<typeof getQrCodeActivity>>>
+export type GetQrCodeActivityQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get payment activity for a QR code
+ */
+
+export function useGetQrCodeActivity<TData = Awaited<ReturnType<typeof getQrCodeActivity>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQrCodeActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetQrCodeActivityQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetQrCodeUrl = (id: number,) => {
 

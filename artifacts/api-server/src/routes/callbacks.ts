@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { Router } from "express";
-import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable } from "@workspace/db";
+import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable } from "@workspace/db";
 import { eq, and, count, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
@@ -136,13 +136,25 @@ router.post("/", async (req, res) => {
       .catch(() => {});
   }
 
+  // --- Always record a payment-received event (independent of webhook delivery) ---
+  db.insert(qrPaymentEventsTable).values({
+    qrCodeId: qr.id,
+    merchantId: qr.merchantId,
+    transactionId: transactionId ?? null,
+    amount: amount ?? qr.amount ?? null,
+    orderId: qr.orderId ?? orderId ?? null,
+    merchantReference: qr.merchantReference ?? merchantReference ?? null,
+  }).catch((err: unknown) => {
+    logger.warn({ err, qrCodeId: qr!.id }, "Failed to insert qr_payment_event");
+  });
+
   // --- Update API key lastUsedAt (fire-and-forget) ---
   db.update(apiKeysTable)
     .set({ lastUsedAt: new Date() })
     .where(eq(apiKeysTable.id, keyRow.id))
     .catch(() => {});
 
-  // --- Fire the QR's callbackUrl if set (async, non-blocking) ---
+  // --- Fire the QR's callbackUrl if set (async, non-blocking) — webhook delivery only ---
   if (qr.callbackUrl) {
     const payload = {
       event: "payment.received",
@@ -164,6 +176,7 @@ router.post("/", async (req, res) => {
       if (ok) {
         await db.insert(callbackLogsTable).values({
           merchantId: capturedQr.merchantId,
+          qrCodeId: capturedQr.id,
           transactionId: transactionId ?? null,
           url: capturedQr.callbackUrl!,
           status: "success",
@@ -178,6 +191,7 @@ router.post("/", async (req, res) => {
 
         const [inserted] = await db.insert(callbackLogsTable).values({
           merchantId: capturedQr.merchantId,
+          qrCodeId: capturedQr.id,
           transactionId: transactionId ?? null,
           url: capturedQr.callbackUrl!,
           status: "pending_retry",
@@ -258,7 +272,7 @@ router.post("/secret/rotate", async (req, res) => {
 // GET /api/callbacks
 router.get("/", async (req, res) => {
   const user = (req as any).user;
-  const { status, page = "1", limit = "20" } = req.query as Record<string, string>;
+  const { status, qrCodeId, page = "1", limit = "20" } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
@@ -266,6 +280,7 @@ router.get("/", async (req, res) => {
   const conditions = [];
   if (user.role !== "admin") conditions.push(eq(callbackLogsTable.merchantId, user.merchantId!));
   if (status && status !== "all") conditions.push(eq(callbackLogsTable.status, status));
+  if (qrCodeId) conditions.push(eq(callbackLogsTable.qrCodeId, parseInt(qrCodeId)));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   const [{ total }] = await db.select({ total: count() }).from(callbackLogsTable).where(where);

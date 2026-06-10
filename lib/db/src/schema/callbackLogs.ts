@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const callbackLogsTable = pgTable("callback_logs", {
   id: serial("id").primaryKey(),
   merchantId: integer("merchant_id").notNull(),
+  qrCodeId: integer("qr_code_id"),
   transactionId: integer("transaction_id"),
   url: text("url").notNull(),
   status: text("status").notNull(), // success | failed | pending_retry

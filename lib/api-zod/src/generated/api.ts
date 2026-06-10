@@ -1006,6 +1006,7 @@ export const ReceivePaymentCallbackResponse = zod.object({
  */
 export const ListCallbackLogsQueryParams = zod.object({
   "status": zod.enum(['success', 'failed', 'pending_retry', 'all']).optional(),
+  "qrCodeId": zod.coerce.number().optional().describe('Filter by QR code ID'),
   "page": zod.coerce.number().optional(),
   "limit": zod.coerce.number().optional()
 })
@@ -1014,6 +1015,7 @@ export const ListCallbackLogsResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.number(),
   "merchantId": zod.number(),
+  "qrCodeId": zod.number().nullish(),
   "transactionId": zod.number().nullable(),
   "url": zod.string(),
   "status": zod.enum(['success', 'failed', 'pending_retry']),
@@ -1783,6 +1785,28 @@ export const CreateQrCodeBody = zod.object({
   "callbackUrl": zod.string().nullish(),
   "merchantReference": zod.string().nullish(),
   "expiresAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get payment activity for a QR code
+ */
+export const GetQrCodeActivityParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetQrCodeActivityResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "qrCodeId": zod.number(),
+  "merchantId": zod.number(),
+  "transactionId": zod.number().nullish(),
+  "amount": zod.string().nullish(),
+  "orderId": zod.string().nullish(),
+  "merchantReference": zod.string().nullish(),
+  "status": zod.enum(['success', 'failed']),
+  "receivedAt": zod.string()
+}))
 })
 
 

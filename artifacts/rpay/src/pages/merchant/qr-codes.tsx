@@ -4,6 +4,7 @@ import {
   useCreateQrCode,
   useDeleteQrCode,
   useListMerchantConnections,
+  useGetQrCodeActivity,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight, ScanLine } from "lucide-react";
+import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight, ScanLine, Zap, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
@@ -71,6 +72,75 @@ function statusBadge(status: string) {
   if (status === "expired") return <Badge className="text-xs bg-rose-500/15 text-rose-400 border-rose-500/20 hover:bg-rose-500/20">Expired</Badge>;
   if (status === "used") return <Badge className="text-xs bg-blue-500/15 text-blue-400 border-blue-500/20 hover:bg-blue-500/20">Used</Badge>;
   return <Badge variant="secondary" className="text-xs">{status}</Badge>;
+}
+
+function PaymentActivity({ qrId }: { qrId: number }) {
+  const { data, isLoading } = useGetQrCodeActivity(qrId);
+
+  if (isLoading) {
+    return (
+      <div className="mt-4 border-t border-border/50 pt-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Payment Activity</p>
+        <div className="space-y-2">
+          {[1, 2].map(i => (
+            <div key={i} className="h-10 bg-muted/40 rounded-md animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const events = data?.data ?? [];
+
+  return (
+    <div className="mt-4 border-t border-border/50 pt-4">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Payment Activity</p>
+      {events.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">No payments received yet</p>
+      ) : (
+        <div className="space-y-2">
+          {events.map(ev => (
+            <div key={ev.id} className="flex items-start gap-3 rounded-md border border-emerald-500/20 bg-emerald-500/8 px-3 py-2.5">
+              <Zap className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-emerald-400">Payment received</span>
+                  {ev.status === "failed" && (
+                    <Badge className="text-xs bg-rose-500/15 text-rose-400 border-rose-500/20 py-0 px-1.5">webhook failed</Badge>
+                  )}
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {format(new Date(ev.receivedAt), "MMM d, yyyy · HH:mm:ss")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 mt-1 flex-wrap">
+                  {ev.amount && (
+                    <span className="text-xs text-foreground font-mono">
+                      ₹{parseFloat(ev.amount).toLocaleString("en-IN")}
+                    </span>
+                  )}
+                  {ev.orderId && (
+                    <span className="text-xs text-muted-foreground font-mono">
+                      Order: {ev.orderId}
+                    </span>
+                  )}
+                  {ev.merchantReference && (
+                    <span className="text-xs text-muted-foreground font-mono">
+                      Ref: {ev.merchantReference}
+                    </span>
+                  )}
+                  {ev.transactionId && (
+                    <span className="text-xs text-blue-400 font-mono">
+                      Txn #{ev.transactionId}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function InlineQrRow({ qr }: { qr: QrRow }) {
@@ -147,6 +217,7 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
                 <Link2 className="w-3.5 h-3.5 mr-1.5" />{copied ? "Copied!" : "Copy Link"}
               </Button>
             </div>
+            <PaymentActivity qrId={qr.id} />
           </div>
         </div>
       </TableCell>
@@ -166,9 +237,12 @@ function DownloadModal({ qr, onClose }: { qr: QrRow; onClose: () => void }) {
     toast.success("QR code downloaded");
   }, [qr]);
 
+  const { data: activityData } = useGetQrCodeActivity(qr.id);
+  const events = activityData?.data ?? [];
+
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>QR Code #{qr.id}</DialogTitle>
           <p className="text-sm text-muted-foreground">{qr.orderId ?? qr.merchantReference ?? qr.type}</p>
@@ -177,6 +251,27 @@ function DownloadModal({ qr, onClose }: { qr: QrRow; onClose: () => void }) {
           <div id="qr-modal-canvas" className="bg-white p-4 rounded-xl">
             <QRCodeCanvas value={qr.payload} size={200} level="H" includeMargin />
           </div>
+          {events.length > 0 && (
+            <div className="w-full space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payment Activity</p>
+              {events.map(ev => (
+                <div key={ev.id} className="flex items-start gap-2.5 rounded-md border border-emerald-500/20 bg-emerald-500/8 px-3 py-2">
+                  <Zap className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-emerald-400">Payment received</span>
+                      <span className="text-xs text-muted-foreground">{format(new Date(ev.receivedAt), "MMM d · HH:mm")}</span>
+                    </div>
+                    <div className="flex gap-3 mt-0.5 flex-wrap">
+                      {ev.amount && <span className="text-xs font-mono text-foreground">₹{parseFloat(ev.amount).toLocaleString("en-IN")}</span>}
+                      {ev.orderId && <span className="text-xs font-mono text-muted-foreground">Order: {ev.orderId}</span>}
+                      {ev.transactionId && <span className="text-xs font-mono text-blue-400">Txn #{ev.transactionId}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
@@ -380,7 +475,7 @@ export default function MerchantQrCodes() {
                   </TableCell>
                 </TableRow>
               ) : data.data.flatMap(qr => {
-                const isExpired = qr.expiresAt ? new Date(qr.expiresAt as string) < new Date() : false;
+                const isExpiredRow = qr.expiresAt ? new Date(qr.expiresAt as string) < new Date() : false;
                 const isExpanded = expandedId === qr.id;
                 return [
                   <TableRow key={qr.id} className="cursor-pointer hover:bg-muted/30"
@@ -397,7 +492,7 @@ export default function MerchantQrCodes() {
                     <TableCell className="text-xs">
                       {qr.expiresAt ? (
                         <div>
-                          <span className={isExpired ? "text-rose-400" : "text-amber-400"}>
+                          <span className={isExpiredRow ? "text-rose-400" : "text-amber-400"}>
                             {format(new Date(qr.expiresAt as string), "MMM d, HH:mm")}
                           </span>
                         </div>

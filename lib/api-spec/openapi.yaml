@@ -1033,6 +1033,11 @@ paths:
           schema:
             type: string
             enum: [success, failed, pending_retry, all]
+        - name: qrCodeId
+          in: query
+          schema:
+            type: integer
+          description: Filter by QR code ID
         - name: page
           in: query
           schema:
@@ -1710,6 +1715,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QrCode"
+
+  /qr-codes/{id}/activity:
+    get:
+      operationId: getQrCodeActivity
+      tags: [qr-codes]
+      summary: Get payment activity for a QR code
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment activity for the QR code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QrCodeActivityResponse"
+        "404":
+          description: QR code not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /qr-codes/{id}:
     get:
@@ -3354,6 +3384,39 @@ components:
           type: boolean
           description: Whether the QR code's callbackUrl was fired
 
+    QrCodeActivity:
+      type: object
+      required: [id, qrCodeId, merchantId, status, receivedAt]
+      properties:
+        id:
+          type: integer
+        qrCodeId:
+          type: integer
+        merchantId:
+          type: integer
+        transactionId:
+          type: ["integer", "null"]
+        amount:
+          type: ["string", "null"]
+        orderId:
+          type: ["string", "null"]
+        merchantReference:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [success, failed]
+        receivedAt:
+          type: string
+
+    QrCodeActivityResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/QrCodeActivity"
+
     CallbackLog:
       type: object
       required: [id, merchantId, transactionId, url, status, httpStatus, createdAt]
@@ -3362,6 +3425,8 @@ components:
           type: integer
         merchantId:
           type: integer
+        qrCodeId:
+          type: ["integer", "null"]
         transactionId:
           type: ["integer", "null"]
         url:

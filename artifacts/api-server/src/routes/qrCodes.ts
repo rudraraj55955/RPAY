@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, qrCodesTable, merchantsTable, merchantConnectionsTable, transactionsTable } from "@workspace/db";
+import { db, qrCodesTable, merchantsTable, merchantConnectionsTable, transactionsTable, qrPaymentEventsTable } from "@workspace/db";
 import { eq, and, ilike, count, sql, or, desc, gte, lte } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { checkPlanLimit, rejectWithLimitError } from "../helpers/planLimits";
@@ -122,6 +122,43 @@ router.get("/", async (req, res) => {
     data: rows.map(r => serializeQr(r.qr, r.merchantName, Number(r.scanCount ?? 0))),
     total, page: pageNum, limit: limitNum,
   });
+});
+
+// GET /api/qr-codes/:id/activity
+router.get("/:id/activity", async (req, res) => {
+  await expireOldQrCodes().catch(() => {});
+  const user = (req as any).user;
+  const id = parseInt(req.params['id'] as string);
+
+  const conditions = [eq(qrCodesTable.id, id)];
+  if (user.role !== "admin") conditions.push(eq(qrCodesTable.merchantId, user.merchantId!));
+
+  const rows = await db.select({ qr: qrCodesTable })
+    .from(qrCodesTable)
+    .where(and(...conditions))
+    .limit(1);
+
+  if (!rows.length) { res.status(404).json({ error: "QR code not found" }); return; }
+
+  const events = await db.select()
+    .from(qrPaymentEventsTable)
+    .where(eq(qrPaymentEventsTable.qrCodeId, id))
+    .orderBy(desc(qrPaymentEventsTable.receivedAt))
+    .limit(50);
+
+  const data = events.map(ev => ({
+    id: ev.id,
+    qrCodeId: ev.qrCodeId,
+    merchantId: ev.merchantId,
+    transactionId: ev.transactionId ?? null,
+    amount: ev.amount ?? null,
+    orderId: ev.orderId ?? null,
+    merchantReference: ev.merchantReference ?? null,
+    status: "success" as const,
+    receivedAt: ev.receivedAt instanceof Date ? ev.receivedAt.toISOString() : ev.receivedAt,
+  }));
+
+  res.json({ data });
 });
 
 // GET /api/qr-codes/:id

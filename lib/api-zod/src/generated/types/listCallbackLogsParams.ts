@@ -9,6 +9,10 @@ import type { ListCallbackLogsStatus } from './listCallbackLogsStatus';
 
 export type ListCallbackLogsParams = {
 status?: ListCallbackLogsStatus;
+/**
+ * Filter by QR code ID
+ */
+qrCodeId?: number;
 page?: number;
 limit?: number;
 };

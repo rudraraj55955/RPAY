@@ -323,6 +323,34 @@ export interface PaymentCallbackResponse {
   callbackFired: boolean;
 }
 
+export type QrCodeActivityStatus = typeof QrCodeActivityStatus[keyof typeof QrCodeActivityStatus];
+
+
+export const QrCodeActivityStatus = {
+  success: 'success',
+  failed: 'failed',
+} as const;
+
+export interface QrCodeActivity {
+  id: number;
+  qrCodeId: number;
+  merchantId: number;
+  /** @nullable */
+  transactionId?: number | null;
+  /** @nullable */
+  amount?: string | null;
+  /** @nullable */
+  orderId?: string | null;
+  /** @nullable */
+  merchantReference?: string | null;
+  status: QrCodeActivityStatus;
+  receivedAt: string;
+}
+
+export interface QrCodeActivityResponse {
+  data: QrCodeActivity[];
+}
+
 export type CallbackLogStatus = typeof CallbackLogStatus[keyof typeof CallbackLogStatus];
 
 
@@ -335,6 +363,8 @@ export const CallbackLogStatus = {
 export interface CallbackLog {
   id: number;
   merchantId: number;
+  /** @nullable */
+  qrCodeId?: number | null;
   /** @nullable */
   transactionId: number | null;
   url: string;
@@ -1701,6 +1731,10 @@ export const ListWithdrawalsStatus = {
 
 export type ListCallbackLogsParams = {
 status?: ListCallbackLogsStatus;
+/**
+ * Filter by QR code ID
+ */
+qrCodeId?: number;
 page?: number;
 limit?: number;
 };

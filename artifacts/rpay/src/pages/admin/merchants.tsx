@@ -1041,6 +1041,51 @@ export default function AdminMerchants() {
                     </div>
                   </div>
                 )}
+
+                {/* Other resource usage breakdown */}
+                {merchantPlanUsage && (
+                  <div className="border-t border-primary/10 pt-2 space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Other Resources</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-md bg-background/50 border border-border/40 px-2.5 py-2 space-y-1.5">
+                        <p className="text-xs font-medium text-foreground">Virtual Accounts</p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+                          <span className="text-emerald-400">
+                            <span className="font-semibold">{merchantPlanUsage.virtualAccount.used}</span>
+                            <span className="text-muted-foreground"> active</span>
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Limit: {merchantPlanUsage.virtualAccount.limit >= 999 ? "∞" : merchantPlanUsage.virtualAccount.limit}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-background/50 border border-border/40 px-2.5 py-2 space-y-1.5">
+                        <p className="text-xs font-medium text-foreground">Payment Links</p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+                          <span className="text-emerald-400">
+                            <span className="font-semibold">{merchantPlanUsage.paymentLink.used}</span>
+                            <span className="text-muted-foreground"> active</span>
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Limit: {merchantPlanUsage.paymentLink.limit >= 999 ? "∞" : merchantPlanUsage.paymentLink.limit}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-background/50 border border-border/40 px-2.5 py-2 space-y-1.5">
+                        <p className="text-xs font-medium text-foreground">Payouts</p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+                          <span className="text-sky-400">
+                            <span className="font-semibold">{merchantPlanUsage.payout.used}</span>
+                            <span className="text-muted-foreground"> this cycle</span>
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Limit: {merchantPlanUsage.payout.limit >= 999 ? "∞" : merchantPlanUsage.payout.limit}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/5 p-3 flex items-center gap-2 text-muted-foreground">

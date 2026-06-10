@@ -10,6 +10,7 @@ import {
   getListSettlementsQueryKey,
   getGetSettlementStatsQueryKey,
   listSettlements,
+  useGetMerchant,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -26,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
 import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
-import { ChevronDown, ChevronRight, Search, X, MoreHorizontal, TrendingUp, Clock, CheckCircle2, DollarSign, RefreshCw, CheckSquare } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, X, MoreHorizontal, TrendingUp, Clock, CheckCircle2, DollarSign, RefreshCw, CheckSquare, AlertTriangle, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -37,6 +38,7 @@ interface ActionModal {
   type: ActionType;
   merchantName?: string | null;
   amount: number;
+  merchantId?: number;
 }
 
 export default function AdminSettlements() {
@@ -95,6 +97,14 @@ export default function AdminSettlements() {
 
   const isPending = processMut.isPending || approveMut.isPending || rejectMut.isPending || holdMut.isPending || paidMut.isPending;
 
+  const isApproveModal = actionModal?.type === "approve" && !!actionModal?.merchantId;
+  const { data: approvalMerchant, isLoading: isMerchantLoading } = useGetMerchant(
+    actionModal?.merchantId ?? 0,
+    { query: { enabled: isApproveModal } as any }
+  );
+  const merchantBalance = approvalMerchant?.balance ?? null;
+  const isOverdraw = merchantBalance != null && actionModal != null && actionModal.amount > merchantBalance;
+
   const handleAction = () => {
     if (!actionModal) return;
     setActionError("");
@@ -115,11 +125,11 @@ export default function AdminSettlements() {
     else if (type === "mark-paid") paidMut.mutate({ id, data: { remark, referenceNumber: refNumber } });
   };
 
-  const openAction = (id: number, type: ActionType, merchantName?: string | null, amount?: number) => {
+  const openAction = (id: number, type: ActionType, merchantName?: string | null, amount?: number, merchantId?: number) => {
     setRemark("");
     setRefNumber("");
     setActionError("");
-    setActionModal({ id, type, merchantName, amount: amount ?? 0 });
+    setActionModal({ id, type, merchantName, amount: amount ?? 0, merchantId });
   };
 
   const exportCsv = () => downloadCsvFromUrl("/api/settlements/export/csv", "settlements.csv", {
@@ -490,13 +500,13 @@ export default function AdminSettlements() {
                               <>
                                 <DropdownMenuItem
                                   className="text-blue-400"
-                                  onClick={() => openAction(s.id, "process", s.merchantName, amount)}
+                                  onClick={() => openAction(s.id, "process", s.merchantName, amount, s.merchantId)}
                                 >
                                   Mark Processing
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="text-rose-400"
-                                  onClick={() => openAction(s.id, "reject", s.merchantName, amount)}
+                                  onClick={() => openAction(s.id, "reject", s.merchantName, amount, s.merchantId)}
                                 >
                                   Reject
                                 </DropdownMenuItem>
@@ -506,20 +516,20 @@ export default function AdminSettlements() {
                               <>
                                 <DropdownMenuItem
                                   className="text-emerald-400"
-                                  onClick={() => openAction(s.id, "approve", s.merchantName, amount)}
+                                  onClick={() => openAction(s.id, "approve", s.merchantName, amount, s.merchantId)}
                                 >
                                   Approve
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="text-rose-400"
-                                  onClick={() => openAction(s.id, "reject", s.merchantName, amount)}
+                                  onClick={() => openAction(s.id, "reject", s.merchantName, amount, s.merchantId)}
                                 >
                                   Reject
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   className="text-amber-400"
-                                  onClick={() => openAction(s.id, "hold", s.merchantName, amount)}
+                                  onClick={() => openAction(s.id, "hold", s.merchantName, amount, s.merchantId)}
                                 >
                                   Put on Hold
                                 </DropdownMenuItem>
@@ -528,7 +538,7 @@ export default function AdminSettlements() {
                             {s.status === "approved" && (
                               <DropdownMenuItem
                                 className="text-teal-400"
-                                onClick={() => openAction(s.id, "mark-paid", s.merchantName, amount)}
+                                onClick={() => openAction(s.id, "mark-paid", s.merchantName, amount, s.merchantId)}
                               >
                                 Mark as Paid
                               </DropdownMenuItem>
@@ -618,6 +628,35 @@ export default function AdminSettlements() {
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
+            {/* Merchant balance panel — only shown for approve action */}
+            {actionModal?.type === "approve" && (
+              <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 flex items-center gap-3">
+                <div className="p-1.5 rounded-md bg-emerald-500/10 shrink-0">
+                  <Wallet className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground mb-0.5">Merchant Available Balance</p>
+                  {isMerchantLoading ? (
+                    <div className="h-4 w-24 bg-muted/60 rounded animate-pulse" />
+                  ) : merchantBalance != null ? (
+                    <p className="font-semibold font-mono text-sm text-foreground">₹{merchantBalance.toLocaleString()}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">Unavailable</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Overdraw warning */}
+            {isOverdraw && (
+              <div className="flex items-start gap-2.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-400">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  The settlement amount (₹{actionModal!.amount.toLocaleString()}) exceeds the merchant's available balance (₹{merchantBalance!.toLocaleString()}). Approving will result in a negative balance.
+                </span>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="remark">Remark <span className="text-rose-500">*</span></Label>
               <Textarea

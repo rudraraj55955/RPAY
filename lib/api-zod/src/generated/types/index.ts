@@ -34,6 +34,8 @@ export * from './bulkUpdateMerchantFeatures200';
 export * from './callbackLog';
 export * from './callbackLogListResponse';
 export * from './callbackLogStatus';
+export * from './callbackSecretRotateResponse';
+export * from './callbackSecretStatus';
 export * from './chartDataPoint';
 export * from './createSettlementInput';
 export * from './dashboardStats';

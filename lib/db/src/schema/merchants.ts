@@ -16,6 +16,7 @@ export const merchantsTable = pgTable("merchants", {
   balance: numeric("balance", { precision: 18, scale: 2 }).notNull().default("0"),
   logoUrl: text("logo_url"),
   brandColor: text("brand_color"),
+  callbackSecret: text("callback_secret"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

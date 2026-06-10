@@ -41,6 +41,8 @@ import type {
   BulkFeatureUpdateInput,
   BulkUpdateMerchantFeatures200,
   CallbackLogListResponse,
+  CallbackSecretRotateResponse,
+  CallbackSecretStatus,
   ChartDataPoint,
   CreateSettlementInput,
   DashboardStats,
@@ -3229,6 +3231,14 @@ Authentication is via the merchant's API key supplied in the X-Api-Key header.
 The merchantId is derived from the key — it does not need to be in the body.
 orderId takes priority over merchantReference when both are provided.
 
+If the merchant has configured a callback signing secret, the caller MUST also
+include an X-Signature header. The signature is computed as:
+  HMAC-SHA256(callbackSecret, rawRequestBody)
+and sent as: `X-Signature: sha256=<hex_digest>`
+
+Example (Node.js):
+  const sig = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+
  * @summary Receive payment callback and mark matching QR code as used
  */
 export const receivePaymentCallback = async (paymentCallbackInput: PaymentCallbackInput, options?: RequestInit): Promise<PaymentCallbackResponse> => {
@@ -3374,6 +3384,157 @@ export function useListCallbackLogs<TData = Awaited<ReturnType<typeof listCallba
 
 
 
+
+export const getGetCallbackSecretUrl = () => {
+
+
+
+
+  return `/api/callbacks/secret`
+}
+
+/**
+ * Returns whether a callback signing secret is configured, plus a masked prefix. Merchant access only.
+ * @summary Get callback signing secret status
+ */
+export const getCallbackSecret = async ( options?: RequestInit): Promise<CallbackSecretStatus> => {
+
+  return customFetch<CallbackSecretStatus>(getGetCallbackSecretUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCallbackSecretQueryKey = () => {
+    return [
+    `/api/callbacks/secret`
+    ] as const;
+    }
+
+
+export const getGetCallbackSecretQueryOptions = <TData = Awaited<ReturnType<typeof getCallbackSecret>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCallbackSecret>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCallbackSecretQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCallbackSecret>>> = ({ signal }) => getCallbackSecret({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCallbackSecret>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCallbackSecretQueryResult = NonNullable<Awaited<ReturnType<typeof getCallbackSecret>>>
+export type GetCallbackSecretQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get callback signing secret status
+ */
+
+export function useGetCallbackSecret<TData = Awaited<ReturnType<typeof getCallbackSecret>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCallbackSecret>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCallbackSecretQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getRotateCallbackSecretUrl = () => {
+
+
+
+
+  return `/api/callbacks/secret/rotate`
+}
+
+/**
+ * Generates a new 64-character hex callback signing secret for the authenticated merchant.
+The secret is returned once — store it securely. Subsequent calls replace the previous secret.
+
+ * @summary Generate or rotate the callback signing secret
+ */
+export const rotateCallbackSecret = async ( options?: RequestInit): Promise<CallbackSecretRotateResponse> => {
+
+  return customFetch<CallbackSecretRotateResponse>(getRotateCallbackSecretUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRotateCallbackSecretMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateCallbackSecret>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rotateCallbackSecret>>, TError,void, TContext> => {
+
+const mutationKey = ['rotateCallbackSecret'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rotateCallbackSecret>>, void> = () => {
+
+
+          return  rotateCallbackSecret(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RotateCallbackSecretMutationResult = NonNullable<Awaited<ReturnType<typeof rotateCallbackSecret>>>
+
+    export type RotateCallbackSecretMutationError = ErrorType<void>
+
+    /**
+ * @summary Generate or rotate the callback signing secret
+ */
+export const useRotateCallbackSecret = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateCallbackSecret>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rotateCallbackSecret>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRotateCallbackSecretMutationOptions(options));
+    }
 
 export const getListSettlementsUrl = (params?: ListSettlementsParams,) => {
   const normalizedParams = new URLSearchParams();

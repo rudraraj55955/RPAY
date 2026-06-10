@@ -276,6 +276,21 @@ export interface WebhookConfigInput {
   secret?: string | null;
 }
 
+export interface CallbackSecretStatus {
+  /** Whether a callback signing secret has been configured */
+  isSet: boolean;
+  /**
+     * First 8 characters of the secret followed by "..." — null when no secret is set
+     * @nullable
+     */
+  secretPrefix?: string | null;
+}
+
+export interface CallbackSecretRotateResponse {
+  /** The newly generated 64-character hex signing secret. Shown only once — store it immediately. */
+  secret: string;
+}
+
 /**
  * Payment notification body. Caller must supply a valid merchant API key in the
 X-Api-Key request header — merchantId is derived from the key automatically.

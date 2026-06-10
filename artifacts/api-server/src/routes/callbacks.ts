@@ -1,5 +1,6 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import { Router } from "express";
-import { db, callbackLogsTable, qrCodesTable, apiKeysTable } from "@workspace/db";
+import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable } from "@workspace/db";
 import { eq, and, count, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
@@ -7,7 +8,27 @@ import { fireCallback, scheduleCallbackRetry } from "../helpers/callbackRetry";
 
 const router = Router();
 
+/**
+ * Verify an HMAC-SHA256 signature of the raw request body.
+ * Expected header format: `X-Signature: sha256=<hex_digest>`
+ */
+function verifyHmacSignature(secret: string, rawBody: Buffer, signatureHeader: string): boolean {
+  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
+  const provided = signatureHeader.startsWith("sha256=")
+    ? signatureHeader.slice(7)
+    : signatureHeader;
+
+  if (provided.length !== expected.length) return false;
+
+  try {
+    return timingSafeEqual(Buffer.from(provided, "hex"), Buffer.from(expected, "hex"));
+  } catch {
+    return false;
+  }
+}
+
 // POST /api/callbacks — authenticated via X-Api-Key header (merchant API key)
+// If the merchant has configured a callbackSecret, X-Signature is also required.
 // Called by payment providers or merchant back-end to mark a QR as "used" on payment receipt
 router.post("/", async (req, res) => {
   // --- Authentication via merchant API key ---
@@ -30,6 +51,32 @@ router.post("/", async (req, res) => {
 
   const merchantId = keyRow.merchantId;
 
+  // --- HMAC signature check (if merchant has a callbackSecret configured) ---
+  const [merchant] = await db
+    .select({ callbackSecret: merchantsTable.callbackSecret })
+    .from(merchantsTable)
+    .where(eq(merchantsTable.id, merchantId))
+    .limit(1);
+
+  if (merchant?.callbackSecret) {
+    const signatureHeader = (req.headers["x-signature"] as string | undefined)?.trim();
+    if (!signatureHeader) {
+      res.status(401).json({ error: "X-Signature header is required for this merchant" });
+      return;
+    }
+
+    const rawBody = (req as any).rawBody as Buffer | undefined;
+    if (!rawBody) {
+      res.status(500).json({ error: "Unable to verify signature: raw body unavailable" });
+      return;
+    }
+
+    if (!verifyHmacSignature(merchant.callbackSecret, rawBody, signatureHeader)) {
+      res.status(401).json({ error: "Invalid X-Signature" });
+      return;
+    }
+  }
+
   // --- Input validation ---
   const { orderId, merchantReference, amount, transactionId } = req.body as {
     orderId?: string;
@@ -44,8 +91,6 @@ router.post("/", async (req, res) => {
   }
 
   // --- Deterministic QR matching: orderId takes priority over merchantReference ---
-  // When orderId is provided it is the precise, order-scoped identifier and is used exclusively.
-  // merchantReference is only used when orderId is absent, avoiding ambiguous OR lookups.
   let qr: typeof qrCodesTable.$inferSelect | undefined;
 
   if (orderId) {
@@ -154,6 +199,53 @@ router.post("/", async (req, res) => {
 
 // Authenticated routes below
 router.use(requireAuth);
+
+// GET /api/callbacks/secret — returns callback secret status for the authenticated merchant
+router.get("/secret", async (req, res) => {
+  const user = (req as any).user;
+  if (user.role !== "merchant") {
+    res.status(403).json({ error: "Merchant access only" });
+    return;
+  }
+
+  const [merchant] = await db
+    .select({ callbackSecret: merchantsTable.callbackSecret })
+    .from(merchantsTable)
+    .where(eq(merchantsTable.id, user.merchantId))
+    .limit(1);
+
+  if (!merchant) {
+    res.status(404).json({ error: "Merchant not found" });
+    return;
+  }
+
+  const secret = merchant.callbackSecret;
+  res.json({
+    isSet: !!secret,
+    secretPrefix: secret ? secret.slice(0, 8) + "..." : null,
+  });
+});
+
+// POST /api/callbacks/secret/rotate — generate and store a new callback secret
+router.post("/secret/rotate", async (req, res) => {
+  const user = (req as any).user;
+  if (user.role !== "merchant") {
+    res.status(403).json({ error: "Merchant access only" });
+    return;
+  }
+
+  const { randomBytes } = await import("crypto");
+  const newSecret = randomBytes(32).toString("hex");
+
+  await db
+    .update(merchantsTable)
+    .set({ callbackSecret: newSecret, updatedAt: new Date() })
+    .where(eq(merchantsTable.id, user.merchantId));
+
+  req.log.info({ merchantId: user.merchantId }, "Callback secret rotated");
+
+  res.json({ secret: newSecret });
+});
 
 // GET /api/callbacks
 router.get("/", async (req, res) => {

@@ -969,10 +969,19 @@ Authentication is via the merchant's API key supplied in the X-Api-Key header.
 The merchantId is derived from the key — it does not need to be in the body.
 orderId takes priority over merchantReference when both are provided.
 
+If the merchant has configured a callback signing secret, the caller MUST also
+include an X-Signature header. The signature is computed as:
+  HMAC-SHA256(callbackSecret, rawRequestBody)
+and sent as: `X-Signature: sha256=<hex_digest>`
+
+Example (Node.js):
+  const sig = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+
  * @summary Receive payment callback and mark matching QR code as used
  */
 export const ReceivePaymentCallbackHeader = zod.object({
-  "X-Api-Key": zod.string().describe('Active merchant API key (rasokart_live_... prefix)')
+  "X-Api-Key": zod.string().describe('Active merchant API key (rasokart_live_... prefix)'),
+  "X-Signature": zod.string().optional().describe('HMAC-SHA256 signature of the raw request body. Required when the merchant has\nconfigured a callback signing secret. Format: `sha256=<hex_digest>`\n')
 })
 
 export const ReceivePaymentCallbackBody = zod.object({
@@ -1017,6 +1026,27 @@ export const ListCallbackLogsResponse = zod.object({
   "total": zod.number(),
   "page": zod.number(),
   "limit": zod.number()
+})
+
+
+/**
+ * Returns whether a callback signing secret is configured, plus a masked prefix. Merchant access only.
+ * @summary Get callback signing secret status
+ */
+export const GetCallbackSecretResponse = zod.object({
+  "isSet": zod.boolean().describe('Whether a callback signing secret has been configured'),
+  "secretPrefix": zod.string().nullish().describe('First 8 characters of the secret followed by \"...\" — null when no secret is set')
+})
+
+
+/**
+ * Generates a new 64-character hex callback signing secret for the authenticated merchant.
+The secret is returned once — store it securely. Subsequent calls replace the previous secret.
+
+ * @summary Generate or rotate the callback signing secret
+ */
+export const RotateCallbackSecretResponse = zod.object({
+  "secret": zod.string().describe('The newly generated 64-character hex signing secret. Shown only once — store it immediately.')
 })
 
 

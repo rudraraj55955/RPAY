@@ -981,6 +981,14 @@ paths:
         Authentication is via the merchant's API key supplied in the X-Api-Key header.
         The merchantId is derived from the key — it does not need to be in the body.
         orderId takes priority over merchantReference when both are provided.
+
+        If the merchant has configured a callback signing secret, the caller MUST also
+        include an X-Signature header. The signature is computed as:
+          HMAC-SHA256(callbackSecret, rawRequestBody)
+        and sent as: `X-Signature: sha256=<hex_digest>`
+
+        Example (Node.js):
+          const sig = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
       parameters:
         - name: X-Api-Key
           in: header
@@ -988,6 +996,14 @@ paths:
           schema:
             type: string
           description: Active merchant API key (rasokart_live_... prefix)
+        - name: X-Signature
+          in: header
+          required: false
+          schema:
+            type: string
+          description: |
+            HMAC-SHA256 signature of the raw request body. Required when the merchant has
+            configured a callback signing secret. Format: `sha256=<hex_digest>`
       requestBody:
         required: true
         content:
@@ -1004,7 +1020,7 @@ paths:
         "400":
           description: Missing required fields (orderId or merchantReference)
         "401":
-          description: Missing or invalid X-Api-Key header
+          description: Missing or invalid X-Api-Key or X-Signature header
         "404":
           description: No matching active QR code found for the given identifiers
     get:
@@ -1032,6 +1048,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CallbackLogListResponse"
+
+  /callbacks/secret:
+    get:
+      operationId: getCallbackSecret
+      tags: [callbacks]
+      summary: Get callback signing secret status
+      description: Returns whether a callback signing secret is configured, plus a masked prefix. Merchant access only.
+      responses:
+        "200":
+          description: Callback secret status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallbackSecretStatus"
+        "403":
+          description: Merchant access only
+
+  /callbacks/secret/rotate:
+    post:
+      operationId: rotateCallbackSecret
+      tags: [callbacks]
+      summary: Generate or rotate the callback signing secret
+      description: |
+        Generates a new 64-character hex callback signing secret for the authenticated merchant.
+        The secret is returned once — store it securely. Subsequent calls replace the previous secret.
+      responses:
+        "200":
+          description: New secret (shown once — store it immediately)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallbackSecretRotateResponse"
+        "403":
+          description: Merchant access only
 
   /settlements:
     get:
@@ -3236,6 +3286,25 @@ components:
             type: string
         secret:
           type: ["string", "null"]
+
+    CallbackSecretStatus:
+      type: object
+      required: [isSet]
+      properties:
+        isSet:
+          type: boolean
+          description: Whether a callback signing secret has been configured
+        secretPrefix:
+          type: ["string", "null"]
+          description: First 8 characters of the secret followed by "..." — null when no secret is set
+
+    CallbackSecretRotateResponse:
+      type: object
+      required: [secret]
+      properties:
+        secret:
+          type: string
+          description: The newly generated 64-character hex signing secret. Shown only once — store it immediately.
 
     PaymentCallbackInput:
       type: object

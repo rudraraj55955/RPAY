@@ -354,6 +354,7 @@ function padTwo(n: number) {
 }
 
 function ScheduleSettingsCard() {
+  const qc = useQueryClient();
   const { data: config, isLoading: configLoading } = useGetReconciliationScheduleConfig();
   const { data: nextRunData } = useGetReconciliationNextRun();
 
@@ -377,6 +378,7 @@ function ScheduleSettingsCard() {
       onSuccess: () => {
         toast.success("Schedule settings saved — takes effect on the next run");
         setEditing(false);
+        qc.invalidateQueries({ queryKey: ["/api/system-config/reconciliation/next-run"] });
       },
       onError: (err: any) => {
         toast.error(`Failed to save: ${err?.message ?? "Unknown error"}`);

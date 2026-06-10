@@ -15,18 +15,22 @@ import {
 import { format, parseISO } from "date-fns";
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
-  merchant_approved:  { label: "Merchant Approved",  color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-  merchant_rejected:  { label: "Merchant Rejected",  color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
-  plan_assigned:      { label: "Plan Assigned",       color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  plan_upgraded:      { label: "Plan Upgraded",       color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  plan_downgraded:    { label: "Plan Downgraded",     color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  plan_renewed:       { label: "Plan Renewed",        color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  plan_created:       { label: "Plan Created",        color: "bg-primary/10 text-primary border-primary/20" },
-  plan_updated:       { label: "Plan Updated",        color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  plan_deleted:       { label: "Plan Deleted",        color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
-  user_created:       { label: "User Created",        color: "bg-primary/10 text-primary border-primary/20" },
-  user_role_changed:  { label: "Role Changed",        color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
-  csv_export:         { label: "CSV Export",          color: "bg-sky-500/10 text-sky-400 border-sky-500/20" },
+  merchant_approved:        { label: "Merchant Approved",    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  merchant_rejected:        { label: "Merchant Rejected",    color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
+  plan_assigned:            { label: "Plan Assigned",         color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  plan_upgraded:            { label: "Plan Upgraded",         color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  plan_downgraded:          { label: "Plan Downgraded",       color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  plan_renewed:             { label: "Plan Renewed",          color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  plan_created:             { label: "Plan Created",          color: "bg-primary/10 text-primary border-primary/20" },
+  plan_updated:             { label: "Plan Updated",          color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  plan_deleted:             { label: "Plan Deleted",          color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
+  user_created:             { label: "User Created",          color: "bg-primary/10 text-primary border-primary/20" },
+  user_role_changed:        { label: "Role Changed",          color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
+  csv_export:               { label: "CSV Export",            color: "bg-sky-500/10 text-sky-400 border-sky-500/20" },
+  account_detail_created:   { label: "Account Detail Added",  color: "bg-primary/10 text-primary border-primary/20" },
+  account_detail_updated:   { label: "Account Detail Updated",color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  account_detail_deleted:   { label: "Account Detail Deleted",color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
+  visibility_rule_updated:  { label: "Visibility Rule Set",   color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
 };
 
 const ALL_ACTIONS = Object.keys(ACTION_LABELS);
@@ -332,6 +336,132 @@ function UserRoleChangedDetails({ log }: { log: any }) {
   );
 }
 
+function AccountDetailCreatedDetails({ log }: { log: any }) {
+  let parsed: { label?: string; type?: string } = {};
+  try { if (log.details) parsed = JSON.parse(log.details); } catch { /* ignore */ }
+
+  return (
+    <div className="space-y-3">
+      <SummaryCard
+        icon={<CreditCard className="w-5 h-5 text-primary" />}
+        title={parsed.label ? `New account detail: ${parsed.label}` : "Account detail created"}
+        subtitle={parsed.type ? `Type: ${parsed.type.toUpperCase()}` : undefined}
+        colorClass="bg-primary/10 border-primary/20"
+      />
+      <div className="rounded-lg bg-muted/20 p-3 space-y-1.5">
+        {parsed.label && <DetailRow label="Label" value={parsed.label} />}
+        {parsed.type && <DetailRow label="Type" value={<span className="uppercase">{parsed.type}</span>} />}
+        <DetailRow label="Account detail ID" value={<span className="font-mono">#{log.targetId ?? "—"}</span>} />
+      </div>
+    </div>
+  );
+}
+
+function AccountDetailUpdatedDetails({ log }: { log: any }) {
+  let parsed: { label?: string; changes?: string[] } = {};
+  try { if (log.details) parsed = JSON.parse(log.details); } catch { /* ignore */ }
+
+  return (
+    <div className="space-y-3">
+      <SummaryCard
+        icon={<PencilLine className="w-5 h-5 text-amber-400" />}
+        title={parsed.label ? `Updated: ${parsed.label}` : "Account detail updated"}
+        subtitle={`Account detail #${log.targetId ?? "—"}`}
+        colorClass="bg-amber-500/10 border-amber-500/20"
+      />
+      {parsed.changes && parsed.changes.length > 0 && (
+        <div className="rounded-lg bg-muted/20 p-3 space-y-2">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Fields changed</p>
+          <div className="flex flex-wrap gap-1.5">
+            {parsed.changes.map((c: string) => (
+              <span key={c} className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300">
+                {humanizeKey(c)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AccountDetailDeletedDetails({ log }: { log: any }) {
+  let parsed: { label?: string; type?: string } = {};
+  try { if (log.details) parsed = JSON.parse(log.details); } catch { /* ignore */ }
+
+  return (
+    <div className="space-y-3">
+      <SummaryCard
+        icon={<Trash2 className="w-5 h-5 text-rose-400" />}
+        title={parsed.label ? `Deleted: ${parsed.label}` : "Account detail deleted"}
+        subtitle={
+          [
+            parsed.type ? `Type: ${parsed.type.toUpperCase()}` : null,
+            "Permanently removed",
+          ].filter(Boolean).join(" · ") || undefined
+        }
+        colorClass="bg-rose-500/10 border-rose-500/20"
+      />
+      <div className="rounded-lg bg-muted/20 p-3 space-y-1.5">
+        {parsed.label && <DetailRow label="Label" value={parsed.label} />}
+        {parsed.type && <DetailRow label="Type" value={<span className="uppercase">{parsed.type}</span>} />}
+        <DetailRow label="Account detail ID" value={<span className="font-mono">#{log.targetId ?? "—"}</span>} />
+      </div>
+    </div>
+  );
+}
+
+function VisibilityRuleUpdatedDetails({ log }: { log: any }) {
+  let parsed: {
+    scope?: string;
+    visible?: boolean;
+    merchantIds?: number[];
+    count?: number;
+  } = {};
+  try { if (log.details) parsed = JSON.parse(log.details); } catch { /* ignore */ }
+
+  const isAllMerchants = parsed.scope === "all_merchants";
+  const isReset = parsed.scope === "reset_to_default";
+  const affectedCount = parsed.count ?? parsed.merchantIds?.length;
+
+  const scopeLabel = isAllMerchants
+    ? "All merchants"
+    : isReset
+    ? `${affectedCount ?? "Selected"} merchant${affectedCount !== 1 ? "s" : ""} reset to default`
+    : `${affectedCount ?? "Selected"} specific merchant${affectedCount !== 1 ? "s" : ""}`;
+
+  const visibleLabel =
+    isReset ? null :
+    parsed.visible === true ? "Visible (on)" :
+    parsed.visible === false ? "Hidden (off)" :
+    null;
+
+  const cardColor = parsed.visible === false
+    ? "bg-rose-500/10 border-rose-500/20"
+    : isReset
+    ? "bg-muted/30 border-border/50"
+    : "bg-purple-500/10 border-purple-500/20";
+
+  return (
+    <div className="space-y-3">
+      <SummaryCard
+        icon={<Eye className="w-5 h-5 text-purple-400" />}
+        title={`Visibility updated — ${scopeLabel}`}
+        subtitle={visibleLabel ?? undefined}
+        colorClass={cardColor}
+      />
+      <div className="rounded-lg bg-muted/20 p-3 space-y-1.5">
+        <DetailRow label="Scope" value={scopeLabel} />
+        {visibleLabel && <DetailRow label="Visibility" value={visibleLabel} />}
+        <DetailRow label="Account detail ID" value={<span className="font-mono">#{log.targetId ?? "—"}</span>} />
+        {!isAllMerchants && !isReset && affectedCount != null && (
+          <DetailRow label="Merchants affected" value={affectedCount} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function RawJsonDetails({ log }: { log: any }) {
   return (
     <div className="rounded-lg bg-muted/20 p-3">
@@ -368,6 +498,14 @@ function ActionDetails({ log }: { log: any }) {
       return <UserCreatedDetails log={log} />;
     case "user_role_changed":
       return <UserRoleChangedDetails log={log} />;
+    case "account_detail_created":
+      return <AccountDetailCreatedDetails log={log} />;
+    case "account_detail_updated":
+      return <AccountDetailUpdatedDetails log={log} />;
+    case "account_detail_deleted":
+      return <AccountDetailDeletedDetails log={log} />;
+    case "visibility_rule_updated":
+      return <VisibilityRuleUpdatedDetails log={log} />;
     default:
       return <RawJsonDetails log={log} />;
   }

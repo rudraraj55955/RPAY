@@ -94,11 +94,15 @@ export default function AdminVirtualAccounts() {
     const totalCollection = parseFloat(editForm.totalCollection);
     if (isNaN(balance) || balance < 0) { setEditError("Balance must be a non-negative number."); return; }
     if (isNaN(totalCollection) || totalCollection < 0) { setEditError("Total collection must be a non-negative number."); return; }
+    if (balance > totalCollection) { setEditError("Current balance cannot exceed total collection."); return; }
     updateMutation.mutate(
       { id: editVa!.id, data: { balance: balance.toFixed(2), totalCollection: totalCollection.toFixed(2) } as any },
       {
         onSuccess: () => { toast.success("Balance updated"); setEditVa(null); qc.invalidateQueries({ queryKey: ["/api/virtual-accounts"] }); },
-        onError: () => setEditError("Failed to update balance."),
+        onError: (err: any) => {
+          const msg = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
+          setEditError(msg ?? "Failed to update balance.");
+        },
       }
     );
   };

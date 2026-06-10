@@ -186,6 +186,20 @@ router.put("/:id", async (req, res) => {
   const user = (req as any).user;
   const id = parseInt(req.params['id'] as string);
   const { label, status, balance, totalCollection } = req.body;
+
+  const lookupConditions = [eq(virtualAccountsTable.id, id)];
+  if (user.role !== "admin") lookupConditions.push(eq(virtualAccountsTable.merchantId, user.merchantId!));
+  const [existing] = await db.select().from(virtualAccountsTable).where(and(...lookupConditions)).limit(1);
+  if (!existing) { res.status(404).json({ error: "Virtual account not found" }); return; }
+
+  if (balance !== undefined || totalCollection !== undefined) {
+    const effectiveBalance = balance !== undefined ? parseFloat(balance) : parseFloat(existing.balance);
+    const effectiveTotalCollection = totalCollection !== undefined ? parseFloat(totalCollection) : parseFloat(existing.totalCollection);
+    if (!isNaN(effectiveBalance) && !isNaN(effectiveTotalCollection) && effectiveBalance > effectiveTotalCollection) {
+      res.status(400).json({ error: "Current balance cannot exceed total collection." }); return;
+    }
+  }
+
   const update: Record<string, unknown> = {};
   if (label !== undefined) update.label = label;
   if (status !== undefined) update.status = status;

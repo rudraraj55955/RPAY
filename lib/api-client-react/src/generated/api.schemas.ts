@@ -83,6 +83,10 @@ export interface Merchant {
   totalWithdrawals?: number;
   balance?: number;
   /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  brandColor?: string | null;
+  /** @nullable */
   currentPlanName?: string | null;
   /** @nullable */
   currentPlanStatus?: string | null;
@@ -98,6 +102,13 @@ export interface MerchantListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface MerchantBrandingInput {
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  brandColor?: string | null;
 }
 
 export interface RejectInput {
@@ -995,6 +1006,10 @@ export interface PublicPaymentLink {
   upiPayload?: string | null;
   /** @nullable */
   merchantName?: string | null;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  brandColor?: string | null;
   status: PublicPaymentLinkStatus;
   /** @nullable */
   expiresAt?: string | null;

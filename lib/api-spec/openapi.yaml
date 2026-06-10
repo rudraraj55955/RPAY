@@ -513,6 +513,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/MerchantPlan"
 
+  /merchants/{id}/branding:
+    patch:
+      operationId: updateMerchantBranding
+      tags: [merchants]
+      summary: Update merchant branding (logo URL and brand colour). Merchant updates own; admin can update any.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantBrandingInput"
+      responses:
+        "200":
+          description: Updated merchant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Merchant"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /merchants/{id}/invoices:
     get:
       operationId: listMerchantInvoices
@@ -2892,6 +2929,10 @@ components:
           type: number
         balance:
           type: number
+        logoUrl:
+          type: ["string", "null"]
+        brandColor:
+          type: ["string", "null"]
         currentPlanName:
           type: ["string", "null"]
         currentPlanStatus:
@@ -2917,6 +2958,14 @@ components:
           type: integer
         limit:
           type: integer
+
+    MerchantBrandingInput:
+      type: object
+      properties:
+        logoUrl:
+          type: ["string", "null"]
+        brandColor:
+          type: ["string", "null"]
 
     RejectInput:
       type: object
@@ -4072,6 +4121,10 @@ components:
         upiPayload:
           type: ["string", "null"]
         merchantName:
+          type: ["string", "null"]
+        logoUrl:
+          type: ["string", "null"]
+        brandColor:
           type: ["string", "null"]
         status:
           type: string

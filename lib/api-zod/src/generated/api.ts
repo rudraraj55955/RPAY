@@ -128,6 +128,8 @@ export const ListMerchantsResponse = zod.object({
   "totalDeposits": zod.number().optional(),
   "totalWithdrawals": zod.number().optional(),
   "balance": zod.number().optional(),
+  "logoUrl": zod.string().nullish(),
+  "brandColor": zod.string().nullish(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -159,6 +161,8 @@ export const GetMerchantResponse = zod.object({
   "totalDeposits": zod.number().optional(),
   "totalWithdrawals": zod.number().optional(),
   "balance": zod.number().optional(),
+  "logoUrl": zod.string().nullish(),
+  "brandColor": zod.string().nullish(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -228,6 +232,8 @@ export const ApproveMerchantResponse = zod.object({
   "totalDeposits": zod.number().optional(),
   "totalWithdrawals": zod.number().optional(),
   "balance": zod.number().optional(),
+  "logoUrl": zod.string().nullish(),
+  "brandColor": zod.string().nullish(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -259,6 +265,8 @@ export const RejectMerchantResponse = zod.object({
   "totalDeposits": zod.number().optional(),
   "totalWithdrawals": zod.number().optional(),
   "balance": zod.number().optional(),
+  "logoUrl": zod.string().nullish(),
+  "brandColor": zod.string().nullish(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -286,6 +294,8 @@ export const SuspendMerchantResponse = zod.object({
   "totalDeposits": zod.number().optional(),
   "totalWithdrawals": zod.number().optional(),
   "balance": zod.number().optional(),
+  "logoUrl": zod.string().nullish(),
+  "brandColor": zod.string().nullish(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -313,6 +323,8 @@ export const UnsuspendMerchantResponse = zod.object({
   "totalDeposits": zod.number().optional(),
   "totalWithdrawals": zod.number().optional(),
   "balance": zod.number().optional(),
+  "logoUrl": zod.string().nullish(),
+  "brandColor": zod.string().nullish(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -468,6 +480,38 @@ export const RenewMerchantPlanResponse = zod.object({
   "planId": zod.number(),
   "planName": zod.string().nullish(),
   "assignedAt": zod.string()
+})
+
+
+/**
+ * @summary Update merchant branding (logo URL and brand colour). Merchant updates own; admin can update any.
+ */
+export const UpdateMerchantBrandingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateMerchantBrandingBody = zod.object({
+  "logoUrl": zod.string().nullish(),
+  "brandColor": zod.string().nullish()
+})
+
+export const UpdateMerchantBrandingResponse = zod.object({
+  "id": zod.number(),
+  "businessName": zod.string(),
+  "contactName": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string(),
+  "website": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'suspended']),
+  "rejectionReason": zod.string().nullish(),
+  "totalDeposits": zod.number().optional(),
+  "totalWithdrawals": zod.number().optional(),
+  "balance": zod.number().optional(),
+  "logoUrl": zod.string().nullish(),
+  "brandColor": zod.string().nullish(),
+  "currentPlanName": zod.string().nullish(),
+  "currentPlanStatus": zod.string().nullish(),
+  "createdAt": zod.string()
 })
 
 
@@ -1913,6 +1957,8 @@ export const GetPublicPaymentLinkResponse = zod.object({
   "slug": zod.string(),
   "upiPayload": zod.string().nullish(),
   "merchantName": zod.string().nullish(),
+  "logoUrl": zod.string().nullish(),
+  "brandColor": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive', 'expired']),
   "expiresAt": zod.string().nullish()
 })

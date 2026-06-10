@@ -63,7 +63,12 @@ async function expireOldLinks() {
 router.get("/public/:slug", async (req, res) => {
   const slug = req.params["slug"] as string;
 
-  const rows = await db.select({ link: paymentLinksTable, merchantName: merchantsTable.businessName })
+  const rows = await db.select({
+    link: paymentLinksTable,
+    merchantName: merchantsTable.businessName,
+    logoUrl: merchantsTable.logoUrl,
+    brandColor: merchantsTable.brandColor,
+  })
     .from(paymentLinksTable)
     .leftJoin(merchantsTable, eq(paymentLinksTable.merchantId, merchantsTable.id))
     .where(eq(paymentLinksTable.slug, slug))
@@ -71,7 +76,7 @@ router.get("/public/:slug", async (req, res) => {
 
   if (!rows.length) { res.status(404).json({ error: "Payment link not found" }); return; }
 
-  const { link, merchantName } = rows[0];
+  const { link, merchantName, logoUrl, brandColor } = rows[0];
 
   if (link.expiresAt && new Date() > link.expiresAt && link.status === "active") {
     await db.update(paymentLinksTable).set({ status: "expired" }).where(eq(paymentLinksTable.id, link.id));
@@ -87,6 +92,8 @@ router.get("/public/:slug", async (req, res) => {
     slug: link.slug,
     upiPayload: link.upiPayload ?? null,
     merchantName: merchantName ?? null,
+    logoUrl: logoUrl ?? null,
+    brandColor: brandColor ?? null,
     status: link.status,
     expiresAt: link.expiresAt instanceof Date ? link.expiresAt.toISOString() : link.expiresAt,
   });

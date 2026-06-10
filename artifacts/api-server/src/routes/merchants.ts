@@ -115,6 +115,24 @@ router.get("/:id", async (req, res) => {
   res.json(serializeMerchant(merchant));
 });
 
+// PATCH /api/merchants/:id/branding  (merchant updates own, admin updates any)
+router.patch("/:id/branding", async (req, res) => {
+  const user = (req as any).user;
+  const id = parseInt(req.params['id'] as string);
+  if (user.role !== "admin" && user.merchantId !== id) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const { logoUrl, brandColor } = req.body;
+  const update: Record<string, unknown> = {};
+  if (logoUrl !== undefined) update.logoUrl = logoUrl ?? null;
+  if (brandColor !== undefined) update.brandColor = brandColor ?? null;
+
+  const [merchant] = await db.update(merchantsTable).set(update).where(eq(merchantsTable.id, id)).returning();
+  if (!merchant) { res.status(404).json({ error: "Merchant not found" }); return; }
+  res.json(serializeMerchant(merchant));
+});
+
 // POST /api/merchants/:id/approve
 router.post("/:id/approve", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id as string);

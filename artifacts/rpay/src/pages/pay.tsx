@@ -16,12 +16,18 @@ type PublicLink = {
   slug: string;
   upiPayload?: string | null;
   merchantName?: string | null;
+  logoUrl?: string | null;
+  brandColor?: string | null;
   status: string;
   expiresAt?: string | null;
 };
 
 function copyToClipboard(text: string, label: string) {
   navigator.clipboard.writeText(text).then(() => toast.success(`${label} copied`));
+}
+
+function isValidColor(color: string): boolean {
+  return /^#[0-9a-f]{3,8}$/i.test(color) || /^(rgb|hsl)a?\(.+\)$/i.test(color);
 }
 
 export default function PayPage() {
@@ -79,16 +85,40 @@ export default function PayPage() {
 
   const upiDeepLink = link.upiPayload ?? "";
 
+  const accent = link.brandColor && isValidColor(link.brandColor) ? link.brandColor : null;
+
+  const accentStyle = accent
+    ? ({ "--brand-accent": accent } as React.CSSProperties)
+    : {};
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4" style={accentStyle}>
       <div className="w-full max-w-md space-y-4">
         {/* Header */}
         <div className="text-center space-y-1">
           <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
-              <CheckCircle2 className="w-4 h-4 text-primary" />
-            </div>
-            <span className="font-bold text-lg">RasoKart</span>
+            {link.logoUrl ? (
+              <img
+                src={link.logoUrl}
+                alt={link.merchantName ?? "Merchant logo"}
+                className="h-10 max-w-[140px] object-contain rounded"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            ) : (
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center border"
+                style={accent
+                  ? { background: `color-mix(in srgb, ${accent} 20%, transparent)`, borderColor: `color-mix(in srgb, ${accent} 30%, transparent)` }
+                  : { background: "hsl(var(--primary)/0.2)", borderColor: "hsl(var(--primary)/0.3)" }
+                }
+              >
+                <CheckCircle2
+                  className="w-4 h-4"
+                  style={accent ? { color: accent } : { color: "hsl(var(--primary))" }}
+                />
+              </div>
+            )}
+            {!link.logoUrl && <span className="font-bold text-lg">RasoKart</span>}
           </div>
           {link.merchantName && (
             <p className="text-sm text-muted-foreground">{link.merchantName}</p>
@@ -96,7 +126,13 @@ export default function PayPage() {
         </div>
 
         <Card className="overflow-hidden">
-          <div className="bg-gradient-to-br from-primary/10 to-primary/5 border-b border-border/50 px-6 py-5">
+          <div
+            className="border-b border-border/50 px-6 py-5"
+            style={accent
+              ? { background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 12%, transparent), color-mix(in srgb, ${accent} 6%, transparent))` }
+              : { background: "linear-gradient(135deg, hsl(var(--primary)/0.10), hsl(var(--primary)/0.05))" }
+            }
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-bold leading-tight">{link.title}</h1>
@@ -160,7 +196,11 @@ export default function PayPage() {
 
                 {/* Pay Now button */}
                 <div className="space-y-2">
-                  <Button className="w-full" asChild>
+                  <Button
+                    className="w-full"
+                    style={accent ? { background: accent, borderColor: accent, color: "#fff" } : {}}
+                    asChild
+                  >
                     <a href={upiDeepLink}>
                       <Smartphone className="w-4 h-4 mr-2" />
                       Open in UPI App

@@ -20,6 +20,10 @@ export interface PublicPaymentLink {
   upiPayload?: string | null;
   /** @nullable */
   merchantName?: string | null;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  brandColor?: string | null;
   status: PublicPaymentLinkStatus;
   /** @nullable */
   expiresAt?: string | null;

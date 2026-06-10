@@ -76,6 +76,7 @@ import type {
   ListWithdrawalsParams,
   LoginInput,
   Merchant,
+  MerchantBrandingInput,
   MerchantConnection,
   MerchantConnectionInput,
   MerchantFeaturesEntry,
@@ -1711,6 +1712,78 @@ export const useRenewMerchantPlan = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRenewMerchantPlanMutationOptions(options));
+    }
+
+export const getUpdateMerchantBrandingUrl = (id: number,) => {
+
+
+
+
+  return `/api/merchants/${id}/branding`
+}
+
+/**
+ * @summary Update merchant branding (logo URL and brand colour). Merchant updates own; admin can update any.
+ */
+export const updateMerchantBranding = async (id: number,
+    merchantBrandingInput: MerchantBrandingInput, options?: RequestInit): Promise<Merchant> => {
+
+  return customFetch<Merchant>(getUpdateMerchantBrandingUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      merchantBrandingInput,)
+  }
+);}
+
+
+
+
+export const getUpdateMerchantBrandingMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMerchantBranding>>, TError,{id: number;data: BodyType<MerchantBrandingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMerchantBranding>>, TError,{id: number;data: BodyType<MerchantBrandingInput>}, TContext> => {
+
+const mutationKey = ['updateMerchantBranding'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMerchantBranding>>, {id: number;data: BodyType<MerchantBrandingInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateMerchantBranding(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMerchantBrandingMutationResult = NonNullable<Awaited<ReturnType<typeof updateMerchantBranding>>>
+    export type UpdateMerchantBrandingMutationBody = BodyType<MerchantBrandingInput>
+    export type UpdateMerchantBrandingMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update merchant branding (logo URL and brand colour). Merchant updates own; admin can update any.
+ */
+export const useUpdateMerchantBranding = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMerchantBranding>>, TError,{id: number;data: BodyType<MerchantBrandingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMerchantBranding>>,
+        TError,
+        {id: number;data: BodyType<MerchantBrandingInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateMerchantBrandingMutationOptions(options));
     }
 
 export const getListMerchantInvoicesUrl = (id: number,) => {

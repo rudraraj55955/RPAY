@@ -5,6 +5,7 @@ import {
   useListPlans, useAssignMerchantPlan, useGetMerchantPlan, useGetMerchantPlanHistory,
   useUpgradeMerchantPlan, useDowngradeMerchantPlan, useSuspendMerchantPlan,
   useReinstateMerchantPlan, useRenewMerchantPlan,
+  useUpdateMerchantBranding,
   getListMerchantsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -47,6 +48,10 @@ export default function AdminMerchants() {
   const [page, setPage] = useState(1);
   const [rejectId, setRejectId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [brandingMerchant, setBrandingMerchant] = useState<{ id: number; name: string; logoUrl: string | null; brandColor: string | null } | null>(null);
+  const [brandingLogoUrl, setBrandingLogoUrl] = useState("");
+  const [brandingColor, setBrandingColor] = useState("");
+  const [brandingLogoError, setBrandingLogoError] = useState(false);
   const [assignPlanMerchant, setAssignPlanMerchant] = useState<{ id: number; name: string } | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("");
   const [expiresAt, setExpiresAt] = useState<string>("");
@@ -66,6 +71,7 @@ export default function AdminMerchants() {
     assignPlanMerchant?.id ?? 0,
     { query: { enabled: !!assignPlanMerchant && showHistory, queryKey: ["getMerchantPlanHistory", assignPlanMerchant?.id ?? 0] } }
   );
+  const updateBrandingMutation = useUpdateMerchantBranding();
   const approveMutation = useApproveMerchant();
   const rejectMutation = useRejectMerchant();
   const merchantSuspendMutation = useSuspendMerchant();
@@ -154,6 +160,30 @@ export default function AdminMerchants() {
         qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
       },
       onError: () => toast.error("Failed to reject merchant"),
+    });
+  };
+
+  const openBranding = (merchant: { id: number; businessName: string; logoUrl?: string | null; brandColor?: string | null }) => {
+    setBrandingMerchant({ id: merchant.id, name: merchant.businessName, logoUrl: merchant.logoUrl ?? null, brandColor: merchant.brandColor ?? null });
+    setBrandingLogoUrl(merchant.logoUrl ?? "");
+    setBrandingColor(merchant.brandColor ?? "");
+    setBrandingLogoError(false);
+  };
+
+  const closeBranding = () => { setBrandingMerchant(null); };
+
+  const handleSaveBranding = () => {
+    if (!brandingMerchant) return;
+    updateBrandingMutation.mutate({
+      id: brandingMerchant.id,
+      data: { logoUrl: brandingLogoUrl.trim() || null, brandColor: brandingColor.trim() || null },
+    }, {
+      onSuccess: () => {
+        toast.success("Branding updated");
+        qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+        closeBranding();
+      },
+      onError: () => toast.error("Failed to update branding"),
     });
   };
 
@@ -368,6 +398,9 @@ export default function AdminMerchants() {
                       <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10" onClick={() => openAssignPlan(merchant.id, merchant.businessName)}>
                         <CreditCard className="w-4 h-4 mr-1" /> {merchant.currentPlanName ? "Change Plan" : "Assign Plan"}
                       </Button>
+                      <Button size="sm" variant="ghost" className="text-violet-400 hover:bg-violet-500/10" onClick={() => openBranding(merchant)}>
+                        <Paintbrush className="w-4 h-4 mr-1" /> Branding
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -397,6 +430,74 @@ export default function AdminMerchants() {
             <Button variant="outline" onClick={() => { setRejectId(null); setRejectReason(""); }}>Cancel</Button>
             <Button variant="destructive" onClick={handleReject} disabled={!rejectReason.trim() || rejectMutation.isPending}>
               {rejectMutation.isPending ? "Rejecting..." : "Reject Merchant"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Branding Dialog */}
+      <Dialog open={!!brandingMerchant} onOpenChange={closeBranding}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Paintbrush className="w-4 h-4 text-violet-400" /> Branding — {brandingMerchant?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="adminLogoUrl">Logo URL</Label>
+              <Input
+                id="adminLogoUrl"
+                placeholder="https://yourbrand.com/logo.png"
+                value={brandingLogoUrl}
+                onChange={e => { setBrandingLogoUrl(e.target.value); setBrandingLogoError(false); }}
+              />
+              {brandingLogoUrl && (
+                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border/50">
+                  <p className="text-xs text-muted-foreground shrink-0">Preview:</p>
+                  {brandingLogoError ? (
+                    <span className="text-xs text-rose-400">Could not load image</span>
+                  ) : (
+                    <img
+                      src={brandingLogoUrl}
+                      alt="logo"
+                      className="h-8 max-w-[120px] object-contain rounded"
+                      onError={() => setBrandingLogoError(true)}
+                      onLoad={() => setBrandingLogoError(false)}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="adminBrandColor">Brand Colour</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={brandingColor && /^#[0-9a-f]{3,8}$/i.test(brandingColor) ? brandingColor : "#6366f1"}
+                  onChange={e => setBrandingColor(e.target.value)}
+                  className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                />
+                <Input
+                  id="adminBrandColor"
+                  placeholder="#6366f1"
+                  value={brandingColor}
+                  onChange={e => setBrandingColor(e.target.value)}
+                  className="max-w-[160px] font-mono"
+                />
+                {brandingColor && /^#[0-9a-f]{3,8}$/i.test(brandingColor) && (
+                  <div className="w-6 h-6 rounded-full border border-white/20" style={{ background: brandingColor }} />
+                )}
+              </div>
+            </div>
+            {(brandingMerchant?.logoUrl || brandingMerchant?.brandColor) && (
+              <div className="rounded-lg bg-muted/20 border border-border/50 p-3 text-xs text-muted-foreground space-y-1">
+                <p className="font-medium text-foreground">Current saved values:</p>
+                <p>Logo: {brandingMerchant.logoUrl ?? <em>none</em>}</p>
+                <p>Colour: {brandingMerchant.brandColor ?? <em>none</em>}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeBranding}>Cancel</Button>
+            <Button onClick={handleSaveBranding} disabled={updateBrandingMutation.isPending}>
+              {updateBrandingMutation.isPending ? "Saving…" : "Save Branding"}
             </Button>
           </DialogFooter>
         </DialogContent>

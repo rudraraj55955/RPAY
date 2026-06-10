@@ -22,6 +22,10 @@ export interface Merchant {
   totalWithdrawals?: number;
   balance?: number;
   /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  brandColor?: string | null;
+  /** @nullable */
   currentPlanName?: string | null;
   /** @nullable */
   currentPlanStatus?: string | null;

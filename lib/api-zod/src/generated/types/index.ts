@@ -82,6 +82,7 @@ export * from './listWithdrawalsParams';
 export * from './listWithdrawalsStatus';
 export * from './loginInput';
 export * from './merchant';
+export * from './merchantBrandingInput';
 export * from './merchantConnection';
 export * from './merchantConnectionInput';
 export * from './merchantFeaturesEntry';

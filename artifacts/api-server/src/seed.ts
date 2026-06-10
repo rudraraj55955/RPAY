@@ -716,6 +716,11 @@ export async function seed() {
     .values({ key: "finance_report_email", value: null })
     .onConflictDoNothing();
 
+  await db
+    .insert(systemSettingsTable)
+    .values({ key: "reconciliation_schedule", value: "daily" })
+    .onConflictDoNothing();
+
   // Partial unique index for provider limit notification deduplication.
   // Enforces at most one provider_limit_warning and one provider_limit_reached
   // per (userId, provider, calendar month), making onConflictDoNothing() reliable.

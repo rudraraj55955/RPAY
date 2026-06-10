@@ -8,16 +8,18 @@ const router = Router();
 router.use(requireAuth);
 router.use(requireAdmin);
 
-const ALLOWED_KEYS = ["finance_report_email"] as const;
+const ALLOWED_KEYS = ["finance_report_email", "reconciliation_schedule"] as const;
 type SettingKey = (typeof ALLOWED_KEYS)[number];
+
+const RECONCILIATION_SCHEDULE_VALUES = ["daily", "weekly", "off"] as const;
+type ReconciliationSchedule = (typeof RECONCILIATION_SCHEDULE_VALUES)[number];
 
 // GET /api/settings
 router.get("/", async (req, res, next) => {
   try {
     const rows = await db
       .select()
-      .from(systemSettingsTable)
-      .where(eq(systemSettingsTable.key, "finance_report_email"));
+      .from(systemSettingsTable);
 
     const result: Record<string, string | null> = {};
     for (const key of ALLOWED_KEYS) {
@@ -53,6 +55,13 @@ router.put("/:key", async (req, res, next) => {
       const addresses = value.split(",").map(e => e.trim()).filter(e => e.length > 0);
       if (addresses.length === 0 || addresses.some(addr => !emailRegex.test(addr))) {
         res.status(400).json({ error: "One or more email addresses are invalid" });
+        return;
+      }
+    }
+
+    if (key === "reconciliation_schedule") {
+      if (value !== null && value !== "" && !RECONCILIATION_SCHEDULE_VALUES.includes(value as ReconciliationSchedule)) {
+        res.status(400).json({ error: `reconciliation_schedule must be one of: ${RECONCILIATION_SCHEDULE_VALUES.join(", ")}` });
         return;
       }
     }

@@ -1,9 +1,11 @@
 import cron, { type ScheduledTask } from "node-cron";
-import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import { db, systemConfigTable, systemSettingsTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
+import { inArray, eq } from "drizzle-orm";
 import { runReconciliation, notifyAdminsOfReconciliationFailure } from "./reconcileEngine";
 import { notifyAdminsOfUnmatchedItems } from "./reconcileEmail";
 import { logger } from "../lib/logger";
+
+export type ReconciliationScheduleMode = "daily" | "weekly" | "off";
 
 let scheduledTask: ScheduledTask | null = null;
 
@@ -58,6 +60,16 @@ function buildCronExpr(hour: number, minute: number): string {
   return `${minute} ${hour} * * *`;
 }
 
+async function loadScheduleMode(): Promise<ReconciliationScheduleMode> {
+  const rows = await db
+    .select()
+    .from(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, "reconciliation_schedule"));
+  const raw = rows[0]?.value;
+  if (raw === "weekly" || raw === "off") return raw;
+  return "daily";
+}
+
 async function runAutoReconciliation(): Promise<void> {
   const config = await loadReconConfig();
   const { lookbackDays, enabled } = config;
@@ -67,9 +79,32 @@ async function runAutoReconciliation(): Promise<void> {
     return;
   }
 
+  const scheduleMode = await loadScheduleMode();
+
+  if (scheduleMode === "off") {
+    logger.info("Reconciliation schedule set to 'off' — skipping run");
+    return;
+  }
+
   const today = new Date();
+
+  // Weekly mode: only run on Mondays (getDay() === 1)
+  if (scheduleMode === "weekly") {
+    if (today.getDay() !== 1) {
+      logger.info(
+        { dayOfWeek: today.getDay() },
+        "Reconciliation schedule set to 'weekly' — skipping non-Monday run"
+      );
+      return;
+    }
+  }
+
+  // Daily mode: look back `lookbackDays` days
+  // Weekly mode: look back 7 days to cover the full past week
+  const effectiveLookback = scheduleMode === "weekly" ? 7 : lookbackDays;
+
   const fromDate = new Date(today);
-  fromDate.setDate(fromDate.getDate() - lookbackDays);
+  fromDate.setDate(fromDate.getDate() - effectiveLookback);
 
   const dateTo = new Date(today);
   dateTo.setDate(dateTo.getDate() - 1);

@@ -130,6 +130,8 @@ export const ListMerchantsResponse = zod.object({
   "balance": zod.number().optional(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
+  "currentPlanExpiresAt": zod.string().nullish(),
+  "currentPlanIsExpired": zod.boolean().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -159,6 +161,8 @@ export const GetMerchantResponse = zod.object({
   "balance": zod.number().optional(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
+  "currentPlanExpiresAt": zod.string().nullish(),
+  "currentPlanIsExpired": zod.boolean().nullish(),
   "createdAt": zod.string()
 })
 
@@ -226,6 +230,8 @@ export const ApproveMerchantResponse = zod.object({
   "balance": zod.number().optional(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
+  "currentPlanExpiresAt": zod.string().nullish(),
+  "currentPlanIsExpired": zod.boolean().nullish(),
   "createdAt": zod.string()
 })
 
@@ -255,6 +261,8 @@ export const RejectMerchantResponse = zod.object({
   "balance": zod.number().optional(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
+  "currentPlanExpiresAt": zod.string().nullish(),
+  "currentPlanIsExpired": zod.boolean().nullish(),
   "createdAt": zod.string()
 })
 
@@ -280,6 +288,8 @@ export const SuspendMerchantResponse = zod.object({
   "balance": zod.number().optional(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
+  "currentPlanExpiresAt": zod.string().nullish(),
+  "currentPlanIsExpired": zod.boolean().nullish(),
   "createdAt": zod.string()
 })
 
@@ -305,6 +315,8 @@ export const UnsuspendMerchantResponse = zod.object({
   "balance": zod.number().optional(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
+  "currentPlanExpiresAt": zod.string().nullish(),
+  "currentPlanIsExpired": zod.boolean().nullish(),
   "createdAt": zod.string()
 })
 

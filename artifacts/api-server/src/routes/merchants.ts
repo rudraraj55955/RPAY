@@ -74,6 +74,7 @@ router.get("/", requireAdmin, async (req, res) => {
       merchant: merchantsTable,
       currentPlanName: plansTable.name,
       currentPlanStatus: merchantPlansTable.status,
+      currentPlanExpiresAt: merchantPlansTable.expiresAt,
     })
     .from(merchantsTable)
     .leftJoin(merchantPlansTable, eq(merchantPlansTable.merchantId, merchantsTable.id))
@@ -82,12 +83,19 @@ router.get("/", requireAdmin, async (req, res) => {
     .limit(limitNum).offset(offset)
     .orderBy(sql`${merchantsTable.createdAt} DESC`);
 
+  const now = new Date();
   res.json({
-    data: rows.map(r => ({
-      ...serializeMerchant(r.merchant),
-      currentPlanName: r.currentPlanName ?? null,
-      currentPlanStatus: r.currentPlanStatus ?? null,
-    })),
+    data: rows.map(r => {
+      const expiresAt = r.currentPlanExpiresAt ?? null;
+      const isExpired = expiresAt ? now > expiresAt : null;
+      return {
+        ...serializeMerchant(r.merchant),
+        currentPlanName: r.currentPlanName ?? null,
+        currentPlanStatus: r.currentPlanStatus ?? null,
+        currentPlanExpiresAt: expiresAt ? expiresAt.toISOString() : null,
+        currentPlanIsExpired: isExpired,
+      };
+    }),
     total,
     page: pageNum,
     limit: limitNum,

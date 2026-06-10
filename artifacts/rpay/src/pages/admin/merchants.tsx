@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw } from "lucide-react";
+import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -208,6 +208,14 @@ export default function AdminMerchants() {
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
 
+  const now = Date.now();
+  const expiringCount = merchants.filter(m => {
+    if (!m.currentPlanExpiresAt || m.currentPlanIsExpired) return false;
+    const msLeft = new Date(m.currentPlanExpiresAt).getTime() - now;
+    return msLeft > 0 && msLeft <= 7 * 86400000;
+  }).length;
+  const expiredCount = merchants.filter(m => m.currentPlanIsExpired).length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -217,6 +225,18 @@ export default function AdminMerchants() {
         </div>
         <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>
       </div>
+
+      {(expiringCount > 0 || expiredCount > 0) && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 text-sm">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>
+            {[
+              expiredCount > 0 && `${expiredCount} merchant${expiredCount === 1 ? "" : "s"} with an expired plan`,
+              expiringCount > 0 && `${expiringCount} merchant${expiringCount === 1 ? "" : "s"} expiring within 7 days`,
+            ].filter(Boolean).join(" · ")}
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <div className="relative flex-1 max-w-sm">
@@ -282,15 +302,39 @@ export default function AdminMerchants() {
                   <TableCell><StatusBadge status={merchant.status} /></TableCell>
                   <TableCell>
                     {merchant.currentPlanName ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-medium">{merchant.currentPlanName}</span>
-                        {merchant.currentPlanStatus && merchant.currentPlanStatus !== "active" && (
-                          <Badge
-                            variant="outline"
-                            className={`text-xs py-0 ${PLAN_SUB_STATUS_COLOR[merchant.currentPlanStatus] ?? ""}`}
-                          >
-                            {merchant.currentPlanStatus}
-                          </Badge>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-sm font-medium">{merchant.currentPlanName}</span>
+                          {merchant.currentPlanIsExpired ? (
+                            <Badge variant="outline" className="text-xs py-0 text-rose-400 border-rose-500/30 bg-rose-500/10">
+                              Expired
+                            </Badge>
+                          ) : (() => {
+                            if (!merchant.currentPlanExpiresAt) return null;
+                            const msLeft = new Date(merchant.currentPlanExpiresAt).getTime() - now;
+                            if (msLeft > 0 && msLeft <= 7 * 86400000) {
+                              return (
+                                <Badge variant="outline" className="text-xs py-0 text-amber-400 border-amber-500/30 bg-amber-500/10">
+                                  Expires soon
+                                </Badge>
+                              );
+                            }
+                            return null;
+                          })()}
+                          {merchant.currentPlanStatus && merchant.currentPlanStatus !== "active" && !merchant.currentPlanIsExpired && (
+                            <Badge
+                              variant="outline"
+                              className={`text-xs py-0 ${PLAN_SUB_STATUS_COLOR[merchant.currentPlanStatus] ?? ""}`}
+                            >
+                              {merchant.currentPlanStatus}
+                            </Badge>
+                          )}
+                        </div>
+                        {merchant.currentPlanExpiresAt && (
+                          <span className={`text-xs ${merchant.currentPlanIsExpired ? "text-rose-400" : "text-muted-foreground"}`}>
+                            {merchant.currentPlanIsExpired ? "Expired " : "Expires "}
+                            {format(new Date(merchant.currentPlanExpiresAt), "MMM d, yyyy")}
+                          </span>
                         )}
                       </div>
                     ) : (

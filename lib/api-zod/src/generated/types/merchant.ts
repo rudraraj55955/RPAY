@@ -25,5 +25,9 @@ export interface Merchant {
   currentPlanName?: string | null;
   /** @nullable */
   currentPlanStatus?: string | null;
+  /** @nullable */
+  currentPlanExpiresAt?: string | null;
+  /** @nullable */
+  currentPlanIsExpired?: boolean | null;
   createdAt: string;
 }

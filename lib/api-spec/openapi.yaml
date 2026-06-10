@@ -2896,6 +2896,10 @@ components:
           type: ["string", "null"]
         currentPlanStatus:
           type: ["string", "null"]
+        currentPlanExpiresAt:
+          type: ["string", "null"]
+        currentPlanIsExpired:
+          type: ["boolean", "null"]
         createdAt:
           type: string
 

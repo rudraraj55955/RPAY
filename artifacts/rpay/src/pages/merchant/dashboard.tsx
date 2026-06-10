@@ -39,6 +39,41 @@ function UsageRow({ label, used, limit }: UsageRowProps) {
   );
 }
 
+interface QrUsageRowProps { label: string; active: number; limit: number; usedCount: number; expiredCount: number; }
+
+function QrUsageRow({ label, active, limit, usedCount, expiredCount }: QrUsageRowProps) {
+  const isUnlimited = limit >= 999;
+  const remaining = isUnlimited ? null : Math.max(0, limit - active);
+  const pct = isUnlimited ? 0 : Math.min(100, (active / limit) * 100);
+  const isNearLimit = !isUnlimited && pct >= 80;
+  const isAtLimit = !isUnlimited && active >= limit;
+  const hasInactive = usedCount > 0 || expiredCount > 0;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={`font-medium tabular-nums ${isAtLimit ? "text-rose-400" : isNearLimit ? "text-amber-400" : "text-foreground"}`}>
+          {isUnlimited
+            ? <span className="flex items-center gap-1">{active} active · <Infinity className="w-3.5 h-3.5 text-emerald-400" /></span>
+            : `${active} active · ${remaining} left`}
+        </span>
+      </div>
+      {!isUnlimited && (
+        <div className="h-1.5 w-full rounded-full bg-muted/50">
+          <div className={`h-1.5 rounded-full transition-all ${isAtLimit ? "bg-rose-500" : isNearLimit ? "bg-amber-400" : "bg-primary"}`} style={{ width: `${pct}%` }} />
+        </div>
+      )}
+      {hasInactive && (
+        <div className="flex items-center gap-3 text-xs text-muted-foreground/70">
+          {usedCount > 0 && <span>{usedCount} used</span>}
+          {expiredCount > 0 && <span>{expiredCount} expired</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const PROVIDER_LABELS: Record<string, string> = {
   upi_id:        "UPI ID",
   google_pay:    "Google Pay",
@@ -301,8 +336,8 @@ export default function MerchantDashboard() {
           <CardContent className="pt-0">
             {usage ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
-                <UsageRow label="Dynamic QR Codes" used={usage.dynamicQr.used} limit={usage.dynamicQr.limit} />
-                <UsageRow label="Static QR Codes" used={usage.staticQr.used} limit={usage.staticQr.limit} />
+                <QrUsageRow label="Dynamic QR Codes" active={usage.dynamicQr.used} limit={usage.dynamicQr.limit} usedCount={usage.dynamicQr.usedCount ?? 0} expiredCount={usage.dynamicQr.expiredCount ?? 0} />
+                <QrUsageRow label="Static QR Codes" active={usage.staticQr.used} limit={usage.staticQr.limit} usedCount={usage.staticQr.usedCount ?? 0} expiredCount={usage.staticQr.expiredCount ?? 0} />
                 <UsageRow label="Virtual Accounts" used={usage.virtualAccount.used} limit={usage.virtualAccount.limit} />
                 <UsageRow label="Payment Links" used={usage.paymentLink.used} limit={usage.paymentLink.limit} />
                 <UsageRow label="Payouts" used={usage.payout.used} limit={usage.payout.limit} />

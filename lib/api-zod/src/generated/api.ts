@@ -1485,11 +1485,15 @@ export const GetMyPlanUsageResponse = zod.object({
   "depositFee": zod.string().optional(),
   "dynamicQr": zod.object({
   "used": zod.number(),
-  "limit": zod.number()
+  "limit": zod.number(),
+  "usedCount": zod.number().optional(),
+  "expiredCount": zod.number().optional()
 }),
   "staticQr": zod.object({
   "used": zod.number(),
-  "limit": zod.number()
+  "limit": zod.number(),
+  "usedCount": zod.number().optional(),
+  "expiredCount": zod.number().optional()
 }),
   "virtualAccount": zod.object({
   "used": zod.number(),

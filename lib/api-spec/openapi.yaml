@@ -3776,12 +3776,16 @@ components:
           properties:
             used: { type: integer }
             limit: { type: integer }
+            usedCount: { type: integer }
+            expiredCount: { type: integer }
         staticQr:
           type: object
           required: [used, limit]
           properties:
             used: { type: integer }
             limit: { type: integer }
+            usedCount: { type: integer }
+            expiredCount: { type: integer }
         virtualAccount:
           type: object
           required: [used, limit]

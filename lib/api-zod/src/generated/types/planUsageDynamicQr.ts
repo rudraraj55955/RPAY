@@ -9,4 +9,6 @@
 export type PlanUsageDynamicQr = {
   used: number;
   limit: number;
+  usedCount?: number;
+  expiredCount?: number;
 };

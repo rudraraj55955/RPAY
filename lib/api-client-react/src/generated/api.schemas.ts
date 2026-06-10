@@ -652,11 +652,15 @@ export interface PlanInput {
 export type PlanUsageDynamicQr = {
   used: number;
   limit: number;
+  usedCount?: number;
+  expiredCount?: number;
 };
 
 export type PlanUsageStaticQr = {
   used: number;
   limit: number;
+  usedCount?: number;
+  expiredCount?: number;
 };
 
 export type PlanUsageVirtualAccount = {

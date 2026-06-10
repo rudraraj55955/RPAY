@@ -167,8 +167,16 @@ export async function getMerchantPlanUsage(merchantId: number) {
 
   const [dynamicQrCount] = await db.select({ total: count() }).from(qrCodesTable)
     .where(and(eq(qrCodesTable.merchantId, merchantId), eq(qrCodesTable.type, "dynamic"), notInArray(qrCodesTable.status, ["expired", "used"])));
+  const [dynamicQrUsed] = await db.select({ total: count() }).from(qrCodesTable)
+    .where(and(eq(qrCodesTable.merchantId, merchantId), eq(qrCodesTable.type, "dynamic"), eq(qrCodesTable.status, "used")));
+  const [dynamicQrExpired] = await db.select({ total: count() }).from(qrCodesTable)
+    .where(and(eq(qrCodesTable.merchantId, merchantId), eq(qrCodesTable.type, "dynamic"), eq(qrCodesTable.status, "expired")));
   const [staticQrCount] = await db.select({ total: count() }).from(qrCodesTable)
     .where(and(eq(qrCodesTable.merchantId, merchantId), eq(qrCodesTable.type, "static"), notInArray(qrCodesTable.status, ["expired", "used"])));
+  const [staticQrUsed] = await db.select({ total: count() }).from(qrCodesTable)
+    .where(and(eq(qrCodesTable.merchantId, merchantId), eq(qrCodesTable.type, "static"), eq(qrCodesTable.status, "used")));
+  const [staticQrExpired] = await db.select({ total: count() }).from(qrCodesTable)
+    .where(and(eq(qrCodesTable.merchantId, merchantId), eq(qrCodesTable.type, "static"), eq(qrCodesTable.status, "expired")));
   const [vaCount] = await db.select({ total: count() }).from(virtualAccountsTable)
     .where(and(eq(virtualAccountsTable.merchantId, merchantId), eq(virtualAccountsTable.status, "active")));
   const [paymentLinkCount] = await db.select({ total: count() }).from(paymentLinksTable)
@@ -201,8 +209,8 @@ export async function getMerchantPlanUsage(merchantId: number) {
     webhookAccess: plan.webhookAccess,
     settlementFee: plan.settlementFee,
     depositFee: plan.depositFee,
-    dynamicQr: { used: dynamicQrCount.total, limit: plan.dynamicQrLimit },
-    staticQr: { used: staticQrCount.total, limit: plan.staticQrLimit },
+    dynamicQr: { used: dynamicQrCount.total, limit: plan.dynamicQrLimit, usedCount: dynamicQrUsed.total, expiredCount: dynamicQrExpired.total },
+    staticQr: { used: staticQrCount.total, limit: plan.staticQrLimit, usedCount: staticQrUsed.total, expiredCount: staticQrExpired.total },
     virtualAccount: { used: vaCount.total, limit: plan.virtualAccountLimit },
     paymentLink: { used: paymentLinkCount.total, limit: plan.paymentLinkLimit },
     payout: { used: payoutCount.total, limit: plan.payoutLimit },

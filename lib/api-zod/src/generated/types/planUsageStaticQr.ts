@@ -9,4 +9,6 @@
 export type PlanUsageStaticQr = {
   used: number;
   limit: number;
+  usedCount?: number;
+  expiredCount?: number;
 };

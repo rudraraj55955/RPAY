@@ -14,7 +14,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Separator } from "@/components/ui/separator";
 import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
 import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
-import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash, RefreshCw, Loader2, Building2, CreditCard, FileText, Info, Plus, Link2, Zap, Pencil } from "lucide-react";
+import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash, RefreshCw, Loader2, Building2, CreditCard, FileText, Info, Plus, Link2, Zap, Pencil, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -328,6 +330,7 @@ function RecordPaymentDialog({ open, onClose, onSuccess }: { open: boolean; onCl
   const [description, setDescription] = useState("");
   const [paymentLinkId, setPaymentLinkId] = useState<string>("");
   const [linkSearch, setLinkSearch] = useState("");
+  const [showExpired, setShowExpired] = useState(false);
 
   const { mutateAsync: createTx, isPending } = useAdminCreateTransaction();
 
@@ -336,9 +339,9 @@ function RecordPaymentDialog({ open, onClose, onSuccess }: { open: boolean; onCl
     query: { enabled: open } as any,
   });
 
-  // Load payment links for selected merchant
+  // Load payment links for selected merchant; include expired when toggled for correction workflows
   const { data: linksData } = useListPaymentLinks(
-    { merchantId: merchantId ? parseInt(merchantId) : undefined, status: "active", limit: 100 },
+    { merchantId: merchantId ? parseInt(merchantId) : undefined, status: showExpired ? "all" : "active", limit: 100 },
     { query: { enabled: open && !!merchantId } as any }
   );
 
@@ -347,6 +350,14 @@ function RecordPaymentDialog({ open, onClose, onSuccess }: { open: boolean; onCl
     const q = linkSearch.toLowerCase();
     return l.title.toLowerCase().includes(q) || l.slug.toLowerCase().includes(q);
   });
+
+  function isLinkExpiredOrMaxed(link: NonNullable<typeof linksData>["data"][number]): { expired: boolean; reason: string } {
+    if (link.status !== "active") return { expired: true, reason: "This link is no longer active" };
+    const now = new Date();
+    if (link.expiresAt && new Date(link.expiresAt) < now) return { expired: true, reason: `Expired ${format(new Date(link.expiresAt), "dd MMM yyyy, HH:mm")}` };
+    if (link.maxPayments != null && link.paymentCount >= link.maxPayments) return { expired: true, reason: `Reached max payment count (${link.paymentCount}/${link.maxPayments})` };
+    return { expired: false, reason: "" };
+  }
 
   const handleMerchantChange = (val: string) => {
     setMerchantId(val);
@@ -364,6 +375,7 @@ function RecordPaymentDialog({ open, onClose, onSuccess }: { open: boolean; onCl
     setDescription("");
     setPaymentLinkId("");
     setLinkSearch("");
+    setShowExpired(false);
     onClose();
   };
 
@@ -466,51 +478,79 @@ function RecordPaymentDialog({ open, onClose, onSuccess }: { open: boolean; onCl
           {/* Payment Link (deposit only, merchant required) */}
           {type === "deposit" && merchantId && (
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5">
-                <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
-                Payment Link <span className="text-xs text-muted-foreground font-normal">(optional)</span>
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5">
+                  <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
+                  Payment Link <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <Checkbox
+                    id="show-expired-links"
+                    checked={showExpired}
+                    onCheckedChange={v => { setShowExpired(!!v); setPaymentLinkId(""); setLinkSearch(""); }}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="text-xs text-muted-foreground">Include expired</span>
+                </label>
+              </div>
               {selectedLink ? (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-primary/5">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{selectedLink.title}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{selectedLink.slug}{selectedLink.amount ? ` · ₹${Number(selectedLink.amount).toLocaleString()}` : ""}</p>
+                <>
+                  <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${isLinkExpiredOrMaxed(selectedLink).expired ? "border-amber-500/40 bg-amber-500/5" : "bg-primary/5"}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{selectedLink.title}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{selectedLink.slug}{selectedLink.amount ? ` · ₹${Number(selectedLink.amount).toLocaleString()}` : ""}</p>
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs shrink-0" onClick={() => { setPaymentLinkId(""); setLinkSearch(""); }}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs shrink-0" onClick={() => { setPaymentLinkId(""); setLinkSearch(""); }}>
-                    <X className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
+                  {isLinkExpiredOrMaxed(selectedLink).expired && (
+                    <Alert className="border-amber-500/40 bg-amber-500/10 py-2.5">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      <AlertDescription className="text-xs text-amber-600 dark:text-amber-400">
+                        <span className="font-semibold">Warning:</span> {isLinkExpiredOrMaxed(selectedLink).reason}. Recording this payment will be rejected by the server unless the link is reactivated first.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </>
               ) : (
                 <div className="space-y-1.5">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                     <Input
                       className="pl-8 text-sm"
-                      placeholder="Search active payment links…"
+                      placeholder={showExpired ? "Search all payment links…" : "Search active payment links…"}
                       value={linkSearch}
                       onChange={e => setLinkSearch(e.target.value)}
                     />
                   </div>
                   {(linksData?.data?.length ?? 0) === 0 && !linkSearch && (
-                    <p className="text-xs text-muted-foreground px-1">No active payment links for this merchant</p>
+                    <p className="text-xs text-muted-foreground px-1">{showExpired ? "No payment links for this merchant" : "No active payment links for this merchant"}</p>
                   )}
                   {filteredLinks.length > 0 && (
                     <div className="max-h-40 overflow-y-auto rounded-lg border divide-y divide-border bg-card/50">
-                      {filteredLinks.map(link => (
-                        <button
-                          key={link.id}
-                          type="button"
-                          className="w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors"
-                          onClick={() => { setPaymentLinkId(String(link.id)); setLinkSearch(""); }}
-                        >
-                          <p className="text-sm font-medium">{link.title}</p>
-                          <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                            {link.slug}
-                            {link.amount ? ` · ₹${Number(link.amount).toLocaleString()}` : ""}
-                            {link.maxPayments != null ? ` · ${link.paymentCount}/${link.maxPayments} payments` : ` · ${link.paymentCount} payments`}
-                          </p>
-                        </button>
-                      ))}
+                      {filteredLinks.map(link => {
+                        const { expired, reason } = isLinkExpiredOrMaxed(link);
+                        return (
+                          <button
+                            key={link.id}
+                            type="button"
+                            className={`w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors ${expired ? "opacity-70" : ""}`}
+                            onClick={() => { setPaymentLinkId(String(link.id)); setLinkSearch(""); }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              {expired && <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />}
+                              <p className="text-sm font-medium truncate">{link.title}</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                              {link.slug}
+                              {link.amount ? ` · ₹${Number(link.amount).toLocaleString()}` : ""}
+                              {link.maxPayments != null ? ` · ${link.paymentCount}/${link.maxPayments} payments` : ` · ${link.paymentCount} payments`}
+                              {expired ? ` · ${reason}` : ""}
+                            </p>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

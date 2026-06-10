@@ -138,13 +138,17 @@ router.post("/", requireAdmin, async (req, res, next) => {
       .from(merchantsTable).where(eq(merchantsTable.id, parseInt(merchantId))).limit(1);
     if (!merchant) { res.status(404).json({ error: "Merchant not found" }); return; }
 
-    // Verify payment link belongs to merchant (if provided)
+    // Verify payment link belongs to merchant and is active (if provided)
     if (paymentLinkId != null) {
-      const [link] = await db.select({ id: paymentLinksTable.id })
+      const [link] = await db.select({ id: paymentLinksTable.id, status: paymentLinksTable.status })
         .from(paymentLinksTable)
         .where(and(eq(paymentLinksTable.id, parseInt(paymentLinkId)), eq(paymentLinksTable.merchantId, merchant.id)))
         .limit(1);
       if (!link) { res.status(404).json({ error: "Payment link not found or does not belong to this merchant" }); return; }
+      if (link.status !== "active") {
+        res.status(422).json({ error: "This payment link is expired or inactive and cannot accept new payments. Use the 'include expired' option in the form if you intend to backfill this correction." });
+        return;
+      }
     }
 
     const finalUtr = utr || generateUtr();

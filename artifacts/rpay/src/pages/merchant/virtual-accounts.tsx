@@ -501,9 +501,23 @@ export default function MerchantVirtualAccounts() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditVa(null)}>Cancel</Button>
-            <Button onClick={handleEditSave} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? "Saving..." : editMode === "balance" ? "Adjust Balance" : "Record Collection"}
-            </Button>
+            {(() => {
+              const val = parseFloat(editValue);
+              const invalid = isNaN(val) || val < 0;
+              const balanceExceedsTotal = editMode === "balance" && !invalid && !!editVa && val > parseFloat(editVa.totalCollection);
+              const collectionBelowBalance = editMode === "collection" && !invalid && !!editVa && val < parseFloat(editVa.balance);
+              const saveDisabled = updateMutation.isPending || balanceExceedsTotal || collectionBelowBalance;
+              const saveTitle = balanceExceedsTotal
+                ? `Balance cannot exceed total collection (₹${parseFloat(editVa!.totalCollection).toFixed(2)})`
+                : collectionBelowBalance
+                ? `Total collection cannot be below current balance (₹${parseFloat(editVa!.balance).toFixed(2)})`
+                : undefined;
+              return (
+                <Button onClick={handleEditSave} disabled={saveDisabled} title={saveTitle} aria-label={saveTitle}>
+                  {updateMutation.isPending ? "Saving..." : editMode === "balance" ? "Adjust Balance" : "Record Collection"}
+                </Button>
+              );
+            })()}
           </DialogFooter>
         </DialogContent>
       </Dialog>

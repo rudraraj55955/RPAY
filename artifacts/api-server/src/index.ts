@@ -3,7 +3,7 @@ import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
 import { seed } from "./seed";
 import cron from "node-cron";
-import { runReconciliation, notifyAdminsOfReconciliationFailure } from "./helpers/reconcileEngine";
+import { runReconciliation, notifyAdminsOfReconciliationFailure, hasExistingAutoRun } from "./helpers/reconcileEngine";
 import { processPendingRetries } from "./helpers/callbackRetry";
 
 const rawPort = process.env["PORT"];
@@ -42,6 +42,16 @@ function scheduleNightlyReconciliation() {
 
     const dateFrom = yesterday.toISOString().slice(0, 10);
     const dateTo = yesterday.toISOString().slice(0, 10);
+
+    const alreadyRan = await hasExistingAutoRun(dateFrom, dateTo).catch((err) => {
+      logger.error({ err }, "Failed to check for existing auto-reconciliation run");
+      return false;
+    });
+
+    if (alreadyRan) {
+      logger.info({ dateFrom, dateTo }, "Skipping nightly auto-reconciliation — non-failed run already exists for this date");
+      return;
+    }
 
     logger.info({ dateFrom, dateTo }, "Starting nightly auto-reconciliation");
 

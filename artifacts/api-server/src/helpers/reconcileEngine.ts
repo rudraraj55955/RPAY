@@ -8,7 +8,7 @@ import {
   usersTable,
   notificationsTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, inArray, sql, or, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, gte, lte, inArray, sql, or, isNull, isNotNull, ne } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { createBulkNotifications } from "./notifications";
 
@@ -190,6 +190,23 @@ export async function runReconciliation(opts: ReconcileOptions) {
       .where(eq(reconciliationRunsTable.id, run.id));
     throw err;
   }
+}
+
+export async function hasExistingAutoRun(dateFrom: string, dateTo: string): Promise<boolean> {
+  const existing = await db
+    .select({ id: reconciliationRunsTable.id })
+    .from(reconciliationRunsTable)
+    .where(
+      and(
+        eq(reconciliationRunsTable.triggeredBy, "auto"),
+        eq(reconciliationRunsTable.dateFrom, dateFrom),
+        eq(reconciliationRunsTable.dateTo, dateTo),
+        ne(reconciliationRunsTable.status, "failed"),
+      )
+    )
+    .limit(1);
+
+  return existing.length > 0;
 }
 
 export async function notifyAdminsOfReconciliationFailure(runId: number, error: string) {

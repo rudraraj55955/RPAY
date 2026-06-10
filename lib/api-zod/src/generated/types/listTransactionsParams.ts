@@ -15,6 +15,8 @@ search?: string;
 merchantId?: number;
 dateFrom?: string;
 dateTo?: string;
+amountMin?: number;
+amountMax?: number;
 page?: number;
 limit?: number;
 };

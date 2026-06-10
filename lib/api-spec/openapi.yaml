@@ -804,6 +804,14 @@ paths:
           in: query
           schema:
             type: string
+        - name: amountMin
+          in: query
+          schema:
+            type: number
+        - name: amountMax
+          in: query
+          schema:
+            type: number
         - name: page
           in: query
           schema:

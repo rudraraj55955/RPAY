@@ -800,6 +800,8 @@ export const ListTransactionsQueryParams = zod.object({
   "merchantId": zod.coerce.number().optional(),
   "dateFrom": zod.coerce.string().optional(),
   "dateTo": zod.coerce.string().optional(),
+  "amountMin": zod.coerce.number().optional(),
+  "amountMax": zod.coerce.number().optional(),
   "page": zod.coerce.number().optional(),
   "limit": zod.coerce.number().optional()
 })

@@ -240,6 +240,9 @@ export default function AdminMerchants() {
 
   const handleAssignPlan = () => {
     if (!assignPlanMerchant || !selectedPlanId) return;
+    const selectedPlan = plans?.find(p => String(p.id) === selectedPlanId);
+    const isPaid = selectedPlan && selectedPlan.monthlyFee !== "0" && selectedPlan.name.toLowerCase() !== "custom";
+    if (isPaid && !expiresAt) return;
     assignPlanMutation.mutate({
       id: assignPlanMerchant.id,
       data: {
@@ -1155,23 +1158,27 @@ export default function AdminMerchants() {
             })()}
 
             {/* Expiry Date */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Plan Expiry Date (optional)</Label>
-              <Input type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} min={new Date().toISOString().split("T")[0]} />
-              <p className="text-xs text-muted-foreground">Leave empty for no expiry.</p>
-            </div>
-
-            {/* No-expiry warning for paid plans */}
-            {selectedPlanId && !expiresAt && (() => {
-              const plan = plans?.find(p => String(p.id) === selectedPlanId);
-              if (!plan || plan.monthlyFee === "0") return null;
+            {(() => {
+              const plan = selectedPlanId ? plans?.find(p => String(p.id) === selectedPlanId) : undefined;
+              const isPaid = plan && plan.monthlyFee !== "0" && plan.name.toLowerCase() !== "custom";
               return (
-                <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-amber-400">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <p className="text-xs leading-relaxed">
-                    <span className="font-semibold">No expiry date set.</span>{" "}
-                    This paid plan ({plan.name}) will never expire — the merchant will not be prompted to renew.
-                  </p>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Plan Expiry Date{isPaid ? <span className="text-rose-400">*</span> : <span className="text-muted-foreground">(optional)</span>}
+                  </Label>
+                  <Input type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} min={new Date().toISOString().split("T")[0]} />
+                  {isPaid && !expiresAt ? (
+                    <div className="flex items-start gap-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-rose-400">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <p className="text-xs leading-relaxed">
+                        <span className="font-semibold">Expiry date is required</span> for paid plans ({plan.name}).
+                        Set a date to enable the assign button.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">{isPaid ? "" : "Leave empty for no expiry."}</p>
+                  )}
                 </div>
               );
             })()}
@@ -1240,9 +1247,16 @@ export default function AdminMerchants() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeAssignPlan}>Cancel</Button>
-            <Button onClick={handleAssignPlan} disabled={!selectedPlanId || assignPlanMutation.isPending}>
-              {assignPlanMutation.isPending ? "Assigning..." : currentMerchantPlan ? "Change Plan" : "Assign Plan"}
-            </Button>
+            {(() => {
+              const plan = selectedPlanId ? plans?.find(p => String(p.id) === selectedPlanId) : undefined;
+              const isPaid = plan && plan.monthlyFee !== "0" && plan.name.toLowerCase() !== "custom";
+              const missingExpiry = isPaid && !expiresAt;
+              return (
+                <Button onClick={handleAssignPlan} disabled={!selectedPlanId || !!missingExpiry || assignPlanMutation.isPending}>
+                  {assignPlanMutation.isPending ? "Assigning..." : currentMerchantPlan ? "Change Plan" : "Assign Plan"}
+                </Button>
+              );
+            })()}
           </DialogFooter>
         </DialogContent>
       </Dialog>

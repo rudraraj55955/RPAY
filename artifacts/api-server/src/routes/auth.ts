@@ -108,6 +108,11 @@ router.get("/me", requireAuth, async (req, res, next) => {
       const [merchant] = await db.select({ status: merchantsTable.status }).from(merchantsTable).where(eq(merchantsTable.id, user.merchantId)).limit(1);
       merchantStatus = merchant?.status ?? null;
     }
+    const [row] = await db
+      .select({ reconciliationAlertEmails: usersTable.reconciliationAlertEmails })
+      .from(usersTable)
+      .where(eq(usersTable.id, user.id))
+      .limit(1);
     res.json({
       id: user.id,
       email: user.email,
@@ -116,7 +121,41 @@ router.get("/me", requireAuth, async (req, res, next) => {
       isActive: user.isActive,
       merchantId: user.merchantId,
       merchantStatus,
+      reconciliationAlertEmails: row?.reconciliationAlertEmails ?? true,
       createdAt: user.createdAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/auth/preferences
+router.put("/preferences", requireAuth, async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { reconciliationAlertEmails } = req.body;
+
+    if (typeof reconciliationAlertEmails !== "boolean") {
+      res.status(400).json({ error: "reconciliationAlertEmails must be a boolean" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(usersTable)
+      .set({ reconciliationAlertEmails })
+      .where(eq(usersTable.id, user.id))
+      .returning();
+
+    res.json({
+      id: updated.id,
+      email: updated.email,
+      role: updated.role,
+      name: updated.name,
+      isActive: updated.isActive,
+      merchantId: updated.merchantId,
+      merchantStatus: null,
+      reconciliationAlertEmails: updated.reconciliationAlertEmails,
+      createdAt: updated.createdAt,
     });
   } catch (err) {
     next(err);

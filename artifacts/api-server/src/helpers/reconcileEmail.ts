@@ -223,7 +223,11 @@ export async function notifyAdminsOfUnmatchedItems(runId: number): Promise<void>
     const admins = await db
       .select({ id: usersTable.id, email: usersTable.email })
       .from(usersTable)
-      .where(and(eq(usersTable.role, "admin"), eq(usersTable.isActive, true)));
+      .where(and(
+        eq(usersTable.role, "admin"),
+        eq(usersTable.isActive, true),
+        eq(usersTable.reconciliationAlertEmails, true),
+      ));
 
     if (admins.length === 0) {
       logger.info({ runId }, "No active admins found — skipping unmatched-items alert emails");

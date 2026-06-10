@@ -202,6 +202,7 @@ export * from './transactionListResponseStats';
 export * from './transactionStatus';
 export * from './transactionType';
 export * from './updateAccountDetailVisibility200';
+export * from './updateMyPreferencesBody';
 export * from './uploadUrlRequest';
 export * from './uploadUrlResponse';
 export * from './user';

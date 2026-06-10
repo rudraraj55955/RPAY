@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey } from "@workspace/api-client-react";
 
 async function apiGet(path: string) {
   const res = await fetch(`/api${path}`, {
@@ -75,6 +77,19 @@ export default function AdminSettings() {
   const [financeEmail, setFinanceEmail] = useState<string>("");
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("daily");
   const [initialized, setInitialized] = useState(false);
+
+  const { data: me } = useGetMe();
+  const alertEnabled = me?.reconciliationAlertEmails ?? true;
+
+  const { mutate: updatePrefs, isPending: savingPrefs } = useUpdateMyPreferences({
+    mutation: {
+      onSuccess: (updated) => {
+        toast.success("Notification preferences saved");
+        qc.setQueryData(getGetMeQueryKey(), updated);
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
 
   const { data, isLoading } = useQuery<SettingsData>({
     queryKey: ["/api/settings"],
@@ -318,6 +333,42 @@ export default function AdminSettings() {
               <code className="bg-muted px-1 py-0.5 rounded text-xs">SMTP_FROM</code>.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* My Notification Preferences */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-muted-foreground" />
+            <CardTitle className="text-base">My Notification Preferences</CardTitle>
+          </div>
+          <CardDescription className="text-sm">
+            Control which automated emails are sent to your account. These preferences apply only to you and do not affect other admins.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Reconciliation alert emails</p>
+              <p className="text-xs text-muted-foreground">
+                Receive an email when an auto-reconciliation run finds unmatched items that require review.
+              </p>
+            </div>
+            <Switch
+              checked={alertEnabled}
+              onCheckedChange={val =>
+                updatePrefs({ data: { reconciliationAlertEmails: val } })
+              }
+              disabled={savingPrefs || me === undefined}
+            />
+          </div>
+          {!alertEnabled && (
+            <p className="mt-2 text-xs text-amber-400 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              You will not receive alerts when unmatched reconciliation items are found.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

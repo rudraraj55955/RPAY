@@ -34,6 +34,7 @@ export const LoginResponse = zod.object({
   "isActive": zod.boolean().optional(),
   "merchantId": zod.number().nullish(),
   "merchantStatus": zod.string().nullish(),
+  "reconciliationAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 })
@@ -63,6 +64,27 @@ export const GetMeResponse = zod.object({
   "isActive": zod.boolean().optional(),
   "merchantId": zod.number().nullish(),
   "merchantStatus": zod.string().nullish(),
+  "reconciliationAlertEmails": zod.boolean().optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update current user preferences
+ */
+export const UpdateMyPreferencesBody = zod.object({
+  "reconciliationAlertEmails": zod.boolean()
+})
+
+export const UpdateMyPreferencesResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'merchant']),
+  "name": zod.string(),
+  "isActive": zod.boolean().optional(),
+  "merchantId": zod.number().nullish(),
+  "merchantStatus": zod.string().nullish(),
+  "reconciliationAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -418,7 +440,13 @@ export const BulkRejectMerchantsBody = zod.object({
 
 export const BulkRejectMerchantsResponse = zod.object({
   "updated": zod.number(),
-  "failed": zod.number()
+  "failed": zod.number(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "success": zod.boolean(),
+  "reason": zod.string().nullish()
+}))
 })
 
 
@@ -1563,6 +1591,7 @@ export const ListUsersResponse = zod.object({
   "isActive": zod.boolean().optional(),
   "merchantId": zod.number().nullish(),
   "merchantStatus": zod.string().nullish(),
+  "reconciliationAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -1604,6 +1633,7 @@ export const UpdateUserResponse = zod.object({
   "isActive": zod.boolean().optional(),
   "merchantId": zod.number().nullish(),
   "merchantStatus": zod.string().nullish(),
+  "reconciliationAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 

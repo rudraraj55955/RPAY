@@ -17,5 +17,6 @@ export interface User {
   merchantId?: number | null;
   /** @nullable */
   merchantStatus?: string | null;
+  reconciliationAlertEmails?: boolean;
   createdAt: string;
 }

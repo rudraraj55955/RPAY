@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GitMerge, Play, ArrowRightLeft, AlertTriangle, CheckCircle2, Clock, RefreshCw, ChevronRight, Link2, Zap, User, ShieldCheck, XCircle, Download } from "lucide-react";
+import { GitMerge, Play, ArrowRightLeft, AlertTriangle, CheckCircle2, Clock, RefreshCw, ChevronRight, Link2, Zap, User, ShieldCheck, XCircle, Download, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -356,6 +357,7 @@ export default function AdminReconciliation() {
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [resolveItem, setResolveItem] = useState<any | null>(null);
   const [exportFilter, setExportFilter] = useState<"all" | "matched" | "unmatched_deposit" | "unmatched_settlement">("all");
+  const [csvExportFilter, setCsvExportFilter] = useState<"all" | "matched" | "unmatched">("all");
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["/api/reconciliation/runs"],
@@ -547,6 +549,7 @@ export default function AdminReconciliation() {
           if (!open) {
             setSelectedRunId(null);
             setExportFilter("all");
+            setCsvExportFilter("all");
           }
         }}
       >
@@ -556,15 +559,16 @@ export default function AdminReconciliation() {
               <GitMerge className="w-4 h-4 text-primary" />
               Run #{selectedRunId} — Reconciliation Details
               <div className="ml-auto flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-7 gap-1.5 text-xs"
-                  onClick={() => {
+                {(() => {
+                  const CSV_FILTER_LABELS: Record<string, string> = {
+                    all: "All",
+                    matched: "Matched only",
+                    unmatched: "Unmatched only",
+                  };
+                  function doExport(filter: "all" | "matched" | "unmatched") {
                     const token = getToken();
-                    const statusParam = exportFilter !== "all" ? `?status=${exportFilter}` : "";
-                    const suffix = exportFilter !== "all" ? `-${exportFilter}` : "";
-                    
+                    const statusParam = filter !== "all" ? `?status=${filter}` : "";
+                    const suffix = filter !== "all" ? `-${filter}` : "";
                     fetch(`/api/reconciliation/runs/${selectedRunId}/export.csv${statusParam}`, {
                       headers: { Authorization: `Bearer ${token}` },
                     })
@@ -581,11 +585,54 @@ export default function AdminReconciliation() {
                         URL.revokeObjectURL(url);
                       })
                       .catch(() => toast.error("Failed to export CSV"));
-                  }}
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Export CSV {exportFilter !== "all" && `(${exportFilter})`}
-                </Button>
+                  }
+                  return (
+                    <div className="flex items-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs rounded-r-none border-r-0"
+                        onClick={() => doExport(csvExportFilter)}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Export CSV
+                        {csvExportFilter !== "all" && (
+                          <span className="text-primary/80">· {CSV_FILTER_LABELS[csvExportFilter]}</span>
+                        )}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-1.5 rounded-l-none border-l-0 text-muted-foreground"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          {(["all", "matched", "unmatched"] as const).map((f, idx, arr) => (
+                            <div key={f}>
+                              <DropdownMenuItem
+                                className="text-xs gap-2"
+                                onSelect={() => setCsvExportFilter(f)}
+                              >
+                                {csvExportFilter === f && (
+                                  <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
+                                )}
+                                {csvExportFilter !== f && (
+                                  <span className="w-3 shrink-0" />
+                                )}
+                                {CSV_FILTER_LABELS[f]}
+                              </DropdownMenuItem>
+                              {idx < arr.length - 1 && <DropdownMenuSeparator />}
+                            </div>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  );
+                })()}
               </div>
             </DialogTitle>
           </DialogHeader>

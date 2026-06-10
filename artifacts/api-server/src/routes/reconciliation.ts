@@ -240,7 +240,18 @@ router.get("/runs/:id/export.csv", async (req, res, next) => {
     if (!run) { res.status(404).json({ error: "Run not found" }); return; }
 
     const conditions = [eq(reconciliationItemsTable.runId, runId)];
-    if (status && status !== "all") conditions.push(eq(reconciliationItemsTable.status, status));
+    if (status && status !== "all") {
+      if (status === "unmatched") {
+        conditions.push(
+          or(
+            eq(reconciliationItemsTable.status, "unmatched_deposit"),
+            eq(reconciliationItemsTable.status, "unmatched_settlement"),
+          )!
+        );
+      } else {
+        conditions.push(eq(reconciliationItemsTable.status, status));
+      }
+    }
 
     const where = and(...conditions);
 

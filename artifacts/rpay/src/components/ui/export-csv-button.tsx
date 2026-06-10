@@ -16,8 +16,9 @@ export function ExportCsvButton({ onExport, disabled, label = "Export CSV" }: Ex
     setExporting(true);
     try {
       await onExport();
+      toast.success("Export complete");
     } catch {
-      toast.error("Export failed");
+      toast.error("Export failed — try again");
     } finally {
       setTimeout(() => setExporting(false), 600);
     }

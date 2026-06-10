@@ -629,6 +629,14 @@ export default function AdminReconciliation() {
     lastAutoRunStatus: string | null;
   } | undefined;
 
+  function cronToHumanTime(cronExpression: string): string {
+    const parts = cronExpression.split(" ");
+    if (parts.length < 2) return cronExpression;
+    const minute = parts[0]!.padStart(2, "0");
+    const hour = parts[1]!.padStart(2, "0");
+    return `${hour}:${minute}`;
+  }
+
   function formatNextRun(isoStr: string): string {
     const next = new Date(isoStr);
     const now = new Date();
@@ -691,8 +699,8 @@ export default function AdminReconciliation() {
                     <span className="text-muted-foreground">Next auto-run: </span>
                     <span className="font-medium text-foreground">
                       {schedulerStatus.hasEverRun
-                        ? `tonight at midnight (${formatNextRun(schedulerStatus.nextRunAt)})`
-                        : `first run tonight at midnight (${formatNextRun(schedulerStatus.nextRunAt)})`}
+                        ? `daily at ${cronToHumanTime(schedulerStatus.cronExpression)} (${formatNextRun(schedulerStatus.nextRunAt)})`
+                        : `first run at ${cronToHumanTime(schedulerStatus.cronExpression)} (${formatNextRun(schedulerStatus.nextRunAt)})`}
                     </span>
                     {schedulerStatus.lastAutoRunAt && (
                       <span className="text-muted-foreground/60 ml-1.5">

@@ -3,6 +3,7 @@ import { db, reconciliationRunsTable, reconciliationItemsTable, transactionsTabl
 import { eq, and, gte, lte, inArray, sql, count, or, isNull, isNotNull, gt } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { runReconciliation } from "../helpers/reconcileEngine";
+import { loadReconConfig } from "../helpers/reconScheduler";
 
 const router = Router();
 router.use(requireAuth);
@@ -19,10 +20,17 @@ function mapRun(r: typeof reconciliationRunsTable.$inferSelect) {
 // GET /api/reconciliation/scheduler-status
 router.get("/scheduler-status", async (req, res, next) => {
   try {
+    const config = await loadReconConfig();
+    const { hour, minute } = config;
+
     const now = new Date();
-    const nextMidnight = new Date(now);
-    nextMidnight.setDate(nextMidnight.getDate() + 1);
-    nextMidnight.setHours(0, 0, 0, 0);
+    const next = new Date(now);
+    next.setHours(hour, minute, 0, 0);
+    if (next <= now) {
+      next.setDate(next.getDate() + 1);
+    }
+
+    const cronExpression = `${minute} ${hour} * * *`;
 
     const lastAutoRun = await db
       .select({ createdAt: reconciliationRunsTable.createdAt, status: reconciliationRunsTable.status })
@@ -35,8 +43,8 @@ router.get("/scheduler-status", async (req, res, next) => {
     const lastAutoRunStatus = lastAutoRun.length > 0 ? lastAutoRun[0]!.status : null;
 
     res.json({
-      nextRunAt: nextMidnight.toISOString(),
-      cronExpression: "0 0 * * *",
+      nextRunAt: next.toISOString(),
+      cronExpression,
       hasEverRun: lastAutoRun.length > 0,
       lastAutoRunAt: lastAutoRunAt ? lastAutoRunAt.toISOString() : null,
       lastAutoRunStatus,

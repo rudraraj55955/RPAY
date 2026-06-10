@@ -3060,7 +3060,7 @@ components:
 
     WithdrawalListResponse:
       type: object
-      required: [data, total, page, limit]
+      required: [data, total, page, limit, stats]
       properties:
         data:
           type: array
@@ -3072,6 +3072,18 @@ components:
           type: integer
         limit:
           type: integer
+        stats:
+          type: object
+          required: [totalVolume, pendingCount, approvedCount, rejectedCount]
+          properties:
+            totalVolume:
+              type: number
+            pendingCount:
+              type: integer
+            approvedCount:
+              type: integer
+            rejectedCount:
+              type: integer
 
     ApiKey:
       type: object

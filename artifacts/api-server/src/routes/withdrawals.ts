@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, withdrawalsTable, merchantsTable } from "@workspace/db";
-import { eq, and, count, sql } from "drizzle-orm";
+import { eq, and, count, sum, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { checkPlanLimit, rejectWithLimitError } from "../helpers/planLimits";
 
@@ -21,19 +21,32 @@ router.get("/", async (req, res) => {
   if (merchantId && user.role === "admin") conditions.push(eq(withdrawalsTable.merchantId, parseInt(merchantId)));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const [{ total }] = await db.select({ total: count() }).from(withdrawalsTable).where(where);
 
-  const rows = await db
-    .select({
-      withdrawal: withdrawalsTable,
-      merchantName: merchantsTable.businessName,
-    })
-    .from(withdrawalsTable)
-    .leftJoin(merchantsTable, eq(withdrawalsTable.merchantId, merchantsTable.id))
-    .where(where)
-    .limit(limitNum)
-    .offset(offset)
-    .orderBy(sql`${withdrawalsTable.createdAt} DESC`);
+  const [aggregates, rows] = await Promise.all([
+    db
+      .select({
+        total: count(),
+        totalVolume: sum(withdrawalsTable.amount),
+        pendingCount: count(sql`CASE WHEN ${withdrawalsTable.status} = 'pending' THEN 1 END`),
+        approvedCount: count(sql`CASE WHEN ${withdrawalsTable.status} = 'approved' THEN 1 END`),
+        rejectedCount: count(sql`CASE WHEN ${withdrawalsTable.status} = 'rejected' THEN 1 END`),
+      })
+      .from(withdrawalsTable)
+      .where(where),
+    db
+      .select({
+        withdrawal: withdrawalsTable,
+        merchantName: merchantsTable.businessName,
+      })
+      .from(withdrawalsTable)
+      .leftJoin(merchantsTable, eq(withdrawalsTable.merchantId, merchantsTable.id))
+      .where(where)
+      .limit(limitNum)
+      .offset(offset)
+      .orderBy(sql`${withdrawalsTable.createdAt} DESC`),
+  ]);
+
+  const agg = aggregates[0]!;
 
   res.json({
     data: rows.map(r => ({
@@ -41,9 +54,15 @@ router.get("/", async (req, res) => {
       amount: Number(r.withdrawal.amount),
       merchantName: r.merchantName ?? null,
     })),
-    total,
+    total: agg.total,
     page: pageNum,
     limit: limitNum,
+    stats: {
+      totalVolume: Number(agg.totalVolume ?? 0),
+      pendingCount: Number(agg.pendingCount),
+      approvedCount: Number(agg.approvedCount),
+      rejectedCount: Number(agg.rejectedCount),
+    },
   });
 });
 

@@ -771,7 +771,13 @@ export const ListWithdrawalsResponse = zod.object({
 })),
   "total": zod.number(),
   "page": zod.number(),
-  "limit": zod.number()
+  "limit": zod.number(),
+  "stats": zod.object({
+  "totalVolume": zod.number(),
+  "pendingCount": zod.number(),
+  "approvedCount": zod.number(),
+  "rejectedCount": zod.number()
+})
 })
 
 

@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, ArrowUpRight, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -23,6 +23,13 @@ export default function AdminWithdrawals() {
   const { data, isLoading } = useListWithdrawals({ status: status as any, page, limit: 20 });
   const approveMutation = useApproveWithdrawal();
   const rejectMutation = useRejectWithdrawal();
+
+  const stats = {
+    totalVolume: data?.stats?.totalVolume ?? 0,
+    pendingCount: data?.stats?.pendingCount ?? 0,
+    approvedCount: data?.stats?.approvedCount ?? 0,
+    rejectedCount: data?.stats?.rejectedCount ?? 0,
+  };
 
   const handleApprove = (id: number) => {
     approveMutation.mutate({ id }, {
@@ -52,6 +59,61 @@ export default function AdminWithdrawals() {
       <div className="flex items-center justify-between">
         <div><h1 className="text-3xl font-bold tracking-tight">Withdrawals</h1><p className="text-muted-foreground mt-1">Manage withdrawal requests</p></div>
         <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <ArrowUpRight className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Volume</p>
+                <p className="text-lg font-bold font-mono">₹{stats.totalVolume.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Clock className="w-4 h-4 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Pending</p>
+                <p className="text-lg font-bold">{stats.pendingCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Approved</p>
+                <p className="text-lg font-bold">{stats.approvedCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-rose-500/10 flex items-center justify-center">
+                <XCircle className="w-4 h-4 text-rose-500" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Rejected</p>
+                <p className="text-lg font-bold">{stats.rejectedCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

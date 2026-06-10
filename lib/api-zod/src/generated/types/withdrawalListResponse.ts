@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Withdrawal } from './withdrawal';
+import type { WithdrawalListResponseStats } from './withdrawalListResponseStats';
 
 export interface WithdrawalListResponse {
   data: Withdrawal[];
   total: number;
   page: number;
   limit: number;
+  stats: WithdrawalListResponseStats;
 }

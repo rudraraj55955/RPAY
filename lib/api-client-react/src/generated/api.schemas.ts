@@ -207,11 +207,19 @@ export interface WithdrawalInput {
   accountHolder: string;
 }
 
+export type WithdrawalListResponseStats = {
+  totalVolume: number;
+  pendingCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+};
+
 export interface WithdrawalListResponse {
   data: Withdrawal[];
   total: number;
   page: number;
   limit: number;
+  stats: WithdrawalListResponseStats;
 }
 
 export interface ApiKey {

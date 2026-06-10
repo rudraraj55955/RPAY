@@ -188,4 +188,5 @@ export * from './webhookConfigInput';
 export * from './withdrawal';
 export * from './withdrawalInput';
 export * from './withdrawalListResponse';
+export * from './withdrawalListResponseStats';
 export * from './withdrawalStatus';

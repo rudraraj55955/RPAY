@@ -511,6 +511,8 @@ export const UpdateMerchantBrandingResponse = zod.object({
   "brandColor": zod.string().nullish(),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
+  "currentPlanExpiresAt": zod.string().nullish(),
+  "currentPlanIsExpired": zod.boolean().nullish(),
   "createdAt": zod.string()
 })
 
@@ -1760,6 +1762,7 @@ export const ListQrCodesResponse = zod.object({
   "merchantReference": zod.string().nullish(),
   "expiresAt": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive', 'expired', 'used']),
+  "scanCount": zod.number().describe('Number of times this QR code was used for a payment'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })),
@@ -1803,6 +1806,7 @@ export const GetQrCodeResponse = zod.object({
   "merchantReference": zod.string().nullish(),
   "expiresAt": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive', 'expired', 'used']),
+  "scanCount": zod.number().describe('Number of times this QR code was used for a payment'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -1835,6 +1839,7 @@ export const UpdateQrCodeResponse = zod.object({
   "merchantReference": zod.string().nullish(),
   "expiresAt": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive', 'expired', 'used']),
+  "scanCount": zod.number().describe('Number of times this QR code was used for a payment'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })

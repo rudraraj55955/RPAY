@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, qrCodesTable, merchantsTable, merchantConnectionsTable } from "@workspace/db";
+import { db, qrCodesTable, merchantsTable, merchantConnectionsTable, transactionsTable } from "@workspace/db";
 import { eq, and, ilike, count, sql, or, desc, gte, lte } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { checkPlanLimit, rejectWithLimitError } from "../helpers/planLimits";
@@ -44,11 +44,12 @@ function buildUpiPayload(vpa: string, name: string, amount: string | null, note:
   return `upi://pay?${params.toString()}`;
 }
 
-function serializeQr(qr: typeof qrCodesTable.$inferSelect, merchantName?: string | null) {
+function serializeQr(qr: typeof qrCodesTable.$inferSelect, merchantName?: string | null, scanCount = 0) {
   return {
     ...qr,
     merchantName: merchantName ?? null,
     expiresAt: qr.expiresAt instanceof Date ? qr.expiresAt.toISOString() : qr.expiresAt,
+    scanCount,
   };
 }
 
@@ -104,7 +105,13 @@ router.get("/", async (req, res) => {
     .where(where);
   const total = countRows[0].total;
 
-  const rows = await db.select({ qr: qrCodesTable, merchantName: merchantsTable.businessName })
+  const scanCountSq = sql<number>`(SELECT COUNT(*) FROM transactions WHERE qr_code_id = ${qrCodesTable.id})`;
+
+  const rows = await db.select({
+    qr: qrCodesTable,
+    merchantName: merchantsTable.businessName,
+    scanCount: scanCountSq,
+  })
     .from(qrCodesTable)
     .leftJoin(merchantsTable, eq(qrCodesTable.merchantId, merchantsTable.id))
     .where(where)
@@ -112,7 +119,7 @@ router.get("/", async (req, res) => {
     .orderBy(desc(qrCodesTable.createdAt));
 
   res.json({
-    data: rows.map(r => serializeQr(r.qr, r.merchantName)),
+    data: rows.map(r => serializeQr(r.qr, r.merchantName, Number(r.scanCount ?? 0))),
     total, page: pageNum, limit: limitNum,
   });
 });
@@ -126,14 +133,20 @@ router.get("/:id", async (req, res) => {
   const conditions = [eq(qrCodesTable.id, id)];
   if (user.role !== "admin") conditions.push(eq(qrCodesTable.merchantId, user.merchantId!));
 
-  const rows = await db.select({ qr: qrCodesTable, merchantName: merchantsTable.businessName })
+  const scanCountSq = sql<number>`(SELECT COUNT(*) FROM transactions WHERE qr_code_id = ${qrCodesTable.id})`;
+
+  const rows = await db.select({
+    qr: qrCodesTable,
+    merchantName: merchantsTable.businessName,
+    scanCount: scanCountSq,
+  })
     .from(qrCodesTable)
     .leftJoin(merchantsTable, eq(qrCodesTable.merchantId, merchantsTable.id))
     .where(and(...conditions))
     .limit(1);
 
   if (!rows.length) { res.status(404).json({ error: "QR code not found" }); return; }
-  res.json(serializeQr(rows[0].qr, rows[0].merchantName));
+  res.json(serializeQr(rows[0].qr, rows[0].merchantName, Number(rows[0].scanCount ?? 0)));
 });
 
 // POST /api/qr-codes

@@ -4038,7 +4038,7 @@ components:
 
     QrCode:
       type: object
-      required: [id, merchantId, type, payload, status, createdAt]
+      required: [id, merchantId, type, payload, status, scanCount, createdAt]
       properties:
         id:
           type: integer
@@ -4066,6 +4066,9 @@ components:
         status:
           type: string
           enum: [active, inactive, expired, used]
+        scanCount:
+          type: integer
+          description: Number of times this QR code was used for a payment
         createdAt:
           type: string
         updatedAt:

@@ -28,6 +28,8 @@ export interface QrCode {
   /** @nullable */
   expiresAt?: string | null;
   status: QrCodeStatus;
+  /** Number of times this QR code was used for a payment */
+  scanCount: number;
   createdAt: string;
   updatedAt?: string;
 }

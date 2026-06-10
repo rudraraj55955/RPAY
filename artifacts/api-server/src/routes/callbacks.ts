@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { Router } from "express";
-import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable } from "@workspace/db";
+import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable } from "@workspace/db";
 import { eq, and, count, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
@@ -127,6 +127,14 @@ router.post("/", async (req, res) => {
     .update(qrCodesTable)
     .set({ status: "used" })
     .where(eq(qrCodesTable.id, qr.id));
+
+  // --- Link the transaction to this QR code (if transactionId was provided) ---
+  if (transactionId) {
+    db.update(transactionsTable)
+      .set({ qrCodeId: qr.id })
+      .where(and(eq(transactionsTable.id, transactionId), eq(transactionsTable.merchantId, merchantId)))
+      .catch(() => {});
+  }
 
   // --- Update API key lastUsedAt (fire-and-forget) ---
   db.update(apiKeysTable)

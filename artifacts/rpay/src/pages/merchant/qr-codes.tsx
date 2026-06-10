@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
@@ -30,6 +30,7 @@ type QrRow = {
   merchantReference?: string | null;
   expiresAt?: string | null;
   status: string;
+  scanCount: number;
   createdAt: string;
 };
 
@@ -98,7 +99,7 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
 
   return (
     <TableRow className="bg-muted/30 border-t-0">
-      <TableCell colSpan={7} className="py-4 px-6">
+      <TableCell colSpan={8} className="py-4 px-6">
         <div className="flex gap-6 items-start">
           <div id={`qr-inline-${qr.id}`} className="bg-white p-3 rounded-xl shrink-0">
             <QRCodeCanvas value={qr.payload} size={120} level="H" includeMargin />
@@ -356,6 +357,7 @@ export default function MerchantQrCodes() {
                 <TableHead>Amount</TableHead>
                 <TableHead>Expiry Time</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Scans</TableHead>
                 <TableHead>Merchant Reference</TableHead>
                 <TableHead>Created At</TableHead>
               </TableRow>
@@ -364,14 +366,14 @@ export default function MerchantQrCodes() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : !data?.data?.length ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-14">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-14">
                     <QrCode className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     <p className="text-sm">No QR codes yet</p>
                     <p className="text-xs mt-1 opacity-60">Create your first QR code to accept payments</p>
@@ -402,6 +404,12 @@ export default function MerchantQrCodes() {
                       ) : <span className="text-muted-foreground">Never</span>}
                     </TableCell>
                     <TableCell>{statusBadge(qr.status)}</TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <ScanLine className="w-3.5 h-3.5" />
+                        {qr.scanCount ?? 0}
+                      </span>
+                    </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {(qr as any).merchantReference ?? <span>—</span>}
                     </TableCell>

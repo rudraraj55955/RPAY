@@ -642,20 +642,22 @@ export default function AdminReconciliation() {
           {detailQuery.isLoading ? (
             <div className="py-10 text-center text-muted-foreground text-sm">Loading items…</div>
           ) : exportFilter !== "all" ? (
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pr-1">
-                {allItems
-                  .filter(i => i.status === exportFilter)
-                  .map((item: any) => (
-                    <div key={item.id}>
-                      {item.status === "matched" ? (
-                        <MatchedPairCard item={item} />
-                      ) : (
-                        <UnmatchedCard item={item} onResolve={setResolveItem} />
-                      )}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {(() => {
+                const filtered = allItems.filter(i => i.status === exportFilter);
+                if (filtered.length === 0) {
+                  return (
+                    <div className="py-10 text-center text-muted-foreground text-xs border border-dashed border-border/40 rounded-md">
+                      No items with status "{exportFilter}" in this run
                     </div>
-                  ))}
-              </div>
+                  );
+                }
+                return filtered.map((item: any) =>
+                  item.status === "matched"
+                    ? <MatchedPairCard key={item.id} item={item} />
+                    : <UnmatchedCard key={item.id} item={item} onResolve={setResolveItem} />
+                );
+              })()}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-hidden min-h-0 relative">
@@ -726,24 +728,6 @@ export default function AdminReconciliation() {
                   )}
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              {(() => {
-                const filtered = allItems.filter(i => i.status === exportFilter);
-                if (filtered.length === 0) {
-                  return (
-                    <div className="py-10 text-center text-muted-foreground text-xs border border-dashed border-border/40 rounded-md">
-                      No items with status "{exportFilter}" in this run
-                    </div>
-                  );
-                }
-                return filtered.map((item: any) =>
-                  item.status === "matched"
-                    ? <MatchedPairCard key={item.id} item={item} />
-                    : <UnmatchedCard key={item.id} item={item} />
-                );
-              })()}
             </div>
           )}
         </DialogContent>

@@ -68,6 +68,8 @@ function statusBadge(status: string) {
 }
 
 function InlineQrRow({ qr }: { qr: QrRow }) {
+  const [copied, setCopied] = useState(false);
+
   const handleDownload = useCallback(() => {
     const canvas = document.querySelector(`#qr-inline-${qr.id} canvas`) as HTMLCanvasElement | null;
     if (!canvas) return;
@@ -78,6 +80,14 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
     a.click();
     toast.success("QR code downloaded");
   }, [qr]);
+
+  const handleCopyLink = useCallback(() => {
+    navigator.clipboard.writeText(qr.payload).then(() => {
+      setCopied(true);
+      toast.success("Payment link copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [qr.payload]);
 
   const isExpired = qr.expiresAt ? new Date(qr.expiresAt) < new Date() : false;
 
@@ -123,9 +133,14 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
                 </div>
               )}
             </div>
-            <Button size="sm" variant="outline" onClick={handleDownload} disabled={qr.status === "expired"} className="h-7 text-xs px-3">
-              <Download className="w-3.5 h-3.5 mr-1.5" />Download PNG
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={handleDownload} disabled={qr.status === "expired"} className="h-7 text-xs px-3">
+                <Download className="w-3.5 h-3.5 mr-1.5" />Download PNG
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleCopyLink} className="h-7 text-xs px-3">
+                <Link2 className="w-3.5 h-3.5 mr-1.5" />{copied ? "Copied!" : "Copy Link"}
+              </Button>
+            </div>
           </div>
         </div>
       </TableCell>

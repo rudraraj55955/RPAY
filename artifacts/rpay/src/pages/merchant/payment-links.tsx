@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, Trash2, Link2, Copy, ExternalLink, CheckCircle2, XCircle, Hash } from "lucide-react";
+import { Search, Plus, Trash2, Link2, Copy, ExternalLink, CheckCircle2, XCircle, Hash, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -84,6 +84,7 @@ export default function MerchantPaymentLinks() {
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
   const [editLink, setEditLink] = useState<LinkRow | null>(null);
+  const [editMaxPayments, setEditMaxPayments] = useState("");
 
   const [form, setForm] = useState({
     title: "",
@@ -138,6 +139,31 @@ export default function MerchantPaymentLinks() {
       {
         onSuccess: () => { toast.success(`Link ${newStatus === "active" ? "activated" : "deactivated"}`); invalidate(); },
         onError: () => toast.error("Failed to update link"),
+      }
+    );
+  };
+
+  const openEdit = (link: LinkRow) => {
+    setEditLink(link);
+    setEditMaxPayments(link.maxPayments != null ? String(link.maxPayments) : "");
+  };
+
+  const handleSaveEdit = () => {
+    if (!editLink) return;
+    const maxPayments = editMaxPayments.trim() === "" ? null : parseInt(editMaxPayments.trim());
+    if (maxPayments !== null && (isNaN(maxPayments) || maxPayments < 1)) {
+      toast.error("Max payments must be a positive number, or leave blank to remove the cap");
+      return;
+    }
+    updateMutation.mutate(
+      { id: editLink.id, data: { maxPayments } as any },
+      {
+        onSuccess: () => {
+          toast.success("Payment cap updated");
+          setEditLink(null);
+          invalidate();
+        },
+        onError: () => toast.error("Failed to update payment cap"),
       }
     );
   };
@@ -292,6 +318,10 @@ export default function MerchantPaymentLinks() {
                           disabled={link.status === "expired" || isExpired}>
                           {link.status === "active" ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                         </button>
+                        <button className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"
+                          onClick={() => openEdit(link)} title="Edit payment cap">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
                         <button className="text-rose-500 hover:text-rose-400 p-1 rounded hover:bg-rose-500/10"
                           onClick={() => handleDelete(link.id)} title="Delete">
                           <Trash2 className="w-3.5 h-3.5" />
@@ -374,13 +404,46 @@ export default function MerchantPaymentLinks() {
 
       {editLink && (
         <Dialog open onOpenChange={() => setEditLink(null)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle>Edit Payment Link</DialogTitle></DialogHeader>
-            <div className="py-2">
-              <p className="text-sm text-muted-foreground">Use the activate/deactivate toggle in the table to change link status.</p>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Edit Payment Cap</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Set a maximum number of payments for <span className="text-foreground font-medium">{editLink.title}</span>.
+                Leave blank to remove the cap.
+              </p>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label>Max Payments <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="e.g. 10 — leave blank to remove cap"
+                  value={editMaxPayments}
+                  onChange={e => setEditMaxPayments(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              {editLink.paymentCount > 0 && (
+                <p className="text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
+                  This link already has <span className="text-foreground font-medium">{editLink.paymentCount}</span> payment{editLink.paymentCount !== 1 ? "s" : ""} recorded.
+                  {editMaxPayments && parseInt(editMaxPayments) <= editLink.paymentCount
+                    ? " The new cap is at or below the current count — the link will not accept further payments."
+                    : ""}
+                </p>
+              )}
+              {editMaxPayments && parseInt(editMaxPayments) > 0 && (editLink.paymentCount === 0 || parseInt(editMaxPayments) > editLink.paymentCount) && (
+                <p className="text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
+                  Link will automatically deactivate after <span className="text-foreground font-medium">{editMaxPayments}</span> payment{parseInt(editMaxPayments) !== 1 ? "s" : ""} are recorded.
+                </p>
+              )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setEditLink(null)}>Close</Button>
+              <Button variant="outline" onClick={() => setEditLink(null)}>Cancel</Button>
+              <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? "Saving..." : "Save"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

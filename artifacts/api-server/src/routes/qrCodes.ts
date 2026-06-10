@@ -124,6 +124,30 @@ router.get("/", async (req, res) => {
   });
 });
 
+// GET /api/qr-codes/stats
+router.get("/stats", async (req, res) => {
+  await expireOldQrCodes().catch(() => {});
+  const user = (req as any).user;
+
+  const baseConditions = user.role !== "admin"
+    ? [eq(qrCodesTable.merchantId, user.merchantId!)]
+    : [];
+
+  const [totalRow, activeRow, usedRow, expiredRow] = await Promise.all([
+    db.select({ n: count() }).from(qrCodesTable).where(baseConditions.length ? and(...baseConditions) : undefined),
+    db.select({ n: count() }).from(qrCodesTable).where(and(...baseConditions, eq(qrCodesTable.status, "active"))),
+    db.select({ n: count() }).from(qrCodesTable).where(and(...baseConditions, eq(qrCodesTable.status, "used"))),
+    db.select({ n: count() }).from(qrCodesTable).where(and(...baseConditions, eq(qrCodesTable.status, "expired"))),
+  ]);
+
+  res.json({
+    total: totalRow[0].n,
+    active: activeRow[0].n,
+    used: usedRow[0].n,
+    expired: expiredRow[0].n,
+  });
+});
+
 // GET /api/qr-codes/:id/activity
 router.get("/:id/activity", async (req, res) => {
   await expireOldQrCodes().catch(() => {});

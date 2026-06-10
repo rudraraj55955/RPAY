@@ -150,6 +150,7 @@ export * from './qrCodeActivityStatus';
 export * from './qrCodeInput';
 export * from './qrCodeInputType';
 export * from './qrCodeListResponse';
+export * from './qrCodeStats';
 export * from './qrCodeStatus';
 export * from './qrCodeType';
 export * from './qrCodeUpdateInput';

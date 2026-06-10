@@ -125,6 +125,7 @@ import type {
   QrCodeActivityResponse,
   QrCodeInput,
   QrCodeListResponse,
+  QrCodeStats,
   QrCodeUpdateInput,
   ReconciliationItem,
   ReconciliationItemListResponse,
@@ -5916,6 +5917,83 @@ export const useCreateQrCode = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getCreateQrCodeMutationOptions(options));
     }
+
+export const getGetQrCodeStatsUrl = () => {
+
+
+
+
+  return `/api/qr-codes/stats`
+}
+
+/**
+ * @summary Get QR code status breakdown counts
+ */
+export const getQrCodeStats = async ( options?: RequestInit): Promise<QrCodeStats> => {
+
+  return customFetch<QrCodeStats>(getGetQrCodeStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetQrCodeStatsQueryKey = () => {
+    return [
+    `/api/qr-codes/stats`
+    ] as const;
+    }
+
+
+export const getGetQrCodeStatsQueryOptions = <TData = Awaited<ReturnType<typeof getQrCodeStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQrCodeStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetQrCodeStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getQrCodeStats>>> = ({ signal }) => getQrCodeStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getQrCodeStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetQrCodeStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getQrCodeStats>>>
+export type GetQrCodeStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get QR code status breakdown counts
+ */
+
+export function useGetQrCodeStats<TData = Awaited<ReturnType<typeof getQrCodeStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQrCodeStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetQrCodeStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetQrCodeActivityUrl = (id: number,) => {
 

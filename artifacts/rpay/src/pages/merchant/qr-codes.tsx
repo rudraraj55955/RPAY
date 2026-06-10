@@ -5,6 +5,7 @@ import {
   useDeleteQrCode,
   useListMerchantConnections,
   useGetQrCodeActivity,
+  useGetQrCodeStats,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -302,6 +303,7 @@ export default function MerchantQrCodes() {
   });
 
   const { data, isLoading } = useListQrCodes({ type: "dynamic" as any, status: status as any, search, page, limit: 20 });
+  const { data: stats } = useGetQrCodeStats();
   const { data: connections } = useListMerchantConnections();
   const createMutation = useCreateQrCode();
   const deleteMutation = useDeleteQrCode();
@@ -359,9 +361,12 @@ export default function MerchantQrCodes() {
 
   const toggleExpand = (id: number) => setExpandedId(prev => prev === id ? null : id);
 
-  const activeCount = data?.data?.filter(q => q.status === "active").length ?? 0;
-  const expiredCount = data?.data?.filter(q => q.status === "expired").length ?? 0;
-  const usedCount = data?.data?.filter(q => q.status === "used").length ?? 0;
+  const statCards = [
+    { label: "Total", value: stats?.total ?? 0, filter: "all", color: "text-primary", bg: "bg-primary/10", ring: "ring-primary/40" },
+    { label: "Active", value: stats?.active ?? 0, filter: "active", color: "text-emerald-400", bg: "bg-emerald-500/10", ring: "ring-emerald-500/40" },
+    { label: "Expired", value: stats?.expired ?? 0, filter: "expired", color: "text-rose-400", bg: "bg-rose-500/10", ring: "ring-rose-500/40" },
+    { label: "Used", value: stats?.used ?? 0, filter: "used", color: "text-blue-400", bg: "bg-blue-500/10", ring: "ring-blue-500/40" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -399,28 +404,31 @@ export default function MerchantQrCodes() {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Stats — clickable to filter */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: "Total", value: data?.total ?? 0, color: "text-primary", bg: "bg-primary/10" },
-          { label: "Active", value: activeCount, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-          { label: "Expired", value: expiredCount, color: "text-rose-400", bg: "bg-rose-500/10" },
-          { label: "Used", value: usedCount, color: "text-blue-400", bg: "bg-blue-500/10" },
-        ].map(stat => (
-          <Card key={stat.label}>
-            <CardContent className="pt-5 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{stat.label}</p>
-                  <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
-                </div>
-                <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
-                  <QrCode className={`w-5 h-5 ${stat.color}`} />
+        {statCards.map(stat => {
+          const isActive = status === stat.filter;
+          return (
+            <button
+              key={stat.label}
+              type="button"
+              onClick={() => { setStatus(stat.filter); setPage(1); }}
+              className={`text-left rounded-xl border bg-card transition-all hover:ring-2 focus-visible:outline-none focus-visible:ring-2 ${isActive ? `ring-2 ${stat.ring}` : "hover:ring-border"}`}
+            >
+              <div className="px-5 pt-5 pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">{stat.label}</p>
+                    <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
+                  </div>
+                  <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
+                    <QrCode className={`w-5 h-5 ${stat.color}`} />
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </button>
+          );
+        })}
       </div>
 
       {/* Table */}

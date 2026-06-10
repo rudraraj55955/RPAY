@@ -1847,6 +1847,17 @@ export const CreateQrCodeBody = zod.object({
 
 
 /**
+ * @summary Get QR code status breakdown counts
+ */
+export const GetQrCodeStatsResponse = zod.object({
+  "total": zod.number(),
+  "active": zod.number(),
+  "used": zod.number(),
+  "expired": zod.number()
+})
+
+
+/**
  * @summary Get payment activity for a QR code
  */
 export const GetQrCodeActivityParams = zod.object({

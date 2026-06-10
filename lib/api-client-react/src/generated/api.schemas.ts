@@ -992,6 +992,13 @@ export interface QrCodeListResponse {
   limit: number;
 }
 
+export interface QrCodeStats {
+  total: number;
+  active: number;
+  used: number;
+  expired: number;
+}
+
 export type PaymentLinkStatus = typeof PaymentLinkStatus[keyof typeof PaymentLinkStatus];
 
 

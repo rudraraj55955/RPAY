@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, Copy, Check } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Check, ExternalLink, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 function CodeBlock({ code, language = "bash" }: { code: string; language?: string }) {
@@ -213,6 +213,130 @@ export default function ApiDocs() {
     "merchantId": 42
   }
 }`} />
+          </div>
+        </Section>
+
+        <Section title="Callback Security" badge="HMAC-SHA256">
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+            <ShieldCheck className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-300">Two separate signing secrets</p>
+              <p className="text-xs text-muted-foreground">
+                RasoKart uses <strong className="text-foreground">two distinct secrets</strong> for different directions of data flow:
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-1 mt-1 list-disc list-inside">
+                <li><strong className="text-foreground">Outbound Webhook Secret</strong> — RasoKart signs the event payloads it sends <em>to your endpoint</em> (payment.success, va.credited, etc.). Use this to verify that incoming webhook calls genuinely came from RasoKart.</li>
+                <li><strong className="text-foreground">Inbound Callback Secret</strong> — Your server signs the payment-result callbacks it sends <em>to RasoKart</em> (e.g. after a UPI deep-link redirect). Use this so RasoKart can verify the callback came from you.</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-1">Both secrets are generated on the <a href="/merchant/webhook" className="inline-flex items-center gap-0.5 text-primary underline underline-offset-2">Webhook Settings <ExternalLink className="w-3 h-3" /></a> page.</p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">X-Signature Header Format</p>
+            <p className="text-xs text-muted-foreground mb-2">Every signed request (both directions) carries an <code className="font-mono bg-muted px-1 rounded">X-Signature</code> header in the format:</p>
+            <CodeBlock code={`X-Signature: sha256=<hex-encoded HMAC-SHA256 digest>`} />
+            <p className="text-xs text-muted-foreground mt-2">The digest is computed over the raw request body bytes using the appropriate secret as the HMAC key.</p>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Verify an Inbound Webhook — Node.js</p>
+            <CodeBlock language="javascript" code={`const crypto = require("crypto");
+
+// Your outbound webhook secret from the Webhook Settings page
+const WEBHOOK_SECRET = process.env.RASOKART_WEBHOOK_SECRET;
+
+function verifyRasoKartWebhook(rawBody, signatureHeader) {
+  // signatureHeader is the value of X-Signature from the request
+  const expected = "sha256=" + crypto
+    .createHmac("sha256", WEBHOOK_SECRET)
+    .update(rawBody)          // rawBody must be the raw Buffer, not parsed JSON
+    .digest("hex");
+
+  // Constant-time comparison to prevent timing attacks
+  // Buffers must be the same length or timingSafeEqual throws
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signatureHeader);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// Express example
+app.post("/webhook", express.raw({ type: "application/json" }), (req, res) => {
+  const sig = req.headers["x-signature"];
+  if (!sig || !verifyRasoKartWebhook(req.body, sig)) {
+    return res.status(401).json({ error: "Invalid signature" });
+  }
+  const event = JSON.parse(req.body);
+  // process event.event, event.data …
+  res.json({ received: true });
+});`} />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Verify an Inbound Webhook — Python</p>
+            <CodeBlock language="python" code={`import hmac, hashlib, os
+from flask import Flask, request, abort
+
+WEBHOOK_SECRET = os.environ["RASOKART_WEBHOOK_SECRET"].encode()
+
+app = Flask(__name__)
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    sig_header = request.headers.get("X-Signature", "")
+    body = request.get_data()  # raw bytes — do NOT call request.json() first
+
+    expected = "sha256=" + hmac.new(WEBHOOK_SECRET, body, hashlib.sha256).hexdigest()
+
+    if not hmac.compare_digest(expected, sig_header):
+        abort(401)  # signature mismatch — reject the request
+
+    event = request.get_json()
+    # process event["event"], event["data"] …
+    return {"received": True}, 200`} />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Sign an Outbound Callback — Node.js</p>
+            <p className="text-xs text-muted-foreground mb-2">When your server sends a payment-result callback <em>back to RasoKart</em>, sign it with your inbound callback secret:</p>
+            <CodeBlock language="javascript" code={`const crypto = require("crypto");
+
+// Your inbound callback secret from the Webhook Settings page
+const CALLBACK_SECRET = process.env.RASOKART_CALLBACK_SECRET;
+
+function signCallback(body) {
+  // body must be the JSON string you are about to POST
+  return "sha256=" + crypto
+    .createHmac("sha256", CALLBACK_SECRET)
+    .update(body)
+    .digest("hex");
+}
+
+const payload = JSON.stringify({ transactionId: 101, status: "success" });
+const signature = signCallback(payload);
+
+await fetch("https://your-domain.com/api/callbacks/payment", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-Signature": signature,
+  },
+  body: payload,
+});`} />
+          </div>
+
+          <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 space-y-1">
+            <p className="text-sm font-medium text-rose-300">What happens when verification fails</p>
+            <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+              <li>RasoKart rejects inbound callbacks with a <code className="font-mono bg-muted px-1 rounded">401 Unauthorized</code> response and the payment event is not recorded.</li>
+              <li>Your server should return a non-2xx status for failed outbound webhook signatures. RasoKart will retry delivery up to 5 times with exponential back-off before marking the webhook attempt as failed.</li>
+              <li>Never fall back to accepting unsigned requests — always reject on mismatch to prevent replay or spoofing attacks.</li>
+            </ul>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span>Generate or rotate your signing secrets on the <a href="/merchant/webhook" className="inline-flex items-center gap-0.5 text-primary underline underline-offset-2">Webhook Settings page <ExternalLink className="w-3 h-3" /></a>.</span>
           </div>
         </Section>
 

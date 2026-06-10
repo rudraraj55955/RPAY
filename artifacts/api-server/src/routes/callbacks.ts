@@ -1,108 +1,19 @@
-import { createHmac, timingSafeEqual } from "crypto";
 import { Router } from "express";
 import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable } from "@workspace/db";
 import { eq, and, count, sql, isNull } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { requireApiKey, verifyCallbackSignature } from "../middlewares/callbackAuth";
 import { logger } from "../lib/logger";
 import { fireCallback, scheduleCallbackRetry } from "../helpers/callbackRetry";
 
 const router = Router();
 
-/**
- * Verify an HMAC-SHA256 signature of the raw request body.
- * Expected header format: `X-Signature: sha256=<hex_digest>`
- */
-function verifyHmacSignature(secret: string, rawBody: Buffer, signatureHeader: string): boolean {
-  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-  const provided = signatureHeader.startsWith("sha256=")
-    ? signatureHeader.slice(7)
-    : signatureHeader;
-
-  if (provided.length !== expected.length) return false;
-
-  try {
-    return timingSafeEqual(Buffer.from(provided, "hex"), Buffer.from(expected, "hex"));
-  } catch {
-    return false;
-  }
-}
-
 // POST /api/callbacks — authenticated via X-Api-Key header (merchant API key)
 // If the merchant has configured a callbackSecret, X-Signature is also required.
 // Called by payment providers or merchant back-end to mark a QR as "used" on payment receipt
-router.post("/", async (req, res) => {
-  // --- Authentication via merchant API key ---
-  const apiKeyHeader = (req.headers["x-api-key"] as string | undefined)?.trim();
-  if (!apiKeyHeader) {
-    res.status(401).json({ error: "X-Api-Key header is required" });
-    return;
-  }
-
-  const [keyRow] = await db
-    .select()
-    .from(apiKeysTable)
-    .where(eq(apiKeysTable.apiKey, apiKeyHeader))
-    .limit(1);
-
-  if (!keyRow || !keyRow.isActive) {
-    res.status(401).json({ error: "Invalid or inactive API key" });
-    return;
-  }
-
-  const merchantId = keyRow.merchantId;
-
-  // --- HMAC signature check (if merchant has a callbackSecret configured) ---
-  const [merchant] = await db
-    .select({ callbackSecret: merchantsTable.callbackSecret })
-    .from(merchantsTable)
-    .where(eq(merchantsTable.id, merchantId))
-    .limit(1);
-
-  // signatureVerified: true = HMAC passed, false = HMAC rejected, null = no secret configured
-  let signatureVerified: boolean | null = null;
-
-  if (merchant?.callbackSecret) {
-    const signatureHeader = (req.headers["x-signature"] as string | undefined)?.trim();
-    if (!signatureHeader) {
-      db.insert(callbackLogsTable).values({
-        merchantId,
-        url: req.originalUrl,
-        status: "failed",
-        attempts: 1,
-        lastAttemptAt: new Date(),
-        signatureVerified: false,
-        responseBody: "X-Signature header is required for this merchant",
-      }).catch((err: unknown) => {
-        logger.warn({ err }, "Failed to log signature-missing callback attempt");
-      });
-      res.status(401).json({ error: "X-Signature header is required for this merchant" });
-      return;
-    }
-
-    const rawBody = (req as any).rawBody as Buffer | undefined;
-    if (!rawBody) {
-      res.status(500).json({ error: "Unable to verify signature: raw body unavailable" });
-      return;
-    }
-
-    if (!verifyHmacSignature(merchant.callbackSecret, rawBody, signatureHeader)) {
-      db.insert(callbackLogsTable).values({
-        merchantId,
-        url: req.originalUrl,
-        status: "failed",
-        attempts: 1,
-        lastAttemptAt: new Date(),
-        signatureVerified: false,
-        responseBody: "Invalid X-Signature",
-      }).catch((err: unknown) => {
-        logger.warn({ err }, "Failed to log signature-invalid callback attempt");
-      });
-      res.status(401).json({ error: "Invalid X-Signature" });
-      return;
-    }
-
-    signatureVerified = true;
-  }
+router.post("/", requireApiKey, verifyCallbackSignature, async (req, res) => {
+  const merchantId: number = (req as any).callbackMerchantId;
+  const signatureVerified: boolean | null = (req as any).signatureVerified;
 
   // --- Input validation ---
   const { orderId, merchantReference, amount, transactionId } = req.body as {
@@ -176,9 +87,10 @@ router.post("/", async (req, res) => {
   });
 
   // --- Update API key lastUsedAt (fire-and-forget) ---
+  const apiKeyId: number = (req as any).callbackApiKeyId;
   db.update(apiKeysTable)
     .set({ lastUsedAt: new Date() })
-    .where(eq(apiKeysTable.id, keyRow.id))
+    .where(eq(apiKeysTable.id, apiKeyId))
     .catch(() => {});
 
   // --- Fire the QR's callbackUrl if set (async, non-blocking) — webhook delivery only ---

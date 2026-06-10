@@ -3628,6 +3628,12 @@ components:
         paymentLinkId:
           type: ["integer", "null"]
           description: Payment link this transaction was attributed to
+        connectionId:
+          type: ["integer", "null"]
+          description: FK to merchant_connections — which provider connection this payment came through
+        connectionProvider:
+          type: ["string", "null"]
+          description: Provider key from the linked merchant connection (e.g. phonepe, paytm, upi_id)
         merchantName:
           type: ["string", "null"]
         type:

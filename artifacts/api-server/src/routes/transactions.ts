@@ -79,16 +79,21 @@ router.get("/", async (req, res, next) => {
     const agg = aggRows[0];
 
     const rows = await db
-      .select({ transaction: transactionsTable, merchantName: merchantsTable.businessName })
+      .select({
+        transaction: transactionsTable,
+        merchantName: merchantsTable.businessName,
+        connectionProvider: merchantConnectionsTable.provider,
+      })
       .from(transactionsTable)
       .leftJoin(merchantsTable, eq(transactionsTable.merchantId, merchantsTable.id))
+      .leftJoin(merchantConnectionsTable, eq(transactionsTable.connectionId, merchantConnectionsTable.id))
       .where(where)
       .limit(limitNum)
       .offset(offset)
       .orderBy(sql`${transactionsTable.createdAt} DESC`);
 
     res.json({
-      data: rows.map(r => ({ ...r.transaction, amount: Number(r.transaction.amount), merchantName: r.merchantName ?? null })),
+      data: rows.map(r => ({ ...r.transaction, amount: Number(r.transaction.amount), merchantName: r.merchantName ?? null, connectionProvider: r.connectionProvider ?? null })),
       total,
       page: pageNum,
       limit: limitNum,
@@ -451,15 +456,20 @@ router.get("/search/utr", async (req, res, next) => {
     if (merchantCond) conditions.push(merchantCond);
 
     const rows = await db
-      .select({ transaction: transactionsTable, merchantName: merchantsTable.businessName })
+      .select({
+        transaction: transactionsTable,
+        merchantName: merchantsTable.businessName,
+        connectionProvider: merchantConnectionsTable.provider,
+      })
       .from(transactionsTable)
       .leftJoin(merchantsTable, eq(transactionsTable.merchantId, merchantsTable.id))
+      .leftJoin(merchantConnectionsTable, eq(transactionsTable.connectionId, merchantConnectionsTable.id))
       .where(and(...conditions))
       .limit(1);
 
     if (rows.length === 0) { res.status(404).json({ error: "Transaction not found" }); return; }
     const r = rows[0];
-    res.json({ ...r.transaction, amount: Number(r.transaction.amount), merchantName: r.merchantName ?? null });
+    res.json({ ...r.transaction, amount: Number(r.transaction.amount), merchantName: r.merchantName ?? null, connectionProvider: r.connectionProvider ?? null });
   } catch (err) {
     next(err);
   }
@@ -475,15 +485,20 @@ router.get("/:id", async (req, res, next) => {
     if (merchantCond) conditions.push(merchantCond);
 
     const rows = await db
-      .select({ transaction: transactionsTable, merchantName: merchantsTable.businessName })
+      .select({
+        transaction: transactionsTable,
+        merchantName: merchantsTable.businessName,
+        connectionProvider: merchantConnectionsTable.provider,
+      })
       .from(transactionsTable)
       .leftJoin(merchantsTable, eq(transactionsTable.merchantId, merchantsTable.id))
+      .leftJoin(merchantConnectionsTable, eq(transactionsTable.connectionId, merchantConnectionsTable.id))
       .where(and(...conditions))
       .limit(1);
 
     if (rows.length === 0) { res.status(404).json({ error: "Transaction not found" }); return; }
     const r = rows[0];
-    res.json({ ...r.transaction, amount: Number(r.transaction.amount), merchantName: r.merchantName ?? null });
+    res.json({ ...r.transaction, amount: Number(r.transaction.amount), merchantName: r.merchantName ?? null, connectionProvider: r.connectionProvider ?? null });
   } catch (err) {
     next(err);
   }

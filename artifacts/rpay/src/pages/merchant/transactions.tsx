@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Search, X, Info, Sparkles } from "lucide-react";
+import { Download, Search, X, Info, Sparkles, Zap } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getToken } from "@/lib/auth";
 
@@ -159,6 +159,30 @@ function parseSmartQuery(raw: string): SmartFilter | null {
   }
 
   return null;
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  phonepe: "PhonePe",
+  paytm: "Paytm",
+  bharatpe: "BharatPe",
+  yono_sbi: "YONO SBI",
+  hdfc_smarthub: "HDFC SmartHub",
+  upi_id: "UPI",
+};
+
+function formatProvider(p: string | null | undefined): string {
+  if (!p) return "—";
+  return PROVIDER_LABELS[p] ?? p.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function ProviderBadge({ provider }: { provider: string | null | undefined }) {
+  if (!provider) return <span className="text-muted-foreground text-xs">—</span>;
+  return (
+    <Badge variant="outline" className="text-xs gap-1 border-violet-500/30 text-violet-300 bg-violet-500/10">
+      <Zap className="w-3 h-3" />
+      {formatProvider(provider)}
+    </Badge>
+  );
 }
 
 export default function MerchantTransactions() {
@@ -454,6 +478,7 @@ export default function MerchantTransactions() {
                 <TableHead>UTR</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Provider</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead>Date</TableHead>
@@ -461,14 +486,15 @@ export default function MerchantTransactions() {
             </TableHeader>
             <TableBody>
               {isLoading ? Array.from({ length: 6 }).map((_, i) => (
-                <TableRow key={i}>{Array.from({ length: 6 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
+                <TableRow key={i}>{Array.from({ length: 7 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
               )) : data?.data?.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-10">No transactions found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-10">No transactions found</TableCell></TableRow>
               ) : data?.data?.map(tx => (
                 <TableRow key={tx.id} className={utrSearch ? "bg-amber-500/5 ring-1 ring-inset ring-amber-500/20" : ""}>
                   <TableCell className="font-mono text-xs">{highlightUtr(tx.utr ?? "", utrSearch)}</TableCell>
                   <TableCell><Badge variant="outline" className="text-xs">{tx.type}</Badge></TableCell>
                   <TableCell><StatusBadge status={tx.status} /></TableCell>
+                  <TableCell><ProviderBadge provider={tx.connectionProvider} /></TableCell>
                   <TableCell className="text-right font-mono font-semibold">₹{Number(tx.amount).toLocaleString()}</TableCell>
                   <TableCell className="text-xs text-muted-foreground font-mono">{tx.referenceId || "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{format(new Date(tx.createdAt), "MMM d, HH:mm")}</TableCell>

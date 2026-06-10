@@ -18,6 +18,16 @@ export interface Transaction {
      * @nullable
      */
   paymentLinkId?: number | null;
+  /**
+     * FK to merchant_connections — which provider connection this payment came through
+     * @nullable
+     */
+  connectionId?: number | null;
+  /**
+     * Provider key from the linked merchant connection (e.g. phonepe, paytm, upi_id)
+     * @nullable
+     */
+  connectionProvider?: string | null;
   /** @nullable */
   merchantName?: string | null;
   type: TransactionType;

@@ -902,6 +902,28 @@ export default function AdminMerchants() {
               <p className="text-xs text-muted-foreground">Leave empty for no expiry.</p>
             </div>
 
+            {/* Short / far expiry warnings — bulk */}
+            {bulkExpiresAt && (() => {
+              const days = Math.round((new Date(bulkExpiresAt).getTime() - Date.now()) / 86400000);
+              if (days < 7) return (
+                <div className="flex items-start gap-2.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-yellow-400">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed">
+                    <span className="font-semibold">This plan expires very soon</span> — did you mean a longer period?
+                  </p>
+                </div>
+              );
+              if (days > 730) return (
+                <div className="flex items-start gap-2.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-yellow-400">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed">
+                    <span className="font-semibold">This expiry date is over 2 years away</span> — please confirm.
+                  </p>
+                </div>
+              );
+              return null;
+            })()}
+
             <div className="space-y-2">
               <Label>Notes (optional)</Label>
               <Textarea placeholder="e.g. Batch onboarding, promo upgrade..." rows={2} value={bulkNotes} onChange={e => setBulkNotes(e.target.value)} />
@@ -1059,6 +1081,26 @@ export default function AdminMerchants() {
                         <Label className="text-xs">New Expiry Date</Label>
                         <Input type="date" className="h-8 text-sm" value={renewExpiresAt} onChange={e => setRenewExpiresAt(e.target.value)} min={new Date().toISOString().split("T")[0]} />
                         <p className="text-xs text-muted-foreground">Required. Set the new expiry date for the plan.</p>
+                        {renewExpiresAt && (() => {
+                          const days = Math.round((new Date(renewExpiresAt).getTime() - Date.now()) / 86400000);
+                          if (days < 7) return (
+                            <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-2 text-yellow-400">
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                              <p className="text-xs leading-relaxed">
+                                <span className="font-semibold">This plan expires very soon</span> — did you mean a longer period?
+                              </p>
+                            </div>
+                          );
+                          if (days > 730) return (
+                            <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-2 text-yellow-400">
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                              <p className="text-xs leading-relaxed">
+                                <span className="font-semibold">This expiry date is over 2 years away</span> — please confirm.
+                              </p>
+                            </div>
+                          );
+                          return null;
+                        })()}
                       </div>
                     )}
                     <div className="space-y-1.5">
@@ -1132,6 +1174,28 @@ export default function AdminMerchants() {
                   </p>
                 </div>
               );
+            })()}
+
+            {/* Short / far expiry warnings */}
+            {expiresAt && (() => {
+              const days = Math.round((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+              if (days < 7) return (
+                <div className="flex items-start gap-2.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-yellow-400">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed">
+                    <span className="font-semibold">This plan expires very soon</span> — did you mean a longer period?
+                  </p>
+                </div>
+              );
+              if (days > 730) return (
+                <div className="flex items-start gap-2.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-yellow-400">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed">
+                    <span className="font-semibold">This expiry date is over 2 years away</span> — please confirm.
+                  </p>
+                </div>
+              );
+              return null;
             })()}
 
             {/* Notes */}

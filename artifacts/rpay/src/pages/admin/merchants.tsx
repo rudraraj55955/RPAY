@@ -9,6 +9,7 @@ import {
   useBulkApproveMerchants, useBulkSuspendMerchants,
   useUpdateMerchantBranding, useGetMerchantPlanUsageAdmin,
   getListMerchantsQueryKey,
+  listMerchants,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -81,6 +82,7 @@ export default function AdminMerchants() {
 
   // Bulk selection state
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [selectAllMode, setSelectAllMode] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkPlanId, setBulkPlanId] = useState<string>("");
   const [bulkExpiresAt, setBulkExpiresAt] = useState<string>("");
@@ -275,7 +277,7 @@ export default function AdminMerchants() {
           toast.warning(`${updated} assigned, ${failed} failed`);
         }
         qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
-        setSelected(new Set());
+        clearSelection();
         closeBulkDialog();
       },
       onError: () => toast.error("Bulk plan assignment failed"),
@@ -303,7 +305,7 @@ export default function AdminMerchants() {
             toast.warning(`${updated} approved, ${failed} failed`);
           }
           qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
-          setSelected(new Set());
+          clearSelection();
           setBulkStatusAction(null);
         },
         onError: () => toast.error("Bulk approve failed"),
@@ -319,7 +321,7 @@ export default function AdminMerchants() {
             toast.warning(`${updated} ${verb}, ${failed} failed`);
           }
           qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
-          setSelected(new Set());
+          clearSelection();
           setBulkStatusAction(null);
         },
         onError: () => toast.error(`Bulk ${bulkStatusAction} failed`),
@@ -354,6 +356,24 @@ export default function AdminMerchants() {
   const allPageIds = merchants.map(m => m.id);
   const allPageSelected = allPageIds.length > 0 && allPageIds.every(id => selected.has(id));
   const somePageSelected = allPageIds.some(id => selected.has(id));
+  const selectedOnPage = allPageIds.filter(id => selected.has(id)).length;
+  const selectedOffPage = selected.size - selectedOnPage;
+
+  const clearSelection = () => { setSelected(new Set()); setSelectAllMode(false); };
+
+  const handleSearchChange = (v: string) => { setSearch(v); setPage(1); clearSelection(); };
+  const handleStatusChange = (v: string) => { setStatus(v); setPage(1); clearSelection(); };
+  const handleExpiryChange = (v: "" | "expiring" | "expired") => { setExpiryStatus(v); setPage(1); clearSelection(); };
+
+  const handleSelectAllPages = async () => {
+    try {
+      const allData = await listMerchants({ status: status as any, search, page: 1, limit: total, expiryStatus: expiryStatus as any || undefined });
+      setSelected(new Set(allData.data.map(m => m.id)));
+      setSelectAllMode(true);
+    } catch {
+      toast.error("Failed to select all merchants");
+    }
+  };
 
   const toggleSelectAll = () => {
     if (allPageSelected) {
@@ -362,6 +382,7 @@ export default function AdminMerchants() {
         allPageIds.forEach(id => next.delete(id));
         return next;
       });
+      setSelectAllMode(false);
     } else {
       setSelected(prev => {
         const next = new Set(prev);
@@ -377,6 +398,7 @@ export default function AdminMerchants() {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+    setSelectAllMode(false);
   };
 
   return (
@@ -404,13 +426,13 @@ export default function AdminMerchants() {
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search merchants..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+          <Input className="pl-9" placeholder="Search merchants..." value={search} onChange={e => handleSearchChange(e.target.value)} />
         </div>
         <div className="flex gap-1 flex-wrap">
           {(["all", "pending", "approved", "rejected", "suspended"] as const).map(tab => (
             <button
               key={tab}
-              onClick={() => { setStatus(tab); setPage(1); }}
+              onClick={() => handleStatusChange(tab)}
               className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors border ${
                 status === tab
                   ? "bg-primary text-primary-foreground border-primary"
@@ -429,7 +451,7 @@ export default function AdminMerchants() {
           ] as const).map(tab => (
             <button
               key={tab.value}
-              onClick={() => { setExpiryStatus(tab.value); setPage(1); }}
+              onClick={() => handleExpiryChange(tab.value)}
               className={`px-3 py-1.5 rounded-md text-sm transition-colors border ${
                 expiryStatus === tab.value
                   ? tab.value === "expired"
@@ -448,50 +470,80 @@ export default function AdminMerchants() {
 
       {/* Bulk action toolbar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 flex-wrap">
-          <Users className="w-4 h-4 text-primary shrink-0" />
-          <span className="text-sm font-medium text-primary">{selected.size} merchant{selected.size !== 1 ? "s" : ""} selected</span>
-          <div className="flex gap-2 ml-auto flex-wrap">
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-              onClick={() => setBulkStatusAction("approve")}
-            >
-              <UserCheck className="w-3.5 h-3.5 mr-1.5" />
-              Approve
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
-              onClick={() => setBulkStatusAction("suspend")}
-            >
-              <UserX className="w-3.5 h-3.5 mr-1.5" />
-              Suspend
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-sky-400 border-sky-500/30 hover:bg-sky-500/10"
-              onClick={() => setBulkStatusAction("reinstate")}
-            >
-              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-              Reinstate
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-primary border-primary/30 hover:bg-primary/10"
-              onClick={() => { setBulkPlanId(""); setBulkExpiresAt(""); setBulkNotes(""); setBulkDialogOpen(true); }}
-            >
-              <CreditCard className="w-3.5 h-3.5 mr-1.5" />
-              Assign Plan
-            </Button>
-            <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setSelected(new Set())}>
-              Clear
-            </Button>
+        <div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Users className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-sm font-medium text-primary">
+              {selectAllMode ? `All ${total} merchants selected` : `${selected.size} merchant${selected.size !== 1 ? "s" : ""} selected`}
+              {!selectAllMode && selectedOffPage > 0 && (
+                <span className="text-xs text-primary/60 ml-1.5">(includes {selectedOffPage} from other page{selectedOffPage !== 1 ? "s" : ""})</span>
+              )}
+            </span>
+            <div className="flex gap-2 ml-auto flex-wrap">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                onClick={() => setBulkStatusAction("approve")}
+              >
+                <UserCheck className="w-3.5 h-3.5 mr-1.5" />
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
+                onClick={() => setBulkStatusAction("suspend")}
+              >
+                <UserX className="w-3.5 h-3.5 mr-1.5" />
+                Suspend
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-sky-400 border-sky-500/30 hover:bg-sky-500/10"
+                onClick={() => setBulkStatusAction("reinstate")}
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                Reinstate
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-primary border-primary/30 hover:bg-primary/10"
+                onClick={() => { setBulkPlanId(""); setBulkExpiresAt(""); setBulkNotes(""); setBulkDialogOpen(true); }}
+              >
+                <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                Assign Plan
+              </Button>
+              <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={clearSelection}>
+                Clear
+              </Button>
+            </div>
           </div>
+          {/* Select all pages banner */}
+          {!selectAllMode && allPageSelected && total > merchants.length && (
+            <div className="text-xs text-center text-primary/70 border-t border-primary/20 pt-2">
+              All {merchants.length} merchants on this page are selected.{" "}
+              <button
+                className="underline text-primary font-medium hover:text-primary/80"
+                onClick={handleSelectAllPages}
+              >
+                Select all {total} merchants
+              </button>
+            </div>
+          )}
+          {selectAllMode && (
+            <div className="text-xs text-center text-primary/70 border-t border-primary/20 pt-2">
+              All {total} merchants are selected.{" "}
+              <button
+                className="underline text-primary font-medium hover:text-primary/80"
+                onClick={clearSelection}
+              >
+                Clear selection
+              </button>
+            </div>
+          )}
         </div>
       )}
 

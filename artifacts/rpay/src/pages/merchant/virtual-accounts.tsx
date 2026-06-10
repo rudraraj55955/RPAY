@@ -704,11 +704,12 @@ export default function MerchantVirtualAccounts() {
               </div>
             ) : (() => {
               const chartData = [...balList]
-                .filter(e => e.newBalance != null)
+                .filter(e => e.newBalance != null || e.newTotalCollection != null)
                 .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                 .map(e => ({
                   time: format(new Date(e.createdAt), "MMM d HH:mm"),
-                  balance: parseFloat(e.newBalance!),
+                  balance: e.newBalance != null ? parseFloat(e.newBalance) : undefined,
+                  totalCollection: e.newTotalCollection != null ? parseFloat(e.newTotalCollection) : undefined,
                 }));
               return (
                 <div className="space-y-4">
@@ -718,7 +719,19 @@ export default function MerchantVirtualAccounts() {
                   {chartData.length >= 2 && (
                     <Card className="border-border bg-muted/10">
                       <CardContent className="pt-4 pb-3 px-3">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Balance Over Time</p>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Balance &amp; Collection Over Time</p>
+                          <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <span className="inline-block w-3 h-0.5 rounded bg-emerald-400" />
+                              Balance
+                            </span>
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <span className="inline-block w-3 h-0.5 rounded bg-blue-400" />
+                              Total Collection
+                            </span>
+                          </div>
+                        </div>
                         <ResponsiveContainer width="100%" height={160}>
                           <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -743,7 +756,10 @@ export default function MerchantVirtualAccounts() {
                                 borderRadius: "8px",
                                 fontSize: "12px",
                               }}
-                              formatter={(value: number) => [`₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, "Balance"]}
+                              formatter={(value: number, name: string) => [
+                                `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+                                name === "balance" ? "Balance" : "Total Collection",
+                              ]}
                               labelStyle={{ color: "hsl(var(--muted-foreground))", marginBottom: "4px" }}
                             />
                             <Line
@@ -753,6 +769,16 @@ export default function MerchantVirtualAccounts() {
                               strokeWidth={2}
                               dot={{ fill: "#34d399", r: 3, strokeWidth: 0 }}
                               activeDot={{ r: 5, fill: "#34d399" }}
+                              connectNulls
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="totalCollection"
+                              stroke="#60a5fa"
+                              strokeWidth={2}
+                              dot={{ fill: "#60a5fa", r: 3, strokeWidth: 0 }}
+                              activeDot={{ r: 5, fill: "#60a5fa" }}
+                              connectNulls
                             />
                           </LineChart>
                         </ResponsiveContainer>

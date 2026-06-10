@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Search, X } from "lucide-react";
+import { Download, Search, X, Info } from "lucide-react";
 import { format } from "date-fns";
 import { getToken } from "@/lib/auth";
 
@@ -91,6 +91,22 @@ export default function MerchantTransactions() {
         </CardContent>
       </Card>
 
+      {utrSearch && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-sm">
+          <Info className="w-4 h-4 shrink-0" />
+          <span className="flex-1">
+            Showing results for UTR: <span className="font-mono font-semibold">{utrSearch}</span>
+          </span>
+          <button
+            onClick={() => { setUtrSearch(""); setUtrInput(""); setPage(1); }}
+            className="ml-auto rounded p-0.5 hover:bg-amber-500/20 transition-colors"
+            aria-label="Clear UTR filter"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-wrap gap-3 items-center">
@@ -158,7 +174,7 @@ export default function MerchantTransactions() {
               )) : data?.data?.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-10">No transactions yet</TableCell></TableRow>
               ) : data?.data?.map(tx => (
-                <TableRow key={tx.id}>
+                <TableRow key={tx.id} className={utrSearch ? "bg-amber-500/5 ring-1 ring-inset ring-amber-500/20" : ""}>
                   <TableCell className="font-mono text-xs">{tx.utr}</TableCell>
                   <TableCell><Badge variant="outline" className="text-xs">{tx.type}</Badge></TableCell>
                   <TableCell><StatusBadge status={tx.status} /></TableCell>

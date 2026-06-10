@@ -5,6 +5,7 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListMerchantsExpiryStatus } from './listMerchantsExpiryStatus';
 import type { ListMerchantsStatus } from './listMerchantsStatus';
 
 export type ListMerchantsParams = {
@@ -12,4 +13,5 @@ status?: ListMerchantsStatus;
 search?: string;
 page?: number;
 limit?: number;
+expiryStatus?: ListMerchantsExpiryStatus;
 };

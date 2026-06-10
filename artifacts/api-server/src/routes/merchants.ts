@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, merchantsTable, usersTable, merchantPlansTable, plansTable, planHistoryTable, auditLogsTable, invoicesTable } from "@workspace/db";
-import { eq, ilike, and, or, count, sql, desc } from "drizzle-orm";
+import { eq, ilike, and, or, count, sql, desc, lt, lte, gte, isNotNull } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 
 const router = Router();
@@ -51,10 +51,13 @@ async function logPlanHistory(opts: {
 
 // GET /api/merchants
 router.get("/", requireAdmin, async (req, res) => {
-  const { status, search, page = "1", limit = "20" } = req.query as Record<string, string>;
+  const { status, search, page = "1", limit = "20", expiryStatus } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
+
+  const now = new Date();
+  const sevenDaysLater = new Date(now.getTime() + 7 * 86400000);
 
   const conditions = [];
   if (status && status !== "all") conditions.push(eq(merchantsTable.status, status));
@@ -66,8 +69,31 @@ router.get("/", requireAdmin, async (req, res) => {
     )!);
   }
 
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const [{ total }] = await db.select({ total: count() }).from(merchantsTable).where(where);
+  const planConditions = [];
+  if (expiryStatus === "expired") {
+    planConditions.push(isNotNull(merchantPlansTable.expiresAt));
+    planConditions.push(lt(merchantPlansTable.expiresAt, now));
+  } else if (expiryStatus === "expiring") {
+    planConditions.push(isNotNull(merchantPlansTable.expiresAt));
+    planConditions.push(gte(merchantPlansTable.expiresAt, now));
+    planConditions.push(lte(merchantPlansTable.expiresAt, sevenDaysLater));
+  }
+
+  const allConditions = [...conditions, ...planConditions];
+  const where = allConditions.length > 0 ? and(...allConditions) : undefined;
+
+  let total: number;
+  if (planConditions.length > 0) {
+    const [{ total: t }] = await db
+      .select({ total: count() })
+      .from(merchantsTable)
+      .leftJoin(merchantPlansTable, eq(merchantPlansTable.merchantId, merchantsTable.id))
+      .where(where);
+    total = t;
+  } else {
+    const [{ total: t }] = await db.select({ total: count() }).from(merchantsTable).where(where);
+    total = t;
+  }
 
   const rows = await db
     .select({
@@ -83,7 +109,6 @@ router.get("/", requireAdmin, async (req, res) => {
     .limit(limitNum).offset(offset)
     .orderBy(sql`${merchantsTable.createdAt} DESC`);
 
-  const now = new Date();
   res.json({
     data: rows.map(r => {
       const expiresAt = r.currentPlanExpiresAt ?? null;

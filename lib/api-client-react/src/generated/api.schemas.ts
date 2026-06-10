@@ -1706,6 +1706,7 @@ status?: ListMerchantsStatus;
 search?: string;
 page?: number;
 limit?: number;
+expiryStatus?: ListMerchantsExpiryStatus;
 };
 
 export type ListMerchantsStatus = typeof ListMerchantsStatus[keyof typeof ListMerchantsStatus];
@@ -1722,6 +1723,14 @@ export type BulkAssignMerchantPlan200 = {
   updated: number;
   failed: number;
 };
+
+export type ListMerchantsExpiryStatus = typeof ListMerchantsExpiryStatus[keyof typeof ListMerchantsExpiryStatus];
+
+
+export const ListMerchantsExpiryStatus = {
+  expiring: 'expiring',
+  expired: 'expired',
+} as const;
 
 export type ListInvoicesParams = {
 merchantId?: number;

@@ -112,7 +112,8 @@ export const ListMerchantsQueryParams = zod.object({
   "status": zod.enum(['pending', 'approved', 'rejected', 'all']).optional(),
   "search": zod.coerce.string().optional(),
   "page": zod.coerce.number().optional(),
-  "limit": zod.coerce.number().optional()
+  "limit": zod.coerce.number().optional(),
+  "expiryStatus": zod.enum(['expiring', 'expired']).optional()
 })
 
 export const ListMerchantsResponse = zod.object({

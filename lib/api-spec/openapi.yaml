@@ -204,6 +204,11 @@ paths:
           in: query
           schema:
             type: integer
+        - name: expiryStatus
+          in: query
+          schema:
+            type: string
+            enum: [expiring, expired]
       responses:
         "200":
           description: List of merchants

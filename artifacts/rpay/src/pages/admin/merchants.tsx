@@ -46,6 +46,7 @@ export default function AdminMerchants() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [expiryStatus, setExpiryStatus] = useState<"" | "expiring" | "expired">("");
   const [page, setPage] = useState(1);
   const [rejectId, setRejectId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -69,7 +70,7 @@ export default function AdminMerchants() {
   const [bulkExpiresAt, setBulkExpiresAt] = useState<string>("");
   const [bulkNotes, setBulkNotes] = useState<string>("");
 
-  const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20 });
+  const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined });
   const { data: plans } = useListPlans();
   const { data: currentMerchantPlan, isLoading: planLoading } = useGetMerchantPlan(
     assignPlanMerchant?.id ?? 0,
@@ -354,6 +355,29 @@ export default function AdminMerchants() {
               }`}
             >
               {tab === "all" ? "All" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {([
+            { value: "", label: "Any Expiry" },
+            { value: "expiring", label: "Expiring Soon" },
+            { value: "expired", label: "Expired" },
+          ] as const).map(tab => (
+            <button
+              key={tab.value}
+              onClick={() => { setExpiryStatus(tab.value); setPage(1); }}
+              className={`px-3 py-1.5 rounded-md text-sm transition-colors border ${
+                expiryStatus === tab.value
+                  ? tab.value === "expired"
+                    ? "bg-rose-500/20 text-rose-400 border-rose-500/40"
+                    : tab.value === "expiring"
+                      ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                      : "bg-primary text-primary-foreground border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-transparent"
+              }`}
+            >
+              {tab.label}
             </button>
           ))}
         </div>
@@ -666,74 +690,6 @@ export default function AdminMerchants() {
             <Button variant="outline" onClick={closeBulkDialog}>Cancel</Button>
             <Button onClick={handleBulkAssign} disabled={!bulkPlanId || bulkAssignMutation.isPending}>
               {bulkAssignMutation.isPending ? "Assigning..." : `Assign to ${selected.size} Merchant${selected.size !== 1 ? "s" : ""}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Branding Dialog */}
-      <Dialog open={!!brandingMerchant} onOpenChange={closeBranding}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Paintbrush className="w-4 h-4 text-violet-400" /> Branding — {brandingMerchant?.name}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="adminLogoUrl">Logo URL</Label>
-              <Input
-                id="adminLogoUrl"
-                placeholder="https://yourbrand.com/logo.png"
-                value={brandingLogoUrl}
-                onChange={e => { setBrandingLogoUrl(e.target.value); setBrandingLogoError(false); }}
-              />
-              {brandingLogoUrl && (
-                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border/50">
-                  <p className="text-xs text-muted-foreground shrink-0">Preview:</p>
-                  {brandingLogoError ? (
-                    <span className="text-xs text-rose-400">Could not load image</span>
-                  ) : (
-                    <img
-                      src={brandingLogoUrl}
-                      alt="logo"
-                      className="h-8 max-w-[120px] object-contain rounded"
-                      onError={() => setBrandingLogoError(true)}
-                      onLoad={() => setBrandingLogoError(false)}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="adminBrandColor">Brand Colour</Label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={brandingColor && /^#[0-9a-f]{3,8}$/i.test(brandingColor) ? brandingColor : "#6366f1"}
-                  onChange={e => setBrandingColor(e.target.value)}
-                  className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent p-0.5"
-                />
-                <Input
-                  id="adminBrandColor"
-                  placeholder="#6366f1"
-                  value={brandingColor}
-                  onChange={e => setBrandingColor(e.target.value)}
-                  className="max-w-[160px] font-mono"
-                />
-                {brandingColor && /^#[0-9a-f]{3,8}$/i.test(brandingColor) && (
-                  <div className="w-6 h-6 rounded-full border border-white/20" style={{ background: brandingColor }} />
-                )}
-              </div>
-            </div>
-            {(brandingMerchant?.logoUrl || brandingMerchant?.brandColor) && (
-              <div className="rounded-lg bg-muted/20 border border-border/50 p-3 text-xs text-muted-foreground space-y-1">
-                <p className="font-medium text-foreground">Current saved values:</p>
-                <p>Logo: {brandingMerchant.logoUrl ?? <em>none</em>}</p>
-                <p>Colour: {brandingMerchant.brandColor ?? <em>none</em>}</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeBranding}>Cancel</Button>
-            <Button onClick={handleSaveBranding} disabled={updateBrandingMutation.isPending}>
-              {updateBrandingMutation.isPending ? "Saving…" : "Save Branding"}
             </Button>
           </DialogFooter>
         </DialogContent>

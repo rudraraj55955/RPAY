@@ -60,6 +60,7 @@ export * from './listCallbackLogsStatus';
 export * from './listInvoicesParams';
 export * from './listLedgerEntriesParams';
 export * from './listMerchantFeaturesParams';
+export * from './listMerchantsExpiryStatus';
 export * from './listMerchantsParams';
 export * from './listMerchantsStatus';
 export * from './listNotificationsIsRead';

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, useSendWebhookTest } from "@workspace/api-client-react";
+import type { CallbackLog } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap } from "lucide-react";
+import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const EVENTS = [
@@ -135,6 +136,132 @@ function WebhookTestPanel({ result, onDismiss }: { result: TestResult; onDismiss
   );
 }
 
+function formatJsonBody(raw: string | null | undefined): string {
+  if (!raw) return "";
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
+function DeliveryDetailModal({ log, onClose }: { log: CallbackLog | null; onClose: () => void }) {
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
+  };
+
+  if (!log) return null;
+
+  const reqBody = formatJsonBody(log.requestBody);
+  const resBody = formatJsonBody(log.responseBody);
+
+  return (
+    <Dialog open={!!log} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-primary" />
+            Delivery Details
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-1">
+          {/* Status row */}
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/20 border border-border/50">
+            <StatusBadge status={log.status} />
+            {log.httpStatus != null && (
+              <span className={`text-sm font-mono font-semibold ${log.httpStatus >= 200 && log.httpStatus < 300 ? "text-emerald-400" : "text-rose-400"}`}>
+                HTTP {log.httpStatus}
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground/70 ml-auto">
+              {log.attempts} {log.attempts === 1 ? "attempt" : "attempts"}
+            </span>
+          </div>
+
+          {/* Target URL */}
+          <div>
+            <p className="text-xs text-muted-foreground/60 uppercase tracking-wider mb-1.5 font-medium">Target URL</p>
+            <div className="flex items-center gap-2 bg-black/30 border border-border/40 rounded-lg px-3 py-2">
+              <code className="flex-1 text-xs font-mono text-muted-foreground break-all">{log.url}</code>
+              <button onClick={() => copy(log.url)} className="shrink-0 text-muted-foreground/50 hover:text-muted-foreground transition-colors" title="Copy URL">
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Next retry */}
+          {log.status === "pending_retry" && log.nextRetryAt != null && (
+            <div className="flex items-center gap-2 p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-400">
+              <Clock className="w-4 h-4 shrink-0" />
+              <div>
+                <p className="text-xs font-medium">Next retry scheduled</p>
+                <p className="text-xs text-amber-400/70 font-mono">
+                  {formatDistanceToNow(new Date(log.nextRetryAt), { addSuffix: true })}
+                  {" "}— {new Date(log.nextRetryAt).toLocaleString()}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Request body */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider font-medium">Request Body</p>
+              {reqBody && (
+                <button onClick={() => copy(reqBody)} className="text-muted-foreground/50 hover:text-muted-foreground transition-colors" title="Copy request body">
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {reqBody ? (
+              <pre className="text-xs font-mono bg-black/40 border border-border/30 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all text-green-300/80 max-h-64 overflow-y-auto leading-relaxed">
+                {reqBody}
+              </pre>
+            ) : (
+              <p className="text-xs text-muted-foreground/50 italic px-1">No request body recorded</p>
+            )}
+          </div>
+
+          {/* Response body */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider font-medium">Response Body</p>
+              {resBody && (
+                <button onClick={() => copy(resBody)} className="text-muted-foreground/50 hover:text-muted-foreground transition-colors" title="Copy response body">
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {resBody ? (
+              <pre className="text-xs font-mono bg-black/40 border border-border/30 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all text-muted-foreground max-h-48 overflow-y-auto leading-relaxed">
+                {resBody}
+              </pre>
+            ) : (
+              <p className="text-xs text-muted-foreground/50 italic px-1">No response body recorded</p>
+            )}
+          </div>
+
+          {/* Timestamps */}
+          <div className="grid grid-cols-2 gap-3 pt-1 border-t border-border/40">
+            <div>
+              <p className="text-xs text-muted-foreground/60 mb-0.5">Created</p>
+              <p className="text-xs font-mono text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</p>
+            </div>
+            {log.lastAttemptAt && (
+              <div>
+                <p className="text-xs text-muted-foreground/60 mb-0.5">Last attempt</p>
+                <p className="text-xs font-mono text-muted-foreground">{new Date(log.lastAttemptAt).toLocaleString()}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function MerchantWebhook() {
   const qc = useQueryClient();
   const { data: config, isLoading } = useGetWebhookConfig();
@@ -150,6 +277,7 @@ export default function MerchantWebhook() {
   const [events, setEvents] = useState<string[]>([]);
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [selectedLog, setSelectedLog] = useState<CallbackLog | null>(null);
 
   useEffect(() => {
     if (config) {
@@ -311,7 +439,11 @@ export default function MerchantWebhook() {
           ) : (
             <div className="divide-y divide-border/50">
               {logs.map(log => (
-                <div key={log.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <div
+                  key={log.id}
+                  className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 group cursor-pointer hover:bg-muted/20 -mx-1 px-1 rounded transition-colors"
+                  onClick={() => setSelectedLog(log)}
+                >
                   <div className="w-28 shrink-0">
                     <StatusBadge status={log.status} />
                   </div>
@@ -333,10 +465,13 @@ export default function MerchantWebhook() {
                       </span>
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground/60 shrink-0 text-right">
-                    {log.createdAt
-                      ? formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })
-                      : "—"}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="text-xs text-muted-foreground/60 text-right">
+                      {log.createdAt
+                        ? formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })
+                        : "—"}
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors" />
                   </div>
                 </div>
               ))}
@@ -401,6 +536,8 @@ export default function MerchantWebhook() {
           </div>
         </CardContent>
       </Card>
+
+      <DeliveryDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />
 
       <Dialog open={!!newSecret} onOpenChange={() => setNewSecret(null)}>
         <DialogContent className="max-w-lg">

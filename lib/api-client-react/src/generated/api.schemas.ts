@@ -115,6 +115,28 @@ export interface RejectInput {
   reason: string;
 }
 
+export interface BulkMerchantActionInput {
+  merchantIds: number[];
+}
+
+export type BulkSuspendInputAction = typeof BulkSuspendInputAction[keyof typeof BulkSuspendInputAction];
+
+
+export const BulkSuspendInputAction = {
+  suspend: 'suspend',
+  reinstate: 'reinstate',
+} as const;
+
+export interface BulkSuspendInput {
+  merchantIds: number[];
+  action: BulkSuspendInputAction;
+}
+
+export interface BulkMerchantActionResult {
+  updated: number;
+  failed: number;
+}
+
 export interface BulkAssignPlanInput {
   merchantIds: number[];
   planId: number;
@@ -1719,11 +1741,6 @@ export const ListMerchantsStatus = {
   all: 'all',
 } as const;
 
-export type BulkAssignMerchantPlan200 = {
-  updated: number;
-  failed: number;
-};
-
 export type ListMerchantsExpiryStatus = typeof ListMerchantsExpiryStatus[keyof typeof ListMerchantsExpiryStatus];
 
 
@@ -1731,6 +1748,11 @@ export const ListMerchantsExpiryStatus = {
   expiring: 'expiring',
   expired: 'expired',
 } as const;
+
+export type BulkAssignMerchantPlan200 = {
+  updated: number;
+  failed: number;
+};
 
 export type ListInvoicesParams = {
 merchantId?: number;

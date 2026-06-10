@@ -5,6 +5,7 @@ import {
   useListPlans, useAssignMerchantPlan, useGetMerchantPlan, useGetMerchantPlanHistory,
   useUpgradeMerchantPlan, useDowngradeMerchantPlan, useSuspendMerchantPlan,
   useReinstateMerchantPlan, useRenewMerchantPlan, useBulkAssignMerchantPlan,
+  useBulkApproveMerchants, useBulkSuspendMerchants,
   useUpdateMerchantBranding,
   getListMerchantsQueryKey,
 } from "@workspace/api-client-react";
@@ -21,7 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users } from "lucide-react";
+import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -69,6 +70,7 @@ export default function AdminMerchants() {
   const [bulkPlanId, setBulkPlanId] = useState<string>("");
   const [bulkExpiresAt, setBulkExpiresAt] = useState<string>("");
   const [bulkNotes, setBulkNotes] = useState<string>("");
+  const [bulkStatusAction, setBulkStatusAction] = useState<"approve" | "suspend" | "reinstate" | null>(null);
 
   const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined });
   const { data: plans } = useListPlans();
@@ -92,6 +94,8 @@ export default function AdminMerchants() {
   const reinstatePlanMutation = useReinstateMerchantPlan();
   const renewMutation = useRenewMerchantPlan();
   const bulkAssignMutation = useBulkAssignMerchantPlan();
+  const bulkApproveMutation = useBulkApproveMerchants();
+  const bulkSuspendMutation = useBulkSuspendMerchants();
 
   const invalidatePlanData = (id: number) => {
     qc.invalidateQueries({ queryKey: ["getMerchantPlan", id] });
@@ -266,6 +270,46 @@ export default function AdminMerchants() {
     setBulkNotes("");
   };
 
+  const handleBulkStatusAction = () => {
+    if (!bulkStatusAction || selected.size === 0) return;
+    const ids = Array.from(selected);
+
+    if (bulkStatusAction === "approve") {
+      bulkApproveMutation.mutate({ data: { merchantIds: ids } }, {
+        onSuccess: (result) => {
+          const { updated, failed } = result;
+          if (failed === 0) {
+            toast.success(`${updated} merchant${updated !== 1 ? "s" : ""} approved`);
+          } else {
+            toast.warning(`${updated} approved, ${failed} failed`);
+          }
+          qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+          setSelected(new Set());
+          setBulkStatusAction(null);
+        },
+        onError: () => toast.error("Bulk approve failed"),
+      });
+    } else {
+      bulkSuspendMutation.mutate({ data: { merchantIds: ids, action: bulkStatusAction } }, {
+        onSuccess: (result) => {
+          const { updated, failed } = result;
+          const verb = bulkStatusAction === "suspend" ? "suspended" : "reinstated";
+          if (failed === 0) {
+            toast.success(`${updated} merchant${updated !== 1 ? "s" : ""} ${verb}`);
+          } else {
+            toast.warning(`${updated} ${verb}, ${failed} failed`);
+          }
+          qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+          setSelected(new Set());
+          setBulkStatusAction(null);
+        },
+        onError: () => toast.error(`Bulk ${bulkStatusAction} failed`),
+      });
+    }
+  };
+
+  const isBulkStatusPending = bulkApproveMutation.isPending || bulkSuspendMutation.isPending;
+
   const exportCsv = () => {
     if (!data?.data) return;
     const rows = [["ID", "Business Name", "Contact", "Email", "Phone", "Status", "Balance", "Created"]];
@@ -385,10 +429,37 @@ export default function AdminMerchants() {
 
       {/* Bulk action toolbar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 flex-wrap">
           <Users className="w-4 h-4 text-primary shrink-0" />
           <span className="text-sm font-medium text-primary">{selected.size} merchant{selected.size !== 1 ? "s" : ""} selected</span>
-          <div className="flex gap-2 ml-auto">
+          <div className="flex gap-2 ml-auto flex-wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+              onClick={() => setBulkStatusAction("approve")}
+            >
+              <UserCheck className="w-3.5 h-3.5 mr-1.5" />
+              Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
+              onClick={() => setBulkStatusAction("suspend")}
+            >
+              <UserX className="w-3.5 h-3.5 mr-1.5" />
+              Suspend
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-sky-400 border-sky-500/30 hover:bg-sky-500/10"
+              onClick={() => setBulkStatusAction("reinstate")}
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Reinstate
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -627,6 +698,44 @@ export default function AdminMerchants() {
             <Button variant="outline" onClick={closeBranding}>Cancel</Button>
             <Button onClick={handleSaveBranding} disabled={updateBrandingMutation.isPending}>
               {updateBrandingMutation.isPending ? "Saving…" : "Save Branding"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Status Action Confirmation Dialog */}
+      <Dialog open={!!bulkStatusAction} onOpenChange={open => { if (!open) setBulkStatusAction(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {bulkStatusAction === "approve" && <UserCheck className="w-4 h-4 text-emerald-400" />}
+              {bulkStatusAction === "suspend" && <UserX className="w-4 h-4 text-orange-400" />}
+              {bulkStatusAction === "reinstate" && <RotateCcw className="w-4 h-4 text-sky-400" />}
+              {bulkStatusAction === "approve" && "Approve Merchants"}
+              {bulkStatusAction === "suspend" && "Suspend Merchants"}
+              {bulkStatusAction === "reinstate" && "Reinstate Merchants"}
+            </DialogTitle>
+            <DialogDescription>
+              {bulkStatusAction === "approve" && `Approve ${selected.size} selected merchant${selected.size !== 1 ? "s" : ""}? Their accounts will become active.`}
+              {bulkStatusAction === "suspend" && `Suspend ${selected.size} selected merchant${selected.size !== 1 ? "s" : ""}? They will lose access until reinstated.`}
+              {bulkStatusAction === "reinstate" && `Reinstate ${selected.size} selected merchant${selected.size !== 1 ? "s" : ""}? Their accounts will be reactivated.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkStatusAction(null)} disabled={isBulkStatusPending}>Cancel</Button>
+            <Button
+              onClick={handleBulkStatusAction}
+              disabled={isBulkStatusPending}
+              className={
+                bulkStatusAction === "approve" ? "bg-emerald-600 hover:bg-emerald-700 text-white" :
+                bulkStatusAction === "suspend" ? "bg-orange-600 hover:bg-orange-700 text-white" :
+                "bg-sky-600 hover:bg-sky-700 text-white"
+              }
+            >
+              {isBulkStatusPending ? "Processing..." :
+                bulkStatusAction === "approve" ? `Approve ${selected.size}` :
+                bulkStatusAction === "suspend" ? `Suspend ${selected.size}` :
+                `Reinstate ${selected.size}`}
             </Button>
           </DialogFooter>
         </DialogContent>

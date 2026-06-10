@@ -370,6 +370,44 @@ paths:
                 items:
                   $ref: "#/components/schemas/PlanHistory"
 
+  /merchants/bulk-approve:
+    post:
+      operationId: bulkApproveMerchants
+      tags: [merchants]
+      summary: Bulk-approve multiple merchants (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkMerchantActionInput"
+      responses:
+        "200":
+          description: Merchants approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkMerchantActionResult"
+
+  /merchants/bulk-suspend:
+    post:
+      operationId: bulkSuspendMerchants
+      tags: [merchants]
+      summary: Bulk-suspend or reinstate multiple merchants (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkSuspendInput"
+      responses:
+        "200":
+          description: Merchants suspended or reinstated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkMerchantActionResult"
+
   /merchants/bulk-assign-plan:
     post:
       operationId: bulkAssignMerchantPlan
@@ -3201,6 +3239,36 @@ components:
       properties:
         reason:
           type: string
+
+    BulkMerchantActionInput:
+      type: object
+      required: [merchantIds]
+      properties:
+        merchantIds:
+          type: array
+          items:
+            type: integer
+
+    BulkSuspendInput:
+      type: object
+      required: [merchantIds, action]
+      properties:
+        merchantIds:
+          type: array
+          items:
+            type: integer
+        action:
+          type: string
+          enum: [suspend, reinstate]
+
+    BulkMerchantActionResult:
+      type: object
+      required: [updated, failed]
+      properties:
+        updated:
+          type: integer
+        failed:
+          type: integer
 
     BulkAssignPlanInput:
       type: object

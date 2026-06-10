@@ -358,6 +358,33 @@ export const GetMerchantPlanHistoryResponse = zod.array(GetMerchantPlanHistoryRe
 
 
 /**
+ * @summary Bulk-approve multiple merchants (admin only)
+ */
+export const BulkApproveMerchantsBody = zod.object({
+  "merchantIds": zod.array(zod.number())
+})
+
+export const BulkApproveMerchantsResponse = zod.object({
+  "updated": zod.number(),
+  "failed": zod.number()
+})
+
+
+/**
+ * @summary Bulk-suspend or reinstate multiple merchants (admin only)
+ */
+export const BulkSuspendMerchantsBody = zod.object({
+  "merchantIds": zod.array(zod.number()),
+  "action": zod.enum(['suspend', 'reinstate'])
+})
+
+export const BulkSuspendMerchantsResponse = zod.object({
+  "updated": zod.number(),
+  "failed": zod.number()
+})
+
+
+/**
  * @summary Bulk-assign a plan to multiple merchants (admin only)
  */
 export const BulkAssignMerchantPlanBody = zod.object({

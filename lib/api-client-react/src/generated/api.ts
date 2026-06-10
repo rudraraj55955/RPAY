@@ -41,6 +41,9 @@ import type {
   BulkAssignMerchantPlan200,
   BulkAssignPlanInput,
   BulkFeatureUpdateInput,
+  BulkMerchantActionInput,
+  BulkMerchantActionResult,
+  BulkSuspendInput,
   BulkUpdateMerchantFeatures200,
   CallbackLogListResponse,
   CallbackSecretRotateResponse,
@@ -1291,6 +1294,148 @@ export function useGetMerchantPlanHistory<TData = Awaited<ReturnType<typeof getM
 
 
 
+
+export const getBulkApproveMerchantsUrl = () => {
+
+
+
+
+  return `/api/merchants/bulk-approve`
+}
+
+/**
+ * @summary Bulk-approve multiple merchants (admin only)
+ */
+export const bulkApproveMerchants = async (bulkMerchantActionInput: BulkMerchantActionInput, options?: RequestInit): Promise<BulkMerchantActionResult> => {
+
+  return customFetch<BulkMerchantActionResult>(getBulkApproveMerchantsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      bulkMerchantActionInput,)
+  }
+);}
+
+
+
+
+export const getBulkApproveMerchantsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkApproveMerchants>>, TError,{data: BodyType<BulkMerchantActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkApproveMerchants>>, TError,{data: BodyType<BulkMerchantActionInput>}, TContext> => {
+
+const mutationKey = ['bulkApproveMerchants'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkApproveMerchants>>, {data: BodyType<BulkMerchantActionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  bulkApproveMerchants(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkApproveMerchantsMutationResult = NonNullable<Awaited<ReturnType<typeof bulkApproveMerchants>>>
+    export type BulkApproveMerchantsMutationBody = BodyType<BulkMerchantActionInput>
+    export type BulkApproveMerchantsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Bulk-approve multiple merchants (admin only)
+ */
+export const useBulkApproveMerchants = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkApproveMerchants>>, TError,{data: BodyType<BulkMerchantActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkApproveMerchants>>,
+        TError,
+        {data: BodyType<BulkMerchantActionInput>},
+        TContext
+      > => {
+      return useMutation(getBulkApproveMerchantsMutationOptions(options));
+    }
+
+export const getBulkSuspendMerchantsUrl = () => {
+
+
+
+
+  return `/api/merchants/bulk-suspend`
+}
+
+/**
+ * @summary Bulk-suspend or reinstate multiple merchants (admin only)
+ */
+export const bulkSuspendMerchants = async (bulkSuspendInput: BulkSuspendInput, options?: RequestInit): Promise<BulkMerchantActionResult> => {
+
+  return customFetch<BulkMerchantActionResult>(getBulkSuspendMerchantsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      bulkSuspendInput,)
+  }
+);}
+
+
+
+
+export const getBulkSuspendMerchantsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkSuspendMerchants>>, TError,{data: BodyType<BulkSuspendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkSuspendMerchants>>, TError,{data: BodyType<BulkSuspendInput>}, TContext> => {
+
+const mutationKey = ['bulkSuspendMerchants'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkSuspendMerchants>>, {data: BodyType<BulkSuspendInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  bulkSuspendMerchants(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkSuspendMerchantsMutationResult = NonNullable<Awaited<ReturnType<typeof bulkSuspendMerchants>>>
+    export type BulkSuspendMerchantsMutationBody = BodyType<BulkSuspendInput>
+    export type BulkSuspendMerchantsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Bulk-suspend or reinstate multiple merchants (admin only)
+ */
+export const useBulkSuspendMerchants = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkSuspendMerchants>>, TError,{data: BodyType<BulkSuspendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkSuspendMerchants>>,
+        TError,
+        {data: BodyType<BulkSuspendInput>},
+        TContext
+      > => {
+      return useMutation(getBulkSuspendMerchantsMutationOptions(options));
+    }
 
 export const getBulkAssignMerchantPlanUrl = () => {
 

@@ -243,6 +243,76 @@ router.get("/:id/plan/history", requireAdmin, async (req, res) => {
   res.json(rows.map(r => ({ ...r.h, toPlanName: r.toPlan?.name ?? null, createdAt: r.h.createdAt.toISOString() })));
 });
 
+// POST /api/merchants/bulk-approve
+router.post("/bulk-approve", requireAdmin, async (req, res) => {
+  const user = (req as any).user;
+  const { merchantIds } = req.body;
+  if (!Array.isArray(merchantIds) || merchantIds.length === 0) {
+    res.status(400).json({ error: "merchantIds[] required" });
+    return;
+  }
+
+  let updated = 0;
+  let failed = 0;
+
+  for (const merchantId of merchantIds as number[]) {
+    try {
+      const [merchant] = await db.update(merchantsTable)
+        .set({ status: "approved", rejectionReason: null })
+        .where(eq(merchantsTable.id, merchantId))
+        .returning();
+      if (!merchant) { failed++; continue; }
+      await db.insert(auditLogsTable).values({
+        adminId: user.id, adminEmail: user.email, action: "merchant_approved",
+        targetType: "merchant", targetId: merchantId,
+        details: JSON.stringify({ bulk: true }),
+        ipAddress: (req as any).ip ?? null,
+      });
+      updated++;
+    } catch {
+      failed++;
+    }
+  }
+
+  res.json({ updated, failed });
+});
+
+// POST /api/merchants/bulk-suspend
+router.post("/bulk-suspend", requireAdmin, async (req, res) => {
+  const user = (req as any).user;
+  const { merchantIds, action } = req.body;
+  if (!Array.isArray(merchantIds) || merchantIds.length === 0 || !["suspend", "reinstate"].includes(action)) {
+    res.status(400).json({ error: "merchantIds[] and action (suspend|reinstate) required" });
+    return;
+  }
+
+  const newStatus = action === "suspend" ? "suspended" : "approved";
+  let updated = 0;
+  let failed = 0;
+
+  for (const merchantId of merchantIds as number[]) {
+    try {
+      const [merchant] = await db.update(merchantsTable)
+        .set({ status: newStatus })
+        .where(eq(merchantsTable.id, merchantId))
+        .returning();
+      if (!merchant) { failed++; continue; }
+      await db.insert(auditLogsTable).values({
+        adminId: user.id, adminEmail: user.email,
+        action: action === "suspend" ? "merchant_suspended" : "merchant_reinstated",
+        targetType: "merchant", targetId: merchantId,
+        details: JSON.stringify({ bulk: true }),
+        ipAddress: (req as any).ip ?? null,
+      });
+      updated++;
+    } catch {
+      failed++;
+    }
+  }
+
+  res.json({ updated, failed });
+});
+
 // POST /api/merchants/bulk-assign-plan
 router.post("/bulk-assign-plan", requireAdmin, async (req, res) => {
   const user = (req as any).user;

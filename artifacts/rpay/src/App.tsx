@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,12 +9,16 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { UserRole } from "@workspace/api-client-react";
 import NotFound from "@/pages/not-found";
 
+// Landing Page
+import Landing from "@/pages/landing";
+
 // Auth Pages
 import AdminLogin from "@/pages/admin/login";
 import MerchantLogin from "@/pages/merchant/login";
 import MerchantRegister from "@/pages/merchant/register";
 import MerchantPending from "@/pages/merchant/pending";
 import MerchantSuspended from "@/pages/merchant/suspended";
+import AgentLogin from "@/pages/agent/login";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -111,12 +115,21 @@ function PublicPage({ component: Component }: { component: React.ComponentType }
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={() => <MerchantLogin />} />
-      <Route path="/admin/login" component={AdminLogin} />
-      <Route path="/merchant/login" component={MerchantLogin} />
-      <Route path="/merchant/register" component={MerchantRegister} />
+      {/* Public landing page */}
+      <Route path="/" component={Landing} />
+
+      {/* Auth routes — canonical short URLs */}
+      <Route path="/admin" component={AdminLogin} />
+      <Route path="/merchant" component={MerchantLogin} />
+      <Route path="/agent" component={AgentLogin} />
+      <Route path="/merchant/apply" component={MerchantRegister} />
       <Route path="/merchant/pending" component={MerchantPending} />
       <Route path="/merchant/suspended" component={MerchantSuspended} />
+
+      {/* Legacy login aliases — redirect to canonical short URLs */}
+      <Route path="/admin/login"><Redirect to="/admin" /></Route>
+      <Route path="/merchant/login"><Redirect to="/merchant" /></Route>
+      <Route path="/merchant/register"><Redirect to="/merchant/apply" /></Route>
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard"><AdminRoute component={AdminDashboard} /></Route>

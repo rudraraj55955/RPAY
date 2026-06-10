@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useLogin, UserRole } from "@workspace/api-client-react";
+import { useLogin } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth-context";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
@@ -17,10 +17,10 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function MerchantLogin() {
+export default function AgentLogin() {
   const [_, setLocation] = useLocation();
   const { login: setAuthToken } = useAuth();
-  
+
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -36,13 +36,9 @@ export default function MerchantLogin() {
       { data },
       {
         onSuccess: (res) => {
-          if (res.user.role !== UserRole.merchant) {
-            toast.error("Unauthorized. Merchant access required.");
-            return;
-          }
           setAuthToken(res.token);
-          toast.success("Welcome back.");
-          setLocation("/merchant/dashboard");
+          toast.success("Welcome back, Agent.");
+          setLocation("/admin/dashboard");
         },
         onError: (err) => {
           toast.error(err.message || "Login failed");
@@ -52,7 +48,7 @@ export default function MerchantLogin() {
   };
 
   return (
-    <AuthLayout title="Merchant Portal" subtitle="Sign in to your RasoKart dashboard">
+    <AuthLayout title="Agent Portal" subtitle="Sign in to your RasoKart agent account">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
@@ -62,7 +58,7 @@ export default function MerchantLogin() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="you@company.com" {...field} />
+                  <Input placeholder="agent@rasokart.com" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -81,18 +77,17 @@ export default function MerchantLogin() {
               </FormItem>
             )}
           />
-          <Button 
-            type="submit" 
-            className="w-full" 
+          <Button
+            type="submit"
+            className="w-full"
             disabled={loginMutation.isPending}
           >
             {loginMutation.isPending ? "Authenticating..." : "Sign in"}
           </Button>
-          
-          <div className="text-center mt-4 text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link href="/merchant/apply" className="text-primary hover:underline">
-              Apply for an account
+
+          <div className="text-center text-sm text-muted-foreground">
+            <Link href="/" className="text-primary hover:underline">
+              ← Back to RasoKart
             </Link>
           </div>
         </form>

@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
   if (!user) {
     // Determine where to redirect based on current path
-    const loginPath = location.startsWith("/admin") ? "/admin/login" : "/merchant/login";
+    const loginPath = location.startsWith("/admin") ? "/admin" : "/merchant";
     return <Redirect to={loginPath} />;
   }
 

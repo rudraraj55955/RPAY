@@ -159,7 +159,7 @@ export default function MerchantRegister() {
           
           <div className="text-center mt-4 text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/merchant/login" className="text-primary hover:underline">
+            <Link href="/merchant" className="text-primary hover:underline">
               Sign in
             </Link>
           </div>

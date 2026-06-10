@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { Router } from "express";
 import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable } from "@workspace/db";
 import { eq, and, count, sql } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { logger } from "../lib/logger";
 import { fireCallback, scheduleCallbackRetry } from "../helpers/callbackRetry";
 
@@ -267,6 +267,43 @@ router.post("/secret/rotate", async (req, res) => {
   req.log.info({ merchantId: user.merchantId }, "Callback secret rotated");
 
   res.json({ secret: newSecret });
+});
+
+// POST /api/callbacks/:id/retry — admin only
+router.post("/:id/retry", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params['id'] as string);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid callback log ID" });
+    return;
+  }
+
+  const [log] = await db
+    .select({ id: callbackLogsTable.id, status: callbackLogsTable.status })
+    .from(callbackLogsTable)
+    .where(eq(callbackLogsTable.id, id))
+    .limit(1);
+
+  if (!log) {
+    res.status(404).json({ error: "Callback log not found" });
+    return;
+  }
+
+  if (log.status !== "failed") {
+    res.status(400).json({ error: `Cannot retry a callback in '${log.status}' status — only 'failed' logs can be retried` });
+    return;
+  }
+
+  const now = new Date();
+  await db
+    .update(callbackLogsTable)
+    .set({ status: "pending_retry", attempts: 0, nextRetryAt: now })
+    .where(eq(callbackLogsTable.id, id));
+
+  await scheduleCallbackRetry(id, 0);
+
+  req.log.info({ callbackLogId: id }, "Admin manually triggered callback retry");
+
+  res.json({ success: true, id });
 });
 
 // GET /api/callbacks

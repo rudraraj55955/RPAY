@@ -1086,6 +1086,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/CallbackLogListResponse"
 
+  /callbacks/{id}/retry:
+    post:
+      operationId: retryCallback
+      tags: [callbacks]
+      summary: Manually retry a failed callback log
+      description: Resets a failed callback log to pending_retry status with attempts set to 0 and nextRetryAt set to now. Admin access only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Callback log reset to pending_retry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: integer
+                required: [success, id]
+        "400":
+          description: Callback is not in failed status
+        "403":
+          description: Admin access only
+        "404":
+          description: Callback log not found
+
   /callbacks/secret:
     get:
       operationId: getCallbackSecret

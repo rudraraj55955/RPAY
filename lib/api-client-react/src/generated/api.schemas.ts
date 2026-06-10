@@ -1810,6 +1810,11 @@ export const ListCallbackLogsStatus = {
   all: 'all',
 } as const;
 
+export type RetryCallback200 = {
+  success: boolean;
+  id: number;
+};
+
 export type ListSettlementsParams = {
 merchantId?: number;
 status?: ListSettlementsStatus;

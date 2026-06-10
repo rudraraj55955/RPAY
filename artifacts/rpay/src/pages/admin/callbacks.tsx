@@ -1,17 +1,32 @@
 import { useState } from "react";
-import { useListCallbackLogs } from "@workspace/api-client-react";
+import { useListCallbackLogs, useRetryCallback } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, RefreshCw, RotateCcw } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 function CallbackRow({ log }: { log: any }) {
   const [open, setOpen] = useState(false);
   const isPendingRetry = log.status === "pending_retry";
+  const isFailed = log.status === "failed";
+  const queryClient = useQueryClient();
+  const { mutate: retryCallback, isPending: isRetrying } = useRetryCallback({
+    mutation: {
+      onSuccess: () => {
+        toast.success("Callback queued for retry");
+        queryClient.invalidateQueries({ queryKey: ["listCallbackLogs"] });
+      },
+      onError: () => {
+        toast.error("Failed to queue retry");
+      },
+    },
+  });
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -36,10 +51,24 @@ function CallbackRow({ log }: { log: any }) {
           )}
         </TableCell>
         <TableCell className="text-sm text-muted-foreground">{format(new Date(log.createdAt), "MMM d, HH:mm")}</TableCell>
+        <TableCell onClick={e => e.stopPropagation()}>
+          {isFailed && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs gap-1"
+              disabled={isRetrying}
+              onClick={() => retryCallback({ id: log.id })}
+            >
+              <RotateCcw className={`w-3 h-3 ${isRetrying ? "animate-spin" : ""}`} />
+              Retry
+            </Button>
+          )}
+        </TableCell>
       </TableRow>
       <CollapsibleContent asChild>
         <TableRow>
-          <TableCell colSpan={7} className="bg-muted/20 pb-4">
+          <TableCell colSpan={8} className="bg-muted/20 pb-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2 pt-2">
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Request Body</p>
@@ -95,13 +124,14 @@ export default function AdminCallbacks() {
                 <TableHead className="text-center">Attempts</TableHead>
                 <TableHead>Next Retry</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead className="w-20"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>{Array.from({ length: 7 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
+                <TableRow key={i}>{Array.from({ length: 8 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
               )) : data?.data?.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-10">No callback logs found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-10">No callback logs found</TableCell></TableRow>
               ) : data?.data?.map(log => <CallbackRow key={log.id} log={log} />)}
             </TableBody>
           </Table>

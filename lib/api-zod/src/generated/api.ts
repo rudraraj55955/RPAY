@@ -1051,6 +1051,20 @@ export const ListCallbackLogsResponse = zod.object({
 
 
 /**
+ * Resets a failed callback log to pending_retry status with attempts set to 0 and nextRetryAt set to now. Admin access only.
+ * @summary Manually retry a failed callback log
+ */
+export const RetryCallbackParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RetryCallbackResponse = zod.object({
+  "success": zod.boolean(),
+  "id": zod.number()
+})
+
+
+/**
  * Returns whether a callback signing secret is configured, plus a masked prefix. Merchant access only.
  * @summary Get callback signing secret status
  */

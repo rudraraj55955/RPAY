@@ -129,10 +129,11 @@ import type {
   ReconciliationRun,
   ReconciliationRunInput,
   ReconciliationRunListResponse,
-  ReconciliationSchedulerStatus,
   ReconciliationScheduleConfig,
+  ReconciliationSchedulerStatus,
   RejectInput,
   RenewPlanInput,
+  RetryCallback200,
   SearchByUtrParams,
   Settlement,
   SettlementActionInput,
@@ -3460,6 +3461,77 @@ export function useListCallbackLogs<TData = Awaited<ReturnType<typeof listCallba
 
 
 
+
+export const getRetryCallbackUrl = (id: number,) => {
+
+
+
+
+  return `/api/callbacks/${id}/retry`
+}
+
+/**
+ * Resets a failed callback log to pending_retry status with attempts set to 0 and nextRetryAt set to now. Admin access only.
+ * @summary Manually retry a failed callback log
+ */
+export const retryCallback = async (id: number, options?: RequestInit): Promise<RetryCallback200> => {
+
+  return customFetch<RetryCallback200>(getRetryCallbackUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRetryCallbackMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryCallback>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryCallback>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['retryCallback'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryCallback>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  retryCallback(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryCallbackMutationResult = NonNullable<Awaited<ReturnType<typeof retryCallback>>>
+
+    export type RetryCallbackMutationError = ErrorType<void>
+
+    /**
+ * @summary Manually retry a failed callback log
+ */
+export const useRetryCallback = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryCallback>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryCallback>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRetryCallbackMutationOptions(options));
+    }
 
 export const getGetCallbackSecretUrl = () => {
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListTransactions, useSearchByUtr, useGetTransaction, useAdminCreateTransaction, useAdminUpdateTransaction, useListPaymentLinks, useListMerchants } from "@workspace/api-client-react";
+import { useListTransactions, useSearchByUtr, useGetTransaction, useAdminCreateTransaction, useAdminUpdateTransaction, useListPaymentLinks, useListMerchants, useGetPaymentLink } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,12 @@ function TransactionDetailPanel({ id, open, onClose }: { id: number | null; open
     onClose();
   };
 
+  const paymentLinkId = (tx as any)?.paymentLinkId as number | null | undefined;
+  const { data: paymentLink, isLoading: linkLoading } = useGetPaymentLink(paymentLinkId ?? 0, {
+    query: { enabled: open && !isEditMode && paymentLinkId != null } as any,
+  });
+
+
   const metadataParsed = (() => {
     if (!tx?.metadata) return null;
     try { return JSON.parse(tx.metadata); } catch { return tx.metadata; }
@@ -143,8 +149,8 @@ function TransactionDetailPanel({ id, open, onClose }: { id: number | null; open
 
                 {/* Payment Link row — read or edit */}
                 {!isEditMode ? (
-                  (tx as any).paymentLinkId != null ? (
-                    <DetailRow label="Payment Link" value={`#${(tx as any).paymentLinkId}`} mono />
+                  paymentLinkId != null ? (
+                    <DetailRow label="Payment Link" value={`#${paymentLinkId}`} mono />
                   ) : null
                 ) : (
                   <div className="px-4 py-3 space-y-2">
@@ -230,6 +236,60 @@ function TransactionDetailPanel({ id, open, onClose }: { id: number | null; open
                 )}
               </div>
             </div>
+
+            {/* Payment Link Details */}
+            {paymentLinkId != null && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <Link2 className="w-3.5 h-3.5" /> Payment Link
+                </p>
+                <div className="space-y-0 rounded-lg border divide-y divide-border bg-card/40">
+                  {linkLoading ? (
+                    <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading link details…
+                    </div>
+                  ) : paymentLink ? (
+                    <>
+                      <DetailRow label="Title" value={paymentLink.title} />
+                      <DetailRow label="Slug" value={paymentLink.slug} mono />
+                      <DetailRow
+                        label="Amount"
+                        value={paymentLink.amount != null ? `₹${Number(paymentLink.amount).toLocaleString()}` : "Any"}
+                      />
+                      <DetailRow
+                        label="Payments"
+                        value={
+                          paymentLink.maxPayments != null
+                            ? `${paymentLink.paymentCount} / ${paymentLink.maxPayments}`
+                            : `${paymentLink.paymentCount} (no limit)`
+                        }
+                      />
+                      <div className="flex items-center justify-between gap-4 px-4 py-3">
+                        <span className="text-sm text-muted-foreground shrink-0">Status</span>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs capitalize ${paymentLink.status === "active" ? "border-green-500/40 text-green-400" : paymentLink.status === "expired" ? "border-orange-500/40 text-orange-400" : "border-zinc-500/40 text-zinc-400"}`}
+                        >
+                          {paymentLink.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between gap-4 px-4 py-3">
+                        <span className="text-sm text-muted-foreground shrink-0">Admin page</span>
+                        <a
+                          href={`/admin/payment-links`}
+                          className="text-sm text-primary hover:underline font-mono flex items-center gap-1"
+                          onClick={(e) => { e.preventDefault(); window.location.href = "/admin/payment-links"; }}
+                        >
+                          <Link2 className="w-3 h-3" /> View all links
+                        </a>
+                      </div>
+                    </>
+                  ) : (
+                    <DetailRow label="Payment Link" value={`#${paymentLinkId}`} mono />
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Merchant Info */}
             <div>

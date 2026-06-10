@@ -18,7 +18,7 @@ export default function MerchantTransactions() {
   const [utrSearch, setUtrSearch] = useState("");
   const [utrInput, setUtrInput] = useState("");
 
-  const { data, isLoading } = useListTransactions({ type: type as any, status: status as any, page, limit: 20 });
+  const { data, isLoading } = useListTransactions({ type: type as any, status: status as any, page, limit: 20, search: utrSearch || undefined });
   const { data: utrResult, isLoading: utrLoading, error: utrError } = useSearchByUtr(
     { utr: utrSearch || "" },
     { query: { enabled: !!utrSearch } as any }
@@ -28,6 +28,7 @@ export default function MerchantTransactions() {
     const params = new URLSearchParams();
     if (type && type !== "all") params.set("type", type);
     if (status && status !== "all") params.set("status", status);
+    if (utrSearch) params.set("search", utrSearch);
     const url = `/api/transactions/export/csv?${params.toString()}`;
     const token = getToken();
     const res = await fetch(url, {
@@ -55,10 +56,10 @@ export default function MerchantTransactions() {
           <div className="flex gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input className="pl-9 font-mono" placeholder="Enter UTR number..." value={utrInput} onChange={e => setUtrInput(e.target.value)} onKeyDown={e => e.key === "Enter" && setUtrSearch(utrInput)} />
+              <Input className="pl-9 font-mono" placeholder="Enter UTR number..." value={utrInput} onChange={e => setUtrInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { setUtrSearch(utrInput); setPage(1); } }} />
             </div>
-            <Button onClick={() => setUtrSearch(utrInput)} disabled={!utrInput}>Search</Button>
-            {utrSearch && <Button variant="ghost" size="icon" onClick={() => { setUtrSearch(""); setUtrInput(""); }}><X className="w-4 h-4" /></Button>}
+            <Button onClick={() => { setUtrSearch(utrInput); setPage(1); }} disabled={!utrInput}>Search</Button>
+            {utrSearch && <Button variant="ghost" size="icon" onClick={() => { setUtrSearch(""); setUtrInput(""); setPage(1); }}><X className="w-4 h-4" /></Button>}
           </div>
           {utrSearch && (
             <div className="mt-3 p-3 rounded-lg border bg-card/50">

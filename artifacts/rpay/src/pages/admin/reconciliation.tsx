@@ -896,6 +896,7 @@ export default function AdminReconciliation() {
                         a.download = `reconciliation-run-${selectedRunId}${suffix}.csv`;
                         a.click();
                         URL.revokeObjectURL(url);
+                        toast.success("Export downloaded");
                       })
                       .catch(() => toast.error("Failed to export CSV"))
                       .finally(() => setIsExporting(false));

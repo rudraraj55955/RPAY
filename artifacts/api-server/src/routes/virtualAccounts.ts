@@ -239,7 +239,19 @@ router.put("/:id", async (req, res) => {
   if (balance !== undefined || totalCollection !== undefined) {
     const effectiveBalance = balance !== undefined ? parseFloat(balance) : parseFloat(existing.balance);
     const effectiveTotalCollection = totalCollection !== undefined ? parseFloat(totalCollection) : parseFloat(existing.totalCollection);
-    if (!isNaN(effectiveBalance) && !isNaN(effectiveTotalCollection) && effectiveBalance > effectiveTotalCollection) {
+    if (isNaN(effectiveBalance)) {
+      res.status(400).json({ error: "Balance must be a valid number" }); return;
+    }
+    if (isNaN(effectiveTotalCollection)) {
+      res.status(400).json({ error: "Total collection must be a valid number" }); return;
+    }
+    if (effectiveBalance < 0) {
+      res.status(400).json({ error: "Balance cannot be negative" }); return;
+    }
+    if (effectiveTotalCollection < 0) {
+      res.status(400).json({ error: "Total collection cannot be negative" }); return;
+    }
+    if (effectiveBalance > effectiveTotalCollection) {
       res.status(400).json({ error: "Balance cannot exceed total collection" }); return;
     }
   }

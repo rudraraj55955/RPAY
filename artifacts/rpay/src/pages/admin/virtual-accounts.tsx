@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ExportCsvButton } from "@/components/ui/export-csv-button";
 import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
-import { Search, XCircle, Trash2, X, Eye, Download, Calendar, RefreshCw, Pencil, AlertCircle, Copy, QrCode, History } from "lucide-react";
+import { Search, XCircle, Trash2, X, Eye, Download, Calendar, RefreshCw, Pencil, AlertCircle, Copy, QrCode, History, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
@@ -49,7 +49,8 @@ export default function AdminVirtualAccounts() {
   const [selectedVa, setSelectedVa] = useState<VaRow | null>(null);
   const [drawerTab, setDrawerTab] = useState<"transactions" | "history">("transactions");
   const [editVa, setEditVa] = useState<VaRow | null>(null);
-  const [editForm, setEditForm] = useState({ balance: "", totalCollection: "" });
+  const [editMode, setEditMode] = useState<"balance" | "collection">("balance");
+  const [editValue, setEditValue] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
 
   const { lastRefreshed, isRefreshing, handleRefresh } = useMonitoringRefresh(
@@ -95,31 +96,56 @@ export default function AdminVirtualAccounts() {
     });
   };
 
-  const openEditBalance = (va: VaRow) => {
+  const openAdjustBalance = (va: VaRow) => {
     setEditVa(va);
-    setEditForm({ balance: va.balance ?? "0.00", totalCollection: va.totalCollection ?? "0.00" });
+    setEditMode("balance");
+    setEditValue(va.balance ?? "0.00");
     setEditError(null);
   };
 
-  const handleEditBalance = () => {
+  const openRecordCollection = (va: VaRow) => {
+    setEditVa(va);
+    setEditMode("collection");
+    setEditValue(va.totalCollection ?? "0.00");
     setEditError(null);
-    const balance = parseFloat(editForm.balance);
-    const totalCollection = parseFloat(editForm.totalCollection);
-    if (isNaN(balance) || balance < 0) { setEditError("Balance must be a non-negative number."); return; }
-    if (isNaN(totalCollection) || totalCollection < 0) { setEditError("Total collection must be a non-negative number."); return; }
-    if (balance > totalCollection) { setEditError("Current balance cannot exceed total collection."); return; }
+  };
+
+  const handleEditSave = () => {
+    setEditError(null);
+    const val = parseFloat(editValue);
+    if (isNaN(val) || val < 0) {
+      setEditError(`${editMode === "balance" ? "Balance" : "Total collection"} must be a non-negative number.`);
+      return;
+    }
+    const vaId = editVa!.id;
+    let payload: Record<string, string>;
+    if (editMode === "balance") {
+      const currentTc = parseFloat(editVa!.totalCollection);
+      if (val > currentTc) {
+        setEditError(`Balance cannot exceed total collection (₹${currentTc.toFixed(2)}).`);
+        return;
+      }
+      payload = { balance: val.toFixed(2) };
+    } else {
+      const currentBal = parseFloat(editVa!.balance);
+      if (val < currentBal) {
+        setEditError(`Total collection cannot be set below the current balance (₹${currentBal.toFixed(2)}).`);
+        return;
+      }
+      payload = { totalCollection: val.toFixed(2) };
+    }
     updateMutation.mutate(
-      { id: editVa!.id, data: { balance: balance.toFixed(2), totalCollection: totalCollection.toFixed(2) } as any },
+      { id: vaId, data: payload as any },
       {
         onSuccess: () => {
-          toast.success("Balance updated");
+          toast.success(editMode === "balance" ? "Balance adjusted" : "Collection recorded");
           setEditVa(null);
           qc.invalidateQueries({ queryKey: ["/api/virtual-accounts"] });
-          qc.invalidateQueries({ queryKey: [`/api/virtual-accounts/${editVa!.id}/balance-history`] });
+          qc.invalidateQueries({ queryKey: [`/api/virtual-accounts/${vaId}/balance-history`] });
         },
         onError: (err: any) => {
           const msg = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
-          setEditError(msg ?? "Failed to update balance.");
+          setEditError(msg ?? "Failed to update.");
         },
       }
     );
@@ -284,8 +310,12 @@ export default function AdminVirtualAccounts() {
                         <History className="w-3.5 h-3.5" />
                       </Button>
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-violet-400 hover:text-violet-300 hover:bg-violet-500/10"
-                        title="Update Balance" onClick={() => openEditBalance(va)}>
+                        title="Adjust Balance" onClick={() => openAdjustBalance(va)}>
                         <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                        title="Record Manual Collection" onClick={() => openRecordCollection(va)}>
+                        <TrendingUp className="w-3.5 h-3.5" />
                       </Button>
                       {va.status === "active" && (
                         <Button size="sm" variant="ghost" className="text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 h-8 text-xs"
@@ -316,11 +346,13 @@ export default function AdminVirtualAccounts() {
         </div>
       )}
 
-      {/* Edit Balance Dialog */}
+      {/* Adjust Balance / Record Collection Dialog */}
       <Dialog open={!!editVa} onOpenChange={v => { if (!v) setEditVa(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Update Balance</DialogTitle>
+            <DialogTitle>
+              {editMode === "balance" ? "Adjust Current Balance" : "Record Manual Collection"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {editError && (
@@ -334,45 +366,35 @@ export default function AdminVirtualAccounts() {
                 {editVa.merchantName ?? "—"} · {editVa.accountHolder} · <span className="font-mono">{editVa.accountNumber}</span>
               </p>
             )}
+            {editVa && editMode === "balance" && (
+              <div className="rounded-md bg-violet-500/10 border border-violet-500/20 px-3 py-2 text-xs text-violet-300">
+                Sets the available balance. Must be between ₹0.00 and the total collection of{" "}
+                <span className="font-semibold font-mono">₹{parseFloat(editVa.totalCollection).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>.
+              </div>
+            )}
+            {editVa && editMode === "collection" && (
+              <div className="rounded-md bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-300">
+                Records cumulative funds received. Must be ≥ the current balance of{" "}
+                <span className="font-semibold font-mono">₹{parseFloat(editVa.balance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>.
+              </div>
+            )}
             <div className="space-y-1.5">
-              <Label>Current Balance (₹)</Label>
+              <Label>{editMode === "balance" ? "New Balance (₹)" : "New Total Collection (₹)"}</Label>
               <Input
                 type="number"
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                value={editForm.balance}
-                onChange={e => setEditForm(f => ({ ...f, balance: e.target.value }))}
-              />
-              {(() => {
-                const tc = parseFloat(editForm.totalCollection);
-                const bal = parseFloat(editForm.balance);
-                const exceeded = !isNaN(bal) && !isNaN(tc) && bal > tc;
-                if (isNaN(tc) || tc < 0) return null;
-                return (
-                  <p className={`text-xs flex items-center gap-1 ${exceeded ? "text-rose-400" : "text-muted-foreground"}`}>
-                    <AlertCircle className={`w-3 h-3 shrink-0 ${exceeded ? "opacity-100" : "opacity-0"}`} />
-                    Cannot exceed Total Collection (₹{tc.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                  </p>
-                );
-              })()}
-            </div>
-            <div className="space-y-1.5">
-              <Label>Total Collection (₹)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={editForm.totalCollection}
-                onChange={e => setEditForm(f => ({ ...f, totalCollection: e.target.value }))}
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                autoFocus
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditVa(null)}>Cancel</Button>
-            <Button onClick={handleEditBalance} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? "Saving..." : "Save Changes"}
+            <Button onClick={handleEditSave} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? "Saving..." : editMode === "balance" ? "Adjust Balance" : "Record Collection"}
             </Button>
           </DialogFooter>
         </DialogContent>

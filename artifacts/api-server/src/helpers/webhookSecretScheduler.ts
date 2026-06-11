@@ -4,9 +4,9 @@ import { checkWebhookSecretRotation } from "./webhookSecretChecker";
 
 async function runWebhookSecretCheck(): Promise<void> {
   try {
-    const { reminderCount, overdueCount, notificationsSent } = await checkWebhookSecretRotation();
+    const { reminderCount, overdueCount, notificationsSent, emailsSent } = await checkWebhookSecretRotation();
     logger.info(
-      { reminderCount, overdueCount, notificationsSent },
+      { reminderCount, overdueCount, notificationsSent, emailsSent },
       "Webhook secret rotation check complete",
     );
   } catch (err) {

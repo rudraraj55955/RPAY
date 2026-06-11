@@ -1,6 +1,7 @@
 import { db, merchantsTable, usersTable, notificationsTable } from "@workspace/db";
 import { eq, and, isNotNull, lt, sql } from "drizzle-orm";
 import { createBulkNotifications } from "./notifications";
+import { sendWebhookSecretRotationEmail } from "./webhookSecretRotationEmail";
 
 const REMINDER_DAYS = 75;
 const OVERDUE_DAYS = 90;
@@ -17,6 +18,7 @@ export async function checkWebhookSecretRotation(): Promise<{
   reminderCount: number;
   overdueCount: number;
   notificationsSent: number;
+  emailsSent: number;
 }> {
   const now = new Date();
   const reminderThreshold = new Date(now.getTime() - REMINDER_DAYS * 24 * 60 * 60 * 1000);
@@ -27,6 +29,7 @@ export async function checkWebhookSecretRotation(): Promise<{
     .select({
       merchantId: merchantsTable.id,
       businessName: merchantsTable.businessName,
+      email: merchantsTable.email,
       callbackSecretUpdatedAt: merchantsTable.callbackSecretUpdatedAt,
       userId: usersTable.id,
     })
@@ -42,13 +45,14 @@ export async function checkWebhookSecretRotation(): Promise<{
     );
 
   if (stale.length === 0) {
-    return { reminderCount: 0, overdueCount: 0, notificationsSent: 0 };
+    return { reminderCount: 0, overdueCount: 0, notificationsSent: 0, emailsSent: 0 };
   }
 
   const todayStr  = now.toISOString().slice(0, 10);           // YYYY-MM-DD
   const weekStart = getISOWeekStart(now).toISOString().slice(0, 10); // week bucket
 
   const toInsert: Parameters<typeof createBulkNotifications>[0] = [];
+  const pendingEmails: Array<{ to: string; businessName: string; daysSince: number; isOverdue: boolean }> = [];
   let reminderCount = 0;
   let overdueCount  = 0;
 
@@ -88,6 +92,7 @@ export async function checkWebhookSecretRotation(): Promise<{
           actionUrl: "/merchant/webhook",
         },
       });
+      pendingEmails.push({ to: row.email, businessName: row.businessName, daysSince, isOverdue: true });
     } else {
       // Reminder tier (75–89 days): dedupe once per ISO week
       const dedupeKey = `webhook_secret_reminder_${weekStart}`;
@@ -119,6 +124,7 @@ export async function checkWebhookSecretRotation(): Promise<{
           actionUrl: "/merchant/webhook",
         },
       });
+      pendingEmails.push({ to: row.email, businessName: row.businessName, daysSince, isOverdue: false });
     }
   }
 
@@ -126,10 +132,20 @@ export async function checkWebhookSecretRotation(): Promise<{
     await createBulkNotifications(toInsert);
   }
 
+  // Send emails — fire-and-forget with allSettled so one failure doesn't block others
+  let emailsSent = 0;
+  if (pendingEmails.length > 0) {
+    const emailResults = await Promise.allSettled(
+      pendingEmails.map(e => sendWebhookSecretRotationEmail(e)),
+    );
+    emailsSent = emailResults.filter(r => r.status === "fulfilled" && r.value === true).length;
+  }
+
   return {
     reminderCount,
     overdueCount,
     notificationsSent: toInsert.length,
+    emailsSent,
   };
 }
 

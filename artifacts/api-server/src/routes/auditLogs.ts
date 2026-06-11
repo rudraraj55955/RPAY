@@ -728,6 +728,19 @@ router.delete("/schedules/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+// DELETE /api/audit-logs/test-email-history
+// Removes all audit log entries with action = 'test_email_sent'.
+router.delete("/test-email-history", async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  const result = await db
+    .delete(auditLogsTable)
+    .where(eq(auditLogsTable.action, "test_email_sent"))
+    .returning({ id: auditLogsTable.id });
+
+  res.json({ deleted: result.length });
+});
+
 router.post("/schedules/:id/send", async (req, res) => {
   if (!ensureAdmin(req, res)) return;
   const id = parseInt(req.params['id'] as string);

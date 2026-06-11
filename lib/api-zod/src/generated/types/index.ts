@@ -74,6 +74,7 @@ export * from './chartDataPoint';
 export * from './cleanupJobStats';
 export * from './cleanupStats';
 export * from './clearSignatureFailureAlertHistory200';
+export * from './clearTestEmailHistory200';
 export * from './createSavedFilterInput';
 export * from './createSavedFilterInputFilterData';
 export * from './createSettlementInput';

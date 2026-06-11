@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable, signatureFailureAlertLogsTable } from "@workspace/db";
-import { inArray, desc, count } from "drizzle-orm";
+import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable, signatureFailureAlertLogsTable, storageCleanupRunsTable, uploadedObjectsTable, merchantsTable } from "@workspace/db";
+import { inArray, desc, count, sql } from "drizzle-orm";
+import { ObjectStorageService } from "../lib/objectStorage";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { rescheduleFromDb, getNextRunTime } from "../helpers/reconScheduler";
 import { loadQrCleanupRetentionDays, loadQrCleanupLastRun } from "../helpers/qrCleanupScheduler";
@@ -8,7 +9,6 @@ import { loadVaCleanupRetentionDays, loadVaCleanupLastRun, runVaCleanup } from "
 import { loadTestEmailRetentionDays, runTestEmailRetentionCleanup } from "../helpers/testEmailRetentionScheduler";
 import { loadAuditReportLogRetentionDays } from "../helpers/auditReportRetentionScheduler";
 import { resetAlertRateLimit } from "../helpers/signatureFailureAlert";
-import { sql } from "drizzle-orm";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -727,6 +727,118 @@ router.get("/cleanup-stats", async (req, res, next) => {
         lastRunDeleted: auditLastRunDeletedRaw != null ? parseInt(auditLastRunDeletedRaw) : null,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/system-config/storage-cleanup/runs
+router.get("/storage-cleanup/runs", async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(1, parseInt((req.query['limit'] as string) || "20") || 20), 100);
+
+    const [rows, [{ total }]] = await Promise.all([
+      db
+        .select()
+        .from(storageCleanupRunsTable)
+        .orderBy(desc(storageCleanupRunsTable.createdAt))
+        .limit(limit),
+      db.select({ total: count() }).from(storageCleanupRunsTable),
+    ]);
+
+    res.json({
+      data: rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })),
+      total,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Normalise any form of a stored logo URL to the canonical /objects/<id> path
+ * so it can be compared directly to uploadedObjectsTable.objectPath.
+ *
+ * Handles:
+ *   /objects/uuid                          → /objects/uuid   (already canonical)
+ *   /api/storage/objects/uuid              → /objects/uuid
+ *   https://domain.com/api/storage/objects/uuid → /objects/uuid
+ */
+function normaliseToObjectPath(url: string): string | null {
+  if (url.startsWith("/objects/")) return url;
+
+  const OBJECTS_SEGMENT = "/storage/objects/";
+  const idx = url.indexOf(OBJECTS_SEGMENT);
+  if (idx !== -1) {
+    return `/objects/${url.slice(idx + OBJECTS_SEGMENT.length)}`;
+  }
+
+  return null;
+}
+
+// POST /api/system-config/storage-cleanup/run
+router.post("/storage-cleanup/run", async (req, res, next) => {
+  const objectStorageService = new ObjectStorageService();
+
+  try {
+    // Collect all objectPaths currently referenced by a merchant logo (normalised)
+    const merchantLogos = await db
+      .select({ logoUrl: merchantsTable.logoUrl })
+      .from(merchantsTable)
+      .where(sql`${merchantsTable.logoUrl} IS NOT NULL`);
+
+    const referencedPaths = new Set<string>();
+    for (const { logoUrl } of merchantLogos) {
+      if (!logoUrl) continue;
+      const canonical = normaliseToObjectPath(logoUrl);
+      if (canonical) referencedPaths.add(canonical);
+    }
+
+    // Fetch all uploaded-objects DB records
+    const allObjects = await db
+      .select({ id: uploadedObjectsTable.id, objectPath: uploadedObjectsTable.objectPath })
+      .from(uploadedObjectsTable);
+
+    const totalScanned = allObjects.length;
+
+    // Orphans: records whose objectPath is not referenced by any active merchant logo
+    const orphaned = allObjects.filter(obj => !referencedPaths.has(obj.objectPath));
+
+    let deleted = 0;
+    let errors = 0;
+    const successfullyDeletedIds: number[] = [];
+
+    for (const obj of orphaned) {
+      try {
+        await objectStorageService.deleteObjectEntity(obj.objectPath);
+        successfullyDeletedIds.push(obj.id);
+      } catch (err) {
+        errors += 1;
+        req.log.error({ err, objectPath: obj.objectPath }, "Failed to delete orphaned object from storage");
+      }
+    }
+
+    // Remove DB rows only for objects successfully deleted from storage
+    if (successfullyDeletedIds.length > 0) {
+      try {
+        await db
+          .delete(uploadedObjectsTable)
+          .where(sql`${uploadedObjectsTable.id} IN (${sql.join(successfullyDeletedIds.map(id => sql`${id}`), sql`, `)})`);
+        deleted = successfullyDeletedIds.length;
+      } catch (err) {
+        errors += 1;
+        req.log.error({ err }, "Failed to delete orphaned rows from uploaded_objects table");
+      }
+    }
+
+    // Record this cleanup run
+    await db
+      .insert(storageCleanupRunsTable)
+      .values({ totalScanned, deleted, errors, triggeredBy: "manual" });
+
+    req.log.info({ totalScanned, deleted, errors }, "Storage cleanup run completed manually");
+
+    res.json({ totalScanned, deleted, errors });
   } catch (err) {
     next(err);
   }

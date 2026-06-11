@@ -3216,6 +3216,11 @@ merchantId?: number;
 settingKey?: string;
 };
 
+export type ClearTestEmailHistory200 = {
+  /** Number of test email audit log rows deleted */
+  deleted: number;
+};
+
 export type ListMerchantFeaturesParams = {
 search?: string;
 page?: number;

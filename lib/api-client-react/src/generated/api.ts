@@ -66,6 +66,7 @@ import type {
   ChartDataPoint,
   CleanupStats,
   ClearSignatureFailureAlertHistory200,
+  ClearTestEmailHistory200,
   CreateSavedFilterInput,
   CreateSettlementInput,
   CredentialEventList,
@@ -10767,6 +10768,76 @@ export const useCreateAdminAuditLog = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateAdminAuditLogMutationOptions(options));
+    }
+
+export const getClearTestEmailHistoryUrl = () => {
+
+
+
+
+  return `/api/audit-logs/test-email-history`
+}
+
+/**
+ * @summary Delete all test email audit log entries (admin only)
+ */
+export const clearTestEmailHistory = async ( options?: RequestInit): Promise<ClearTestEmailHistory200> => {
+
+  return customFetch<ClearTestEmailHistory200>(getClearTestEmailHistoryUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getClearTestEmailHistoryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearTestEmailHistory>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearTestEmailHistory>>, TError,void, TContext> => {
+
+const mutationKey = ['clearTestEmailHistory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearTestEmailHistory>>, void> = () => {
+
+
+          return  clearTestEmailHistory(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClearTestEmailHistoryMutationResult = NonNullable<Awaited<ReturnType<typeof clearTestEmailHistory>>>
+
+    export type ClearTestEmailHistoryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete all test email audit log entries (admin only)
+ */
+export const useClearTestEmailHistory = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearTestEmailHistory>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof clearTestEmailHistory>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getClearTestEmailHistoryMutationOptions(options));
     }
 
 export const getGetDashboardProviderVolumesUrl = () => {

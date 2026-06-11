@@ -3388,6 +3388,14 @@ export const CreateAdminAuditLogBody = zod.object({
 
 
 /**
+ * @summary Delete all test email audit log entries (admin only)
+ */
+export const ClearTestEmailHistoryResponse = zod.object({
+  "deleted": zod.number().describe('Number of test email audit log rows deleted')
+})
+
+
+/**
  * @summary Get transaction volume breakdown by provider (admin only)
  */
 export const GetDashboardProviderVolumesResponse = zod.object({

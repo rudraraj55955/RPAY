@@ -54,7 +54,7 @@ log "Branch  : $BRANCH"
 # ─────────────────────────────────────────────
 # Step 1 — Pull latest code
 # ─────────────────────────────────────────────
-step "1/7  Pull latest code"
+step "1/8  Pull latest code"
 git fetch origin "$BRANCH"
 LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse "origin/$BRANCH")
@@ -68,28 +68,35 @@ fi
 # ─────────────────────────────────────────────
 # Step 2 — Install dependencies
 # ─────────────────────────────────────────────
-step "2/7  Install dependencies"
+step "2/8  Install dependencies"
 pnpm install --frozen-lockfile
 log "Dependencies installed"
 
 # ─────────────────────────────────────────────
-# Step 3 — Push DB schema (idempotent)
+# Step 3 — Build lib declarations
 # ─────────────────────────────────────────────
-step "3/7  Push DB schema"
+step "3/8  Build lib declarations"
+pnpm run typecheck:libs
+log "Lib declarations built"
+
+# ─────────────────────────────────────────────
+# Step 4 — Push DB schema (idempotent)
+# ─────────────────────────────────────────────
+step "4/8  Push DB schema"
 (cd "$APP_DIR/lib/db" && pnpm run push)
 log "Schema up to date"
 
 # ─────────────────────────────────────────────
-# Step 4 — Build API server
+# Step 5 — Build API server
 # ─────────────────────────────────────────────
-step "4/7  Build API server"
+step "5/8  Build API server"
 pnpm --filter @workspace/api-server run build
 log "API server built → $API_DIR/dist/index.mjs"
 
 # ─────────────────────────────────────────────
-# Step 5 — Restart PM2
+# Step 6 — Restart PM2
 # ─────────────────────────────────────────────
-step "5/7  Restart PM2 ($PM2_NAME)"
+step "6/8  Restart PM2 ($PM2_NAME)"
 if pm2 describe "$PM2_NAME" &>/dev/null; then
   pm2 restart "$PM2_NAME"
   log "PM2 process restarted"
@@ -110,17 +117,17 @@ else
 fi
 
 # ─────────────────────────────────────────────
-# Step 6 — Build frontend
+# Step 7 — Build frontend
 # ─────────────────────────────────────────────
-step "6/7  Build frontend"
+step "7/8  Build frontend"
 PORT=3000 BASE_PATH=/ pnpm --filter @workspace/rpay run build
 [[ -d "$DIST_DIR" ]] || die "Build output not found at $DIST_DIR"
 log "Frontend built → $DIST_DIR ($(du -sh "$DIST_DIR" | cut -f1))"
 
 # ─────────────────────────────────────────────
-# Step 7 — Reload nginx
+# Step 8 — Reload nginx
 # ─────────────────────────────────────────────
-step "7/7  Reload nginx"
+step "8/8  Reload nginx"
 nginx -t && systemctl reload nginx
 log "Nginx reloaded"
 

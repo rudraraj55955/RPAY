@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useCrossTabSync } from "@/hooks/use-cross-tab-sync";
 import { useListTransactions } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -162,6 +163,15 @@ export default function AdminDeposits() {
   const smartInputRef = useRef<HTMLInputElement>(null);
 
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => loadSavedFilters());
+
+  useCrossTabSync([{
+    key: DEPOSITS_SAVED_FILTERS_KEY,
+    onUpdate: (raw) => {
+      try { setSavedFilters(raw ? (JSON.parse(raw) as SavedFilter[]) : []); }
+      catch { setSavedFilters([]); }
+    },
+  }]);
+
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveFilterName, setSaveFilterName] = useState("");
   const [saveFilterNameError, setSaveFilterNameError] = useState("");

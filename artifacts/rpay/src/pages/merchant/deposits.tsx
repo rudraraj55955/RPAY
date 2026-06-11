@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useCrossTabSync } from "@/hooks/use-cross-tab-sync";
 import {
   useListTransactions,
   useSimulatePayment,
@@ -128,6 +129,15 @@ export default function MerchantDeposits() {
   const [lastExportCount, setLastExportCount] = useState<number | null>(null);
 
   const [customDatePresets, setCustomDatePresets] = useState<CustomDatePreset[]>(() => loadCustomDatePresets());
+
+  useCrossTabSync([{
+    key: CUSTOM_DATE_PRESETS_KEY,
+    onUpdate: (raw) => {
+      try { setCustomDatePresets(raw ? (JSON.parse(raw) as CustomDatePreset[]) : []); }
+      catch { setCustomDatePresets([]); }
+    },
+  }]);
+
   const [showSaveDatePreset, setShowSaveDatePreset] = useState(false);
   const [saveDatePresetName, setSaveDatePresetName] = useState("");
   const [saveDatePresetNameError, setSaveDatePresetNameError] = useState("");

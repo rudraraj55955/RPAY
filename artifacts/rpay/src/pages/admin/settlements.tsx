@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useCrossTabSync } from "@/hooks/use-cross-tab-sync";
 import {
   useListSettlements,
   useGetSettlementStats,
@@ -196,6 +197,15 @@ export default function AdminSettlements() {
   const smartInputRef = useRef<HTMLInputElement>(null);
 
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => loadSavedFilters());
+
+  useCrossTabSync([{
+    key: SETTLEMENTS_SAVED_FILTERS_KEY,
+    onUpdate: (raw) => {
+      try { setSavedFilters(raw ? (JSON.parse(raw) as SavedFilter[]) : []); }
+      catch { setSavedFilters([]); }
+    },
+  }]);
+
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveFilterName, setSaveFilterName] = useState("");
   const [saveFilterNameError, setSaveFilterNameError] = useState("");

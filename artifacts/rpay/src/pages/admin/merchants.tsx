@@ -1627,6 +1627,20 @@ export default function AdminMerchants() {
                           );
                           return null;
                         })()}
+                        {renewExpiresAt && (() => {
+                          const currentPlan = plans?.find(p => String(p.id) === String(currentMerchantPlan.planId));
+                          const isPaid = currentPlan && currentPlan.monthlyFee !== "0" && currentPlan.name.toLowerCase() !== "custom";
+                          if (!isPaid) return null;
+                          const expiryFormatted = format(new Date(renewExpiresAt), "MMM d, yyyy");
+                          return (
+                            <div className="flex items-start gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-2 text-sky-400">
+                              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                              <p className="text-xs leading-relaxed">
+                                <span className="font-semibold">Renewal is manual.</span> This plan has no automatic renewal — it will expire on {expiryFormatted}. Make sure to schedule a renewal before that date or the merchant's access will lapse.
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                     <div className="space-y-1.5">

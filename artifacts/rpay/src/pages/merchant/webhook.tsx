@@ -401,9 +401,9 @@ export default function MerchantWebhook() {
   const { data: config, isLoading } = useGetWebhookConfig();
   const { data: secretStatus, isLoading: secretLoading } = useGetCallbackSecret();
   const [eventTypeFilter, setEventTypeFilter] = useState<GetWebhookLogsEventType | null>(null);
-  const { data: logsData, isLoading: logsLoading } = useGetWebhookLogs({
-    limit: 20,
-    ...(eventTypeFilter != null ? { eventType: eventTypeFilter } : {}),
+  const logsParams = { limit: 20, ...(eventTypeFilter != null ? { eventType: eventTypeFilter } : {}) };
+  const { data: logsData, isLoading: logsLoading } = useGetWebhookLogs(logsParams, {
+    query: { refetchInterval: 30_000, queryKey: getGetWebhookLogsQueryKey(logsParams) },
   });
   const updateMutation = useUpdateWebhookConfig();
   const rotateMutation = useRotateCallbackSecret();

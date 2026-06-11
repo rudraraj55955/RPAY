@@ -1,15 +1,14 @@
-import nodemailer from "nodemailer";
+import {
+  type SmtpConfig,
+  type MailOptions,
+  getSmtpConfigFromEnv,
+  sendMailWithConfig,
+} from "@workspace/mailer";
 import { logger } from "../lib/logger";
 import { db, systemSettingsTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 
-export interface SmtpConfig {
-  host: string;
-  port: number;
-  user: string;
-  pass: string;
-  from: string;
-}
+export type { SmtpConfig, MailOptions };
 
 export async function getSmtpConfig(): Promise<SmtpConfig | null> {
   const KEYS = ["smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_from"] as const;
@@ -39,28 +38,6 @@ export async function getSmtpConfig(): Promise<SmtpConfig | null> {
   return { host, port: isNaN(port) ? 587 : port, user, pass, from };
 }
 
-function createTransportFromConfig(cfg: SmtpConfig) {
-  const secure = cfg.port === 465;
-  return nodemailer.createTransport({
-    host: cfg.host,
-    port: cfg.port,
-    secure,
-    auth: { user: cfg.user, pass: cfg.pass },
-  });
-}
-
-export interface MailOptions {
-  to: string;
-  cc?: string;
-  subject: string;
-  html: string;
-  attachments?: Array<{
-    filename: string;
-    content: string;
-    contentType: string;
-  }>;
-}
-
 export async function sendMail(opts: MailOptions): Promise<boolean> {
   const cfg = await getSmtpConfig();
   if (!cfg) {
@@ -68,25 +45,13 @@ export async function sendMail(opts: MailOptions): Promise<boolean> {
     return false;
   }
 
-  const transport = createTransportFromConfig(cfg);
-
-  try {
-    await transport.sendMail({
-      from: cfg.from,
-      to: opts.to,
-      ...(opts.cc ? { cc: opts.cc } : {}),
-      subject: opts.subject,
-      html: opts.html,
-      attachments: opts.attachments?.map(a => ({
-        filename: a.filename,
-        content: a.content,
-        contentType: a.contentType,
-      })),
-    });
+  const ok = await sendMailWithConfig(cfg, opts);
+  if (ok) {
     logger.info({ to: opts.to, cc: opts.cc, subject: opts.subject }, "Email sent successfully");
-    return true;
-  } catch (err) {
-    logger.error({ err, to: opts.to, subject: opts.subject }, "Failed to send email");
-    return false;
+  } else {
+    logger.error({ to: opts.to, subject: opts.subject }, "Failed to send email");
   }
+  return ok;
 }
+
+export { getSmtpConfigFromEnv };

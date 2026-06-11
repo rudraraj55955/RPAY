@@ -1,4 +1,5 @@
 import { execSync } from "child_process";
+import { sendAdminAlert } from "./mailer.js";
 
 const GITHUB_REPO =
   process.env["GITHUB_REPO"] ?? "rudraraj55955/RPAY";
@@ -17,13 +18,70 @@ function resetRemote() {
   }
 }
 
+function buildFailureHtml(reason: string, detail: string): string {
+  const timestamp = new Date().toISOString();
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; background: #0f0f0f; color: #e5e5e5; margin: 0; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #2a2a2a;">
+    <div style="background: #7f1d1d; padding: 20px 24px;">
+      <h1 style="margin: 0; font-size: 20px; color: #fff; letter-spacing: 0.5px;">RasoKart — GitHub Sync Failed</h1>
+      <p style="margin: 4px 0 0; color: #fca5a5; font-size: 13px;">Automated repository sync encountered an error</p>
+    </div>
+    <div style="padding: 24px;">
+      <p style="margin: 0 0 16px; color: #f87171; font-size: 14px; font-weight: 600;">
+        &#x26A0;&#xFE0F; GitHub sync failed for <strong>${GITHUB_REPO}</strong>
+      </p>
+      <p style="margin: 0 0 20px; color: #a1a1aa; font-size: 13px;">
+        The automated push to GitHub did not complete. Please check the repository configuration and credentials.
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px; width: 40%;">Repository</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600;">${GITHUB_REPO}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Reason</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; color: #f87171; font-weight: 600;">${reason}</td>
+        </tr>
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px; vertical-align: top;">Error Detail</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 12px; color: #d1d5db; font-family: monospace; word-break: break-all;">${detail}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Timestamp</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px;">${timestamp}</td>
+        </tr>
+      </table>
+
+      <p style="margin: 0; color: #71717a; font-size: 12px;">
+        Check the GITHUB_TOKEN secret in the Replit environment and verify the repository permissions.
+      </p>
+    </div>
+    <div style="padding: 14px 24px; background: #111; border-top: 1px solid #2a2a2a;">
+      <p style="margin: 0; color: #52525b; font-size: 11px;">
+        This alert was sent automatically by the RasoKart GitHub sync script.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 async function main() {
   const token = process.env["GITHUB_TOKEN"];
 
   if (!token) {
-    console.warn(
-      "GITHUB_SYNC: Skipping — GITHUB_TOKEN secret is not set.",
-    );
+    const reason = "Missing GITHUB_TOKEN";
+    const detail = "The GITHUB_TOKEN secret is not set in the environment. The sync was skipped.";
+    console.warn(`GITHUB_SYNC: Skipping — ${reason}`);
+    await sendAdminAlert({
+      subject: `[RasoKart] ⚠ GitHub Sync Failed — ${reason}`,
+      html: buildFailureHtml(reason, detail),
+    });
     return;
   }
 
@@ -49,7 +107,14 @@ async function main() {
       err instanceof Error
         ? err.message.replace(token, "<REDACTED>")
         : String(err).replace(token, "<REDACTED>");
-    throw new Error(`Push failed — ${message}`);
+    const pushError = new Error(`Push failed — ${message}`);
+
+    await sendAdminAlert({
+      subject: `[RasoKart] ⚠ GitHub Sync Failed — Push error`,
+      html: buildFailureHtml("Push failed", message),
+    });
+
+    throw pushError;
   } finally {
     resetRemote();
   }

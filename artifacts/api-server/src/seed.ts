@@ -830,7 +830,7 @@ export async function seed() {
         id,
         schedule_id,
         sent_at,
-        gen_random_uuid() AS cycle_id
+        gen_random_uuid()::text AS cycle_id
       FROM ${scheduledAuditReportLogsTable}
       WHERE delivery_cycle_id IS NULL
         AND is_retry = false
@@ -860,7 +860,7 @@ export async function seed() {
             LIMIT 1
           ),
           -- Last resort: give the orphan retry its own fresh UUID
-          gen_random_uuid()
+          gen_random_uuid()::text
         ) AS cycle_id
       FROM ${scheduledAuditReportLogsTable} r
       WHERE r.delivery_cycle_id IS NULL

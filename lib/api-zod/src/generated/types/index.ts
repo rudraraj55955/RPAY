@@ -71,6 +71,8 @@ export * from './callbackSecretStatus';
 export * from './callbackStatsResponse';
 export * from './callbackWindowInput';
 export * from './chartDataPoint';
+export * from './cleanupJobStats';
+export * from './cleanupStats';
 export * from './clearSignatureFailureAlertHistory200';
 export * from './createSavedFilterInput';
 export * from './createSavedFilterInputFilterData';

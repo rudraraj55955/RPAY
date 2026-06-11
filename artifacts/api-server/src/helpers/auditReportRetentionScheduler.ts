@@ -17,6 +17,23 @@ export async function loadAuditReportLogRetentionDays(): Promise<number> {
   return isNaN(days) ? 90 : Math.max(0, days);
 }
 
+async function persistAuditReportCleanupStats(deleted: number): Promise<void> {
+  const now = new Date().toISOString();
+  const entries = [
+    { key: SYSTEM_CONFIG_KEYS.AUDIT_REPORT_CLEANUP_LAST_RUN_AT, value: now },
+    { key: SYSTEM_CONFIG_KEYS.AUDIT_REPORT_CLEANUP_LAST_RUN_DELETED, value: String(deleted) },
+  ];
+  for (const entry of entries) {
+    await db
+      .insert(systemConfigTable)
+      .values(entry)
+      .onConflictDoUpdate({
+        target: systemConfigTable.key,
+        set: { value: entry.value, updatedAt: sql`now()` },
+      });
+  }
+}
+
 export async function runAuditReportLogCleanup(): Promise<{ deleted: number }> {
   const retentionDays = await loadAuditReportLogRetentionDays();
 
@@ -32,6 +49,9 @@ export async function runAuditReportLogCleanup(): Promise<{ deleted: number }> {
   const deleted = Number((deleteResult as any).rowCount ?? 0);
 
   logger.info({ retentionDays, deleted }, "Audit report log cleanup complete");
+
+  await persistAuditReportCleanupStats(deleted);
+
   return { deleted };
 }
 

@@ -4577,6 +4577,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /system-config/cleanup-stats:
+    get:
+      operationId: getCleanupStats
+      tags: [system-config]
+      summary: Get last cleanup run time and rows deleted for each cleanup job (admin only)
+      responses:
+        "200":
+          description: Last cleanup run stats for QR code and audit report log cleanup jobs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CleanupStats"
+
   /system-config/webhook-retries:
     get:
       operationId: getWebhookRetriesConfig
@@ -8054,6 +8067,29 @@ components:
           description: >
             Days to retain scheduled audit report delivery logs before auto-deleting them.
             Set to 0 to disable automatic cleanup.
+
+    CleanupJobStats:
+      type: object
+      required: []
+      properties:
+        lastRunAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO timestamp of the last completed cleanup run, or null if never run.
+        lastRunDeleted:
+          type: integer
+          nullable: true
+          description: Number of rows deleted in the last cleanup run, or null if never run.
+
+    CleanupStats:
+      type: object
+      required: [qrCleanup, auditReportCleanup]
+      properties:
+        qrCleanup:
+          $ref: "#/components/schemas/CleanupJobStats"
+        auditReportCleanup:
+          $ref: "#/components/schemas/CleanupJobStats"
 
     QrCleanupConfig:
       type: object

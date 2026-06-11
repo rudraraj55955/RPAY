@@ -64,6 +64,7 @@ import type {
   CallbackStatsResponse,
   CallbackWindowInput,
   ChartDataPoint,
+  CleanupStats,
   ClearSignatureFailureAlertHistory200,
   CreateSavedFilterInput,
   CreateSettlementInput,
@@ -14681,6 +14682,83 @@ export const useUpdateAuditReportRetentionConfig = <TError = ErrorType<ErrorResp
       > => {
       return useMutation(getUpdateAuditReportRetentionConfigMutationOptions(options));
     }
+
+export const getGetCleanupStatsUrl = () => {
+
+
+
+
+  return `/api/system-config/cleanup-stats`
+}
+
+/**
+ * @summary Get last cleanup run time and rows deleted for each cleanup job (admin only)
+ */
+export const getCleanupStats = async ( options?: RequestInit): Promise<CleanupStats> => {
+
+  return customFetch<CleanupStats>(getGetCleanupStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCleanupStatsQueryKey = () => {
+    return [
+    `/api/system-config/cleanup-stats`
+    ] as const;
+    }
+
+
+export const getGetCleanupStatsQueryOptions = <TData = Awaited<ReturnType<typeof getCleanupStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCleanupStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCleanupStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCleanupStats>>> = ({ signal }) => getCleanupStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCleanupStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCleanupStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getCleanupStats>>>
+export type GetCleanupStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get last cleanup run time and rows deleted for each cleanup job (admin only)
+ */
+
+export function useGetCleanupStats<TData = Awaited<ReturnType<typeof getCleanupStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCleanupStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCleanupStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetWebhookRetriesConfigUrl = () => {
 

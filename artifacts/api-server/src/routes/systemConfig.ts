@@ -689,4 +689,41 @@ router.put("/audit-report-retention", async (req, res, next) => {
   }
 });
 
+// GET /api/system-config/cleanup-stats
+router.get("/cleanup-stats", async (req, res, next) => {
+  try {
+    const keys = [
+      SYSTEM_CONFIG_KEYS.QR_CLEANUP_LAST_RUN_AT,
+      SYSTEM_CONFIG_KEYS.QR_CLEANUP_LAST_RUN_DELETED,
+      SYSTEM_CONFIG_KEYS.AUDIT_REPORT_CLEANUP_LAST_RUN_AT,
+      SYSTEM_CONFIG_KEYS.AUDIT_REPORT_CLEANUP_LAST_RUN_DELETED,
+    ];
+
+    const rows = await db
+      .select()
+      .from(systemConfigTable)
+      .where(inArray(systemConfigTable.key, keys));
+
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+
+    const qrLastRunAt = map.get(SYSTEM_CONFIG_KEYS.QR_CLEANUP_LAST_RUN_AT) ?? null;
+    const qrLastRunDeletedRaw = map.get(SYSTEM_CONFIG_KEYS.QR_CLEANUP_LAST_RUN_DELETED);
+    const auditLastRunAt = map.get(SYSTEM_CONFIG_KEYS.AUDIT_REPORT_CLEANUP_LAST_RUN_AT) ?? null;
+    const auditLastRunDeletedRaw = map.get(SYSTEM_CONFIG_KEYS.AUDIT_REPORT_CLEANUP_LAST_RUN_DELETED);
+
+    res.json({
+      qrCleanup: {
+        lastRunAt: qrLastRunAt,
+        lastRunDeleted: qrLastRunDeletedRaw != null ? parseInt(qrLastRunDeletedRaw) : null,
+      },
+      auditReportCleanup: {
+        lastRunAt: auditLastRunAt,
+        lastRunDeleted: auditLastRunDeletedRaw != null ? parseInt(auditLastRunDeletedRaw) : null,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

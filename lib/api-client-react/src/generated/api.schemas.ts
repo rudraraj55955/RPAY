@@ -2499,6 +2499,18 @@ export interface AuditReportRetentionConfig {
   retentionDays: number;
 }
 
+export interface CleanupJobStats {
+  /** ISO timestamp of the last completed cleanup run, or null if never run. */
+  lastRunAt?: string | null;
+  /** Number of rows deleted in the last cleanup run, or null if never run. */
+  lastRunDeleted?: number | null;
+}
+
+export interface CleanupStats {
+  qrCleanup: CleanupJobStats;
+  auditReportCleanup: CleanupJobStats;
+}
+
 export interface QrCleanupConfig {
   /**
      * Days to retain expired/used QR codes before auto-deleting them. Set to 0 to disable automatic cleanup.

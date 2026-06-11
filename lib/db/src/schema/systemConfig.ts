@@ -26,6 +26,10 @@ export const SYSTEM_CONFIG_KEYS = {
   WEBHOOK_RETRY_DELAY_3: "webhook_retry_delay_3",
   TEST_EMAIL_HISTORY_RETENTION_DAYS: "test_email_history_retention_days",
   AUDIT_REPORT_LOG_RETENTION_DAYS: "audit_report_log_retention_days",
+  QR_CLEANUP_LAST_RUN_AT: "qr_cleanup_last_run_at",
+  QR_CLEANUP_LAST_RUN_DELETED: "qr_cleanup_last_run_deleted",
+  AUDIT_REPORT_CLEANUP_LAST_RUN_AT: "audit_report_cleanup_last_run_at",
+  AUDIT_REPORT_CLEANUP_LAST_RUN_DELETED: "audit_report_cleanup_last_run_deleted",
 } as const;
 
 export const SYSTEM_CONFIG_DEFAULTS = {

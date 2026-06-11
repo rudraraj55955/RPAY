@@ -10,7 +10,18 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetCleanupStats, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry } from "@workspace/api-client-react";
+
+function formatTimeAgo(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days !== 1 ? "s" : ""} ago`;
+}
 
 async function apiGet(path: string) {
   const res = await fetch(`/api${path}`, {
@@ -588,6 +599,8 @@ export default function AdminSettings() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const { data: cleanupStats } = useGetCleanupStats();
 
   const currentRetryMaxAttempts = webhookRetriesData?.maxAttempts ?? 4;
   const currentRetryDelay1 = webhookRetriesData?.delay1 ?? 300;
@@ -1403,6 +1416,26 @@ export default function AdminSettings() {
               </span>
             </div>
           )}
+          {cleanupStats?.qrCleanup.lastRunAt != null ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/20 border border-border/40 rounded-md px-3 py-2">
+              <History className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                Last cleanup:{" "}
+                <strong title={new Date(cleanupStats.qrCleanup.lastRunAt).toLocaleString()}>
+                  {formatTimeAgo(cleanupStats.qrCleanup.lastRunAt)}
+                </strong>
+                {" — "}
+                {cleanupStats.qrCleanup.lastRunDeleted === 0
+                  ? "0 rows deleted"
+                  : `${cleanupStats.qrCleanup.lastRunDeleted} row${cleanupStats.qrCleanup.lastRunDeleted !== 1 ? "s" : ""} deleted`}
+              </span>
+            </div>
+          ) : cleanupStats != null ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/20 border border-border/40 rounded-md px-3 py-2">
+              <History className="w-3.5 h-3.5 shrink-0" />
+              <span>No cleanup runs recorded yet — job runs nightly at 02:00.</span>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="retention-days" className="text-sm">Retention period (days)</Label>
@@ -1593,6 +1626,26 @@ export default function AdminSettings() {
               </span>
             </div>
           )}
+          {cleanupStats?.auditReportCleanup.lastRunAt != null ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/20 border border-border/40 rounded-md px-3 py-2">
+              <History className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                Last cleanup:{" "}
+                <strong title={new Date(cleanupStats.auditReportCleanup.lastRunAt).toLocaleString()}>
+                  {formatTimeAgo(cleanupStats.auditReportCleanup.lastRunAt)}
+                </strong>
+                {" — "}
+                {cleanupStats.auditReportCleanup.lastRunDeleted === 0
+                  ? "0 rows deleted"
+                  : `${cleanupStats.auditReportCleanup.lastRunDeleted} row${cleanupStats.auditReportCleanup.lastRunDeleted !== 1 ? "s" : ""} deleted`}
+              </span>
+            </div>
+          ) : cleanupStats != null ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/20 border border-border/40 rounded-md px-3 py-2">
+              <History className="w-3.5 h-3.5 shrink-0" />
+              <span>No cleanup runs recorded yet — job runs nightly at 02:30.</span>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="audit-log-retention" className="text-sm">Retention period</Label>

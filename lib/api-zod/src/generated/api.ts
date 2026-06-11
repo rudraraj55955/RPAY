@@ -4474,6 +4474,21 @@ export const UpdateAuditReportRetentionConfigResponse = zod.object({
 
 
 /**
+ * @summary Get last cleanup run time and rows deleted for each cleanup job (admin only)
+ */
+export const GetCleanupStatsResponse = zod.object({
+  "qrCleanup": zod.object({
+  "lastRunAt": zod.coerce.date().nullish().describe('ISO timestamp of the last completed cleanup run, or null if never run.'),
+  "lastRunDeleted": zod.number().nullish().describe('Number of rows deleted in the last cleanup run, or null if never run.')
+}),
+  "auditReportCleanup": zod.object({
+  "lastRunAt": zod.coerce.date().nullish().describe('ISO timestamp of the last completed cleanup run, or null if never run.'),
+  "lastRunDeleted": zod.number().nullish().describe('Number of rows deleted in the last cleanup run, or null if never run.')
+})
+})
+
+
+/**
  * @summary Get webhook retry delay configuration (admin only)
  */
 export const getWebhookRetriesConfigResponseMaxAttemptsMax = 10;

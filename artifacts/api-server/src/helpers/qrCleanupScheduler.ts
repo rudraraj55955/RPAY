@@ -17,6 +17,23 @@ export async function loadQrCleanupRetentionDays(): Promise<number> {
   return isNaN(days) ? 30 : Math.max(0, days);
 }
 
+async function persistQrCleanupStats(deleted: number): Promise<void> {
+  const now = new Date().toISOString();
+  const entries = [
+    { key: SYSTEM_CONFIG_KEYS.QR_CLEANUP_LAST_RUN_AT, value: now },
+    { key: SYSTEM_CONFIG_KEYS.QR_CLEANUP_LAST_RUN_DELETED, value: String(deleted) },
+  ];
+  for (const entry of entries) {
+    await db
+      .insert(systemConfigTable)
+      .values(entry)
+      .onConflictDoUpdate({
+        target: systemConfigTable.key,
+        set: { value: entry.value, updatedAt: sql`now()` },
+      });
+  }
+}
+
 export async function runQrCleanup(): Promise<{ expired: number; deleted: number }> {
   const retentionDays = await loadQrCleanupRetentionDays();
 
@@ -59,6 +76,9 @@ export async function runQrCleanup(): Promise<{ expired: number; deleted: number
   const deleted = Number((deleteResult as any).rowCount ?? 0);
 
   logger.info({ retentionDays, expired, deleted }, "QR code auto-cleanup complete");
+
+  await persistQrCleanupStats(deleted);
+
   return { expired, deleted };
 }
 

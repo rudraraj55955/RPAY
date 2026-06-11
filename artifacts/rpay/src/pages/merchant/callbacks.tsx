@@ -174,6 +174,9 @@ const SIG_WARN_THRESHOLD = 5;
 const SIG_WARN_KEY = "rasokart_sig_warn_dismissed_until";
 const SIG_WARN_TTL_MS = 24 * 60 * 60 * 1000;
 
+export const SIG_VERIFIED_KEY = "rasokart_sig_verified";
+const SIG_VERIFIED_THRESHOLD = 3;
+
 interface SigWarnDismissal {
   dismissedUntil: number;
   dismissedAt: number;
@@ -240,6 +243,20 @@ export default function MerchantCallbacks() {
   const allRecentFailed =
     recentN.length >= SIG_WARN_THRESHOLD &&
     recentN.every(l => l.signatureVerified === false);
+
+  const verifiedN = recentLogs.slice(0, SIG_VERIFIED_THRESHOLD);
+  const allRecentVerified =
+    verifiedN.length >= SIG_VERIFIED_THRESHOLD &&
+    verifiedN.every(l => l.signatureVerified === true);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (allRecentVerified) {
+      try { localStorage.setItem(SIG_VERIFIED_KEY, String(Date.now())); } catch { /* ignore */ }
+    } else if (recentLogs.some(l => l.signatureVerified === false)) {
+      try { localStorage.removeItem(SIG_VERIFIED_KEY); } catch { /* ignore */ }
+    }
+  }, [allRecentVerified, isLoading, recentLogs]);
 
   const showSigWarning = (() => {
     if (!allRecentFailed) return false;

@@ -16,8 +16,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, RotateCcw, ShieldOff, Shield, FlaskRound } from "lucide-react";
+import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, RotateCcw, ShieldOff, Shield, FlaskRound, X } from "lucide-react";
 import { formatDistanceToNow, format, differenceInDays } from "date-fns";
+import { SIG_VERIFIED_KEY } from "./callbacks";
 
 function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }) {
   if (value === true) {
@@ -374,6 +375,9 @@ export default function MerchantWebhook() {
   const [testEventType, setTestEventType] = useState<WebhookTestRequestEventType>(WebhookTestRequestEventType.paymentsuccess);
   const [secretSavedAt, setSecretSavedAt] = useState<number | null>(null);
   const [secretVerifiedDismissed, setSecretVerifiedDismissed] = useState(false);
+  const [sigVerifiedFromCallbacks, setSigVerifiedFromCallbacks] = useState<boolean>(() => {
+    try { return !!localStorage.getItem(SIG_VERIFIED_KEY); } catch { return false; }
+  });
 
   useEffect(() => {
     if (config) {
@@ -869,6 +873,26 @@ onError: () => toast.error("Failed to send test event"),
               </div>
             );
           })()}
+
+          {(secretSavedAt != null || sigVerifiedFromCallbacks) && !secretVerifiedDismissed && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
+              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-emerald-300">Secret verified</p>
+                <p className="text-xs text-emerald-400/70 mt-0.5">
+                  Recent callbacks are passing signature verification — your secret is correctly configured.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Dismiss"
+                onClick={() => { setSecretVerifiedDismissed(true); setSigVerifiedFromCallbacks(false); }}
+                className="shrink-0 text-emerald-400/60 hover:text-emerald-300 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>When a secret is set, every inbound callback request must include:</p>

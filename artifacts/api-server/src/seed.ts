@@ -743,17 +743,20 @@ export async function seed() {
   // Idempotent: WHERE clause limits to rows where connection_id IS NULL AND provider IS NOT NULL.
   //
   // Tie-break rationale: when a merchant has multiple connections for the same provider
-  // (e.g. after rotating credentials), we ORDER BY created_at ASC so the *oldest* active
-  // connection is preferred.  The oldest connection is the one most likely to have been in
-  // use at the time the historical transaction was recorded, making the mapping as accurate
-  // as possible without storing a per-transaction timestamp join.
+  // (e.g. after rotating credentials), we prefer the connection that was *active at the time
+  // the transaction was recorded*: filter to connections created before the transaction and
+  // not yet deactivated at that time (deactivated_at IS NULL OR deactivated_at > transactions.created_at).
+  // Among eligible connections we ORDER BY created_at ASC so the oldest qualifying connection
+  // is chosen, matching the most likely provider in use at that moment.
   await db.execute(sql`
     UPDATE transactions
     SET connection_id = (
       SELECT id
       FROM merchant_connections
-      WHERE merchant_id = transactions.merchant_id
-        AND provider   = transactions.provider
+      WHERE merchant_id    = transactions.merchant_id
+        AND provider       = transactions.provider
+        AND created_at    <= transactions.created_at
+        AND (deactivated_at IS NULL OR deactivated_at > transactions.created_at)
       ORDER BY created_at ASC
       LIMIT 1
     )

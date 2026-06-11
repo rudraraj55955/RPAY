@@ -765,6 +765,11 @@ export interface MerchantConnection {
   /** Total successful deposit amount collected through this merchant in the current calendar month */
   monthlyUsed: number;
   isActive: boolean;
+  /**
+     * Timestamp when the connection was deactivated. Used to narrow transaction-to-connection mapping to only connections that were active at transaction time.
+     * @nullable
+     */
+  deactivatedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

@@ -1770,6 +1770,7 @@ export const ListMerchantConnectionsResponseItem = zod.object({
   "monthlyLimit": zod.number(),
   "monthlyUsed": zod.number().describe('Total successful deposit amount collected through this merchant in the current calendar month'),
   "isActive": zod.boolean(),
+  "deactivatedAt": zod.string().nullish().describe('Timestamp when the connection was deactivated. Used to narrow transaction-to-connection mapping to only connections that were active at transaction time.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -1794,6 +1795,7 @@ export const CreateMerchantConnectionResponse = zod.object({
   "monthlyLimit": zod.number(),
   "monthlyUsed": zod.number().describe('Total successful deposit amount collected through this merchant in the current calendar month'),
   "isActive": zod.boolean(),
+  "deactivatedAt": zod.string().nullish().describe('Timestamp when the connection was deactivated. Used to narrow transaction-to-connection mapping to only connections that were active at transaction time.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -1821,6 +1823,7 @@ export const UpdateMerchantConnectionResponse = zod.object({
   "monthlyLimit": zod.number(),
   "monthlyUsed": zod.number().describe('Total successful deposit amount collected through this merchant in the current calendar month'),
   "isActive": zod.boolean(),
+  "deactivatedAt": zod.string().nullish().describe('Timestamp when the connection was deactivated. Used to narrow transaction-to-connection mapping to only connections that were active at transaction time.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })

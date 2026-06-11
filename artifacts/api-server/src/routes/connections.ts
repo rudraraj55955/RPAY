@@ -222,15 +222,18 @@ router.post("/", async (req, res) => {
     .where(and(eq(merchantConnectionsTable.merchantId, merchantId), eq(merchantConnectionsTable.provider, provider)))
     .limit(1);
 
+  // Compute deactivatedAt: stamp the current time when deactivating, clear it when activating.
+  const deactivatedAt = !isActive ? new Date() : null;
+
   let result;
   if (existing.length > 0) {
     [result] = await db.update(merchantConnectionsTable)
-      .set({ credentials: credentials ?? null, monthlyLimit: String(monthlyLimit), isActive: !!isActive })
+      .set({ credentials: credentials ?? null, monthlyLimit: String(monthlyLimit), isActive: !!isActive, deactivatedAt })
       .where(and(eq(merchantConnectionsTable.merchantId, merchantId), eq(merchantConnectionsTable.provider, provider)))
       .returning();
   } else {
     [result] = await db.insert(merchantConnectionsTable)
-      .values({ merchantId, provider, credentials: credentials ?? null, monthlyLimit: String(monthlyLimit), isActive: !!isActive })
+      .values({ merchantId, provider, credentials: credentials ?? null, monthlyLimit: String(monthlyLimit), isActive: !!isActive, deactivatedAt })
       .returning();
   }
 
@@ -251,7 +254,16 @@ router.put("/:id", async (req, res) => {
   if (provider !== undefined) update.provider = provider;
   if (credentials !== undefined) update.credentials = credentials;
   if (monthlyLimit !== undefined) update.monthlyLimit = String(monthlyLimit);
-  if (isActive !== undefined) update.isActive = !!isActive;
+  if (isActive !== undefined) {
+    update.isActive = !!isActive;
+    // Record the exact moment of deactivation so backfill can use a time-window filter.
+    // Only set deactivatedAt when transitioning to inactive; clear it when re-activating.
+    if (!isActive) {
+      update.deactivatedAt = new Date();
+    } else {
+      update.deactivatedAt = null;
+    }
+  }
 
   const whereClause = user.role === "admin"
     ? eq(merchantConnectionsTable.id, id)

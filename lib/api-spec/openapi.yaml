@@ -4783,6 +4783,9 @@ components:
           description: Total successful deposit amount collected through this merchant in the current calendar month
         isActive:
           type: boolean
+        deactivatedAt:
+          type: ["string", "null"]
+          description: Timestamp when the connection was deactivated. Used to narrow transaction-to-connection mapping to only connections that were active at transaction time.
         createdAt:
           type: string
         updatedAt:

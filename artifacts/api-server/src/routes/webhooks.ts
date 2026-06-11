@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, webhooksTable, callbackLogsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { fireCallback } from "../helpers/callbackRetry";
 import crypto from "crypto";
 import dns from "dns";
 import net from "net";
@@ -139,6 +140,71 @@ router.get("/logs", async (req, res) => {
     .limit(limitNum);
 
   res.json({ data, total: data.length, page: 1, limit: limitNum });
+});
+
+// POST /api/webhooks/logs/:id/retry — merchant retries a failed webhook delivery
+router.post("/logs/:id/retry", async (req, res) => {
+  const user = (req as any).user;
+  const merchantId = user.role === "merchant" ? user.merchantId! : undefined;
+  if (!merchantId) {
+    res.status(403).json({ error: "Merchants only" });
+    return;
+  }
+
+  const id = parseInt(req.params['id'] as string);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid log id" });
+    return;
+  }
+
+  const [log] = await db
+    .select()
+    .from(callbackLogsTable)
+    .where(eq(callbackLogsTable.id, id))
+    .limit(1);
+
+  if (!log) {
+    res.status(404).json({ error: "Webhook log not found" });
+    return;
+  }
+
+  if (log.merchantId !== merchantId) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  if (log.status !== "failed") {
+    res.status(400).json({ error: "Only failed deliveries can be retried" });
+    return;
+  }
+
+  if (!log.requestBody) {
+    res.status(400).json({ error: "No request body stored — cannot replay this delivery" });
+    return;
+  }
+
+  const now = new Date();
+  const { ok, httpStatus, responseBody } = await fireCallback(log.url, log.requestBody);
+
+  const newAttempts = log.attempts + 1;
+  const newStatus = ok ? "success" : "failed";
+
+  const [updated] = await db
+    .update(callbackLogsTable)
+    .set({
+      status: newStatus,
+      httpStatus,
+      responseBody,
+      attempts: newAttempts,
+      nextRetryAt: null,
+      lastAttemptAt: now,
+    })
+    .where(eq(callbackLogsTable.id, id))
+    .returning();
+
+  req.log.info({ logId: id, ok, httpStatus, merchantId }, "Merchant-triggered webhook retry");
+
+  res.json({ success: ok, delivered: ok, log: updated });
 });
 
 // POST /api/webhooks/test — send a test payment.success event to the merchant's webhook URL

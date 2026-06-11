@@ -2131,6 +2131,12 @@ export type GetWebhookLogsParams = {
 limit?: number;
 };
 
+export type RetryWebhookLog200 = {
+  success: boolean;
+  delivered: boolean;
+  log: CallbackLog;
+};
+
 export type ListCallbackLogsParams = {
 status?: ListCallbackLogsStatus;
 /**

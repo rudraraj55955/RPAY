@@ -1184,6 +1184,39 @@ export const GetWebhookLogsResponse = zod.object({
 
 
 /**
+ * Immediately re-attempts delivery for a failed webhook log entry owned by
+the authenticated merchant. Only logs in `failed` status can be retried.
+On success the log is updated in-place and the refreshed entry is returned.
+
+ * @summary Retry a failed webhook delivery
+ */
+export const RetryWebhookLogParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RetryWebhookLogResponse = zod.object({
+  "success": zod.boolean(),
+  "delivered": zod.boolean(),
+  "log": zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "qrCodeId": zod.number().nullish(),
+  "transactionId": zod.number().nullable(),
+  "url": zod.string(),
+  "status": zod.enum(['success', 'failed', 'pending_retry']),
+  "httpStatus": zod.number().nullable(),
+  "requestBody": zod.string().nullish(),
+  "responseBody": zod.string().nullish(),
+  "attempts": zod.number().optional(),
+  "nextRetryAt": zod.string().nullish().describe('ISO timestamp of the next scheduled retry attempt'),
+  "lastAttemptAt": zod.string().nullish().describe('ISO timestamp of the most recent attempt'),
+  "signatureVerified": zod.boolean().nullish().describe('HMAC signature verification result — true if passed, false if rejected, null if no secret is configured'),
+  "createdAt": zod.string()
+})
+})
+
+
+/**
  * Fires a sample `payment.success` payload to the merchant's configured webhook URL.
 If the merchant has set a webhook signing secret, the payload is signed with
 HMAC-SHA256 and the `X-Signature` header is included.

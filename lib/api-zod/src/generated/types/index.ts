@@ -196,6 +196,7 @@ export * from './reconciliationSchedulerStatus';
 export * from './rejectInput';
 export * from './renewPlanInput';
 export * from './retryCallback200';
+export * from './retryWebhookLog200';
 export * from './searchByUtrParams';
 export * from './settlement';
 export * from './settlementActionInput';

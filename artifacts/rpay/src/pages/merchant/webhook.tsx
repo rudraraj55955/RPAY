@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, useSendWebhookTest } from "@workspace/api-client-react";
+import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, getGetWebhookLogsQueryKey, useSendWebhookTest, useRetryWebhookLog } from "@workspace/api-client-react";
 import type { CallbackLog } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight } from "lucide-react";
+import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, RotateCcw } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const EVENTS = [
@@ -270,6 +270,7 @@ export default function MerchantWebhook() {
   const updateMutation = useUpdateWebhookConfig();
   const rotateMutation = useRotateCallbackSecret();
   const testMutation = useSendWebhookTest();
+  const retryMutation = useRetryWebhookLog();
 
   const [url, setUrl] = useState("");
   const [secret, setSecret] = useState("");
@@ -278,6 +279,7 @@ export default function MerchantWebhook() {
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [selectedLog, setSelectedLog] = useState<CallbackLog | null>(null);
+  const [retryingId, setRetryingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (config) {
@@ -327,6 +329,22 @@ export default function MerchantWebhook() {
         qc.invalidateQueries({ queryKey: getGetCallbackSecretQueryKey() });
       },
       onError: () => toast.error("Failed to rotate secret"),
+    });
+  };
+
+  const handleRetry = (logId: number) => {
+    setRetryingId(logId);
+    retryMutation.mutate({ id: logId }, {
+      onSuccess: (data) => {
+        if (data.delivered) {
+          toast.success("Retry succeeded — webhook delivered");
+        } else {
+          toast.error("Retry failed — endpoint still unreachable");
+        }
+        qc.invalidateQueries({ queryKey: getGetWebhookLogsQueryKey() });
+      },
+      onError: () => toast.error("Retry request failed"),
+      onSettled: () => setRetryingId(null),
     });
   };
 
@@ -466,6 +484,18 @@ export default function MerchantWebhook() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {log.status === "failed" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-xs gap-1 border-rose-500/30 hover:border-rose-500/60 hover:bg-rose-500/10 text-rose-400 hover:text-rose-300"
+                        disabled={retryingId === log.id}
+                        onClick={(e) => { e.stopPropagation(); handleRetry(log.id); }}
+                      >
+                        <RotateCcw className={`w-3 h-3 ${retryingId === log.id ? "animate-spin" : ""}`} />
+                        {retryingId === log.id ? "Retrying…" : "Retry"}
+                      </Button>
+                    )}
                     <div className="text-xs text-muted-foreground/60 text-right">
                       {log.createdAt
                         ? formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })

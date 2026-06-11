@@ -156,6 +156,7 @@ import type {
   RejectInput,
   RenewPlanInput,
   RetryCallback200,
+  RetryWebhookLog200,
   SearchByUtrParams,
   Settlement,
   SettlementActionInput,
@@ -3761,6 +3762,80 @@ export function useGetWebhookLogs<TData = Awaited<ReturnType<typeof getWebhookLo
 
 
 
+
+export const getRetryWebhookLogUrl = (id: number,) => {
+
+
+
+
+  return `/api/webhooks/logs/${id}/retry`
+}
+
+/**
+ * Immediately re-attempts delivery for a failed webhook log entry owned by
+the authenticated merchant. Only logs in `failed` status can be retried.
+On success the log is updated in-place and the refreshed entry is returned.
+
+ * @summary Retry a failed webhook delivery
+ */
+export const retryWebhookLog = async (id: number, options?: RequestInit): Promise<RetryWebhookLog200> => {
+
+  return customFetch<RetryWebhookLog200>(getRetryWebhookLogUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRetryWebhookLogMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryWebhookLog>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryWebhookLog>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['retryWebhookLog'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryWebhookLog>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  retryWebhookLog(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryWebhookLogMutationResult = NonNullable<Awaited<ReturnType<typeof retryWebhookLog>>>
+
+    export type RetryWebhookLogMutationError = ErrorType<void>
+
+    /**
+ * @summary Retry a failed webhook delivery
+ */
+export const useRetryWebhookLog = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryWebhookLog>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryWebhookLog>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRetryWebhookLogMutationOptions(options));
+    }
 
 export const getSendWebhookTestUrl = () => {
 

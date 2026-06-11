@@ -1194,6 +1194,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/CallbackLogListResponse"
 
+  /webhooks/logs/{id}/retry:
+    post:
+      operationId: retryWebhookLog
+      tags: [webhooks]
+      summary: Retry a failed webhook delivery
+      description: |
+        Immediately re-attempts delivery for a failed webhook log entry owned by
+        the authenticated merchant. Only logs in `failed` status can be retried.
+        On success the log is updated in-place and the refreshed entry is returned.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Retry result and updated log entry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  delivered:
+                    type: boolean
+                  log:
+                    $ref: "#/components/schemas/CallbackLog"
+                required: [success, delivered, log]
+        "400":
+          description: Log is not in failed status or has no request body to replay
+        "403":
+          description: Merchant access only, or log does not belong to this merchant
+        "404":
+          description: Webhook log not found
+
   /webhooks/test:
     post:
       operationId: sendWebhookTest

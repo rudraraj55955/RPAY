@@ -311,6 +311,11 @@ export default function MerchantDeposits() {
   const [saveFilterNameError, setSaveFilterNameError] = useState("");
   const saveNameInputRef = useRef<HTMLInputElement>(null);
 
+  // Drag-and-drop state for filter chip reordering
+  const dragIdRef = useRef<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
   // Rename state
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -486,6 +491,36 @@ export default function MerchantDeposits() {
     [updated[idx], updated[newIdx]] = [updated[newIdx]!, updated[idx]!];
     setSavedFilters(updated);
     storeSavedFilters(updated);
+  };
+
+  const handleDragStart = (id: string) => {
+    dragIdRef.current = id;
+    setDraggingId(id);
+  };
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (dragIdRef.current !== id) setDragOverId(id);
+  };
+  const handleDragLeave = () => { setDragOverId(null); };
+  const handleDrop = (targetId: string) => {
+    const sourceId = dragIdRef.current;
+    setDragOverId(null);
+    setDraggingId(null);
+    dragIdRef.current = null;
+    if (!sourceId || sourceId === targetId) return;
+    const fromIdx = savedFilters.findIndex(f => f.id === sourceId);
+    const toIdx = savedFilters.findIndex(f => f.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const updated = [...savedFilters];
+    const [item] = updated.splice(fromIdx, 1);
+    updated.splice(toIdx, 0, item!);
+    setSavedFilters(updated);
+    storeSavedFilters(updated);
+  };
+  const handleDragEnd = () => {
+    dragIdRef.current = null;
+    setDraggingId(null);
+    setDragOverId(null);
   };
 
   const startRename = (saved: SavedFilter) => {
@@ -736,7 +771,18 @@ export default function MerchantDeposits() {
               {savedFilters.map((saved, idx) => (
                 <span
                   key={saved.id}
-                  className="group inline-flex items-center gap-0.5 rounded-full border border-violet-500/30 bg-violet-500/8 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
+                  draggable={renamingId !== saved.id}
+                  onDragStart={() => handleDragStart(saved.id)}
+                  onDragOver={(e) => handleDragOver(e, saved.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={() => handleDrop(saved.id)}
+                  onDragEnd={handleDragEnd}
+                  className={[
+                    "group inline-flex items-center gap-0.5 rounded-full border border-violet-500/30 bg-violet-500/8 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors select-none",
+                    renamingId !== saved.id ? "cursor-grab active:cursor-grabbing" : "",
+                    draggingId === saved.id ? "opacity-40 scale-95" : "",
+                    dragOverId === saved.id && draggingId !== saved.id ? "ring-1 ring-violet-400 border-violet-500/60 bg-violet-500/15" : "",
+                  ].filter(Boolean).join(" ")}
                 >
                   {/* Move left */}
                   {idx > 0 && (

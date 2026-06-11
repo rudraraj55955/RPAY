@@ -17,6 +17,8 @@ export const usersTable = pgTable("users", {
   webhookFailureEmails: boolean("webhook_failure_emails").notNull().default(true),
   apiKeyGeneratedEmails: boolean("api_key_generated_emails").notNull().default(true),
   apiKeyRevokedEmails: boolean("api_key_revoked_emails").notNull().default(true),
+  loginAlertEmails: boolean("login_alert_emails").notNull().default(true),
+  lastSeenIp: text("last_seen_ip"),
   passwordUpdatedAt: timestamp("password_updated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

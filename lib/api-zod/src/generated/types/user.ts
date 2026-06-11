@@ -24,5 +24,6 @@ export interface User {
   webhookFailureEmails?: boolean;
   apiKeyGeneratedEmails?: boolean;
   apiKeyRevokedEmails?: boolean;
+  loginAlertEmails?: boolean;
   createdAt: string;
 }

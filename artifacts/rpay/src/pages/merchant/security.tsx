@@ -294,6 +294,7 @@ export default function MerchantSecurity() {
   const apiKeyGeneratedEnabled = me?.apiKeyGeneratedEmails ?? true;
   const apiKeyRevokedEnabled = me?.apiKeyRevokedEmails ?? true;
   const signatureFailureAlertEnabled = me?.signatureFailureAlertEmails ?? true;
+  const loginAlertEnabled = me?.loginAlertEmails ?? true;
 
   const { mutate: updatePrefs, isPending: savingPrefs } = useUpdateMyPreferences({
     mutation: {
@@ -1171,6 +1172,29 @@ export default function MerchantSecurity() {
             <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               You will not be alerted to elevated callback signature failures on your account.
+            </p>
+          )}
+
+          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                <p className="text-sm font-medium">New login alerts</p>
+              </div>
+              <p className="text-xs text-muted-foreground pl-5">
+                Receive an email when your account is accessed from a new IP address.
+              </p>
+            </div>
+            <Switch
+              checked={loginAlertEnabled}
+              onCheckedChange={val => updatePrefs({ data: { loginAlertEmails: val } })}
+              disabled={savingPrefs || me === undefined}
+            />
+          </div>
+          {!loginAlertEnabled && (
+            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              You will not be notified when your account is accessed from a new IP address.
             </p>
           )}
         </CardContent>

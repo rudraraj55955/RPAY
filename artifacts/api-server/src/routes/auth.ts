@@ -5,6 +5,7 @@ import { dbRateLimitStore } from "../lib/rateLimitStore";
 import { eq } from "drizzle-orm";
 import { generateToken, requireAuth } from "../middlewares/auth";
 import { makeRateLimiter } from "../helpers/makeRateLimiter";
+import { sendNewLoginAlertEmail } from "../helpers/newLoginEmail";
 
 const router = Router();
 
@@ -53,6 +54,35 @@ router.post("/login", loginLimiter, async (req, res, next) => {
       }).catch((err: unknown) => {
         req.log.warn({ err, merchantId: user.merchantId }, "Failed to record login event");
       });
+
+      const isNewIp = loginIp !== null && loginIp !== user.lastSeenIp;
+
+      if (isNewIp && user.loginAlertEmails) {
+        const [merchant] = await db
+          .select({ businessName: merchantsTable.businessName })
+          .from(merchantsTable)
+          .where(eq(merchantsTable.id, user.merchantId))
+          .limit(1);
+        if (merchant) {
+          sendNewLoginAlertEmail({
+            to: user.email,
+            businessName: merchant.businessName,
+            loginIp,
+            loginAt: new Date(),
+          }).catch((err: unknown) => {
+            req.log.warn({ err, userId: user.id }, "Failed to send new login alert email");
+          });
+        }
+      }
+
+      if (loginIp !== null && loginIp !== user.lastSeenIp) {
+        db.update(usersTable)
+          .set({ lastSeenIp: loginIp })
+          .where(eq(usersTable.id, user.id))
+          .catch((err: unknown) => {
+            req.log.warn({ err, userId: user.id }, "Failed to update lastSeenIp");
+          });
+      }
     }
 
     res.json({
@@ -138,6 +168,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
         webhookFailureEmails: usersTable.webhookFailureEmails,
         apiKeyGeneratedEmails: usersTable.apiKeyGeneratedEmails,
         apiKeyRevokedEmails: usersTable.apiKeyRevokedEmails,
+        loginAlertEmails: usersTable.loginAlertEmails,
       })
       .from(usersTable)
       .where(eq(usersTable.id, user.id))
@@ -157,6 +188,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
       webhookFailureEmails: row?.webhookFailureEmails ?? true,
       apiKeyGeneratedEmails: row?.apiKeyGeneratedEmails ?? true,
       apiKeyRevokedEmails: row?.apiKeyRevokedEmails ?? true,
+      loginAlertEmails: row?.loginAlertEmails ?? true,
       createdAt: user.createdAt,
     });
   } catch (err) {
@@ -168,7 +200,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
 router.put("/preferences", requireAuth, async (req, res, next) => {
   try {
     const user = (req as any).user;
-    const { reconciliationAlertEmails, planExpiryAlertEmails, settlementStateEmails, signatureFailureAlertEmails, webhookFailureEmails, apiKeyGeneratedEmails, apiKeyRevokedEmails } = req.body;
+    const { reconciliationAlertEmails, planExpiryAlertEmails, settlementStateEmails, signatureFailureAlertEmails, webhookFailureEmails, apiKeyGeneratedEmails, apiKeyRevokedEmails, loginAlertEmails } = req.body;
 
     const patch: Record<string, boolean> = {};
 
@@ -228,6 +260,14 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
       patch["apiKeyRevokedEmails"] = apiKeyRevokedEmails;
     }
 
+    if (loginAlertEmails !== undefined) {
+      if (typeof loginAlertEmails !== "boolean") {
+        res.status(400).json({ error: "loginAlertEmails must be a boolean" });
+        return;
+      }
+      patch["loginAlertEmails"] = loginAlertEmails;
+    }
+
     if (Object.keys(patch).length === 0) {
       res.status(400).json({ error: "No valid preference fields provided" });
       return;
@@ -254,6 +294,7 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
       webhookFailureEmails: updated.webhookFailureEmails,
       apiKeyGeneratedEmails: updated.apiKeyGeneratedEmails,
       apiKeyRevokedEmails: updated.apiKeyRevokedEmails,
+      loginAlertEmails: updated.loginAlertEmails,
       createdAt: updated.createdAt,
     });
   } catch (err) {

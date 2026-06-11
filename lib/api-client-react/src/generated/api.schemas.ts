@@ -118,6 +118,7 @@ export interface User {
   webhookFailureEmails?: boolean;
   apiKeyGeneratedEmails?: boolean;
   apiKeyRevokedEmails?: boolean;
+  loginAlertEmails?: boolean;
   createdAt: string;
 }
 
@@ -2786,6 +2787,7 @@ export type UpdateMyPreferencesBody = {
   webhookFailureEmails?: boolean;
   apiKeyGeneratedEmails?: boolean;
   apiKeyRevokedEmails?: boolean;
+  loginAlertEmails?: boolean;
 };
 
 export type ListMerchantsParams = {

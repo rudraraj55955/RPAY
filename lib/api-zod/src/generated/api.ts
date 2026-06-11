@@ -41,6 +41,7 @@ export const LoginResponse = zod.object({
   "webhookFailureEmails": zod.boolean().optional(),
   "apiKeyGeneratedEmails": zod.boolean().optional(),
   "apiKeyRevokedEmails": zod.boolean().optional(),
+  "loginAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 })
@@ -77,6 +78,7 @@ export const GetMeResponse = zod.object({
   "webhookFailureEmails": zod.boolean().optional(),
   "apiKeyGeneratedEmails": zod.boolean().optional(),
   "apiKeyRevokedEmails": zod.boolean().optional(),
+  "loginAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -91,7 +93,8 @@ export const UpdateMyPreferencesBody = zod.object({
   "signatureFailureAlertEmails": zod.boolean().optional(),
   "webhookFailureEmails": zod.boolean().optional(),
   "apiKeyGeneratedEmails": zod.boolean().optional(),
-  "apiKeyRevokedEmails": zod.boolean().optional()
+  "apiKeyRevokedEmails": zod.boolean().optional(),
+  "loginAlertEmails": zod.boolean().optional()
 })
 
 export const UpdateMyPreferencesResponse = zod.object({
@@ -109,6 +112,7 @@ export const UpdateMyPreferencesResponse = zod.object({
   "webhookFailureEmails": zod.boolean().optional(),
   "apiKeyGeneratedEmails": zod.boolean().optional(),
   "apiKeyRevokedEmails": zod.boolean().optional(),
+  "loginAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -2118,6 +2122,7 @@ export const ListUsersResponse = zod.object({
   "webhookFailureEmails": zod.boolean().optional(),
   "apiKeyGeneratedEmails": zod.boolean().optional(),
   "apiKeyRevokedEmails": zod.boolean().optional(),
+  "loginAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -2166,6 +2171,7 @@ export const UpdateUserResponse = zod.object({
   "webhookFailureEmails": zod.boolean().optional(),
   "apiKeyGeneratedEmails": zod.boolean().optional(),
   "apiKeyRevokedEmails": zod.boolean().optional(),
+  "loginAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 

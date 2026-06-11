@@ -7587,9 +7587,14 @@ components:
         retryAttempt:
           type: integer
           description: Which attempt number this log entry represents (0 = initial, 1 = first retry, 2 = second retry, etc.).
+        recipientEmail:
+          type: ["string", "null"]
         triggerType:
           type: string
           enum: [manual, scheduled]
+        deliveryCycleId:
+          type: ["string", "null"]
+          description: UUID shared by the initial attempt and all its retries within a single delivery cycle.
 
     AuditReportScheduleLogWithSchedule:
       type: object
@@ -7619,6 +7624,9 @@ components:
           enum: [daily, weekly, monthly]
         scheduleRecipient:
           type: string
+        deliveryCycleId:
+          type: ["string", "null"]
+          description: UUID shared by the initial attempt and all its retries within a single delivery cycle.
 
     FailureBreakdownItem:
       type: object

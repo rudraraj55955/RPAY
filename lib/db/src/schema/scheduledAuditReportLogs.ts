@@ -16,6 +16,7 @@ export const scheduledAuditReportLogsTable = pgTable("scheduled_audit_report_log
   isRetry: boolean("is_retry").notNull().default(false),
   retryAttempt: integer("retry_attempt").notNull().default(0),
   triggerType: auditReportTriggerTypeEnum("trigger_type").notNull().default("scheduled"),
+  deliveryCycleId: text("delivery_cycle_id"),
 });
 
 export type ScheduledAuditReportLog = typeof scheduledAuditReportLogsTable.$inferSelect;

@@ -1869,7 +1869,14 @@ export interface AuditReportScheduleLog {
   isRetry: boolean;
   /** Which attempt number this log entry represents (0 = initial, 1 = first retry, 2 = second retry, etc.). */
   retryAttempt: number;
+  /** @nullable */
+  recipientEmail?: string | null;
   triggerType: AuditReportScheduleLogTriggerType;
+  /**
+     * UUID shared by the initial attempt and all its retries within a single delivery cycle.
+     * @nullable
+     */
+  deliveryCycleId?: string | null;
 }
 
 export type AuditReportScheduleLogWithScheduleTriggerType = typeof AuditReportScheduleLogWithScheduleTriggerType[keyof typeof AuditReportScheduleLogWithScheduleTriggerType];
@@ -1903,6 +1910,11 @@ export interface AuditReportScheduleLogWithSchedule {
   triggerType: AuditReportScheduleLogWithScheduleTriggerType;
   scheduleFrequency: AuditReportScheduleLogWithScheduleScheduleFrequency;
   scheduleRecipient: string;
+  /**
+     * UUID shared by the initial attempt and all its retries within a single delivery cycle.
+     * @nullable
+     */
+  deliveryCycleId?: string | null;
 }
 
 export interface FailureBreakdownItem {

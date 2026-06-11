@@ -22,4 +22,9 @@ export interface AuditReportScheduleLogWithSchedule {
   triggerType: AuditReportScheduleLogWithScheduleTriggerType;
   scheduleFrequency: AuditReportScheduleLogWithScheduleScheduleFrequency;
   scheduleRecipient: string;
+  /**
+     * UUID shared by the initial attempt and all its retries within a single delivery cycle.
+     * @nullable
+     */
+  deliveryCycleId?: string | null;
 }

@@ -503,6 +503,7 @@ router.get("/schedules/logs", async (req, res) => {
       errorMessage: scheduledAuditReportLogsTable.errorMessage,
       isRetry: scheduledAuditReportLogsTable.isRetry,
       triggerType: scheduledAuditReportLogsTable.triggerType,
+      deliveryCycleId: scheduledAuditReportLogsTable.deliveryCycleId,
       scheduleFrequency: scheduledAuditReportsTable.frequency,
       scheduleRecipient: scheduledAuditReportsTable.recipientEmail,
     })

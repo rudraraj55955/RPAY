@@ -1,4 +1,5 @@
 import cron, { type ScheduledTask } from "node-cron";
+import { randomUUID } from "crypto";
 import { db, scheduledAuditReportsTable, scheduledAuditReportLogsTable, auditLogsTable, usersTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { logger } from "../lib/logger";
@@ -116,16 +117,20 @@ function isDue(frequency: string, lastSentAt: Date | null): boolean {
 /**
  * Send a single scheduled audit report and log the result.
  *
- * @param schedule       The schedule row from the DB.
- * @param retryAttempt   0 for the initial delivery, 1+ for each automatic retry.
- * @param triggerType    "scheduled" (cron) or "manual" (admin Send Now button).
+ * @param schedule          The schedule row from the DB.
+ * @param retryAttempt      0 for the initial delivery, 1+ for each automatic retry.
+ * @param triggerType       "scheduled" (cron) or "manual" (admin Send Now button).
+ * @param deliveryCycleId   UUID shared by all attempts in the same delivery cycle.
+ *                          Generated fresh when omitted (i.e. on every attempt-0 send).
  */
 export async function sendScheduledReport(
   schedule: typeof scheduledAuditReportsTable.$inferSelect,
   retryAttempt: number = 0,
   triggerType: "manual" | "scheduled" = "scheduled",
+  deliveryCycleId?: string,
 ): Promise<boolean> {
   const isRetry = retryAttempt > 0;
+  const cycleId = deliveryCycleId ?? randomUUID();
   const { dateFrom, dateTo } = getDateRange(schedule.frequency);
   const sentAt = new Date();
 
@@ -176,6 +181,7 @@ export async function sendScheduledReport(
     isRetry,
     retryAttempt,
     triggerType,
+    deliveryCycleId: cycleId,
   });
 
   if (sent) {
@@ -370,11 +376,12 @@ async function runDueReports(): Promise<void> {
       }
 
       const nextRetryAttempt = latestLog.retryAttempt + 1;
+      const cycleId = latestLog.deliveryCycleId ?? undefined;
       logger.info(
-        { scheduleId: schedule.id, frequency: schedule.frequency, nextRetryAttempt, maxRetryAttempts: schedule.maxRetryAttempts },
+        { scheduleId: schedule.id, frequency: schedule.frequency, nextRetryAttempt, maxRetryAttempts: schedule.maxRetryAttempts, deliveryCycleId: cycleId },
         "Retrying failed scheduled audit report",
       );
-      await sendScheduledReport(schedule, nextRetryAttempt, "scheduled").catch(err => {
+      await sendScheduledReport(schedule, nextRetryAttempt, "scheduled", cycleId).catch(err => {
         logger.error({ err, scheduleId: schedule.id, nextRetryAttempt }, "Retry of scheduled audit report also failed");
       });
     }

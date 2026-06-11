@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSearch, useLocation } from "wouter";
 import {
   useListAdminAuditLogs, useGetAdminAuditLogStats,
@@ -1145,6 +1145,7 @@ function ScheduleHistoryPanel({ scheduleId, maxRetryAttempts }: { scheduleId: nu
   const [retryingId, setRetryingId] = useState<number | null>(null);
   const [retryingAll, setRetryingAll] = useState(false);
   const [goToInput, setGoToInput] = useState("");
+  const [expandedCycles, setExpandedCycles] = useState<Set<string>>(new Set());
 
   const search = useSearch();
   const [location, navigate] = useLocation();
@@ -1218,6 +1219,43 @@ function ScheduleHistoryPanel({ scheduleId, maxRetryAttempts }: { scheduleId: nu
   const filteredTotal = data?.filteredTotal ?? 0;
   const totalPages = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE));
   const logs = data?.data ?? [];
+
+  type LogEntry = (typeof logs)[number];
+  interface CycleGroup {
+    cycleId: string | null;
+    attempts: LogEntry[];
+    mostRecentAttempt: LogEntry;
+    succeeded: boolean;
+  }
+
+  const cycleGroups = useMemo((): CycleGroup[] => {
+    const groups: CycleGroup[] = [];
+    const cycleIndex = new Map<string, number>();
+
+    for (const log of logs) {
+      if (!log.deliveryCycleId) {
+        groups.push({ cycleId: null, attempts: [log], mostRecentAttempt: log, succeeded: log.success });
+      } else {
+        const existingIdx = cycleIndex.get(log.deliveryCycleId);
+        if (existingIdx === undefined) {
+          const idx = groups.length;
+          cycleIndex.set(log.deliveryCycleId, idx);
+          groups.push({ cycleId: log.deliveryCycleId, attempts: [log], mostRecentAttempt: log, succeeded: log.success });
+        } else {
+          const group = groups[existingIdx]!;
+          group.attempts.push(log);
+          if (log.success) group.succeeded = true;
+          if (new Date(log.sentAt) > new Date(group.mostRecentAttempt.sentAt)) {
+            group.mostRecentAttempt = log;
+          }
+        }
+      }
+    }
+    for (const group of groups) {
+      group.attempts.sort((a, b) => a.retryAttempt - b.retryAttempt);
+    }
+    return groups;
+  }, [logs]);
 
   const hasFilters = statusFilter !== "all" || triggerFilter !== "all" || dateFrom !== "" || dateTo !== "";
 
@@ -1377,84 +1415,173 @@ function ScheduleHistoryPanel({ scheduleId, maxRetryAttempts }: { scheduleId: nu
         </div>
       ) : (
         <div className="divide-y divide-border/30">
-          {logs.map((log: any) => (
-            <div key={log.id} className={`flex items-start gap-3 px-4 py-2.5 ${!log.success ? "bg-rose-500/5" : ""}`}>
-              <div className="mt-0.5 shrink-0">
-                {log.success
-                  ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  : <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                }
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium">
-                    {format(new Date(log.sentAt), "MMM d, yyyy 'at' HH:mm")}
-                  </span>
-                  {log.success
-                    ? (
-                      <span className="inline-flex items-center rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
-                        Delivered
+          {cycleGroups.map((group, groupIdx) => {
+            const isSingle = group.attempts.length === 1;
+            const isExpanded = group.cycleId ? expandedCycles.has(group.cycleId) : false;
+            const toggleExpand = () => {
+              if (!group.cycleId) return;
+              setExpandedCycles(prev => {
+                const next = new Set(prev);
+                if (next.has(group.cycleId!)) next.delete(group.cycleId!);
+                else next.add(group.cycleId!);
+                return next;
+              });
+            };
+
+            function renderAttemptRow(log: LogEntry, isNested: boolean) {
+              return (
+                <div key={log.id} className={`flex items-start gap-3 ${isNested ? "pl-8 pr-4" : "px-4"} py-2.5 ${!log.success ? "bg-rose-500/5" : ""}`}>
+                  <div className="mt-0.5 shrink-0">
+                    {log.success
+                      ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      : <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium">
+                        {format(new Date(log.sentAt), "MMM d, yyyy 'at' HH:mm")}
                       </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">
-                        Failed
+                      {log.success
+                        ? (
+                          <span className="inline-flex items-center rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                            Delivered
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">
+                            Failed
+                          </span>
+                        )
+                      }
+                      {log.triggerType === "manual" ? (
+                        <span className="inline-flex items-center rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+                          Manual
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded border border-zinc-500/20 bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+                          Scheduled
+                        </span>
+                      )}
+                      {log.isRetry && (
+                        <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                          ↩ Attempt {log.retryAttempt} of {maxRetryAttempts}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {log.rowCount.toLocaleString()} row{log.rowCount !== 1 ? "s" : ""}
                       </span>
-                    )
-                  }
-                  {log.triggerType === "manual" ? (
-                    <span className="inline-flex items-center rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
-                      Manual
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded border border-zinc-500/20 bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
-                      Scheduled
-                    </span>
+                    </div>
+                    {log.recipientEmail && (
+                      <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+                        → {log.recipientEmail}
+                      </p>
+                    )}
+                    {!log.success && log.errorMessage && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-xs text-rose-400/80 mt-0.5 truncate cursor-default">
+                              {log.errorMessage}
+                            </p>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-xs break-words">
+                            {log.errorMessage}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                  {!log.success && (
+                    <button
+                      onClick={() => handleRetry(log.id)}
+                      disabled={retryingId === log.id}
+                      className="shrink-0 inline-flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-400 hover:bg-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Retry this send"
+                    >
+                      {retryingId === log.id
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <Send className="w-3 h-3" />
+                      }
+                      {retryingId === log.id ? "Sending…" : "Retry"}
+                    </button>
                   )}
-                  {log.isRetry && (
-                    <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
-                      ↩ Attempt {log.retryAttempt} of {maxRetryAttempts}
-                    </span>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {log.rowCount.toLocaleString()} row{log.rowCount !== 1 ? "s" : ""}
-                  </span>
                 </div>
-                {log.recipientEmail && (
-                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                    → {log.recipientEmail}
-                  </p>
-                )}
-                {!log.success && log.errorMessage && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <p className="text-xs text-rose-400/80 mt-0.5 truncate cursor-default">
-                          {log.errorMessage}
-                        </p>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs break-words">
-                        {log.errorMessage}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+              );
+            }
+
+            if (isSingle) {
+              return <div key={group.cycleId ?? `solo-${groupIdx}`}>{renderAttemptRow(group.attempts[0]!, false)}</div>;
+            }
+
+            const cycleSucceeded = group.succeeded;
+            const cycleAttemptCount = group.attempts.length;
+            const latestAttempt = group.mostRecentAttempt;
+
+            return (
+              <div key={group.cycleId ?? `group-${groupIdx}`} className={`${!cycleSucceeded ? "bg-rose-500/5" : ""}`}>
+                <button
+                  onClick={toggleExpand}
+                  className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-muted/10 transition-colors"
+                >
+                  <div className="mt-0.5 shrink-0">
+                    {cycleSucceeded
+                      ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      : <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium">
+                        {format(new Date(latestAttempt.sentAt), "MMM d, yyyy 'at' HH:mm")}
+                      </span>
+                      {cycleSucceeded
+                        ? (
+                          <span className="inline-flex items-center rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                            Delivered
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">
+                            Failed
+                          </span>
+                        )
+                      }
+                      {latestAttempt.triggerType === "manual" ? (
+                        <span className="inline-flex items-center rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+                          Manual
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded border border-zinc-500/20 bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+                          Scheduled
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-0.5 rounded border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-400">
+                        {cycleAttemptCount} attempt{cycleAttemptCount !== 1 ? "s" : ""}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {latestAttempt.rowCount.toLocaleString()} row{latestAttempt.rowCount !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    {latestAttempt.recipientEmail && (
+                      <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+                        → {latestAttempt.recipientEmail}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-0.5 shrink-0 text-muted-foreground">
+                    {isExpanded
+                      ? <ChevronUp className="w-3.5 h-3.5" />
+                      : <ChevronDown className="w-3.5 h-3.5" />
+                    }
+                  </div>
+                </button>
+                {isExpanded && (
+                  <div className="border-t border-border/20 divide-y divide-border/20">
+                    {group.attempts.map(log => renderAttemptRow(log, true))}
+                  </div>
                 )}
               </div>
-              {!log.success && (
-                <button
-                  onClick={() => handleRetry(log.id)}
-                  disabled={retryingId === log.id}
-                  className="shrink-0 inline-flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-400 hover:bg-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  title="Retry this send"
-                >
-                  {retryingId === log.id
-                    ? <Loader2 className="w-3 h-3 animate-spin" />
-                    : <Send className="w-3 h-3" />
-                  }
-                  {retryingId === log.id ? "Sending…" : "Retry"}
-                </button>
-              )}
-            </div>
-          ))}
+            );
+          })}
 
           {/* Pagination controls */}
           {filteredTotal > 0 && (

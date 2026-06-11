@@ -167,36 +167,60 @@ router.get("/smtp-status", async (_req, res, next) => {
 });
 
 // GET /api/settings/finance_report_email/preview
-router.get("/finance_report_email/preview", (_req, res) => {
-  const today = new Date();
-  const dateFrom = new Date(today);
-  dateFrom.setDate(today.getDate() - 7);
+// Optional query param: runId — if provided, uses real run data; otherwise falls back to sample data
+router.get("/finance_report_email/preview", async (req, res, next) => {
+  try {
+    let runData: typeof reconciliationRunsTable.$inferSelect | null = null;
 
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const rawRunId = req.query['runId'];
+    if (rawRunId !== undefined) {
+      const runId = parseInt(rawRunId as string, 10);
+      if (!isNaN(runId)) {
+        const rows = await db
+          .select()
+          .from(reconciliationRunsTable)
+          .where(eq(reconciliationRunsTable.id, runId))
+          .limit(1);
+        if (rows.length > 0) {
+          runData = rows[0]!;
+        }
+      }
+    }
 
-  const sampleRun: typeof reconciliationRunsTable.$inferSelect = {
-    id: 42,
-    merchantId: null,
-    dateFrom: fmt(dateFrom),
-    dateTo: fmt(today),
-    runAt: today,
-    totalDeposits: 18,
-    totalMatched: 15,
-    totalUnmatched: 3,
-    totalSettlements: 16,
-    matchedAmount: "245820.00",
-    unmatchedAmount: "18500.00",
-    status: "completed",
-    completedAt: today,
-    createdBy: null,
-    triggeredBy: "auto",
-    notes: null,
-    createdAt: today,
-  };
+    if (runData === null) {
+      const today = new Date();
+      const dateFrom = new Date(today);
+      dateFrom.setDate(today.getDate() - 7);
 
-  const html = buildEmailHtml(sampleRun);
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(html);
+      const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+      runData = {
+        id: 42,
+        merchantId: null,
+        dateFrom: fmt(dateFrom),
+        dateTo: fmt(today),
+        runAt: today,
+        totalDeposits: 18,
+        totalMatched: 15,
+        totalUnmatched: 3,
+        totalSettlements: 16,
+        matchedAmount: "245820.00",
+        unmatchedAmount: "18500.00",
+        status: "completed",
+        completedAt: today,
+        createdBy: null,
+        triggeredBy: "auto",
+        notes: null,
+        createdAt: today,
+      };
+    }
+
+    const html = buildEmailHtml(runData);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // GET /api/settings/reconciliation_alert_email/preview

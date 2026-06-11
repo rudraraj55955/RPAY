@@ -786,6 +786,7 @@ export default function AdminReconciliation() {
   const [exportFilter, setExportFilter] = useState<"all" | "matched" | "unmatched_deposit" | "unmatched_settlement">("all");
   const [csvExportFilter, setCsvExportFilter] = useState<"all" | "matched" | "unmatched">("all");
   const [isExporting, setIsExporting] = useState(false);
+  const [isPreviewingEmail, setIsPreviewingEmail] = useState(false);
   const [emailLogOpen, setEmailLogOpen] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [emailFailureBannerDismissed, setEmailFailureBannerDismissed] = useState(false);
@@ -1288,6 +1289,40 @@ export default function AdminReconciliation() {
               <GitMerge className="w-4 h-4 text-primary" />
               Run #{selectedRunId} — Reconciliation Details
               <div className="ml-auto flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs"
+                  disabled={isPreviewingEmail}
+                  onClick={async () => {
+                    if (!selectedRunId) return;
+                    setIsPreviewingEmail(true);
+                    try {
+                      const res = await fetch(`/api/settings/finance_report_email/preview?runId=${selectedRunId}`, {
+                        headers: { Authorization: `Bearer ${getToken()}` },
+                      });
+                      if (!res.ok) throw new Error("Failed to load preview");
+                      const html = await res.text();
+                      const blob = new Blob([html], { type: "text/html" });
+                      const url = URL.createObjectURL(blob);
+                      const tab = window.open(url, "_blank");
+                      if (tab) {
+                        tab.addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
+                        setTimeout(() => URL.revokeObjectURL(url), 30_000);
+                      }
+                    } catch (err: any) {
+                      toast.error(err.message ?? "Could not load email preview");
+                    } finally {
+                      setIsPreviewingEmail(false);
+                    }
+                  }}
+                >
+                  {isPreviewingEmail ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…</>
+                  ) : (
+                    <><Mail className="w-3.5 h-3.5" /> Preview email</>
+                  )}
+                </Button>
                 {(() => {
                   const CSV_FILTER_LABELS: Record<string, string> = {
                     all: "All",

@@ -4172,6 +4172,18 @@ export const ResendReconciliationReportEmailResponse = zod.object({
 
 
 /**
+ * @summary Re-send the unmatched-alert email for a run (admin only)
+ */
+export const ResendReconciliationAlertEmailParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ResendReconciliationAlertEmailResponse = zod.object({
+  "ok": zod.boolean().optional()
+})
+
+
+/**
  * @summary Manually resolve an unmatched reconciliation item (admin only)
  */
 export const ResolveReconciliationItemParams = zod.object({

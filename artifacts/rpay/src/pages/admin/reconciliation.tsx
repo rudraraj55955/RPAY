@@ -774,6 +774,7 @@ export default function AdminReconciliation() {
   const [isExporting, setIsExporting] = useState(false);
   const [emailLogOpen, setEmailLogOpen] = useState(false);
   const [forceResendConfirmOpen, setForceResendConfirmOpen] = useState(false);
+  const [forceResendAlertConfirmOpen, setForceResendAlertConfirmOpen] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [emailFailureBannerDismissed, setEmailFailureBannerDismissed] = useState(false);
   const HISTORY_PAGE_SIZE = 15;
@@ -847,6 +848,15 @@ export default function AdminReconciliation() {
     mutationFn: () => apiPost(`/reconciliation/runs/${selectedRunId}/email-logs/resend`, {}),
     onSuccess: () => {
       toast.success("Report email resent");
+      qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs", selectedRunId, "email-logs"] });
+    },
+    onError: (err: any) => toast.error(`Resend failed: ${err.message}`),
+  });
+
+  const resendAlertEmailMutation = useMutation({
+    mutationFn: () => apiPost(`/reconciliation/runs/${selectedRunId}/email-logs/resend-alert`, {}),
+    onSuccess: () => {
+      toast.success("Alert email resent");
       qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs", selectedRunId, "email-logs"] });
     },
     onError: (err: any) => toast.error(`Resend failed: ${err.message}`),
@@ -1490,19 +1500,34 @@ export default function AdminReconciliation() {
                         </div>
                       ))
                     )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="w-full h-7 text-xs gap-1.5 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
-                      onClick={() => setForceResendConfirmOpen(true)}
-                      disabled={resendEmailMutation.isPending}
-                    >
-                      {resendEmailMutation.isPending
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : <RefreshCw className="w-3 h-3" />
-                      }
-                      {resendEmailMutation.isPending ? "Sending…" : "Force resend"}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="flex-1 h-7 text-xs gap-1.5 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+                        onClick={() => setForceResendConfirmOpen(true)}
+                        disabled={resendEmailMutation.isPending || resendAlertEmailMutation.isPending}
+                      >
+                        {resendEmailMutation.isPending
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <RefreshCw className="w-3 h-3" />
+                        }
+                        {resendEmailMutation.isPending ? "Sending…" : "Force resend report"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="flex-1 h-7 text-xs gap-1.5 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300"
+                        onClick={() => setForceResendAlertConfirmOpen(true)}
+                        disabled={resendAlertEmailMutation.isPending || resendEmailMutation.isPending}
+                      >
+                        {resendAlertEmailMutation.isPending
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <RefreshCw className="w-3 h-3" />
+                        }
+                        {resendAlertEmailMutation.isPending ? "Sending…" : "Force resend alert"}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1656,6 +1681,30 @@ export default function AdminReconciliation() {
               }}
             >
               {resendEmailMutation.isPending ? "Sending…" : "Send"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Force Resend Alert Email Confirmation */}
+      <AlertDialog open={forceResendAlertConfirmOpen} onOpenChange={setForceResendAlertConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Force resend unmatched alert email?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately send a new unmatched-items alert email to all active admins with reconciliation alerts enabled, even if one was already sent. Use this after fixing a config issue or adding new recipients.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resendAlertEmailMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={resendAlertEmailMutation.isPending}
+              onClick={() => {
+                setForceResendAlertConfirmOpen(false);
+                resendAlertEmailMutation.mutate();
+              }}
+            >
+              {resendAlertEmailMutation.isPending ? "Sending…" : "Send"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

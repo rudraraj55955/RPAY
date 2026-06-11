@@ -3213,6 +3213,10 @@ export type ResendReconciliationReportEmail200 = {
   ok?: boolean;
 };
 
+export type ResendReconciliationAlertEmail200 = {
+  ok?: boolean;
+};
+
 export type ListStorageCleanupRunsParams = {
 /**
  * @minimum 1

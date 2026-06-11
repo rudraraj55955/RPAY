@@ -4258,6 +4258,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /reconciliation/runs/{id}/email-logs/resend-alert:
+    post:
+      operationId: resendReconciliationAlertEmail
+      tags: [reconciliation]
+      summary: Re-send the unmatched-alert email for a run (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Resend result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "404":
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /reconciliation/items/{id}/resolve:
     patch:
       operationId: resolveReconciliationItem

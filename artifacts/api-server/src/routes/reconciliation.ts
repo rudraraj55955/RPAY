@@ -4,7 +4,7 @@ import { eq, and, gte, lte, inArray, sql, count, or, isNull, isNotNull, gt, desc
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { runReconciliation } from "../helpers/reconcileEngine";
 import { loadReconConfig } from "../helpers/reconScheduler";
-import { sendReconciliationReportEmail } from "../helpers/reconcileEmail";
+import { sendReconciliationReportEmail, notifyAdminsOfUnmatchedItems } from "../helpers/reconcileEmail";
 
 const router = Router();
 router.use(requireAuth);
@@ -312,6 +312,33 @@ router.post("/runs/:id/email-logs/resend", async (req, res, next) => {
       adminId: user.id,
       adminEmail: user.email,
       action: "reconciliation_report_email_resent",
+      targetType: "reconciliation_run",
+      targetId: runId,
+      details: JSON.stringify({ runId }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/reconciliation/runs/:id/email-logs/resend-alert
+router.post("/runs/:id/email-logs/resend-alert", async (req, res, next) => {
+  try {
+    const runId = parseInt(req.params['id'] as string);
+    const user = (req as any).user;
+
+    const [run] = await db.select().from(reconciliationRunsTable).where(eq(reconciliationRunsTable.id, runId)).limit(1);
+    if (!run) { res.status(404).json({ error: "Run not found" }); return; }
+
+    await notifyAdminsOfUnmatchedItems(runId);
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id,
+      adminEmail: user.email,
+      action: "reconciliation_alert_email_resent",
       targetType: "reconciliation_run",
       targetId: runId,
       details: JSON.stringify({ runId }),

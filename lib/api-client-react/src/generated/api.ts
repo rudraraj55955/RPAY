@@ -182,6 +182,7 @@ import type {
   ReconciliationSchedulerStatus,
   RejectInput,
   RenewPlanInput,
+  ResendReconciliationAlertEmail200,
   ResendReconciliationReportEmail200,
   RetryCallback200,
   RetryWebhookLog200,
@@ -13641,6 +13642,76 @@ export const useResendReconciliationReportEmail = <TError = ErrorType<ErrorRespo
         TContext
       > => {
       return useMutation(getResendReconciliationReportEmailMutationOptions(options));
+    }
+
+export const getResendReconciliationAlertEmailUrl = (id: number,) => {
+
+
+
+
+  return `/api/reconciliation/runs/${id}/email-logs/resend-alert`
+}
+
+/**
+ * @summary Re-send the unmatched-alert email for a run (admin only)
+ */
+export const resendReconciliationAlertEmail = async (id: number, options?: RequestInit): Promise<ResendReconciliationAlertEmail200> => {
+
+  return customFetch<ResendReconciliationAlertEmail200>(getResendReconciliationAlertEmailUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getResendReconciliationAlertEmailMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendReconciliationAlertEmail>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resendReconciliationAlertEmail>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['resendReconciliationAlertEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resendReconciliationAlertEmail>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  resendReconciliationAlertEmail(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResendReconciliationAlertEmailMutationResult = NonNullable<Awaited<ReturnType<typeof resendReconciliationAlertEmail>>>
+
+    export type ResendReconciliationAlertEmailMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Re-send the unmatched-alert email for a run (admin only)
+ */
+export const useResendReconciliationAlertEmail = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendReconciliationAlertEmail>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resendReconciliationAlertEmail>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getResendReconciliationAlertEmailMutationOptions(options));
     }
 
 export const getResolveReconciliationItemUrl = (id: number,) => {

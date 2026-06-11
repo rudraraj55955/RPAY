@@ -19,6 +19,7 @@ interface TestEmailHistoryPanelProps {
   clearing?: boolean;
   clearConfirm?: boolean;
   onClearConfirmChange?: (v: boolean) => void;
+  clearCount?: number;
 }
 
 export function TestEmailHistoryPanel({
@@ -37,7 +38,10 @@ export function TestEmailHistoryPanel({
   clearing,
   clearConfirm,
   onClearConfirmChange,
+  clearCount,
 }: TestEmailHistoryPanelProps) {
+  const hasClearCount = clearCount !== undefined;
+  const showClearButton = onClear && (!hasClearCount || clearCount > 0);
   return (
     <div className="border-t border-border/50 pt-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -79,7 +83,7 @@ export function TestEmailHistoryPanel({
             );
           })}
         </div>
-        {onClear && (clearConfirm ? (
+        {showClearButton && (clearConfirm ? (
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -107,6 +111,11 @@ export function TestEmailHistoryPanel({
           >
             <Trash2 className="w-3 h-3" />
             Clear
+            {hasClearCount && clearCount! > 0 && (
+              <span className="inline-flex items-center justify-center rounded-full px-1 min-w-[1rem] h-4 text-[10px] font-semibold leading-none bg-red-500/20 text-red-400">
+                {clearCount}
+              </span>
+            )}
           </button>
         ))}
         </div>

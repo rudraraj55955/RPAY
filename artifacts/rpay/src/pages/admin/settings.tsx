@@ -892,6 +892,7 @@ export default function AdminSettings() {
               clearing={clearingHistory}
               clearConfirm={clearHistoryConfirm}
               onClearConfirmChange={setClearHistoryConfirm}
+              clearCount={testHistorySuccessTotal + testHistoryFailedTotal}
             />
           </div>
         </CardContent>
@@ -1222,6 +1223,7 @@ export default function AdminSettings() {
             clearing={clearingHistory}
             clearConfirm={clearHistoryConfirm}
             onClearConfirmChange={setClearHistoryConfirm}
+            clearCount={testHistorySuccessTotal + testHistoryFailedTotal}
           />
 
           {/* Finance Report Email Log */}

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Eye } from "lucide-react";
+import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey } from "@workspace/api-client-react";
@@ -80,6 +80,14 @@ interface SmtpStatus {
   configured: boolean;
 }
 
+interface SmtpConfig {
+  host: string | null;
+  port: string | null;
+  user: string | null;
+  from: string | null;
+  passConfigured: boolean;
+}
+
 export default function AdminSettings() {
   const qc = useQueryClient();
   const [financeEmail, setFinanceEmail] = useState<string>("");
@@ -88,6 +96,18 @@ export default function AdminSettings() {
   const [initialized, setInitialized] = useState(false);
   const [retentionDays, setRetentionDays] = useState<number>(30);
   const [retentionInitialized, setRetentionInitialized] = useState(false);
+
+  // SMTP config form state
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("587");
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpFrom, setSmtpFrom] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [smtpInitialized, setSmtpInitialized] = useState(false);
+  const [smtpTestTo, setSmtpTestTo] = useState("");
+  const [smtpTestResult, setSmtpTestResult] = useState<"success" | "error" | null>(null);
+  const [smtpTestMessage, setSmtpTestMessage] = useState("");
 
   const { data: me } = useGetMe();
   const alertEnabled = me?.reconciliationAlertEmails ?? true;
@@ -104,12 +124,68 @@ export default function AdminSettings() {
     },
   });
 
-  const { data: smtpStatus } = useQuery<SmtpStatus>({
+  const { data: smtpStatus, refetch: refetchSmtpStatus } = useQuery<SmtpStatus>({
     queryKey: ["/api/settings/smtp-status"],
     queryFn: () => apiGet("/settings/smtp-status"),
   });
 
   const smtpConfigured = smtpStatus?.configured ?? null;
+
+  const { data: smtpConfig, isLoading: smtpConfigLoading } = useQuery<SmtpConfig>({
+    queryKey: ["/api/settings/smtp"],
+    queryFn: () => apiGet("/settings/smtp"),
+    onSuccess: (d: SmtpConfig) => {
+      if (!smtpInitialized) {
+        setSmtpHost(d.host ?? "");
+        setSmtpPort(d.port ?? "587");
+        setSmtpUser(d.user ?? "");
+        setSmtpFrom(d.from ?? "");
+        setSmtpPass("");
+        setSmtpInitialized(true);
+      }
+    },
+  } as any);
+
+  const smtpChanged =
+    smtpHost !== (smtpConfig?.host ?? "") ||
+    smtpPort !== (smtpConfig?.port ?? "587") ||
+    smtpUser !== (smtpConfig?.user ?? "") ||
+    smtpFrom !== (smtpConfig?.from ?? "") ||
+    smtpPass.trim() !== "";
+
+  const { mutate: saveSmtp, isPending: savingSmtp } = useMutation({
+    mutationFn: () =>
+      apiPut("/settings/smtp", {
+        host: smtpHost.trim() || null,
+        port: smtpPort.trim() || null,
+        smtpUser: smtpUser.trim() || null,
+        from: smtpFrom.trim() || null,
+        ...(smtpPass.trim() ? { pass: smtpPass.trim() } : {}),
+      }),
+    onSuccess: () => {
+      toast.success("SMTP settings saved");
+      setSmtpPass("");
+      setSmtpInitialized(false);
+      qc.invalidateQueries({ queryKey: ["/api/settings/smtp"] });
+      qc.invalidateQueries({ queryKey: ["/api/settings/smtp-status"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const { mutate: sendSmtpTest, isPending: sendingSmtpTest } = useMutation({
+    mutationFn: () => {
+      const to = smtpTestTo.trim() || undefined;
+      return apiPost("/settings/test-email", to ? { to } : undefined);
+    },
+    onSuccess: (res: { to: string }) => {
+      setSmtpTestResult("success");
+      setSmtpTestMessage(`Test email sent to ${res.to} — check your inbox`);
+    },
+    onError: (err: Error) => {
+      setSmtpTestResult("error");
+      setSmtpTestMessage(err.message);
+    },
+  });
 
   const { data, isLoading } = useQuery<SettingsData>({
     queryKey: ["/api/settings"],
@@ -226,6 +302,216 @@ export default function AdminSettings() {
           <p className="text-sm text-muted-foreground">Configure platform-wide operational settings</p>
         </div>
       </div>
+
+      {/* Email / SMTP Configuration */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Server className="w-4 h-4 text-muted-foreground" />
+              <CardTitle className="text-base">Email / SMTP</CardTitle>
+            </div>
+            {smtpConfigured === true && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
+                <Wifi className="w-3 h-3" />
+                SMTP ready
+              </span>
+            )}
+            {smtpConfigured === false && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-400">
+                <WifiOff className="w-3 h-3" />
+                Not configured
+              </span>
+            )}
+          </div>
+          <CardDescription className="text-sm">
+            Configure outgoing mail delivery for audit reports, reconciliation alerts, and plan notifications.
+            Settings saved here take precedence over any server environment variables.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="smtp-host" className="text-sm">SMTP host</Label>
+              <Input
+                id="smtp-host"
+                type="text"
+                placeholder="smtp.example.com"
+                value={smtpHost}
+                onChange={e => setSmtpHost(e.target.value)}
+                disabled={smtpConfigLoading}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="smtp-port" className="text-sm">Port</Label>
+              <Input
+                id="smtp-port"
+                type="number"
+                min={1}
+                max={65535}
+                placeholder="587"
+                value={smtpPort}
+                onChange={e => setSmtpPort(e.target.value)}
+                disabled={smtpConfigLoading}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="smtp-user" className="text-sm">Username</Label>
+            <Input
+              id="smtp-user"
+              type="text"
+              placeholder="user@example.com"
+              value={smtpUser}
+              onChange={e => setSmtpUser(e.target.value)}
+              disabled={smtpConfigLoading}
+              autoComplete="username"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="smtp-pass" className="text-sm">
+              Password
+              {smtpConfig?.passConfigured && (
+                <span className="ml-2 text-xs text-muted-foreground font-normal">
+                  (leave blank to keep current password)
+                </span>
+              )}
+            </Label>
+            <div className="relative flex items-center">
+              <Input
+                id="smtp-pass"
+                type={showPass ? "text" : "password"}
+                placeholder={smtpConfig?.passConfigured ? "••••••••" : "Enter password"}
+                value={smtpPass}
+                onChange={e => setSmtpPass(e.target.value)}
+                disabled={smtpConfigLoading}
+                autoComplete="current-password"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                className="absolute right-3 text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setShowPass(v => !v)}
+                tabIndex={-1}
+              >
+                {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="smtp-from" className="text-sm">From address</Label>
+            <Input
+              id="smtp-from"
+              type="text"
+              placeholder='RasoKart <noreply@rasokart.com>'
+              value={smtpFrom}
+              onChange={e => setSmtpFrom(e.target.value)}
+              disabled={smtpConfigLoading}
+            />
+            <p className="text-xs text-muted-foreground">
+              Used as the sender on all outgoing emails. Accepts plain email or{" "}
+              <code className="bg-muted px-1 py-0.5 rounded text-xs">Name &lt;email&gt;</code> format.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              size="sm"
+              onClick={() => saveSmtp()}
+              disabled={savingSmtp || smtpConfigLoading || !smtpChanged}
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              {savingSmtp ? "Saving…" : "Save"}
+            </Button>
+            {smtpChanged && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setSmtpHost(smtpConfig?.host ?? "");
+                  setSmtpPort(smtpConfig?.port ?? "587");
+                  setSmtpUser(smtpConfig?.user ?? "");
+                  setSmtpFrom(smtpConfig?.from ?? "");
+                  setSmtpPass("");
+                }}
+                disabled={savingSmtp}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+
+          {/* Test connection */}
+          <div className="border-t border-border/50 pt-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-foreground mb-0.5">Send a test email</p>
+              <p className="text-xs text-muted-foreground">
+                Verify your SMTP settings are working by sending a test message.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Input
+                type="email"
+                placeholder="recipient@example.com"
+                value={smtpTestTo}
+                onChange={e => {
+                  setSmtpTestTo(e.target.value);
+                  setSmtpTestResult(null);
+                }}
+                disabled={sendingSmtpTest || smtpConfigured === false}
+                className="max-w-sm"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSmtpTestResult(null);
+                  sendSmtpTest();
+                }}
+                disabled={
+                  sendingSmtpTest ||
+                  smtpConfigured === false ||
+                  (!smtpTestTo.trim() && !currentEmail)
+                }
+                title={
+                  smtpConfigured === false
+                    ? "Save valid SMTP credentials first"
+                    : !smtpTestTo.trim() && !currentEmail
+                    ? "Enter a recipient address"
+                    : smtpTestTo.trim()
+                    ? `Send test to ${smtpTestTo.trim()}`
+                    : `Send test to ${currentEmail}`
+                }
+              >
+                <Send className="w-3.5 h-3.5 mr-1.5" />
+                {sendingSmtpTest ? "Sending…" : "Send test"}
+              </Button>
+            </div>
+
+            {smtpTestResult === "success" && (
+              <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span>{smtpTestMessage}</span>
+              </div>
+            )}
+            {smtpTestResult === "error" && (
+              <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{smtpTestMessage}</span>
+              </div>
+            )}
+            {smtpConfigured === false && (
+              <p className="text-xs text-muted-foreground">
+                Fill in host, port, username, and password above, then save before sending a test.
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Reconciliation Schedule */}
       <Card className="border-border/50">
@@ -408,7 +694,7 @@ export default function AdminSettings() {
                 disabled={sendingTest || isLoading || smtpConfigured === false || (!testEmailTrimmed && !currentEmail) || testEmailInvalid}
                 title={
                   smtpConfigured === false
-                    ? "SMTP is not configured — set SMTP_HOST, SMTP_USER, and SMTP_PASS on the server"
+                    ? "SMTP is not configured — configure it in the Email / SMTP section above"
                     : testEmailInvalid
                     ? "Enter a valid email address"
                     : !testEmailTrimmed && !currentEmail
@@ -454,19 +740,6 @@ export default function AdminSettings() {
                 Cancel
               </Button>
             )}
-          </div>
-
-          <div className="border-t border-border/50 pt-4">
-            <p className="text-xs text-muted-foreground font-medium mb-1">SMTP requirement</p>
-            <p className="text-xs text-muted-foreground">
-              Emails are sent via SMTP. Ensure the server has{" "}
-              <code className="bg-muted px-1 py-0.5 rounded text-xs">SMTP_HOST</code>,{" "}
-              <code className="bg-muted px-1 py-0.5 rounded text-xs">SMTP_USER</code>, and{" "}
-              <code className="bg-muted px-1 py-0.5 rounded text-xs">SMTP_PASS</code> environment
-              variables set. Optionally set{" "}
-              <code className="bg-muted px-1 py-0.5 rounded text-xs">SMTP_PORT</code> (default 587) and{" "}
-              <code className="bg-muted px-1 py-0.5 rounded text-xs">SMTP_FROM</code>.
-            </p>
           </div>
         </CardContent>
       </Card>

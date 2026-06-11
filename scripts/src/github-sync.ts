@@ -27,6 +27,10 @@ async function main() {
   }
 
   console.log(`GITHUB_SYNC: Pushing to ${GITHUB_REPO}...`);
+  try {
+    run(`git fetch ${REMOTE_NAME} main`, { stdio: "inherit" });
+  } catch {
+  }
   run(`git push ${REMOTE_NAME} HEAD:main --force`, { stdio: "inherit" });
 
   run(

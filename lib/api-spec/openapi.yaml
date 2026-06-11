@@ -4354,6 +4354,37 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /saved-filters/reorder:
+    put:
+      operationId: reorderSavedFilters
+      tags: [saved-filters]
+      summary: Reorder saved filter presets for the current admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderSavedFiltersInput'
+      responses:
+        '200':
+          description: Reordered successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /saved-filters/{id}:
     delete:
       operationId: deleteSavedFilter
@@ -4401,9 +4432,22 @@ components:
           type: object
           description: SmartFilter JSON object
           additionalProperties: true
+        sortOrder:
+          type: integer
+          nullable: true
         createdAt:
           type: string
           format: date-time
+
+    ReorderSavedFiltersInput:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+          description: Ordered array of saved filter IDs (front to back)
 
     CreateSavedFilterInput:
       type: object

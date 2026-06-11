@@ -6,6 +6,7 @@ export const savedFiltersTable = pgTable("saved_filters", {
   name: text("name").notNull(),
   rawInput: text("raw_input").notNull(),
   filterData: jsonb("filter_data").notNull(),
+  sortOrder: integer("sort_order"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("saved_filters_user_idx").on(table.userId),

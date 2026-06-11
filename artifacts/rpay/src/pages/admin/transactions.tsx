@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
-import { useListTransactions, useSearchByUtr, useGetTransaction, useAdminCreateTransaction, useAdminUpdateTransaction, useListPaymentLinks, useListMerchants, useGetPaymentLink, useListSavedFilters, useCreateSavedFilter, useDeleteSavedFilter } from "@workspace/api-client-react";
+import { useListTransactions, useSearchByUtr, useGetTransaction, useAdminCreateTransaction, useAdminUpdateTransaction, useListPaymentLinks, useListMerchants, useGetPaymentLink, useListSavedFilters, useCreateSavedFilter, useDeleteSavedFilter, useReorderSavedFilters } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -859,13 +859,63 @@ export default function AdminTransactions() {
 
   // Saved filters state
   const { data: savedFiltersData } = useListSavedFilters();
+  const [orderedFilters, setOrderedFilters] = useState<SavedFilterItem[]>([]);
   const savedFilters: SavedFilterItem[] = (savedFiltersData?.data ?? []) as SavedFilterItem[];
+
+  useEffect(() => {
+    setOrderedFilters((savedFiltersData?.data ?? []) as SavedFilterItem[]);
+  }, [savedFiltersData]);
+
   const { mutateAsync: createSavedFilterMutation, isPending: isSavingFilter } = useCreateSavedFilter();
   const { mutateAsync: deleteSavedFilterMutation } = useDeleteSavedFilter();
+  const { mutateAsync: reorderSavedFiltersMutation } = useReorderSavedFilters();
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveFilterName, setSaveFilterName] = useState("");
   const [saveFilterNameError, setSaveFilterNameError] = useState("");
   const saveNameInputRef = useRef<HTMLInputElement>(null);
+
+  // Drag-and-drop state for preset reordering
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dragOverId, setDragOverId] = useState<number | null>(null);
+
+  const handleDragStart = (id: number) => {
+    setDraggingId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: number) => {
+    e.preventDefault();
+    if (id !== draggingId) setDragOverId(id);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: number) => {
+    e.preventDefault();
+    if (draggingId == null || draggingId === targetId) {
+      setDraggingId(null);
+      setDragOverId(null);
+      return;
+    }
+    const from = orderedFilters.findIndex(f => f.id === draggingId);
+    const to = orderedFilters.findIndex(f => f.id === targetId);
+    if (from === -1 || to === -1) return;
+    const reordered = [...orderedFilters];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved!);
+    setOrderedFilters(reordered);
+    setDraggingId(null);
+    setDragOverId(null);
+    try {
+      await reorderSavedFiltersMutation({ data: { ids: reordered.map(f => f.id) } });
+      await qc.invalidateQueries({ queryKey: ["/api/saved-filters"] });
+    } catch {
+      setOrderedFilters(orderedFilters);
+      toast.error("Failed to save filter order");
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
+  };
 
   // Read ?provider= URL query param on mount and pre-fill the provider filter
   useEffect(() => {
@@ -1107,13 +1157,24 @@ export default function AdminTransactions() {
         <CardContent className="pt-4 pb-4">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Smart Search</p>
 
-          {savedFilters.length > 0 && (
+          {orderedFilters.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <span className="text-xs text-muted-foreground font-medium">Saved:</span>
-              {savedFilters.map(saved => (
+              {orderedFilters.map(saved => (
                 <span
                   key={saved.id}
-                  className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2.5 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
+                  draggable
+                  onDragStart={() => handleDragStart(saved.id)}
+                  onDragOver={(e) => handleDragOver(e, saved.id)}
+                  onDrop={(e) => handleDrop(e, saved.id)}
+                  onDragEnd={handleDragEnd}
+                  className={`group inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium text-violet-300 transition-colors cursor-grab active:cursor-grabbing select-none
+                    ${draggingId === saved.id
+                      ? "opacity-40 border-violet-500/30 bg-violet-500/8"
+                      : dragOverId === saved.id
+                        ? "border-violet-400/80 bg-violet-500/20 scale-105"
+                        : "border-violet-500/30 bg-violet-500/8 hover:border-violet-500/60"
+                    }`}
                 >
                   <button
                     onClick={() => applySavedFilter(saved)}

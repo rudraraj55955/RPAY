@@ -170,6 +170,7 @@ import type {
   ReconciliationSchedulerStatus,
   RejectInput,
   RenewPlanInput,
+  ReorderSavedFiltersInput,
   ResendReconciliationReportEmail200,
   RetryCallback200,
   RetryWebhookLog200,
@@ -13785,6 +13786,77 @@ export const useCreateSavedFilter = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getCreateSavedFilterMutationOptions(options));
+    }
+
+export const getReorderSavedFiltersUrl = () => {
+
+
+
+
+  return `/api/saved-filters/reorder`
+}
+
+/**
+ * @summary Reorder saved filter presets for the current admin
+ */
+export const reorderSavedFilters = async (reorderSavedFiltersInput: ReorderSavedFiltersInput, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getReorderSavedFiltersUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      reorderSavedFiltersInput,)
+  }
+);}
+
+
+
+
+export const getReorderSavedFiltersMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderSavedFilters>>, TError,{data: BodyType<ReorderSavedFiltersInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reorderSavedFilters>>, TError,{data: BodyType<ReorderSavedFiltersInput>}, TContext> => {
+
+const mutationKey = ['reorderSavedFilters'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reorderSavedFilters>>, {data: BodyType<ReorderSavedFiltersInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  reorderSavedFilters(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReorderSavedFiltersMutationResult = NonNullable<Awaited<ReturnType<typeof reorderSavedFilters>>>
+    export type ReorderSavedFiltersMutationBody = BodyType<ReorderSavedFiltersInput>
+    export type ReorderSavedFiltersMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Reorder saved filter presets for the current admin
+ */
+export const useReorderSavedFilters = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderSavedFilters>>, TError,{data: BodyType<ReorderSavedFiltersInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reorderSavedFilters>>,
+        TError,
+        {data: BodyType<ReorderSavedFiltersInput>},
+        TContext
+      > => {
+      return useMutation(getReorderSavedFiltersMutationOptions(options));
     }
 
 export const getDeleteSavedFilterUrl = (id: number,) => {

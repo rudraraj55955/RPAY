@@ -4161,6 +4161,7 @@ export const ListSavedFiltersResponse = zod.object({
   "name": zod.string(),
   "rawInput": zod.string(),
   "filterData": zod.record(zod.string(), zod.unknown()).describe('SmartFilter JSON object'),
+  "sortOrder": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }))
 })
@@ -4178,6 +4179,18 @@ export const CreateSavedFilterBody = zod.object({
   "name": zod.string().min(1).max(createSavedFilterBodyNameMax),
   "rawInput": zod.string().min(1),
   "filterData": zod.record(zod.string(), zod.unknown()).describe('SmartFilter JSON object')
+})
+
+
+/**
+ * @summary Reorder saved filter presets for the current admin
+ */
+export const ReorderSavedFiltersBody = zod.object({
+  "ids": zod.array(zod.number()).describe('Ordered array of saved filter IDs (front to back)')
+})
+
+export const ReorderSavedFiltersResponse = zod.object({
+  "message": zod.string()
 })
 
 

@@ -16,7 +16,13 @@ export interface SavedFilter {
   rawInput: string;
   /** SmartFilter JSON object */
   filterData: SavedFilterFilterData;
+  sortOrder?: number | null;
   createdAt: string;
+}
+
+export interface ReorderSavedFiltersInput {
+  /** Ordered array of saved filter IDs (front to back) */
+  ids: number[];
 }
 
 /**

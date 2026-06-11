@@ -1511,9 +1511,15 @@ function ScheduledReportsPanel() {
   );
 }
 
+const SETTING_KEY_OPTIONS: { value: string; label: string }[] = [
+  { value: "finance_report_email", label: "Finance Report Email" },
+  { value: "reconciliation_schedule", label: "Reconciliation Schedule" },
+];
+
 export default function AdminAuditLogs() {
   const [search, setSearch] = useState("");
   const [action, setAction] = useState("all");
+  const [settingKey, setSettingKey] = useState("all");
   const [targetType, setTargetType] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -1565,10 +1571,12 @@ export default function AdminAuditLogs() {
   const hasDateFilter = dateFrom !== "" || dateTo !== "";
   const hasTargetType = targetType !== "all";
   const hasMerchantId = merchantId != null;
+  const hasSettingKey = action === "setting_updated" && settingKey !== "all";
 
   function resetFilters() {
     setSearch("");
     setAction("all");
+    setSettingKey("all");
     setTargetType("all");
     setDateFrom("");
     setDateTo("");
@@ -1595,11 +1603,22 @@ export default function AdminAuditLogs() {
     limit: 20,
   } as any);
 
-  const logs = data?.data ?? [];
+  const rawLogs = data?.data ?? [];
+  const logs = hasSettingKey
+    ? rawLogs.filter((log: any) => {
+        try {
+          const parsed = JSON.parse(log.details ?? "{}");
+          return parsed.key === settingKey;
+        } catch {
+          return false;
+        }
+      })
+    : rawLogs;
   const total = data?.total ?? 0;
 
   function handleExportStatClick() {
     setAction("csv_export");
+    setSettingKey("all");
     setPage(1);
     setSearch("");
   }
@@ -1652,7 +1671,7 @@ export default function AdminAuditLogs() {
                   onChange={e => { setSearch(e.target.value); setPage(1); }}
                 />
               </div>
-              <Select value={action} onValueChange={v => { setAction(v); setPage(1); }}>
+              <Select value={action} onValueChange={v => { setAction(v); if (v !== "setting_updated") setSettingKey("all"); setPage(1); }}>
                 <SelectTrigger className="w-[200px]"><SelectValue placeholder="Action type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Actions</SelectItem>
@@ -1661,6 +1680,22 @@ export default function AdminAuditLogs() {
                   ))}
                 </SelectContent>
               </Select>
+              {action === "setting_updated" && (
+                <Select value={settingKey} onValueChange={v => { setSettingKey(v); setPage(1); }}>
+                  <SelectTrigger className="w-[220px]">
+                    <div className="flex items-center gap-1.5">
+                      <Settings className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <SelectValue placeholder="All setting keys" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All setting keys</SelectItem>
+                    {SETTING_KEY_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={targetType} onValueChange={v => { setTargetType(v); setPage(1); }}>
                 <SelectTrigger className="w-[200px]"><SelectValue placeholder="Target type" /></SelectTrigger>
                 <SelectContent>
@@ -1742,7 +1777,7 @@ export default function AdminAuditLogs() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {(hasDateFilter || search !== "" || action !== "all" || hasTargetType || hasMerchantId) && (
+                {(hasDateFilter || search !== "" || action !== "all" || hasTargetType || hasMerchantId || hasSettingKey) && (
                   <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground hover:text-foreground">
                     <X className="w-3.5 h-3.5 mr-1.5" />
                     Clear filters
@@ -1777,8 +1812,21 @@ export default function AdminAuditLogs() {
           </div>
         </CardHeader>
 
-        {(hasTargetType || hasDateFilter || hasMerchantId) && (
+        {(hasTargetType || hasDateFilter || hasMerchantId || hasSettingKey) && (
           <div className="flex items-center gap-2 px-6 py-2 border-t border-border/40 bg-muted/10 flex-wrap">
+            {hasSettingKey && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-0.5 text-xs font-medium text-amber-400">
+                <Settings className="w-3 h-3" />
+                Key: {SETTING_KEY_OPTIONS.find(o => o.value === settingKey)?.label ?? settingKey}
+                <button
+                  onClick={() => { setSettingKey("all"); setPage(1); }}
+                  className="ml-0.5 hover:text-amber-300 transition-colors"
+                  aria-label="Clear setting key filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
             {hasMerchantId && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-0.5 text-xs font-medium text-orange-400">
                 <Landmark className="w-3 h-3" />

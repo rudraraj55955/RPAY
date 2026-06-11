@@ -2111,13 +2111,22 @@ export interface UploadUrlRequest {
      * @minLength 1
      */
   contentType: string;
+  /**
+     * SHA-256 hex digest of the file contents. When provided, the server deduplicates uploads — if an identical file has already been uploaded by this merchant, the existing objectPath is returned and no new presigned URL is issued.
+     * @pattern ^[0-9a-f]{64}$
+     */
+  contentHash?: string;
 }
 
 export interface UploadUrlResponse {
-  /** Presigned GCS URL for PUT upload. */
-  uploadURL: string;
+  /** Presigned GCS URL for PUT upload. Omitted when deduplicated is true — no upload is needed in that case.
+   */
+  uploadURL?: string;
   /** Normalized object path (e.g. /objects/uploads/uuid). Store this in your database. */
   objectPath: string;
+  /** True when the file was already uploaded (matched by contentHash). In this case uploadURL is absent — no upload is needed; use objectPath directly.
+   */
+  deduplicated?: boolean;
   metadata?: UploadUrlRequest;
 }
 

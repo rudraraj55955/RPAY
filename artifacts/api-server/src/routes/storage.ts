@@ -1,10 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import rateLimit from "express-rate-limit";
+import { and, eq } from "drizzle-orm";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
+import { db, uploadedObjectsTable } from "@workspace/db";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { recordUploadIntent } from "../lib/uploadIntentStore";
 import { requireAuth } from "../middlewares/auth";
@@ -45,7 +47,7 @@ router.post("/storage/uploads/request-url", requireAuth, uploadUrlLimiter, async
     return;
   }
 
-  const { name, size, contentType } = parsed.data;
+  const { name, size, contentType, contentHash } = parsed.data;
 
   if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
     res.status(400).json({ error: "Only image files are allowed (PNG, JPEG, WebP, SVG, GIF)" });
@@ -57,6 +59,41 @@ router.post("/storage/uploads/request-url", requireAuth, uploadUrlLimiter, async
     return;
   }
 
+  const uploaderId = (req as Request & { user?: { id: number } }).user?.id ?? 0;
+
+  // Deduplication: if the client provided a content hash, check whether this
+  // merchant has already uploaded an identical file. If so, return the existing
+  // objectPath without issuing a new presigned URL.
+  if (contentHash) {
+    try {
+      const [existing] = await db
+        .select({ objectPath: uploadedObjectsTable.objectPath })
+        .from(uploadedObjectsTable)
+        .where(
+          and(
+            eq(uploadedObjectsTable.merchantId, uploaderId),
+            eq(uploadedObjectsTable.contentHash, contentHash)
+          )
+        )
+        .limit(1);
+
+      if (existing) {
+        res.json(
+          RequestUploadUrlResponse.parse({
+            objectPath: existing.objectPath,
+            deduplicated: true,
+            metadata: { name, size, contentType, contentHash },
+          })
+        );
+        return;
+      }
+    } catch (error) {
+      req.log.error({ err: error }, "Error checking upload deduplication");
+      res.status(500).json({ error: "Failed to check for duplicate upload" });
+      return;
+    }
+  }
+
   try {
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
@@ -65,14 +102,25 @@ router.post("/storage/uploads/request-url", requireAuth, uploadUrlLimiter, async
     // later confirmation calls (e.g. PATCH /merchants/:id/branding) can
     // validate the actual file bytes against what was declared here — without
     // relying on any client-supplied value at confirmation time.
-    const uploaderId = (req as Request & { user?: { id: number } }).user?.id ?? 0;
     recordUploadIntent(objectPath, contentType, uploaderId);
+
+    // Persist the content hash so subsequent uploads of the same file can be
+    // deduplicated without issuing a new presigned URL.
+    if (contentHash) {
+      await db.insert(uploadedObjectsTable).values({
+        merchantId: uploaderId,
+        contentHash,
+        objectPath,
+        contentType,
+      });
+    }
 
     res.json(
       RequestUploadUrlResponse.parse({
         uploadURL,
         objectPath,
-        metadata: { name, size, contentType },
+        deduplicated: false,
+        metadata: { name, size, contentType, contentHash },
       }),
     );
   } catch (error) {

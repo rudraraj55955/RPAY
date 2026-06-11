@@ -3902,26 +3902,31 @@ export const MarkNotificationReadResponse = zod.object({
 
 
 
+export const requestUploadUrlBodyContentHashRegExp = new RegExp('^[0-9a-f]{64}$');
 
 
 export const RequestUploadUrlBody = zod.object({
   "name": zod.string().min(1).describe('Original file name.'),
   "size": zod.number().min(1).describe('File size in bytes.'),
-  "contentType": zod.string().min(1).describe('MIME type of the file (e.g. image\/jpeg).')
+  "contentType": zod.string().min(1).describe('MIME type of the file (e.g. image\/jpeg).'),
+  "contentHash": zod.string().regex(requestUploadUrlBodyContentHashRegExp).optional().describe('SHA-256 hex digest of the file contents. When provided, the server deduplicates uploads — if an identical file has already been uploaded by this merchant, the existing objectPath is returned and no new presigned URL is issued.')
 })
 
 
 
 
+export const requestUploadUrlResponseMetadataContentHashRegExp = new RegExp('^[0-9a-f]{64}$');
 
 
 export const RequestUploadUrlResponse = zod.object({
-  "uploadURL": zod.string().url().describe('Presigned GCS URL for PUT upload.'),
+  "uploadURL": zod.string().url().optional().describe('Presigned GCS URL for PUT upload. Omitted when deduplicated is true — no upload is needed in that case.\n'),
   "objectPath": zod.string().describe('Normalized object path (e.g. \/objects\/uploads\/uuid). Store this in your database.'),
+  "deduplicated": zod.boolean().optional().describe('True when the file was already uploaded (matched by contentHash). In this case uploadURL is absent — no upload is needed; use objectPath directly.\n'),
   "metadata": zod.object({
   "name": zod.string().min(1).describe('Original file name.'),
   "size": zod.number().min(1).describe('File size in bytes.'),
-  "contentType": zod.string().min(1).describe('MIME type of the file (e.g. image\/jpeg).')
+  "contentType": zod.string().min(1).describe('MIME type of the file (e.g. image\/jpeg).'),
+  "contentHash": zod.string().regex(requestUploadUrlResponseMetadataContentHashRegExp).optional().describe('SHA-256 hex digest of the file contents. When provided, the server deduplicates uploads — if an identical file has already been uploaded by this merchant, the existing objectPath is returned and no new presigned URL is issued.')
 }).optional()
 })
 

@@ -6693,16 +6693,27 @@ components:
           type: string
           minLength: 1
           description: MIME type of the file (e.g. image/jpeg).
+        contentHash:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: SHA-256 hex digest of the file contents. When provided, the server deduplicates uploads — if an identical file has already been uploaded by this merchant, the existing objectPath is returned and no new presigned URL is issued.
     UploadUrlResponse:
       type: object
-      required: [uploadURL, objectPath]
+      required: [objectPath]
       properties:
         uploadURL:
           type: string
           format: uri
-          description: Presigned GCS URL for PUT upload.
+          description: >
+            Presigned GCS URL for PUT upload.
+            Omitted when deduplicated is true — no upload is needed in that case.
         objectPath:
           type: string
           description: Normalized object path (e.g. /objects/uploads/uuid). Store this in your database.
+        deduplicated:
+          type: boolean
+          description: >
+            True when the file was already uploaded (matched by contentHash). In this case
+            uploadURL is absent — no upload is needed; use objectPath directly.
         metadata:
           $ref: '#/components/schemas/UploadUrlRequest'

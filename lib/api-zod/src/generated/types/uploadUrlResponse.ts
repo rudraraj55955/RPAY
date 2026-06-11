@@ -8,9 +8,13 @@
 import type { UploadUrlRequest } from './uploadUrlRequest';
 
 export interface UploadUrlResponse {
-  /** Presigned GCS URL for PUT upload. */
-  uploadURL: string;
+  /** Presigned GCS URL for PUT upload. Omitted when deduplicated is true — no upload is needed in that case.
+   */
+  uploadURL?: string;
   /** Normalized object path (e.g. /objects/uploads/uuid). Store this in your database. */
   objectPath: string;
+  /** True when the file was already uploaded (matched by contentHash). In this case uploadURL is absent — no upload is needed; use objectPath directly.
+   */
+  deduplicated?: boolean;
   metadata?: UploadUrlRequest;
 }

@@ -22,4 +22,9 @@ export interface UploadUrlRequest {
      * @minLength 1
      */
   contentType: string;
+  /**
+     * SHA-256 hex digest of the file contents. When provided, the server deduplicates uploads — if an identical file has already been uploaded by this merchant, the existing objectPath is returned and no new presigned URL is issued.
+     * @pattern ^[0-9a-f]{64}$
+     */
+  contentHash?: string;
 }

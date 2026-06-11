@@ -1,7 +1,19 @@
 import { ReactNode } from "react";
+import { useLocation } from "wouter";
 import { RasoKartLogo } from "@/components/ui/rasokart-logo";
+import { InstallAppBanner } from "@/components/ui/install-app-banner";
+
+function usePortalAppName() {
+  const [location] = useLocation();
+  if (location.startsWith("/admin")) return "RasoKart Admin";
+  if (location.startsWith("/merchant")) return "RasoKart Merchant";
+  if (location.startsWith("/agent")) return "RasoKart Agent";
+  return "RasoKart";
+}
 
 export function AuthLayout({ children, title, subtitle }: { children: ReactNode, title: string, subtitle?: string }) {
+  const appName = usePortalAppName();
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
       {/* Background decoration */}
@@ -19,6 +31,8 @@ export function AuthLayout({ children, title, subtitle }: { children: ReactNode,
         <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-2xl p-6 shadow-2xl shadow-black/50">
           {children}
         </div>
+
+        <InstallAppBanner appName={appName} />
       </div>
     </div>
   );

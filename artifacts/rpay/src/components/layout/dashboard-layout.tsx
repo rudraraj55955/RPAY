@@ -4,13 +4,14 @@ import { UserRole, useGetMyPlanUsage, useGetCallbackSecret, useListApiKeys } fro
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, SidebarFooter, SidebarTrigger } from "@/components/ui/sidebar";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
-import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap, GitMerge, Link2, Paintbrush, Settings, ShieldAlert, X } from "lucide-react";
+import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap, GitMerge, Link2, Paintbrush, Settings, ShieldAlert, X, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NotificationBell } from "@/components/notification-bell";
 import { RasoKartLogo } from "@/components/ui/rasokart-logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
+import { InstallAppButton } from "@/components/ui/install-app-banner";
 
 const CALLBACK_BANNER_SESSION_KEY = "rasokart_callback_banner_dismissed";
 
@@ -226,6 +227,10 @@ export function DashboardLayout({ children, publicMode = false }: DashboardLayou
   if (!publicMode && !user) return null;
 
   const isAdmin = user?.role === UserRole.admin;
+  const portalName = location.startsWith("/admin") ? "RasoKart Admin"
+    : location.startsWith("/merchant") ? "RasoKart Merchant"
+    : location.startsWith("/agent") ? "RasoKart Agent"
+    : "RasoKart";
 
   const adminNav = [
     {
@@ -355,7 +360,12 @@ export function DashboardLayout({ children, publicMode = false }: DashboardLayou
               <MerchantSidebar />
             )}
           </SidebarContent>
-          <SidebarFooter className="p-4">
+          <SidebarFooter className="p-4 space-y-2">
+            <InstallAppButton
+              appName={portalName}
+              variant="ghost"
+              className="w-full justify-start text-muted-foreground hover:text-foreground text-xs h-8 px-2"
+            />
             {user ? (
               <div className="flex items-center justify-between">
                 <div className="flex flex-col truncate pr-2">
@@ -376,13 +386,18 @@ export function DashboardLayout({ children, publicMode = false }: DashboardLayou
 
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Mobile top header — hamburger + branding + optional notification bell */}
-          <header className="md:hidden sticky top-0 z-40 flex items-center gap-3 h-14 px-3 border-b border-border/50 bg-background/95 backdrop-blur shrink-0">
+          <header className="md:hidden sticky top-0 z-40 flex items-center gap-2 h-14 px-3 border-b border-border/50 bg-background/95 backdrop-blur shrink-0">
             <SidebarTrigger className="h-10 w-10 shrink-0" />
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <RasoKartLogo size={22} className="shrink-0" />
               <span className="font-semibold text-sm truncate">{portalLabel}</span>
             </div>
             {!publicMode && !isAdmin && user && <NotificationBell />}
+            <InstallAppButton
+              appName={portalName}
+              variant="ghost"
+              className="h-9 w-9 !p-0 shrink-0 text-muted-foreground hover:text-foreground [&>span]:hidden"
+            />
           </header>
 
           {/* Page content */}

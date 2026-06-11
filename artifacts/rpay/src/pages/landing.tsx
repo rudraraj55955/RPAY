@@ -27,7 +27,10 @@ import {
   Terminal,
   Webhook,
   Key,
+  Smartphone,
+  Download,
 } from "lucide-react";
+import { InstallAppButton } from "@/components/ui/install-app-banner";
 
 const services = [
   {
@@ -611,6 +614,44 @@ export default function Landing() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* GET THE APP */}
+      <section className="py-16 bg-gradient-to-b from-background to-card/30">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary mb-6">
+            <Smartphone className="w-3.5 h-3.5" />
+            Available on all devices
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">Get RasoKart on your device</h2>
+          <p className="text-muted-foreground max-w-xl mx-auto mb-10">
+            Install RasoKart as a web app on any device — no app store required. Works on Android, iOS, and desktop.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
+            <InstallAppButton appName="RasoKart" variant="default" className="w-full sm:w-auto min-w-[180px] justify-center" />
+            <a href="/downloads/rasokart.apk" download className="w-full sm:w-auto">
+              <button className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border/50 bg-card/60 hover:bg-card px-6 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors min-w-[180px]">
+                <Download className="w-4 h-4" />
+                Android APK
+              </button>
+            </a>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
+            {[
+              { icon: Smartphone, label: "Android", desc: "Install via APK or Chrome" },
+              { icon: Globe, label: "iOS / iPhone", desc: "Add to Home Screen in Safari" },
+              { icon: BarChart3, label: "Desktop", desc: "Install from Chrome or Edge" },
+            ].map(({ icon: Icon, label, desc }) => (
+              <div key={label} className="rounded-xl border border-border/40 bg-card/30 p-4 flex flex-col items-center gap-2">
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Icon className="w-4 h-4 text-primary" />
+                </div>
+                <p className="text-sm font-medium">{label}</p>
+                <p className="text-xs text-muted-foreground text-center">{desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

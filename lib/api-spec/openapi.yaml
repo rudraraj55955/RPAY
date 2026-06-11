@@ -659,6 +659,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/MerchantPlan"
 
+  /merchants/{id}/plan/schedule-renewal:
+    post:
+      operationId: scheduleMerchantPlanRenewal
+      tags: [merchants]
+      summary: Set or cancel a scheduled auto-renewal date for a merchant's plan (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleRenewalInput"
+      responses:
+        "200":
+          description: Scheduled renewal updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantPlan"
+
   /merchants/{id}/branding:
     patch:
       operationId: updateMerchantBranding
@@ -4185,6 +4210,9 @@ components:
           type: integer
         expiresAt:
           type: ["string", "null"]
+        scheduledRenewalAt:
+          type: ["string", "null"]
+          description: Optional future date to auto-renew this plan. If set, the system will automatically renew the plan on this date.
         notes:
           type: ["string", "null"]
 
@@ -4202,6 +4230,13 @@ components:
           type: ["string", "null"]
         assignedAt:
           type: string
+        expiresAt:
+          type: ["string", "null"]
+        scheduledRenewalAt:
+          type: ["string", "null"]
+          description: ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.
+        status:
+          type: ["string", "null"]
 
     Transaction:
       type: object
@@ -5052,6 +5087,9 @@ components:
           type: string
         expiresAt:
           type: ["string", "null"]
+        scheduledRenewalAt:
+          type: ["string", "null"]
+          description: ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.
         isExpired:
           type: boolean
         daysUntilExpiry:
@@ -5227,6 +5265,9 @@ components:
           type: integer
         expiresAt:
           type: ["string", "null"]
+        scheduledRenewalAt:
+          type: ["string", "null"]
+          description: Optional future date to auto-renew this plan.
         notes:
           type: ["string", "null"]
 
@@ -5242,8 +5283,18 @@ components:
       properties:
         expiresAt:
           type: string
+        scheduledRenewalAt:
+          type: ["string", "null"]
+          description: Optional future date to auto-renew this plan.
         notes:
           type: ["string", "null"]
+
+    ScheduleRenewalInput:
+      type: object
+      properties:
+        scheduledRenewalAt:
+          type: ["string", "null"]
+          description: ISO date string for the next auto-renewal. Pass null to cancel an existing scheduled renewal.
 
     Invoice:
       type: object

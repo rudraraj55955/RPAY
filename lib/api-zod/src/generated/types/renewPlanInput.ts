@@ -8,6 +8,11 @@
 
 export interface RenewPlanInput {
   expiresAt: string;
+  /**
+     * Optional future date to auto-renew this plan.
+     * @nullable
+     */
+  scheduledRenewalAt?: string | null;
   /** @nullable */
   notes?: string | null;
 }

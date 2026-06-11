@@ -6,15 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PlanActionInput {
-  planId: number;
-  /** @nullable */
-  expiresAt?: string | null;
+export interface ScheduleRenewalInput {
   /**
-     * Optional future date to auto-renew this plan.
+     * ISO date string for the next auto-renewal. Pass null to cancel an existing scheduled renewal.
      * @nullable
      */
   scheduledRenewalAt?: string | null;
-  /** @nullable */
-  notes?: string | null;
 }

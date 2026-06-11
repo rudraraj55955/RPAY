@@ -40,6 +40,7 @@ function buildPlanResponse(mp: typeof merchantPlansTable.$inferSelect, plan: typ
     apiAccess: plan.apiAccess, webhookAccess: plan.webhookAccess, providerAccess: plan.providerAccess,
     status: mp.status,
     assignedAt: mp.assignedAt, expiresAt: mp.expiresAt ?? null, isExpired,
+    scheduledRenewalAt: mp.scheduledRenewalAt?.toISOString() ?? null,
     daysUntilExpiry, notes: mp.notes ?? null,
   };
 }
@@ -581,7 +582,7 @@ router.post("/bulk-assign-plan", requireAdmin, async (req, res) => {
 router.post("/:id/assign-plan", requireAdmin, async (req, res) => {
   const user = (req as any).user;
   const id = parseInt(req.params.id as string);
-  const { planId, expiresAt, notes } = req.body;
+  const { planId, expiresAt, notes, scheduledRenewalAt } = req.body;
   if (!planId) { res.status(400).json({ error: "planId required" }); return; }
 
   const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, planId)).limit(1);
@@ -592,7 +593,8 @@ router.post("/:id/assign-plan", requireAdmin, async (req, res) => {
   const existing = await db.select().from(merchantPlansTable).where(eq(merchantPlansTable.merchantId, id)).limit(1);
   const fromPlanId = existing.length > 0 ? existing[0].planId : null;
   const expiresAtDate = expiresAt ? new Date(expiresAt) : null;
-  const updateSet: Record<string, unknown> = { planId, assignedBy: user.id, notes: notes ?? null, status: "active" };
+  const scheduledRenewalAtDate = scheduledRenewalAt ? new Date(scheduledRenewalAt) : null;
+  const updateSet: Record<string, unknown> = { planId, assignedBy: user.id, notes: notes ?? null, status: "active", scheduledRenewalAt: scheduledRenewalAtDate };
   if (expiresAtDate) updateSet.expiresAt = expiresAtDate;
 
   let result;
@@ -602,6 +604,7 @@ router.post("/:id/assign-plan", requireAdmin, async (req, res) => {
     [result] = await db.insert(merchantPlansTable).values({
       merchantId: id, planId, assignedBy: user.id,
       expiresAt: expiresAtDate ?? undefined, notes: notes ?? null,
+      scheduledRenewalAt: scheduledRenewalAtDate ?? undefined,
     }).returning();
   }
 
@@ -610,11 +613,11 @@ router.post("/:id/assign-plan", requireAdmin, async (req, res) => {
   await db.insert(auditLogsTable).values({
     adminId: user.id, adminEmail: user.email, action: `plan_${action}`,
     targetType: "merchant", targetId: id,
-    details: JSON.stringify({ planName: plan.name, fromPlanId, toPlanId: planId }),
+    details: JSON.stringify({ planName: plan.name, fromPlanId, toPlanId: planId, scheduledRenewalAt: scheduledRenewalAtDate?.toISOString() ?? null }),
     ipAddress: (req as any).ip ?? null,
   });
 
-  res.json({ ...result, planName: plan.name, expiresAt: result.expiresAt ?? null });
+  res.json({ ...result, planName: plan.name, expiresAt: result.expiresAt ?? null, scheduledRenewalAt: result.scheduledRenewalAt?.toISOString() ?? null });
 });
 
 // POST /api/merchants/:id/plan/upgrade
@@ -703,17 +706,47 @@ router.post("/:id/plan/reinstate", requireAdmin, async (req, res) => {
 router.post("/:id/plan/renew", requireAdmin, async (req, res) => {
   const user = (req as any).user;
   const id = parseInt(req.params.id as string);
-  const { expiresAt, notes } = req.body;
+  const { expiresAt, notes, scheduledRenewalAt } = req.body;
   if (!expiresAt) { res.status(400).json({ error: "expiresAt required" }); return; }
 
   const existing = await db.select().from(merchantPlansTable).where(eq(merchantPlansTable.merchantId, id)).limit(1);
   if (existing.length === 0) { res.status(404).json({ error: "No plan assigned" }); return; }
 
+  const scheduledRenewalAtDate = scheduledRenewalAt !== undefined
+    ? (scheduledRenewalAt ? new Date(scheduledRenewalAt) : null)
+    : existing[0].scheduledRenewalAt;
+
   const [result] = await db.update(merchantPlansTable)
-    .set({ expiresAt: new Date(expiresAt), status: "active", renewedAt: new Date(), notes: notes ?? existing[0].notes })
+    .set({ expiresAt: new Date(expiresAt), status: "active", renewedAt: new Date(), notes: notes ?? existing[0].notes, scheduledRenewalAt: scheduledRenewalAtDate })
     .where(eq(merchantPlansTable.merchantId, id)).returning();
   await logPlanHistory({ merchantId: id, fromPlanId: existing[0].planId, toPlanId: existing[0].planId, action: "renewed", adminId: user.id, adminEmail: user.email, notes });
-  res.json({ ...result, expiresAt: result.expiresAt ?? null });
+  res.json({ ...result, expiresAt: result.expiresAt ?? null, scheduledRenewalAt: result.scheduledRenewalAt?.toISOString() ?? null });
+});
+
+// POST /api/merchants/:id/plan/schedule-renewal
+router.post("/:id/plan/schedule-renewal", requireAdmin, async (req, res) => {
+  const user = (req as any).user;
+  const id = parseInt(req.params.id as string);
+  const { scheduledRenewalAt } = req.body;
+
+  const existing = await db.select().from(merchantPlansTable).where(eq(merchantPlansTable.merchantId, id)).limit(1);
+  if (existing.length === 0) { res.status(404).json({ error: "No plan assigned" }); return; }
+
+  const scheduledRenewalAtDate = scheduledRenewalAt ? new Date(scheduledRenewalAt) : null;
+
+  const [result] = await db.update(merchantPlansTable)
+    .set({ scheduledRenewalAt: scheduledRenewalAtDate })
+    .where(eq(merchantPlansTable.merchantId, id)).returning();
+
+  await db.insert(auditLogsTable).values({
+    adminId: user.id, adminEmail: user.email,
+    action: scheduledRenewalAtDate ? "plan_renewal_scheduled" : "plan_renewal_cancelled",
+    targetType: "merchant", targetId: id,
+    details: JSON.stringify({ scheduledRenewalAt: scheduledRenewalAtDate?.toISOString() ?? null }),
+    ipAddress: (req as any).ip ?? null,
+  });
+
+  res.json({ ...result, expiresAt: result.expiresAt ?? null, scheduledRenewalAt: result.scheduledRenewalAt?.toISOString() ?? null });
 });
 
 // GET /api/merchants/:id/invoices (admin only)

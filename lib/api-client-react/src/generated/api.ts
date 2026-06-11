@@ -159,6 +159,7 @@ import type {
   ResendReconciliationReportEmail200,
   RetryCallback200,
   RetryWebhookLog200,
+  ScheduleRenewalInput,
   SearchByUtrParams,
   Settlement,
   SettlementActionInput,
@@ -2185,6 +2186,78 @@ export const useRenewMerchantPlan = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRenewMerchantPlanMutationOptions(options));
+    }
+
+export const getScheduleMerchantPlanRenewalUrl = (id: number,) => {
+
+
+
+
+  return `/api/merchants/${id}/plan/schedule-renewal`
+}
+
+/**
+ * @summary Set or cancel a scheduled auto-renewal date for a merchant's plan (admin only)
+ */
+export const scheduleMerchantPlanRenewal = async (id: number,
+    scheduleRenewalInput: ScheduleRenewalInput, options?: RequestInit): Promise<MerchantPlan> => {
+
+  return customFetch<MerchantPlan>(getScheduleMerchantPlanRenewalUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      scheduleRenewalInput,)
+  }
+);}
+
+
+
+
+export const getScheduleMerchantPlanRenewalMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scheduleMerchantPlanRenewal>>, TError,{id: number;data: BodyType<ScheduleRenewalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scheduleMerchantPlanRenewal>>, TError,{id: number;data: BodyType<ScheduleRenewalInput>}, TContext> => {
+
+const mutationKey = ['scheduleMerchantPlanRenewal'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scheduleMerchantPlanRenewal>>, {id: number;data: BodyType<ScheduleRenewalInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  scheduleMerchantPlanRenewal(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScheduleMerchantPlanRenewalMutationResult = NonNullable<Awaited<ReturnType<typeof scheduleMerchantPlanRenewal>>>
+    export type ScheduleMerchantPlanRenewalMutationBody = BodyType<ScheduleRenewalInput>
+    export type ScheduleMerchantPlanRenewalMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Set or cancel a scheduled auto-renewal date for a merchant's plan (admin only)
+ */
+export const useScheduleMerchantPlanRenewal = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scheduleMerchantPlanRenewal>>, TError,{id: number;data: BodyType<ScheduleRenewalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof scheduleMerchantPlanRenewal>>,
+        TError,
+        {id: number;data: BodyType<ScheduleRenewalInput>},
+        TContext
+      > => {
+      return useMutation(getScheduleMerchantPlanRenewalMutationOptions(options));
     }
 
 export const getUpdateMerchantBrandingUrl = (id: number,) => {

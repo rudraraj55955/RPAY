@@ -10,6 +10,7 @@ export const merchantPlansTable = pgTable("merchant_plans", {
   assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   renewedAt: timestamp("renewed_at", { withTimezone: true }),
+  scheduledRenewalAt: timestamp("scheduled_renewal_at", { withTimezone: true }),
   assignedBy: integer("assigned_by"),
   notes: text("notes"),
 });

@@ -9,6 +9,7 @@ import { initAuditReportScheduler } from "./helpers/auditReportScheduler";
 import { startProviderLimitAlertScheduler, runProviderLimitAlertScan } from "./helpers/providerLimitScheduler";
 import { initQrCleanupScheduler } from "./helpers/qrCleanupScheduler";
 import { initPlanExpiryScheduler } from "./helpers/planExpiryScheduler";
+import { initPlanRenewalScheduler } from "./helpers/planRenewalScheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -58,6 +59,7 @@ async function main() {
   startProviderLimitAlertScheduler();
   initQrCleanupScheduler();
   initPlanExpiryScheduler();
+  initPlanRenewalScheduler();
   scheduleCallbackRetryWorker();
 
   // Startup sweep: immediately scan all active connections so merchants receive

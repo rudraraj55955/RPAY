@@ -239,6 +239,7 @@ export const GetMerchantPlanResponse = zod.object({
   "status": zod.enum(['active', 'suspended', 'expired']),
   "assignedAt": zod.string(),
   "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.'),
   "isExpired": zod.boolean(),
   "daysUntilExpiry": zod.number().nullish(),
   "renewedAt": zod.string().nullish(),
@@ -531,6 +532,7 @@ export const AssignMerchantPlanParams = zod.object({
 export const AssignMerchantPlanBody = zod.object({
   "planId": zod.number(),
   "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('Optional future date to auto-renew this plan. If set, the system will automatically renew the plan on this date.'),
   "notes": zod.string().nullish()
 })
 
@@ -539,7 +541,10 @@ export const AssignMerchantPlanResponse = zod.object({
   "merchantId": zod.number(),
   "planId": zod.number(),
   "planName": zod.string().nullish(),
-  "assignedAt": zod.string()
+  "assignedAt": zod.string(),
+  "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.'),
+  "status": zod.string().nullish()
 })
 
 
@@ -553,6 +558,7 @@ export const UpgradeMerchantPlanParams = zod.object({
 export const UpgradeMerchantPlanBody = zod.object({
   "planId": zod.number(),
   "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('Optional future date to auto-renew this plan.'),
   "notes": zod.string().nullish()
 })
 
@@ -561,7 +567,10 @@ export const UpgradeMerchantPlanResponse = zod.object({
   "merchantId": zod.number(),
   "planId": zod.number(),
   "planName": zod.string().nullish(),
-  "assignedAt": zod.string()
+  "assignedAt": zod.string(),
+  "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.'),
+  "status": zod.string().nullish()
 })
 
 
@@ -575,6 +584,7 @@ export const DowngradeMerchantPlanParams = zod.object({
 export const DowngradeMerchantPlanBody = zod.object({
   "planId": zod.number(),
   "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('Optional future date to auto-renew this plan.'),
   "notes": zod.string().nullish()
 })
 
@@ -583,7 +593,10 @@ export const DowngradeMerchantPlanResponse = zod.object({
   "merchantId": zod.number(),
   "planId": zod.number(),
   "planName": zod.string().nullish(),
-  "assignedAt": zod.string()
+  "assignedAt": zod.string(),
+  "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.'),
+  "status": zod.string().nullish()
 })
 
 
@@ -603,7 +616,10 @@ export const SuspendMerchantPlanResponse = zod.object({
   "merchantId": zod.number(),
   "planId": zod.number(),
   "planName": zod.string().nullish(),
-  "assignedAt": zod.string()
+  "assignedAt": zod.string(),
+  "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.'),
+  "status": zod.string().nullish()
 })
 
 
@@ -623,7 +639,10 @@ export const ReinstateMerchantPlanResponse = zod.object({
   "merchantId": zod.number(),
   "planId": zod.number(),
   "planName": zod.string().nullish(),
-  "assignedAt": zod.string()
+  "assignedAt": zod.string(),
+  "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.'),
+  "status": zod.string().nullish()
 })
 
 
@@ -636,6 +655,7 @@ export const RenewMerchantPlanParams = zod.object({
 
 export const RenewMerchantPlanBody = zod.object({
   "expiresAt": zod.string(),
+  "scheduledRenewalAt": zod.string().nullish().describe('Optional future date to auto-renew this plan.'),
   "notes": zod.string().nullish()
 })
 
@@ -644,7 +664,33 @@ export const RenewMerchantPlanResponse = zod.object({
   "merchantId": zod.number(),
   "planId": zod.number(),
   "planName": zod.string().nullish(),
-  "assignedAt": zod.string()
+  "assignedAt": zod.string(),
+  "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.'),
+  "status": zod.string().nullish()
+})
+
+
+/**
+ * @summary Set or cancel a scheduled auto-renewal date for a merchant's plan (admin only)
+ */
+export const ScheduleMerchantPlanRenewalParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ScheduleMerchantPlanRenewalBody = zod.object({
+  "scheduledRenewalAt": zod.string().nullish().describe('ISO date string for the next auto-renewal. Pass null to cancel an existing scheduled renewal.')
+})
+
+export const ScheduleMerchantPlanRenewalResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "planId": zod.number(),
+  "planName": zod.string().nullish(),
+  "assignedAt": zod.string(),
+  "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.'),
+  "status": zod.string().nullish()
 })
 
 
@@ -1885,6 +1931,7 @@ export const GetMyPlanResponse = zod.object({
   "status": zod.enum(['active', 'suspended', 'expired']),
   "assignedAt": zod.string(),
   "expiresAt": zod.string().nullish(),
+  "scheduledRenewalAt": zod.string().nullish().describe('ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.'),
   "isExpired": zod.boolean(),
   "daysUntilExpiry": zod.number().nullish(),
   "renewedAt": zod.string().nullish(),

@@ -167,6 +167,11 @@ export interface AssignPlanInput {
   planId: number;
   /** @nullable */
   expiresAt?: string | null;
+  /**
+     * Optional future date to auto-renew this plan. If set, the system will automatically renew the plan on this date.
+     * @nullable
+     */
+  scheduledRenewalAt?: string | null;
   /** @nullable */
   notes?: string | null;
 }
@@ -178,6 +183,15 @@ export interface MerchantPlan {
   /** @nullable */
   planName?: string | null;
   assignedAt: string;
+  /** @nullable */
+  expiresAt?: string | null;
+  /**
+     * ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.
+     * @nullable
+     */
+  scheduledRenewalAt?: string | null;
+  /** @nullable */
+  status?: string | null;
 }
 
 export type TransactionType = typeof TransactionType[keyof typeof TransactionType];
@@ -853,6 +867,11 @@ export interface MerchantPlanWithDetails {
   assignedAt: string;
   /** @nullable */
   expiresAt?: string | null;
+  /**
+     * ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.
+     * @nullable
+     */
+  scheduledRenewalAt?: string | null;
   isExpired: boolean;
   /** @nullable */
   daysUntilExpiry?: number | null;
@@ -979,6 +998,11 @@ export interface PlanActionInput {
   planId: number;
   /** @nullable */
   expiresAt?: string | null;
+  /**
+     * Optional future date to auto-renew this plan.
+     * @nullable
+     */
+  scheduledRenewalAt?: string | null;
   /** @nullable */
   notes?: string | null;
 }
@@ -990,8 +1014,21 @@ export interface PlanNoteInput {
 
 export interface RenewPlanInput {
   expiresAt: string;
+  /**
+     * Optional future date to auto-renew this plan.
+     * @nullable
+     */
+  scheduledRenewalAt?: string | null;
   /** @nullable */
   notes?: string | null;
+}
+
+export interface ScheduleRenewalInput {
+  /**
+     * ISO date string for the next auto-renewal. Pass null to cancel an existing scheduled renewal.
+     * @nullable
+     */
+  scheduledRenewalAt?: string | null;
 }
 
 export type InvoiceStatus = typeof InvoiceStatus[keyof typeof InvoiceStatus];

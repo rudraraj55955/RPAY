@@ -37,6 +37,11 @@ export interface MerchantPlanWithDetails {
   assignedAt: string;
   /** @nullable */
   expiresAt?: string | null;
+  /**
+     * ISO timestamp of the next scheduled auto-renewal date. Null if no renewal is scheduled.
+     * @nullable
+     */
+  scheduledRenewalAt?: string | null;
   isExpired: boolean;
   /** @nullable */
   daysUntilExpiry?: number | null;

@@ -10,6 +10,7 @@ import {
   useBulkApproveMerchants, useBulkSuspendMerchants, useBulkRejectMerchants,
   useUpdateMerchantBranding, useGetMerchantPlanUsageAdmin,
   useGetAdminMerchantCallbackSecret, useResetAdminMerchantCallbackSecret,
+  useScheduleMerchantPlanRenewal,
   getListMerchantsQueryKey,
   listMerchants,
 } from "@workspace/api-client-react";
@@ -26,7 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw, Upload, Loader2, X, Info, KeyRound } from "lucide-react";
+import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw, Upload, Loader2, X, Info, KeyRound, Clock, BellOff } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -81,11 +82,14 @@ export default function AdminMerchants() {
   const [selectedPlanId, setSelectedPlanId] = useState<string>("");
   const [expiresAt, setExpiresAt] = useState<string>("");
   const [assignNotes, setAssignNotes] = useState<string>("");
+  const [assignScheduledRenewalAt, setAssignScheduledRenewalAt] = useState<string>("");
   const [actionNotes, setActionNotes] = useState<string>("");
   const [showHistory, setShowHistory] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<"upgrade" | "downgrade" | "suspend" | "reinstate" | "renew" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"upgrade" | "downgrade" | "suspend" | "reinstate" | "renew" | "schedule-renewal" | null>(null);
   const [renewExpiresAt, setRenewExpiresAt] = useState<string>("");
   const [actionExpiresAt, setActionExpiresAt] = useState<string>("");
+  const [renewScheduledRenewalAt, setRenewScheduledRenewalAt] = useState<string>("");
+  const [scheduleRenewalDate, setScheduleRenewalDate] = useState<string>("");
   const [confirmSecretReset, setConfirmSecretReset] = useState(false);
 
   // Bulk selection state
@@ -158,6 +162,7 @@ export default function AdminMerchants() {
   const suspendPlanMutation = useSuspendMerchantPlan();
   const reinstatePlanMutation = useReinstateMerchantPlan();
   const renewMutation = useRenewMerchantPlan();
+  const scheduleRenewalMutation = useScheduleMerchantPlanRenewal();
   const bulkAssignMutation = useBulkAssignMerchantPlan();
   const bulkApproveMutation = useBulkApproveMerchants();
   const bulkSuspendMutation = useBulkSuspendMerchants();
@@ -253,14 +258,20 @@ export default function AdminMerchants() {
       });
     } else if (action === "renew") {
       const defaultExpiry = new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
-      renewMutation.mutate({ id, data: { expiresAt: renewExpiresAt || defaultExpiry, notes } }, {
-        onSuccess: () => afterSuccess("Plan renewed", () => setRenewExpiresAt("")),
+      renewMutation.mutate({ id, data: { expiresAt: renewExpiresAt || defaultExpiry, scheduledRenewalAt: renewScheduledRenewalAt || null, notes } }, {
+        onSuccess: () => afterSuccess("Plan renewed", () => { setRenewExpiresAt(""); setRenewScheduledRenewalAt(""); }),
         onError: () => toast.error("Failed to renew plan"),
+      });
+    } else if (action === "schedule-renewal") {
+      const dateVal = scheduleRenewalDate || null;
+      scheduleRenewalMutation.mutate({ id, data: { scheduledRenewalAt: dateVal } }, {
+        onSuccess: () => afterSuccess(dateVal ? "Renewal scheduled" : "Scheduled renewal cancelled", () => setScheduleRenewalDate("")),
+        onError: () => toast.error("Failed to update scheduled renewal"),
       });
     }
   };
 
-  const isActionPending = upgradeMutation.isPending || downgradeMutation.isPending || suspendPlanMutation.isPending || reinstatePlanMutation.isPending || renewMutation.isPending;
+  const isActionPending = upgradeMutation.isPending || downgradeMutation.isPending || suspendPlanMutation.isPending || reinstatePlanMutation.isPending || renewMutation.isPending || scheduleRenewalMutation.isPending;
 
   const handleApprove = (id: number) => {
     approveMutation.mutate({ id }, {
@@ -335,6 +346,7 @@ export default function AdminMerchants() {
     setSelectedPlanId("");
     setExpiresAt("");
     setAssignNotes("");
+    setAssignScheduledRenewalAt("");
     setShowHistory(false);
   };
 
@@ -343,8 +355,11 @@ export default function AdminMerchants() {
     setSelectedPlanId("");
     setExpiresAt("");
     setAssignNotes("");
+    setAssignScheduledRenewalAt("");
     setShowHistory(false);
     setConfirmSecretReset(false);
+    setConfirmAction(null);
+    setScheduleRenewalDate("");
   };
 
   const handleAssignPlan = () => {
@@ -357,6 +372,7 @@ export default function AdminMerchants() {
       data: {
         planId: parseInt(selectedPlanId),
         expiresAt: expiresAt || null,
+        scheduledRenewalAt: assignScheduledRenewalAt || null,
         notes: assignNotes || null,
       },
     }, {
@@ -1340,6 +1356,18 @@ export default function AdminMerchants() {
                     Expiry
                   </div>
                 </div>
+                {currentMerchantPlan.scheduledRenewalAt && (
+                  <div className="flex items-center gap-2 rounded-md border border-violet-500/30 bg-violet-500/10 px-2.5 py-2 text-xs text-violet-400">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      <span className="font-semibold">Auto-renewal scheduled</span> for{" "}
+                      {format(new Date(currentMerchantPlan.scheduledRenewalAt), "MMM d, yyyy")}
+                      {new Date(currentMerchantPlan.scheduledRenewalAt) <= new Date() && (
+                        <span className="ml-1 text-rose-400 font-semibold">(overdue — will process within the hour)</span>
+                      )}
+                    </span>
+                  </div>
+                )}
 
                 {/* QR Code lifecycle breakdown */}
                 {merchantPlanUsage && (
@@ -1579,8 +1607,11 @@ export default function AdminMerchants() {
                       <PlayCircle className="w-3.5 h-3.5 mr-1" />Reinstate
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" className="text-violet-400 border-violet-500/30 hover:bg-violet-500/10" onClick={() => { setConfirmAction("renew"); setRenewExpiresAt(""); setActionNotes(""); }}>
+                  <Button size="sm" variant="outline" className="text-violet-400 border-violet-500/30 hover:bg-violet-500/10" onClick={() => { setConfirmAction("renew"); setRenewExpiresAt(""); setRenewScheduledRenewalAt(""); setActionNotes(""); }}>
                     <RefreshCw className="w-3.5 h-3.5 mr-1" />Renew
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-sky-400 border-sky-500/30 hover:bg-sky-500/10" onClick={() => { setConfirmAction("schedule-renewal"); setScheduleRenewalDate(currentMerchantPlan.scheduledRenewalAt ? new Date(currentMerchantPlan.scheduledRenewalAt).toISOString().split("T")[0] : ""); }}>
+                    <Clock className="w-3.5 h-3.5 mr-1" />Schedule Renewal
                   </Button>
                 </div>
 
@@ -1670,20 +1701,30 @@ export default function AdminMerchants() {
                           );
                           return null;
                         })()}
-                        {renewExpiresAt && (() => {
-                          const currentPlan = plans?.find(p => String(p.id) === String(currentMerchantPlan.planId));
-                          const isPaid = currentPlan && currentPlan.monthlyFee !== "0" && currentPlan.name.toLowerCase() !== "custom";
-                          if (!isPaid) return null;
-                          const expiryFormatted = format(new Date(renewExpiresAt), "MMM d, yyyy");
-                          return (
-                            <div className="flex items-start gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-2 text-sky-400">
-                              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                              <p className="text-xs leading-relaxed">
-                                <span className="font-semibold">Renewal is manual.</span> This plan has no automatic renewal — it will expire on {expiryFormatted}. Make sure to schedule a renewal before that date or the merchant's access will lapse.
-                              </p>
-                            </div>
-                          );
-                        })()}
+                        <div className="pt-1 space-y-1.5">
+                          <Label className="text-xs flex items-center gap-1.5"><Clock className="w-3 h-3" />Schedule Next Auto-Renewal (optional)</Label>
+                          <Input type="date" className="h-8 text-sm" value={renewScheduledRenewalAt} onChange={e => setRenewScheduledRenewalAt(e.target.value)} min={renewExpiresAt || new Date().toISOString().split("T")[0]} />
+                          <p className="text-xs text-muted-foreground">Leave blank to keep the existing schedule, or pick a date to auto-renew.</p>
+                        </div>
+                      </div>
+                    )}
+                    {confirmAction === "schedule-renewal" && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs flex items-center gap-1.5"><Clock className="w-3 h-3" />Auto-Renewal Date</Label>
+                        <Input type="date" className="h-8 text-sm" value={scheduleRenewalDate} onChange={e => setScheduleRenewalDate(e.target.value)} min={new Date().toISOString().split("T")[0]} />
+                        <p className="text-xs text-muted-foreground">The plan will be automatically renewed on this date. Leave blank and confirm to cancel an existing schedule.</p>
+                        {currentMerchantPlan.scheduledRenewalAt && !scheduleRenewalDate && (
+                          <div className="flex items-center gap-2 rounded-md border border-orange-500/30 bg-orange-500/10 px-2.5 py-2 text-xs text-orange-400">
+                            <BellOff className="w-3.5 h-3.5 shrink-0" />
+                            <span>Confirming with an empty date will <span className="font-semibold">cancel</span> the current scheduled renewal ({format(new Date(currentMerchantPlan.scheduledRenewalAt), "MMM d, yyyy")}).</span>
+                          </div>
+                        )}
+                        {scheduleRenewalDate && currentMerchantPlan.expiresAt && new Date(scheduleRenewalDate) > new Date(currentMerchantPlan.expiresAt) && (
+                          <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-400">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                            <span>This date is after the current expiry. The plan will have lapsed before auto-renewal runs.</span>
+                          </div>
+                        )}
                       </div>
                     )}
                     <div className="space-y-1.5">
@@ -1691,9 +1732,11 @@ export default function AdminMerchants() {
                       <Input className="h-8 text-sm" value={actionNotes} onChange={e => setActionNotes(e.target.value)} placeholder="Internal note..." />
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => { setConfirmAction(null); setActionNotes(""); setActionExpiresAt(""); }}>Cancel</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setConfirmAction(null); setActionNotes(""); setActionExpiresAt(""); setScheduleRenewalDate(""); }}>Cancel</Button>
                       <Button size="sm" onClick={() => handlePlanAction(confirmAction)} disabled={isActionPending || ((confirmAction === "upgrade" || confirmAction === "downgrade") && (!selectedPlanId || (() => { const tp = plans?.find(p => String(p.id) === selectedPlanId); return !!(tp && tp.monthlyFee !== "0" && tp.name.toLowerCase() !== "custom" && !actionExpiresAt); })()))}>
-                        {isActionPending ? "Processing..." : `Confirm ${confirmAction.charAt(0).toUpperCase() + confirmAction.slice(1)}`}
+                        {isActionPending ? "Processing..." : confirmAction === "schedule-renewal"
+                          ? (scheduleRenewalDate ? "Set Auto-Renewal" : "Cancel Auto-Renewal")
+                          : `Confirm ${confirmAction.charAt(0).toUpperCase() + confirmAction.slice(1)}`}
                       </Button>
                     </div>
                   </div>
@@ -1785,18 +1828,27 @@ export default function AdminMerchants() {
               return null;
             })()}
 
-            {/* Manual renewal reminder — shown for paid plans with an expiry date */}
-            {expiresAt && (() => {
-              const plan = selectedPlanId ? plans?.find(p => String(p.id) === selectedPlanId) : undefined;
+            {/* Schedule Auto-Renewal — shown when a plan and expiry are selected */}
+            {selectedPlanId && (() => {
+              const plan = plans?.find(p => String(p.id) === selectedPlanId);
               const isPaid = plan && plan.monthlyFee !== "0" && plan.name.toLowerCase() !== "custom";
-              if (!isPaid) return null;
-              const expiryFormatted = format(new Date(expiresAt), "MMM d, yyyy");
+              if (!isPaid || !expiresAt) return null;
               return (
-                <div className="flex items-start gap-2.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-sky-400">
-                  <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                  <p className="text-xs leading-relaxed">
-                    <span className="font-semibold">Renewal is manual.</span> This plan has no automatic renewal — it will expire on {expiryFormatted}. Make sure to schedule a renewal before that date or the merchant's access will lapse.
-                  </p>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    Schedule Auto-Renewal <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input type="date" value={assignScheduledRenewalAt} onChange={e => setAssignScheduledRenewalAt(e.target.value)} min={expiresAt || new Date().toISOString().split("T")[0]} />
+                  {assignScheduledRenewalAt ? (
+                    <p className="text-xs text-violet-400/80">
+                      <span className="font-semibold">Auto-renewal set:</span> the plan will be automatically renewed on {format(new Date(assignScheduledRenewalAt), "MMM d, yyyy")}.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Set a future date to auto-renew this plan on expiry. Leave blank to manage renewals manually.
+                    </p>
+                  )}
                 </div>
               );
             })()}

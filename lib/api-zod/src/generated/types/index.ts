@@ -200,6 +200,7 @@ export * from './renewPlanInput';
 export * from './resendReconciliationReportEmail200';
 export * from './retryCallback200';
 export * from './retryWebhookLog200';
+export * from './scheduleRenewalInput';
 export * from './searchByUtrParams';
 export * from './settlement';
 export * from './settlementActionInput';

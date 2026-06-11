@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, transactionsTable, merchantsTable, callbackLogsTable, qrCodesTable, virtualAccountsTable, reconciliationRunsTable, settlementsTable } from "@workspace/db";
-import { eq, sql, and, gte, count, inArray } from "drizzle-orm";
+import { db, transactionsTable, merchantsTable, callbackLogsTable, qrCodesTable, virtualAccountsTable, reconciliationRunsTable, settlementsTable, merchantPlansTable } from "@workspace/db";
+import { eq, sql, and, gte, count, inArray, lte, isNotNull } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
 const router = Router();
@@ -247,6 +247,38 @@ router.get("/notifications", async (req, res, next) => {
         message: `${fc.count} webhook callback${fc.count > 1 ? "s" : ""} failed delivery`,
         severity: "error",
         link: "/admin/webhook-logs",
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    const now = new Date();
+    const threeDaysLater = new Date(now.getTime() + 3 * 86400000);
+    const overdueRenewals = await db
+      .select({ count: count() })
+      .from(merchantPlansTable)
+      .where(and(isNotNull(merchantPlansTable.scheduledRenewalAt), lte(merchantPlansTable.scheduledRenewalAt, now), eq(merchantPlansTable.status, "active")));
+    if (overdueRenewals[0].count > 0) {
+      notifications.push({
+        id: "overdue-renewals",
+        type: "overdue_renewals",
+        message: `${overdueRenewals[0].count} merchant plan${overdueRenewals[0].count > 1 ? "s" : ""} overdue for scheduled renewal`,
+        severity: "error",
+        link: "/admin/merchants",
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    const upcomingRenewals = await db
+      .select({ count: count() })
+      .from(merchantPlansTable)
+      .where(and(isNotNull(merchantPlansTable.scheduledRenewalAt), gte(merchantPlansTable.scheduledRenewalAt, now), lte(merchantPlansTable.scheduledRenewalAt, threeDaysLater), eq(merchantPlansTable.status, "active")));
+    if (upcomingRenewals[0].count > 0) {
+      notifications.push({
+        id: "upcoming-renewals",
+        type: "upcoming_renewals",
+        message: `${upcomingRenewals[0].count} merchant plan${upcomingRenewals[0].count > 1 ? "s" : ""} scheduled for renewal in the next 3 days`,
+        severity: "info",
+        link: "/admin/merchants",
         createdAt: new Date().toISOString(),
       });
     }

@@ -10,6 +10,11 @@ export interface AssignPlanInput {
   planId: number;
   /** @nullable */
   expiresAt?: string | null;
+  /**
+     * Optional future date to auto-renew this plan. If set, the system will automatically renew the plan on this date.
+     * @nullable
+     */
+  scheduledRenewalAt?: string | null;
   /** @nullable */
   notes?: string | null;
 }

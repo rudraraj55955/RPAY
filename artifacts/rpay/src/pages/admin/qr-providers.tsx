@@ -175,6 +175,36 @@ export default function AdminQrProviders() {
               </Button>
             )}
           </div>
+          {(providerFilter !== "all" || statusFilter !== "all") && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {providerFilter !== "all" && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-foreground">
+                  {QR_PROVIDERS.find(p => p.value === providerFilter)?.label ?? providerFilter}
+                  <button
+                    type="button"
+                    onClick={() => { setProviderFilter("all"); setPage(1); }}
+                    className="ml-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Remove provider filter"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {statusFilter !== "all" && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-foreground">
+                  {statusFilter === "active" ? "Active" : "Deactivated"}
+                  <button
+                    type="button"
+                    onClick={() => { setStatusFilter("all"); setPage(1); }}
+                    className="ml-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Remove status filter"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <Table>

@@ -3222,7 +3222,11 @@ export const ListAllAuditReportScheduleLogsResponse = zod.object({
   "total": zod.number(),
   "failureCount": zod.number(),
   "filteredTotal": zod.number(),
-  "page": zod.number()
+  "page": zod.number(),
+  "failureBreakdown": zod.array(zod.object({
+  "errorMessage": zod.string().nullable(),
+  "count": zod.number()
+}))
 })
 
 
@@ -3260,7 +3264,11 @@ export const ListAuditReportScheduleLogsResponse = zod.object({
   "total": zod.number(),
   "failureCount": zod.number(),
   "filteredTotal": zod.number(),
-  "page": zod.number()
+  "page": zod.number(),
+  "failureBreakdown": zod.array(zod.object({
+  "errorMessage": zod.string().nullable(),
+  "count": zod.number()
+}))
 })
 
 

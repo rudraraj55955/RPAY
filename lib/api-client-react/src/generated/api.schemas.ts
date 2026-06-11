@@ -1905,12 +1905,19 @@ export interface AuditReportScheduleLogWithSchedule {
   scheduleRecipient: string;
 }
 
+export interface FailureBreakdownItem {
+  /** @nullable */
+  errorMessage: string | null;
+  count: number;
+}
+
 export interface AuditReportScheduleLogWithScheduleListResponse {
   data: AuditReportScheduleLogWithSchedule[];
   total: number;
   failureCount: number;
   filteredTotal: number;
   page: number;
+  failureBreakdown: FailureBreakdownItem[];
 }
 
 export interface AuditReportScheduleLogListResponse {
@@ -1919,6 +1926,7 @@ export interface AuditReportScheduleLogListResponse {
   failureCount: number;
   filteredTotal: number;
   page: number;
+  failureBreakdown: FailureBreakdownItem[];
 }
 
 export interface AdminAuditLog {

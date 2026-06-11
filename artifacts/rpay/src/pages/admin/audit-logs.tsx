@@ -1214,6 +1214,7 @@ function ScheduleHistoryPanel({ scheduleId, maxRetryAttempts }: { scheduleId: nu
   }
   const total = data?.total ?? 0;
   const failureCount = data?.failureCount ?? 0;
+  const failureBreakdown = data?.failureBreakdown ?? [];
   const filteredTotal = data?.filteredTotal ?? 0;
   const totalPages = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE));
   const logs = data?.data ?? [];
@@ -1314,13 +1315,43 @@ function ScheduleHistoryPanel({ scheduleId, maxRetryAttempts }: { scheduleId: nu
 
       {/* Failure summary */}
       {!isLoading && total > 0 && (
-        <div className={`px-4 py-2 flex items-center gap-2 text-xs border-b border-border/30 ${
+        <div className={`px-4 py-2 flex flex-wrap items-center gap-2 text-xs border-b border-border/30 ${
           failureCount > 0 ? "bg-rose-500/5" : "bg-emerald-500/5"
         }`}>
           {failureCount > 0 ? (
             <>
               <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
               <span className="text-rose-400 font-medium">{failureCount} of {total} send{total !== 1 ? "s" : ""} failed</span>
+              {failureBreakdown.length > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex flex-wrap items-center gap-1 cursor-help">
+                        {failureBreakdown.slice(0, 3).map((item, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] text-rose-300 border border-rose-500/20">
+                            <span className="font-semibold">{item.count}×</span>
+                            <span className="truncate max-w-[140px]">{item.errorMessage ?? "unknown error"}</span>
+                          </span>
+                        ))}
+                        {failureBreakdown.length > 3 && (
+                          <span className="text-[10px] text-rose-400/70">+{failureBreakdown.length - 3} more</span>
+                        )}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" align="start" className="max-w-sm">
+                      <p className="font-semibold text-xs mb-1.5">Failure breakdown</p>
+                      <div className="space-y-1">
+                        {failureBreakdown.map((item, i) => (
+                          <div key={i} className="flex items-start gap-2 text-xs">
+                            <span className="shrink-0 font-semibold text-rose-400">{item.count}×</span>
+                            <span className="break-words">{item.errorMessage ?? "unknown error"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </>
           ) : (
             <>
@@ -1566,6 +1597,7 @@ function DeliveryHistoryPanel({ schedules }: { schedules: any[] }) {
 
   const total = data?.total ?? 0;
   const failureCount = data?.failureCount ?? 0;
+  const failureBreakdown = data?.failureBreakdown ?? [];
   const filteredTotal = data?.filteredTotal ?? 0;
   const hasMore = accLogs.length < filteredTotal;
 
@@ -1638,13 +1670,43 @@ function DeliveryHistoryPanel({ schedules }: { schedules: any[] }) {
 
       {/* Failure summary banner */}
       {!isLoading && total > 0 && (
-        <div className={`px-4 py-2 flex items-center gap-2 text-xs border-b border-border/30 ${
+        <div className={`px-4 py-2 flex flex-wrap items-center gap-2 text-xs border-b border-border/30 ${
           failureCount > 0 ? "bg-rose-500/5" : "bg-emerald-500/5"
         }`}>
           {failureCount > 0 ? (
             <>
               <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
               <span className="text-rose-400 font-medium">{failureCount} of {total} send{total !== 1 ? "s" : ""} failed</span>
+              {failureBreakdown.length > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex flex-wrap items-center gap-1 cursor-help">
+                        {failureBreakdown.slice(0, 3).map((item, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] text-rose-300 border border-rose-500/20">
+                            <span className="font-semibold">{item.count}×</span>
+                            <span className="truncate max-w-[140px]">{item.errorMessage ?? "unknown error"}</span>
+                          </span>
+                        ))}
+                        {failureBreakdown.length > 3 && (
+                          <span className="text-[10px] text-rose-400/70">+{failureBreakdown.length - 3} more</span>
+                        )}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" align="start" className="max-w-sm">
+                      <p className="font-semibold text-xs mb-1.5">Failure breakdown</p>
+                      <div className="space-y-1">
+                        {failureBreakdown.map((item, i) => (
+                          <div key={i} className="flex items-start gap-2 text-xs">
+                            <span className="shrink-0 font-semibold text-rose-400">{item.count}×</span>
+                            <span className="break-words">{item.errorMessage ?? "unknown error"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </>
           ) : (
             <>

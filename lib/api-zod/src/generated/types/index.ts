@@ -97,6 +97,7 @@ export * from './exportPlanHistoryAction';
 export * from './exportPlanHistoryParams';
 export * from './exportVaBalanceAuditCsvFieldChanged';
 export * from './exportVaBalanceAuditCsvParams';
+export * from './failureBreakdownItem';
 export * from './getAdminMerchantCredentialEventsParams';
 export * from './getQrCodeStatsParams';
 export * from './getReconciliationRunEmailLogs200';

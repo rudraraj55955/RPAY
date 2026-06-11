@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AuditReportScheduleLog } from './auditReportScheduleLog';
+import type { FailureBreakdownItem } from './failureBreakdownItem';
 
 export interface AuditReportScheduleLogListResponse {
   data: AuditReportScheduleLog[];
@@ -13,4 +14,5 @@ export interface AuditReportScheduleLogListResponse {
   failureCount: number;
   filteredTotal: number;
   page: number;
+  failureBreakdown: FailureBreakdownItem[];
 }

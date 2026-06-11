@@ -459,12 +459,27 @@ router.get("/schedules/logs", async (req, res) => {
     .from(scheduledAuditReportLogsTable)
     .where(baseWhere);
 
+  const failureBaseWhere = baseConditions.length > 0
+    ? and(...baseConditions, eq(scheduledAuditReportLogsTable.success, false))
+    : eq(scheduledAuditReportLogsTable.success, false);
+
   const [{ failureCount }] = await db
     .select({ failureCount: count() })
     .from(scheduledAuditReportLogsTable)
-    .where(baseConditions.length > 0
-      ? and(...baseConditions, eq(scheduledAuditReportLogsTable.success, false))
-      : eq(scheduledAuditReportLogsTable.success, false));
+    .where(failureBaseWhere);
+
+  const breakdownRows = await db
+    .select({
+      errorMessage: scheduledAuditReportLogsTable.errorMessage,
+      cnt: count(),
+    })
+    .from(scheduledAuditReportLogsTable)
+    .where(failureBaseWhere)
+    .groupBy(scheduledAuditReportLogsTable.errorMessage);
+
+  const failureBreakdown = breakdownRows
+    .sort((a, b) => b.cnt - a.cnt)
+    .map(r => ({ errorMessage: r.errorMessage, count: r.cnt }));
 
   const dataConditions: any[] = [...baseConditions];
   if (status === "success") dataConditions.push(eq(scheduledAuditReportLogsTable.success, true));
@@ -502,6 +517,7 @@ router.get("/schedules/logs", async (req, res) => {
     data: logs.map(l => ({ ...l, sentAt: l.sentAt.toISOString() })),
     total,
     failureCount,
+    failureBreakdown,
     filteredTotal,
     page: pageNum,
   });
@@ -546,10 +562,25 @@ router.get("/schedules/:id/logs", async (req, res) => {
     .from(scheduledAuditReportLogsTable)
     .where(dateWhere);
 
+  const failureWhere = and(...dateConditions, eq(scheduledAuditReportLogsTable.success, false));
+
   const [{ failureCount }] = await db
     .select({ failureCount: count() })
     .from(scheduledAuditReportLogsTable)
-    .where(and(...dateConditions, eq(scheduledAuditReportLogsTable.success, false)));
+    .where(failureWhere);
+
+  const breakdownRows2 = await db
+    .select({
+      errorMessage: scheduledAuditReportLogsTable.errorMessage,
+      cnt: count(),
+    })
+    .from(scheduledAuditReportLogsTable)
+    .where(failureWhere)
+    .groupBy(scheduledAuditReportLogsTable.errorMessage);
+
+  const failureBreakdown = breakdownRows2
+    .sort((a, b) => b.cnt - a.cnt)
+    .map(r => ({ errorMessage: r.errorMessage, count: r.cnt }));
 
   // Data rows: apply status and triggerType filters on top of date conditions
   const dataConditions: any[] = [...dateConditions];
@@ -579,6 +610,7 @@ router.get("/schedules/:id/logs", async (req, res) => {
     })),
     total,
     failureCount,
+    failureBreakdown,
     filteredTotal,
     page: pageNum,
   });

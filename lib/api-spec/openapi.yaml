@@ -7620,9 +7620,18 @@ components:
         scheduleRecipient:
           type: string
 
+    FailureBreakdownItem:
+      type: object
+      required: [errorMessage, count]
+      properties:
+        errorMessage:
+          type: ["string", "null"]
+        count:
+          type: integer
+
     AuditReportScheduleLogWithScheduleListResponse:
       type: object
-      required: [data, total, failureCount, filteredTotal, page]
+      required: [data, total, failureCount, filteredTotal, page, failureBreakdown]
       properties:
         data:
           type: array
@@ -7636,10 +7645,14 @@ components:
           type: integer
         page:
           type: integer
+        failureBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/FailureBreakdownItem"
 
     AuditReportScheduleLogListResponse:
       type: object
-      required: [data, total, failureCount, filteredTotal, page]
+      required: [data, total, failureCount, filteredTotal, page, failureBreakdown]
       properties:
         data:
           type: array
@@ -7653,6 +7666,10 @@ components:
           type: integer
         page:
           type: integer
+        failureBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/FailureBreakdownItem"
 
     AdminAuditLog:
       type: object

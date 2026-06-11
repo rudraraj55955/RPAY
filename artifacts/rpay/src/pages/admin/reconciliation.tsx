@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GitMerge, Play, ArrowRightLeft, AlertTriangle, CheckCircle2, Clock, RefreshCw, ChevronRight, ChevronLeft, Link2, Zap, User, ShieldCheck, XCircle, Download, ChevronDown, Settings2, CalendarClock, PauseCircle, Loader2, Mail, MailX, MailCheck } from "lucide-react";
@@ -772,6 +773,7 @@ export default function AdminReconciliation() {
   const [csvExportFilter, setCsvExportFilter] = useState<"all" | "matched" | "unmatched">("all");
   const [isExporting, setIsExporting] = useState(false);
   const [emailLogOpen, setEmailLogOpen] = useState(false);
+  const [forceResendConfirmOpen, setForceResendConfirmOpen] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [emailFailureBannerDismissed, setEmailFailureBannerDismissed] = useState(false);
   const HISTORY_PAGE_SIZE = 15;
@@ -1436,27 +1438,19 @@ export default function AdminReconciliation() {
                         </div>
                       ))
                     )}
-                    {(() => {
-                      const reportLogs = emailLogs.filter(l => l.emailType === "report");
-                      const lastReport = reportLogs[0];
-                      const showResend = !lastReport || lastReport.status === "failed";
-                      if (!showResend) return null;
-                      return (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full h-7 text-xs gap-1.5 border-violet-500/30 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
-                          onClick={() => resendEmailMutation.mutate()}
-                          disabled={resendEmailMutation.isPending}
-                        >
-                          {resendEmailMutation.isPending
-                            ? <Loader2 className="w-3 h-3 animate-spin" />
-                            : <Mail className="w-3 h-3" />
-                          }
-                          {resendEmailMutation.isPending ? "Sending…" : "Resend Report Email"}
-                        </Button>
-                      );
-                    })()}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="w-full h-7 text-xs gap-1.5 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+                      onClick={() => setForceResendConfirmOpen(true)}
+                      disabled={resendEmailMutation.isPending}
+                    >
+                      {resendEmailMutation.isPending
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <RefreshCw className="w-3 h-3" />
+                      }
+                      {resendEmailMutation.isPending ? "Sending…" : "Force resend"}
+                    </Button>
                   </div>
                 )}
               </div>
@@ -1590,6 +1584,30 @@ export default function AdminReconciliation() {
           onResolved={handleResolved}
         />
       )}
+
+      {/* Force Resend Report Email Confirmation */}
+      <AlertDialog open={forceResendConfirmOpen} onOpenChange={setForceResendConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Force resend report email?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately send a new report email to all configured recipients, even if one was already sent successfully. Use this after changing email configuration or recipients.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resendEmailMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={resendEmailMutation.isPending}
+              onClick={() => {
+                setForceResendConfirmOpen(false);
+                resendEmailMutation.mutate();
+              }}
+            >
+              {resendEmailMutation.isPending ? "Sending…" : "Send"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

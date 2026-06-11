@@ -3,6 +3,7 @@ import {
   useListAdminAuditLogs, useGetAdminAuditLogStats,
   useListAuditReportSchedules, useCreateAuditReportSchedule,
   useUpdateAuditReportSchedule, useDeleteAuditReportSchedule,
+  useSendAuditReportNow,
   getListAuditReportSchedulesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,10 +20,11 @@ import {
   CheckCircle2, XCircle, UserPlus, UserCog,
   Package, PencilLine, Trash2, ArrowRightLeft, CreditCard,
   Users, Loader2, QrCode, Landmark,
-  Clock, Mail, Plus, Ban,
+  Clock, Mail, Plus, Ban, Send,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, parseISO } from "date-fns";
+import { toast } from "sonner";
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   merchant_approved:        { label: "Merchant Approved",    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
@@ -856,6 +858,7 @@ function ScheduledReportsPanel() {
   const createSchedule = useCreateAuditReportSchedule();
   const updateSchedule = useUpdateAuditReportSchedule();
   const deleteSchedule = useDeleteAuditReportSchedule();
+  const sendNow = useSendAuditReportNow();
 
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState("");
@@ -863,6 +866,7 @@ function ScheduledReportsPanel() {
   const [adding, setAdding] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sendingId, setSendingId] = useState<number | null>(null);
 
   const schedules = schedulesData?.data ?? [];
 
@@ -895,6 +899,19 @@ function ScheduledReportsPanel() {
       setConfirmDeleteId(null);
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleSendNow(id: number) {
+    setSendingId(id);
+    try {
+      await sendNow.mutateAsync({ id });
+      invalidate();
+      toast.success("Report sent successfully");
+    } catch {
+      toast.error("Failed to send report. Check mailer configuration.");
+    } finally {
+      setSendingId(null);
     }
   }
 
@@ -969,6 +986,25 @@ function ScheduledReportsPanel() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSendNow(s.id)}
+                          disabled={sendingId === s.id}
+                          className="text-xs h-7 px-2 text-muted-foreground hover:text-violet-400"
+                          title="Send now"
+                        >
+                          {sendingId === s.id
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : <Send className="w-3 h-3" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Send now</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <Button
                     variant="ghost"
                     size="sm"

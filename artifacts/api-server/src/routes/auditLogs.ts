@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, auditLogsTable, scheduledAuditReportsTable } from "@workspace/db";
 import { eq, ilike, and, count, sql, or, gte, lte } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { sendScheduledReport } from "../helpers/auditReportScheduler";
 
 const router = Router();
 router.use(requireAuth);
@@ -275,6 +276,32 @@ router.delete("/schedules/:id", async (req, res) => {
 
   if (!deleted) { res.status(404).json({ error: "Schedule not found" }); return; }
   res.json({ success: true });
+});
+
+router.post("/schedules/:id/send", async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+  const id = parseInt(req.params['id'] as string);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [schedule] = await db
+    .select()
+    .from(scheduledAuditReportsTable)
+    .where(eq(scheduledAuditReportsTable.id, id));
+
+  if (!schedule) { res.status(404).json({ error: "Schedule not found" }); return; }
+
+  const sent = await sendScheduledReport(schedule);
+  if (!sent) {
+    res.status(502).json({ error: "Email delivery failed. Check mailer configuration." });
+    return;
+  }
+
+  const [updated] = await db
+    .select()
+    .from(scheduledAuditReportsTable)
+    .where(eq(scheduledAuditReportsTable.id, id));
+
+  res.json(serializeSchedule(updated!));
 });
 
 export default router;

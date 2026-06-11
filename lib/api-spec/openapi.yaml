@@ -2741,6 +2741,36 @@ paths:
         "403":
           description: Forbidden
 
+  /audit-logs/schedules/{id}/send:
+    post:
+      operationId: sendAuditReportNow
+      tags: [dashboard]
+      summary: Trigger an immediate send of an audit report schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Report sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditReportSchedule"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Email delivery failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /audit-logs/schedules/{id}:
     patch:
       operationId: updateAuditReportSchedule

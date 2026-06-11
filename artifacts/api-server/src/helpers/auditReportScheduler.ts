@@ -32,10 +32,10 @@ function buildAuditCsv(rows: typeof auditLogsTable.$inferSelect[]): string {
 
 function buildEmailHtml(frequency: string, dateFrom: Date, dateTo: Date, rowCount: number): string {
   const periodLabel = frequency === "daily"
-    ? `Daily — ${dateFrom.toISOString().slice(0, 10)}`
+    ? `Daily — Last 24 hours (${dateFrom.toISOString().slice(0, 16).replace("T", " ")} UTC to ${dateTo.toISOString().slice(0, 16).replace("T", " ")} UTC)`
     : frequency === "weekly"
-    ? `Weekly — ${dateFrom.toISOString().slice(0, 10)} to ${dateTo.toISOString().slice(0, 10)}`
-    : `Monthly — ${dateFrom.toISOString().slice(0, 7)}`;
+    ? `Weekly — Last 7 days (${dateFrom.toISOString().slice(0, 10)} to ${dateTo.toISOString().slice(0, 10)})`
+    : `Monthly — Last 30 days (${dateFrom.toISOString().slice(0, 10)} to ${dateTo.toISOString().slice(0, 10)})`;
 
   const appDomain = process.env["APP_DOMAIN"] ?? "https://rasokart.com";
 
@@ -86,17 +86,10 @@ function buildEmailHtml(frequency: string, dateFrom: Date, dateTo: Date, rowCoun
 function getDateRange(frequency: string): { dateFrom: Date; dateTo: Date } {
   const now = new Date();
   const dateTo = new Date(now);
-  dateTo.setUTCHours(23, 59, 59, 999);
 
-  const dateFrom = new Date(now);
-  if (frequency === "daily") {
-    dateFrom.setUTCDate(dateFrom.getUTCDate() - 1);
-  } else if (frequency === "weekly") {
-    dateFrom.setUTCDate(dateFrom.getUTCDate() - 7);
-  } else {
-    dateFrom.setUTCMonth(dateFrom.getUTCMonth() - 1);
-  }
-  dateFrom.setUTCHours(0, 0, 0, 0);
+  const msPerHour = 60 * 60 * 1000;
+  const hoursBack = frequency === "daily" ? 24 : frequency === "weekly" ? 7 * 24 : 30 * 24;
+  const dateFrom = new Date(now.getTime() - hoursBack * msPerHour);
 
   return { dateFrom, dateTo };
 }
@@ -119,7 +112,7 @@ function isDue(frequency: string, lastSentAt: Date | null): boolean {
   }
 }
 
-async function sendScheduledReport(schedule: typeof scheduledAuditReportsTable.$inferSelect): Promise<void> {
+export async function sendScheduledReport(schedule: typeof scheduledAuditReportsTable.$inferSelect): Promise<boolean> {
   const { dateFrom, dateTo } = getDateRange(schedule.frequency);
 
   const rows = await db
@@ -154,6 +147,7 @@ async function sendScheduledReport(schedule: typeof scheduledAuditReportsTable.$
       .where(eq(scheduledAuditReportsTable.id, schedule.id));
     logger.info({ scheduleId: schedule.id, recipientEmail: schedule.recipientEmail, rowCount: rows.length }, "Scheduled audit report sent");
   }
+  return sent;
 }
 
 async function runDueReports(): Promise<void> {

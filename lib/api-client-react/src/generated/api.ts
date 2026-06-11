@@ -8674,6 +8674,76 @@ export const useCreateAuditReportSchedule = <TError = ErrorType<ErrorResponse | 
       return useMutation(getCreateAuditReportScheduleMutationOptions(options));
     }
 
+export const getSendAuditReportNowUrl = (id: number,) => {
+
+
+
+
+  return `/api/audit-logs/schedules/${id}/send`
+}
+
+/**
+ * @summary Trigger an immediate send of an audit report schedule
+ */
+export const sendAuditReportNow = async (id: number, options?: RequestInit): Promise<AuditReportSchedule> => {
+
+  return customFetch<AuditReportSchedule>(getSendAuditReportNowUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSendAuditReportNowMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendAuditReportNow>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendAuditReportNow>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['sendAuditReportNow'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendAuditReportNow>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  sendAuditReportNow(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendAuditReportNowMutationResult = NonNullable<Awaited<ReturnType<typeof sendAuditReportNow>>>
+
+    export type SendAuditReportNowMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Trigger an immediate send of an audit report schedule
+ */
+export const useSendAuditReportNow = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendAuditReportNow>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendAuditReportNow>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getSendAuditReportNowMutationOptions(options));
+    }
+
 export const getUpdateAuditReportScheduleUrl = (id: number,) => {
 
 

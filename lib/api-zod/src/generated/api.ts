@@ -2709,6 +2709,24 @@ export const CreateAuditReportScheduleBody = zod.object({
 
 
 /**
+ * @summary Trigger an immediate send of an audit report schedule
+ */
+export const SendAuditReportNowParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SendAuditReportNowResponse = zod.object({
+  "id": zod.number(),
+  "frequency": zod.enum(['daily', 'weekly', 'monthly']),
+  "recipientEmail": zod.string(),
+  "isActive": zod.boolean(),
+  "lastSentAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
  * @summary Update an audit report schedule
  */
 export const UpdateAuditReportScheduleParams = zod.object({

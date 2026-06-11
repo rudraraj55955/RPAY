@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useListCallbackLogs, useRetryCallback, useGetAdminCallbackStats, ListCallbackLogsEventType, useGetSignatureFailureAlertHistory } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { EventTypeBadge } from "@/components/ui/event-type-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -101,6 +102,7 @@ function CallbackRow({ log }: { log: any }) {
           <div className="flex items-center gap-1.5 flex-wrap">
             <StatusBadge status={log.status} />
             {isPendingRetry && <RefreshCw className="w-3 h-3 text-amber-400 animate-spin" style={{ animationDuration: "3s" }} />}
+            <EventTypeBadge eventType={log.eventType} />
             {rejectionCategory && (
               <RejectionReasonTag responseBody={log.responseBody} />
             )}

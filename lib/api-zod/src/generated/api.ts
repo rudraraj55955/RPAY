@@ -3202,6 +3202,27 @@ export const ListCredentialEventsResponse = zod.object({
 
 
 /**
+ * @summary Get per-merchant security activity export compliance summary
+ */
+export const GetSecurityComplianceSummaryQueryParams = zod.object({
+  "status": zod.coerce.string().optional().describe('Filter by compliance status: all | exported | never')
+})
+
+export const GetSecurityComplianceSummaryResponse = zod.object({
+  "data": zod.array(zod.object({
+  "merchantId": zod.number(),
+  "businessName": zod.string(),
+  "email": zod.string(),
+  "lastExportedAt": zod.string().nullish(),
+  "status": zod.string().describe('exported | never')
+})),
+  "totalMerchants": zod.number(),
+  "exportedCount": zod.number(),
+  "neverCount": zod.number()
+})
+
+
+/**
  * @summary Get audit log summary stats
  */
 export const GetAdminAuditLogStatsResponse = zod.object({

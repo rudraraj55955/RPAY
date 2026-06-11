@@ -3250,6 +3250,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/CredentialEventListResponse"
 
+  /audit-logs/security-compliance:
+    get:
+      operationId: getSecurityComplianceSummary
+      tags: [dashboard]
+      summary: Get per-merchant security activity export compliance summary
+      parameters:
+        - name: status
+          in: query
+          description: "Filter by compliance status: all | exported | never"
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Compliance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityComplianceSummaryResponse"
+        "403":
+          description: Forbidden
+
   /audit-logs/stats:
     get:
       operationId: getAdminAuditLogStats
@@ -7029,6 +7050,37 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AuditReportScheduleLogWithSchedule"
+
+    SecurityComplianceSummaryItem:
+      type: object
+      required: [merchantId, businessName, email, status]
+      properties:
+        merchantId:
+          type: integer
+        businessName:
+          type: string
+        email:
+          type: string
+        lastExportedAt:
+          type: ["string", "null"]
+        status:
+          type: string
+          description: "exported | never"
+
+    SecurityComplianceSummaryResponse:
+      type: object
+      required: [data, totalMerchants, exportedCount, neverCount]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityComplianceSummaryItem"
+        totalMerchants:
+          type: integer
+        exportedCount:
+          type: integer
+        neverCount:
+          type: integer
 
     AdminAuditLog:
       type: object

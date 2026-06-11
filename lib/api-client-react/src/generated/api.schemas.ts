@@ -1849,6 +1849,23 @@ export interface AuditReportScheduleLogWithScheduleListResponse {
   data: AuditReportScheduleLogWithSchedule[];
 }
 
+export interface SecurityComplianceSummaryItem {
+  merchantId: number;
+  businessName: string;
+  email: string;
+  /** @nullable */
+  lastExportedAt?: string | null;
+  /** exported | never */
+  status: string;
+}
+
+export interface SecurityComplianceSummaryResponse {
+  data: SecurityComplianceSummaryItem[];
+  totalMerchants: number;
+  exportedCount: number;
+  neverCount: number;
+}
+
 export interface AdminAuditLog {
   id: number;
   adminId: number;
@@ -3044,6 +3061,13 @@ dateFrom?: string;
  * Filter logs on or before this date (ISO 8601, e.g. 2025-12-31)
  */
 dateTo?: string;
+};
+
+export type GetSecurityComplianceSummaryParams = {
+/**
+ * Filter by compliance status: all | exported | never
+ */
+status?: string;
 };
 
 export type ExportAdminAuditLogsCsvParams = {

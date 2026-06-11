@@ -10,6 +10,7 @@ import {
   previewAuditReportEmail,
   useListCredentialEvents,
   useGetAuditReportRetentionConfig,
+  useGetSecurityComplianceSummary,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ import {
   Package, PencilLine, Trash2, ArrowRightLeft, CreditCard,
   Users, Loader2, QrCode, Landmark,
   Clock, Mail, Plus, Ban, Send, History, ChevronDown, ChevronUp, AlertCircle, Settings,
-  MonitorPlay, RefreshCw, KeyRound, RotateCcw,
+  MonitorPlay, RefreshCw, KeyRound, RotateCcw, ClipboardCheck, AlertTriangle, Building2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1864,6 +1865,166 @@ function SecurityEventsPanel() {
   );
 }
 
+function CompliancePanel() {
+  const [statusFilter, setStatusFilter] = useState<"all" | "exported" | "never">("all");
+
+  const { data, isLoading } = useGetSecurityComplianceSummary(
+    statusFilter !== "all" ? { status: statusFilter } : {},
+  );
+
+  const rows = data?.data ?? [];
+  const totalMerchants = data?.totalMerchants ?? 0;
+  const exportedCount = data?.exportedCount ?? 0;
+  const neverCount = data?.neverCount ?? 0;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="flex items-center gap-3 rounded-lg border border-border/40 bg-muted/10 px-4 py-3">
+          <div className="flex items-center justify-center w-9 h-9 rounded-md bg-muted/20 border border-border/40 shrink-0">
+            <Building2 className="w-4 h-4 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-xl font-bold leading-none">{totalMerchants}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Total merchants</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3">
+          <div className="flex items-center justify-center w-9 h-9 rounded-md bg-teal-500/10 border border-teal-500/20 shrink-0">
+            <CheckCircle2 className="w-4 h-4 text-teal-400" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-teal-400 leading-none">{exportedCount}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Reviewed security log</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+          <div className="flex items-center justify-center w-9 h-9 rounded-md bg-amber-500/10 border border-amber-500/20 shrink-0">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-amber-400 leading-none">{neverCount}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Never reviewed</p>
+          </div>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ClipboardCheck className="w-4 h-4 text-teal-400" />
+              Security Review Status
+            </CardTitle>
+            <div className="flex items-center gap-1.5">
+              {(["all", "exported", "never"] as const).map(v => (
+                <button
+                  key={v}
+                  onClick={() => setStatusFilter(v)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors border ${
+                    statusFilter === v
+                      ? v === "exported"
+                        ? "bg-teal-500/15 border-teal-500/40 text-teal-300"
+                        : v === "never"
+                        ? "bg-amber-500/15 border-amber-500/40 text-amber-300"
+                        : "bg-primary/15 border-primary/40 text-primary"
+                      : "border-border/40 bg-transparent text-muted-foreground hover:text-foreground hover:border-border/70"
+                  }`}
+                >
+                  {v === "all" ? "All" : v === "exported" ? "Reviewed" : "Never reviewed"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Merchant</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last Export</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 4 }).map((_, j) => (
+                        <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : !rows.length ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-14">
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <ClipboardCheck className="w-8 h-8 opacity-30" />
+                        <p className="text-sm">No merchants match this filter</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : rows.map((row: any) => (
+                  <TableRow key={row.merchantId}>
+                    <TableCell>
+                      <div>
+                        <p className="text-sm font-medium">{row.businessName}</p>
+                        <p className="text-xs text-muted-foreground font-mono">ID #{row.merchantId}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{row.email}</TableCell>
+                    <TableCell>
+                      {row.status === "exported" ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-teal-500/20 bg-teal-500/10 px-2 py-0.5 text-xs font-medium text-teal-400">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Reviewed
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
+                          <AlertTriangle className="w-3 h-3" />
+                          Never reviewed
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {row.lastExportedAt ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-default">
+                                {formatDistanceToNow(new Date(row.lastExportedAt), { addSuffix: true })}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              {format(new Date(row.lastExportedAt), "MMM d, yyyy HH:mm:ss")}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <span className="text-muted-foreground/50 italic">Never</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+        {rows.length > 0 && (
+          <div className="px-6 py-3 border-t border-border/40">
+            <p className="text-xs text-muted-foreground">
+              Showing {rows.length} of {totalMerchants} merchant{totalMerchants !== 1 ? "s" : ""}
+              {statusFilter !== "all" && ` (filtered: ${statusFilter === "exported" ? "reviewed" : "never reviewed"})`}
+            </p>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 const SETTING_KEY_OPTIONS: { value: string; label: string }[] = [
   { value: "finance_report_email",   label: "Finance Report Email" },
   { value: "reconciliation_schedule", label: "Reconciliation Schedule" },
@@ -2025,6 +2186,10 @@ export default function AdminAuditLogs() {
           <TabsTrigger value="security-events" className="flex items-center gap-1.5">
             <KeyRound className="w-3.5 h-3.5" />
             Security Events
+          </TabsTrigger>
+          <TabsTrigger value="compliance" className="flex items-center gap-1.5">
+            <ClipboardCheck className="w-3.5 h-3.5" />
+            Compliance
           </TabsTrigger>
         </TabsList>
 
@@ -2373,6 +2538,10 @@ export default function AdminAuditLogs() {
 
         <TabsContent value="security-events" className="mt-0">
           <SecurityEventsPanel />
+        </TabsContent>
+
+        <TabsContent value="compliance" className="mt-0">
+          <CompliancePanel />
         </TabsContent>
       </Tabs>
 

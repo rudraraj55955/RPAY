@@ -79,6 +79,7 @@ import type {
   GetLedgerBackfillLastRun200,
   GetQrCodeStatsParams,
   GetReconciliationRunEmailLogs200,
+  GetSecurityComplianceSummaryParams,
   GetSignatureFailureAlertHistoryParams,
   GetVirtualAccountBalanceHistoryParams,
   GetWebhookLogAttempts200,
@@ -189,6 +190,7 @@ import type {
   SavedFilter,
   ScheduleRenewalInput,
   SearchByUtrParams,
+  SecurityComplianceSummaryResponse,
   Settlement,
   SettlementActionInput,
   SettlementListResponse,
@@ -10034,6 +10036,90 @@ export function useListCredentialEvents<TData = Awaited<ReturnType<typeof listCr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListCredentialEventsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetSecurityComplianceSummaryUrl = (params?: GetSecurityComplianceSummaryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/audit-logs/security-compliance?${stringifiedParams}` : `/api/audit-logs/security-compliance`
+}
+
+/**
+ * @summary Get per-merchant security activity export compliance summary
+ */
+export const getSecurityComplianceSummary = async (params?: GetSecurityComplianceSummaryParams, options?: RequestInit): Promise<SecurityComplianceSummaryResponse> => {
+
+  return customFetch<SecurityComplianceSummaryResponse>(getGetSecurityComplianceSummaryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSecurityComplianceSummaryQueryKey = (params?: GetSecurityComplianceSummaryParams,) => {
+    return [
+    `/api/audit-logs/security-compliance`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSecurityComplianceSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getSecurityComplianceSummary>>, TError = ErrorType<void>>(params?: GetSecurityComplianceSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSecurityComplianceSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSecurityComplianceSummaryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSecurityComplianceSummary>>> = ({ signal }) => getSecurityComplianceSummary(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSecurityComplianceSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSecurityComplianceSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getSecurityComplianceSummary>>>
+export type GetSecurityComplianceSummaryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get per-merchant security activity export compliance summary
+ */
+
+export function useGetSecurityComplianceSummary<TData = Awaited<ReturnType<typeof getSecurityComplianceSummary>>, TError = ErrorType<void>>(
+ params?: GetSecurityComplianceSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSecurityComplianceSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSecurityComplianceSummaryQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

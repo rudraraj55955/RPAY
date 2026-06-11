@@ -17,6 +17,50 @@ function ensureAdmin(req: any, res: any): boolean {
   return true;
 }
 
+router.get("/security-compliance", async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  const { status } = req.query as Record<string, string>;
+
+  const rows = await db
+    .select({
+      merchantId: merchantsTable.id,
+      businessName: merchantsTable.businessName,
+      email: merchantsTable.email,
+      lastExportedAt: sql<string | null>`(
+        SELECT MAX(${auditLogsTable.createdAt})
+        FROM ${auditLogsTable}
+        WHERE ${auditLogsTable.action} = 'security_activity_exported'
+          AND ${auditLogsTable.targetId} = ${merchantsTable.id}
+      )`,
+    })
+    .from(merchantsTable)
+    .orderBy(merchantsTable.businessName);
+
+  const mapped = rows.map(r => ({
+    merchantId: r.merchantId,
+    businessName: r.businessName,
+    email: r.email,
+    lastExportedAt: r.lastExportedAt ? new Date(r.lastExportedAt).toISOString() : null,
+    status: r.lastExportedAt ? "exported" : "never",
+  }));
+
+  const filtered =
+    status === "exported" ? mapped.filter(r => r.status === "exported") :
+    status === "never"    ? mapped.filter(r => r.status === "never") :
+    mapped;
+
+  const exportedCount = mapped.filter(r => r.status === "exported").length;
+  const neverCount    = mapped.filter(r => r.status === "never").length;
+
+  res.json({
+    data: filtered,
+    totalMerchants: mapped.length,
+    exportedCount,
+    neverCount,
+  });
+});
+
 router.get("/stats", async (req, res) => {
   if (!ensureAdmin(req, res)) return;
 

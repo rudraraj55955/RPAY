@@ -6,6 +6,7 @@ import { rescheduleFromDb, getNextRunTime } from "../helpers/reconScheduler";
 import { loadQrCleanupRetentionDays } from "../helpers/qrCleanupScheduler";
 import { loadStorageCleanupConfig, rescheduleStorageCleanupFromDb } from "../helpers/storageCleanupScheduler";
 import { loadWebhookSecretScheduleConfig, rescheduleWebhookSecretFromDb } from "../helpers/webhookSecretScheduler";
+import { loadWebhookRetryConfig } from "../helpers/callbackRetry";
 import { sql } from "drizzle-orm";
 
 async function getSignatureFailureAlertConfig() {
@@ -559,6 +560,108 @@ router.put("/signature-failure-alert", async (req, res, next) => {
     req.log.info({ threshold, windowHours, rateLimitHours }, "Signature failure alert config updated");
 
     res.json({ threshold, windowHours, rateLimitHours });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/system-config/webhook-retries
+router.get("/webhook-retries", async (req, res, next) => {
+  try {
+    const config = await loadWebhookRetryConfig();
+    res.json(config);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/system-config/webhook-retries
+router.put("/webhook-retries", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { maxAttempts, delay1Seconds, delay2Seconds, delay3Seconds, testMaxAutoRetries, testRetryDelaySeconds } = req.body;
+
+    if (typeof maxAttempts !== "number" || !Number.isInteger(maxAttempts)) {
+      res.status(400).json({ error: "maxAttempts must be an integer" });
+      return;
+    }
+    if (maxAttempts < 1 || maxAttempts > 10) {
+      res.status(400).json({ error: "maxAttempts must be between 1 and 10" });
+      return;
+    }
+
+    for (const [field, val] of [["delay1Seconds", delay1Seconds], ["delay2Seconds", delay2Seconds], ["delay3Seconds", delay3Seconds]] as [string, unknown][]) {
+      if (typeof val !== "number" || !Number.isInteger(val)) {
+        res.status(400).json({ error: `${field} must be an integer` });
+        return;
+      }
+      if ((val as number) < 1 || (val as number) > 86400) {
+        res.status(400).json({ error: `${field} must be between 1 and 86400 seconds` });
+        return;
+      }
+    }
+
+    if (typeof testMaxAutoRetries !== "number" || !Number.isInteger(testMaxAutoRetries)) {
+      res.status(400).json({ error: "testMaxAutoRetries must be an integer" });
+      return;
+    }
+    if (testMaxAutoRetries < 0 || testMaxAutoRetries > 5) {
+      res.status(400).json({ error: "testMaxAutoRetries must be between 0 and 5" });
+      return;
+    }
+
+    if (typeof testRetryDelaySeconds !== "number" || !Number.isInteger(testRetryDelaySeconds)) {
+      res.status(400).json({ error: "testRetryDelaySeconds must be an integer" });
+      return;
+    }
+    if (testRetryDelaySeconds < 1 || testRetryDelaySeconds > 86400) {
+      res.status(400).json({ error: "testRetryDelaySeconds must be between 1 and 86400 seconds" });
+      return;
+    }
+
+    const entries = [
+      { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS, value: String(maxAttempts) },
+      { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1_SECONDS, value: String(delay1Seconds) },
+      { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2_SECONDS, value: String(delay2Seconds) },
+      { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3_SECONDS, value: String(delay3Seconds) },
+      { key: SYSTEM_CONFIG_KEYS.WEBHOOK_TEST_MAX_AUTO_RETRIES, value: String(testMaxAutoRetries) },
+      { key: SYSTEM_CONFIG_KEYS.WEBHOOK_TEST_RETRY_DELAY_SECONDS, value: String(testRetryDelaySeconds) },
+    ];
+
+    for (const entry of entries) {
+      await db
+        .insert(systemConfigTable)
+        .values({ ...entry, updatedByEmail: user.email })
+        .onConflictDoUpdate({
+          target: systemConfigTable.key,
+          set: { value: entry.value, updatedByEmail: user.email, updatedAt: sql`now()` },
+        });
+    }
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id,
+      adminEmail: user.email,
+      action: "system_config_updated",
+      targetType: "system_config",
+      targetId: null,
+      details: JSON.stringify({
+        section: "webhook_retries",
+        maxAttempts,
+        delay1Seconds,
+        delay2Seconds,
+        delay3Seconds,
+        testMaxAutoRetries,
+        testRetryDelaySeconds,
+      }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info(
+      { maxAttempts, delay1Seconds, delay2Seconds, delay3Seconds, testMaxAutoRetries, testRetryDelaySeconds },
+      "Webhook retry config updated",
+    );
+
+    res.json({ maxAttempts, delay1Seconds, delay2Seconds, delay3Seconds, testMaxAutoRetries, testRetryDelaySeconds });
   } catch (err) {
     next(err);
   }

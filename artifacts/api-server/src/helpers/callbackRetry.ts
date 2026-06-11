@@ -1,5 +1,5 @@
-import { db, callbackLogsTable, callbackLogAttemptsTable, usersTable, notificationsTable } from "@workspace/db";
-import { eq, and, lte, sql, count } from "drizzle-orm";
+import { db, callbackLogsTable, callbackLogAttemptsTable, usersTable, notificationsTable, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
+import { eq, and, lte, sql, count, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { createNotification } from "./notifications";
 
@@ -59,26 +59,70 @@ export async function recordAttempt(callbackLogId: number, attemptNumber: number
   });
 }
 
-const MAX_ATTEMPTS = 4; // 1 initial + 3 auto-retries for live deliveries
+// Hardcoded fallback defaults — used when system config rows are absent.
+const DEFAULT_MAX_ATTEMPTS = 4;
+const DEFAULT_DELAY_1_SECONDS = 30;
+const DEFAULT_DELAY_2_SECONDS = 300;
+const DEFAULT_DELAY_3_SECONDS = 1800;
+const DEFAULT_TEST_MAX_AUTO_RETRIES = 1;
+const DEFAULT_TEST_RETRY_DELAY_SECONDS = 60;
 
-// Test-delivery retry policy — kept here so the retry loop and the insert site
-// share a single source of truth.
-export const TEST_MAX_AUTO_RETRIES = 1;       // test deliveries get exactly one auto-retry
-export const TEST_RETRY_DELAY_SECONDS = 60;   // 60 s delay before that single retry
+export interface WebhookRetryConfig {
+  maxAttempts: number;
+  delay1Seconds: number;
+  delay2Seconds: number;
+  delay3Seconds: number;
+  testMaxAutoRetries: number;
+  testRetryDelaySeconds: number;
+}
 
-function getNextRetryDelay(attempts: number): number {
+export async function loadWebhookRetryConfig(): Promise<WebhookRetryConfig> {
+  const keys = [
+    SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS,
+    SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1_SECONDS,
+    SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2_SECONDS,
+    SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3_SECONDS,
+    SYSTEM_CONFIG_KEYS.WEBHOOK_TEST_MAX_AUTO_RETRIES,
+    SYSTEM_CONFIG_KEYS.WEBHOOK_TEST_RETRY_DELAY_SECONDS,
+  ];
+
+  const rows = await db
+    .select()
+    .from(systemConfigTable)
+    .where(inArray(systemConfigTable.key, keys));
+
+  const map = new Map(rows.map(r => [r.key, r.value]));
+
+  const parse = (key: string, fallback: number): number => {
+    const raw = map.get(key) ?? SYSTEM_CONFIG_DEFAULTS[key as keyof typeof SYSTEM_CONFIG_DEFAULTS];
+    const v = Number(raw);
+    return isFinite(v) && v > 0 ? v : fallback;
+  };
+
+  return {
+    maxAttempts: parse(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS),
+    delay1Seconds: parse(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1_SECONDS, DEFAULT_DELAY_1_SECONDS),
+    delay2Seconds: parse(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2_SECONDS, DEFAULT_DELAY_2_SECONDS),
+    delay3Seconds: parse(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3_SECONDS, DEFAULT_DELAY_3_SECONDS),
+    testMaxAutoRetries: parse(SYSTEM_CONFIG_KEYS.WEBHOOK_TEST_MAX_AUTO_RETRIES, DEFAULT_TEST_MAX_AUTO_RETRIES),
+    testRetryDelaySeconds: parse(SYSTEM_CONFIG_KEYS.WEBHOOK_TEST_RETRY_DELAY_SECONDS, DEFAULT_TEST_RETRY_DELAY_SECONDS),
+  };
+}
+
+function getNextRetryDelayMs(attempts: number, config: WebhookRetryConfig): number {
   // attempts is the number of attempts already made (including the just-failed one)
-  // Retry schedule: 30s, 5min, 30min
   switch (attempts) {
-    case 1: return 30 * 1000;          // 30 seconds after 1st failure
-    case 2: return 5 * 60 * 1000;      // 5 minutes after 2nd failure
-    case 3: return 30 * 60 * 1000;     // 30 minutes after 3rd failure
+    case 1: return config.delay1Seconds * 1000;
+    case 2: return config.delay2Seconds * 1000;
+    case 3: return config.delay3Seconds * 1000;
     default: return 0;
   }
 }
 
 export async function scheduleCallbackRetry(logId: number, attempts: number): Promise<void> {
-  if (attempts >= MAX_ATTEMPTS) {
+  const config = await loadWebhookRetryConfig();
+
+  if (attempts >= config.maxAttempts) {
     await db
       .update(callbackLogsTable)
       .set({ status: "failed", nextRetryAt: null })
@@ -86,7 +130,7 @@ export async function scheduleCallbackRetry(logId: number, attempts: number): Pr
     return;
   }
 
-  const delayMs = getNextRetryDelay(attempts);
+  const delayMs = getNextRetryDelayMs(attempts, config);
   const nextRetryAt = new Date(Date.now() + delayMs);
 
   await db
@@ -136,6 +180,9 @@ export async function processPendingRetries(): Promise<void> {
 
   logger.info({ count: pending.length }, "Processing pending callback retries");
 
+  // Load retry config once for the entire batch.
+  const config = await loadWebhookRetryConfig();
+
   for (const log of pending) {
     if (!log.requestBody) {
       await db
@@ -170,11 +217,11 @@ export async function processPendingRetries(): Promise<void> {
         "Callback retry failed",
       );
 
-      // Test deliveries are capped at TEST_MAX_AUTO_RETRIES auto-retries; live deliveries
-      // follow the full backoff schedule up to MAX_ATTEMPTS.
+      // Test deliveries are capped at testMaxAutoRetries auto-retries; live deliveries
+      // follow the full backoff schedule up to maxAttempts.
       const reachedCap = log.isTest
-        ? newAttempts > TEST_MAX_AUTO_RETRIES
-        : newAttempts >= MAX_ATTEMPTS;
+        ? newAttempts > config.testMaxAutoRetries
+        : newAttempts >= config.maxAttempts;
       if (reachedCap) {
         await db
           .update(callbackLogsTable)
@@ -194,7 +241,7 @@ export async function processPendingRetries(): Promise<void> {
           });
         }
       } else {
-        const delayMs = getNextRetryDelay(newAttempts);
+        const delayMs = getNextRetryDelayMs(newAttempts, config);
         const nextRetryAt = new Date(Date.now() + delayMs);
 
         await db

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff, History, XCircle, HardDrive, RotateCcw, ShieldAlert, KeyRound, Wrench } from "lucide-react";
+import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff, History, XCircle, HardDrive, RotateCcw, ShieldAlert, KeyRound, RefreshCw, Wrench } from "lucide-react";
 import { TestEmailHistoryPanel } from "@/components/test-email-history-panel";
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
@@ -430,6 +430,14 @@ export default function AdminSettings() {
   const [webhookSecretMinute, setWebhookSecretMinute] = useState<number>(0);
   const [webhookSecretInitialized, setWebhookSecretInitialized] = useState(false);
 
+  const [webhookMaxAttempts, setWebhookMaxAttempts] = useState<number>(4);
+  const [webhookDelay1, setWebhookDelay1] = useState<number>(30);
+  const [webhookDelay2, setWebhookDelay2] = useState<number>(300);
+  const [webhookDelay3, setWebhookDelay3] = useState<number>(1800);
+  const [webhookTestMaxRetries, setWebhookTestMaxRetries] = useState<number>(1);
+  const [webhookTestDelay, setWebhookTestDelay] = useState<number>(60);
+  const [webhookRetryInitialized, setWebhookRetryInitialized] = useState(false);
+
   const { data: sigAlertData, isLoading: sigAlertLoading } = useQuery<{ threshold: number; windowHours: number; rateLimitHours: number }>({
     queryKey: ["/api/system-config/signature-failure-alert"],
     queryFn: () => apiGet("/system-config/signature-failure-alert"),
@@ -442,6 +450,62 @@ export default function AdminSettings() {
       }
     },
   } as any);
+
+  interface WebhookRetryData {
+    maxAttempts: number;
+    delay1Seconds: number;
+    delay2Seconds: number;
+    delay3Seconds: number;
+    testMaxAutoRetries: number;
+    testRetryDelaySeconds: number;
+  }
+
+  const { data: webhookRetryData, isLoading: webhookRetryLoading } = useQuery<WebhookRetryData>({
+    queryKey: ["/api/system-config/webhook-retries"],
+    queryFn: () => apiGet("/system-config/webhook-retries"),
+    onSuccess: (d: WebhookRetryData) => {
+      if (!webhookRetryInitialized) {
+        setWebhookMaxAttempts(d.maxAttempts);
+        setWebhookDelay1(d.delay1Seconds);
+        setWebhookDelay2(d.delay2Seconds);
+        setWebhookDelay3(d.delay3Seconds);
+        setWebhookTestMaxRetries(d.testMaxAutoRetries);
+        setWebhookTestDelay(d.testRetryDelaySeconds);
+        setWebhookRetryInitialized(true);
+      }
+    },
+  } as any);
+
+  const currentWebhookMaxAttempts = webhookRetryData?.maxAttempts ?? 4;
+  const currentWebhookDelay1 = webhookRetryData?.delay1Seconds ?? 30;
+  const currentWebhookDelay2 = webhookRetryData?.delay2Seconds ?? 300;
+  const currentWebhookDelay3 = webhookRetryData?.delay3Seconds ?? 1800;
+  const currentWebhookTestMaxRetries = webhookRetryData?.testMaxAutoRetries ?? 1;
+  const currentWebhookTestDelay = webhookRetryData?.testRetryDelaySeconds ?? 60;
+
+  const webhookRetryUnchanged =
+    webhookMaxAttempts === currentWebhookMaxAttempts &&
+    webhookDelay1 === currentWebhookDelay1 &&
+    webhookDelay2 === currentWebhookDelay2 &&
+    webhookDelay3 === currentWebhookDelay3 &&
+    webhookTestMaxRetries === currentWebhookTestMaxRetries &&
+    webhookTestDelay === currentWebhookTestDelay;
+
+  const { mutate: saveWebhookRetry, isPending: savingWebhookRetry } = useMutation({
+    mutationFn: () => apiPut("/system-config/webhook-retries", {
+      maxAttempts: webhookMaxAttempts,
+      delay1Seconds: webhookDelay1,
+      delay2Seconds: webhookDelay2,
+      delay3Seconds: webhookDelay3,
+      testMaxAutoRetries: webhookTestMaxRetries,
+      testRetryDelaySeconds: webhookTestDelay,
+    }),
+    onSuccess: () => {
+      toast.success("Webhook retry settings saved");
+      qc.invalidateQueries({ queryKey: ["/api/system-config/webhook-retries"] });
+    },
+    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save webhook retry settings")),
+  });
 
   const currentSigAlertThreshold = sigAlertData?.threshold ?? 10;
   const currentSigAlertWindowHours = sigAlertData?.windowHours ?? 1;
@@ -1734,6 +1798,199 @@ export default function AdminSettings() {
                   setWebhookSecretMinute(currentWebhookSecretMinute);
                 }}
                 disabled={savingWebhookSecretSchedule}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Webhook Retries */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-muted-foreground" />
+            <CardTitle className="text-base">Webhook Retries</CardTitle>
+          </div>
+          <CardDescription className="text-sm">
+            Configure how many times failed webhook deliveries are retried and the delay between each attempt.
+            Changes take effect immediately for the next retry poll without requiring a server restart.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Live deliveries */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-foreground">Live deliveries</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="webhook-max-attempts" className="text-sm">Max total attempts</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="webhook-max-attempts"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={webhookMaxAttempts}
+                    onChange={e => {
+                      const v = parseInt(e.target.value);
+                      if (!isNaN(v)) setWebhookMaxAttempts(Math.max(1, Math.min(10, v)));
+                    }}
+                    disabled={webhookRetryLoading}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-muted-foreground">attempts</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Includes the first attempt. Maximum 10.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Backoff delays</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="webhook-delay-1" className="text-sm">After 1st failure</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="webhook-delay-1"
+                      type="number"
+                      min={1}
+                      max={86400}
+                      value={webhookDelay1}
+                      onChange={e => {
+                        const v = parseInt(e.target.value);
+                        if (!isNaN(v)) setWebhookDelay1(Math.max(1, Math.min(86400, v)));
+                      }}
+                      disabled={webhookRetryLoading}
+                      className="w-24"
+                    />
+                    <span className="text-xs text-muted-foreground">sec</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="webhook-delay-2" className="text-sm">After 2nd failure</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="webhook-delay-2"
+                      type="number"
+                      min={1}
+                      max={86400}
+                      value={webhookDelay2}
+                      onChange={e => {
+                        const v = parseInt(e.target.value);
+                        if (!isNaN(v)) setWebhookDelay2(Math.max(1, Math.min(86400, v)));
+                      }}
+                      disabled={webhookRetryLoading}
+                      className="w-24"
+                    />
+                    <span className="text-xs text-muted-foreground">sec</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="webhook-delay-3" className="text-sm">After 3rd failure</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="webhook-delay-3"
+                      type="number"
+                      min={1}
+                      max={86400}
+                      value={webhookDelay3}
+                      onChange={e => {
+                        const v = parseInt(e.target.value);
+                        if (!isNaN(v)) setWebhookDelay3(Math.max(1, Math.min(86400, v)));
+                      }}
+                      disabled={webhookRetryLoading}
+                      className="w-24"
+                    />
+                    <span className="text-xs text-muted-foreground">sec</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {!webhookRetryLoading && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 border border-border/50 rounded-md px-3 py-2">
+                <RefreshCw className="w-3.5 h-3.5 shrink-0 text-violet-400" />
+                <span>
+                  Live webhooks: up to <strong>{currentWebhookMaxAttempts}</strong> total attempt{currentWebhookMaxAttempts !== 1 ? "s" : ""} with delays of{" "}
+                  <strong>{currentWebhookDelay1}s</strong>, <strong>{currentWebhookDelay2}s</strong>, <strong>{currentWebhookDelay3}s</strong> between retries.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Test deliveries */}
+          <div className="border-t border-border/50 pt-4 space-y-3">
+            <p className="text-sm font-medium text-foreground">Test deliveries</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="webhook-test-max-retries" className="text-sm">Max auto-retries</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="webhook-test-max-retries"
+                    type="number"
+                    min={0}
+                    max={5}
+                    value={webhookTestMaxRetries}
+                    onChange={e => {
+                      const v = parseInt(e.target.value);
+                      if (!isNaN(v)) setWebhookTestMaxRetries(Math.max(0, Math.min(5, v)));
+                    }}
+                    disabled={webhookRetryLoading}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-muted-foreground">retries</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Set to 0 to disable auto-retry for test deliveries.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="webhook-test-delay" className="text-sm">Retry delay</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="webhook-test-delay"
+                    type="number"
+                    min={1}
+                    max={86400}
+                    value={webhookTestDelay}
+                    onChange={e => {
+                      const v = parseInt(e.target.value);
+                      if (!isNaN(v)) setWebhookTestDelay(Math.max(1, Math.min(86400, v)));
+                    }}
+                    disabled={webhookRetryLoading}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-muted-foreground">sec</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => saveWebhookRetry()}
+              disabled={savingWebhookRetry || webhookRetryLoading || webhookRetryUnchanged}
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              {savingWebhookRetry ? "Saving…" : "Save"}
+            </Button>
+            {!webhookRetryUnchanged && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setWebhookMaxAttempts(currentWebhookMaxAttempts);
+                  setWebhookDelay1(currentWebhookDelay1);
+                  setWebhookDelay2(currentWebhookDelay2);
+                  setWebhookDelay3(currentWebhookDelay3);
+                  setWebhookTestMaxRetries(currentWebhookTestMaxRetries);
+                  setWebhookTestDelay(currentWebhookTestDelay);
+                }}
+                disabled={savingWebhookRetry}
               >
                 Cancel
               </Button>

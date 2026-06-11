@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { AlertTriangle, ChevronDown, ChevronRight, Clock, Loader2, QrCode, RefreshCw, ShieldAlert, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Clock, Loader2, QrCode, RefreshCw, ShieldAlert, ShieldCheck, X } from "lucide-react";
 import { format } from "date-fns";
 
 function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }) {
@@ -120,6 +120,7 @@ function formatRelativeTime(ms: number): string {
 const SIG_WARN_THRESHOLD = 5;
 const SIG_WARN_KEY = "rasokart_sig_warn_dismissed_until";
 const SIG_WARN_TTL_MS = 24 * 60 * 60 * 1000;
+const SIG_VERIFIED_KEY = "rasokart_sig_verified_dismissed_at";
 
 const SNOOZE_OPTIONS = [
   { label: "1 hour", ttlMs: 1 * 60 * 60 * 1000 },
@@ -172,6 +173,33 @@ function clearSigWarnDismissal() {
   }
 }
 
+function readSigVerifiedDismissedAt(): number | null {
+  try {
+    const val = localStorage.getItem(SIG_VERIFIED_KEY);
+    if (!val) return null;
+    const n = Number(val);
+    return isNaN(n) ? null : n;
+  } catch {
+    return null;
+  }
+}
+
+function writeSigVerifiedDismissal() {
+  try {
+    localStorage.setItem(SIG_VERIFIED_KEY, String(Date.now()));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function clearSigVerifiedDismissal() {
+  try {
+    localStorage.removeItem(SIG_VERIFIED_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export default function MerchantCallbacks() {
   const [status, setStatus] = useState("all");
   const [sigVerified, setSigVerified] = useState("all");
@@ -182,6 +210,7 @@ export default function MerchantCallbacks() {
     const d = readSigWarnDismissal();
     return d != null && Date.now() < d.dismissedUntil;
   });
+  const [sigVerifiedDismissed, setSigVerifiedDismissed] = useState(() => readSigVerifiedDismissedAt() != null);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -230,6 +259,22 @@ export default function MerchantCallbacks() {
       setSigWarnDismissed(false);
     }
   }, [allRecentVerified]);
+
+  // Auto-clear the "verified" dismissal if a new failure appears after it was dismissed
+  useEffect(() => {
+    if (!sigVerifiedDismissed) return;
+    const dismissedAt = readSigVerifiedDismissedAt();
+    if (dismissedAt == null) return;
+    const hasNewFailure = recentLogs.some(
+      l => l.signatureVerified === false && new Date(l.createdAt).getTime() > dismissedAt
+    );
+    if (hasNewFailure) {
+      clearSigVerifiedDismissal();
+      setSigVerifiedDismissed(false);
+    }
+  }, [recentLogs, sigVerifiedDismissed]);
+
+  const showSigVerified = allRecentVerified && !sigVerifiedDismissed;
 
   const showSigWarning = (() => {
     if (!allRecentFailed) return false;
@@ -346,6 +391,31 @@ export default function MerchantCallbacks() {
               ))}
             </PopoverContent>
           </Popover>
+        </div>
+      )}
+
+      {showSigVerified && (
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3">
+          <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-emerald-300">
+              Secret verified — recent callbacks are passing signature checks
+            </p>
+            <p className="text-xs text-emerald-400/70 mt-0.5">
+              The last {SIG_WARN_THRESHOLD} logged callbacks all passed signature verification. Your signing secret is correctly configured.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => {
+              writeSigVerifiedDismissal();
+              setSigVerifiedDismissed(true);
+            }}
+            className="shrink-0 text-emerald-400/60 hover:text-emerald-300 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 

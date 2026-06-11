@@ -19,6 +19,7 @@ import {
   listMerchants,
   useListCallbackLogs,
   useGetAdminMerchantCredentialEvents,
+  useRetryCallback,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -198,10 +199,21 @@ export default function AdminMerchants() {
     assignPlanMerchant?.id ?? 0,
     { query: { enabled: !!assignPlanMerchant, queryKey: getGetAdminMerchantWebhookUrlQueryKey(assignPlanMerchant?.id ?? 0) } }
   );
-  const { data: recentWebhookLogs, isLoading: webhookLogsLoading } = useListCallbackLogs(
+  const { data: recentWebhookLogs, isLoading: webhookLogsLoading, refetch: refetchWebhookLogs } = useListCallbackLogs(
     { merchantId: assignPlanMerchant?.id, limit: 10 },
     { query: { enabled: !!assignPlanMerchant, queryKey: ["listCallbackLogs", assignPlanMerchant?.id] } }
   );
+  const { mutate: retryWebhookDelivery, isPending: isRetryingWebhook, variables: retryingWebhookVars } = useRetryCallback({
+    mutation: {
+      onSuccess: () => {
+        toast.success("Webhook delivery retry triggered");
+        refetchWebhookLogs();
+      },
+      onError: (err: unknown) => {
+        toast.error(getApiErrorMessage(err, "Failed to retry webhook delivery"));
+      },
+    },
+  });
   const { data: adminCredEventData, isLoading: adminCredEventsLoading } = useGetAdminMerchantCredentialEvents(
     assignPlanMerchant?.id ?? 0,
     {},
@@ -2219,6 +2231,20 @@ export default function AdminMerchants() {
                       <span className="shrink-0 text-muted-foreground/50">
                         {format(new Date(log.createdAt), "MMM d, HH:mm")}
                       </span>
+                      {log.status === "failed" && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-5 w-5 shrink-0 text-muted-foreground hover:text-amber-400"
+                          title="Retry delivery"
+                          disabled={isRetryingWebhook && retryingWebhookVars?.id === log.id}
+                          onClick={() => retryWebhookDelivery({ id: log.id })}
+                        >
+                          {isRetryingWebhook && retryingWebhookVars?.id === log.id
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : <RotateCcw className="w-3 h-3" />}
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -100,6 +100,12 @@ export default function AdminMerchants() {
   const [bulkResultOpen, setBulkResultOpen] = useState(false);
   const [bulkResultTitle, setBulkResultTitle] = useState("");
   const [bulkResultItems, setBulkResultItems] = useState<{ id: number; name: string; success: boolean; reason?: string | null }[]>([]);
+  const [bulkRetryContext, setBulkRetryContext] = useState<
+    | { type: "assign"; planId: number; planName: string; expiresAt: string | null; notes: string | null }
+    | { type: "approve" }
+    | { type: "suspend" | "reinstate" }
+    | null
+  >(null);
 
   const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined });
   const { data: plans } = useListPlans();
@@ -280,12 +286,15 @@ export default function AdminMerchants() {
   const handleBulkAssign = () => {
     if (!bulkPlanId || selected.size === 0) return;
     const planName = plans?.find(p => String(p.id) === bulkPlanId)?.name ?? "plan";
+    const planId = parseInt(bulkPlanId);
+    const expiresAt = bulkExpiresAt || null;
+    const notes = bulkNotes || null;
     bulkAssignMutation.mutate({
       data: {
         merchantIds: Array.from(selected),
-        planId: parseInt(bulkPlanId),
-        expiresAt: bulkExpiresAt || null,
-        notes: bulkNotes || null,
+        planId,
+        expiresAt,
+        notes,
       },
     }, {
       onSuccess: (result) => {
@@ -295,6 +304,7 @@ export default function AdminMerchants() {
         closeBulkDialog();
         setBulkResultTitle(`Bulk Plan Assignment — ${planName}`);
         setBulkResultItems(results ?? []);
+        setBulkRetryContext({ type: "assign", planId, planName, expiresAt, notes });
         setBulkResultOpen(true);
         const label = `Bulk assigned plan to ${updated} merchant${updated !== 1 ? "s" : ""} — ${failed} failed`;
         if (failed === 0) {
@@ -327,6 +337,7 @@ export default function AdminMerchants() {
           setBulkStatusAction(null);
           setBulkResultTitle("Bulk Approve");
           setBulkResultItems(results ?? []);
+          setBulkRetryContext({ type: "approve" });
           setBulkResultOpen(true);
           const label = `Bulk approved ${updated} merchant${updated !== 1 ? "s" : ""} — ${failed} failed`;
           if (failed === 0) {
@@ -339,14 +350,16 @@ export default function AdminMerchants() {
       });
     } else {
       const actionLabel = bulkStatusAction === "suspend" ? "suspended" : "reinstated";
+      const capturedAction = bulkStatusAction;
       bulkSuspendMutation.mutate({ data: { merchantIds: ids, action: bulkStatusAction } }, {
         onSuccess: (result) => {
           const { updated, failed, results } = result;
           qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
           clearSelection();
           setBulkStatusAction(null);
-          setBulkResultTitle(`Bulk ${bulkStatusAction === "suspend" ? "Suspend" : "Reinstate"}`);
+          setBulkResultTitle(`Bulk ${capturedAction === "suspend" ? "Suspend" : "Reinstate"}`);
           setBulkResultItems(results ?? []);
+          setBulkRetryContext({ type: capturedAction });
           setBulkResultOpen(true);
           const label = `Bulk ${actionLabel} ${updated} merchant${updated !== 1 ? "s" : ""} — ${failed} failed`;
           if (failed === 0) {
@@ -355,7 +368,7 @@ export default function AdminMerchants() {
             toast.warning(label);
           }
         },
-        onError: () => toast.error(`Bulk ${bulkStatusAction} failed`),
+        onError: () => toast.error(`Bulk ${capturedAction} failed`),
       });
     }
   };
@@ -380,6 +393,61 @@ export default function AdminMerchants() {
       },
       onError: () => toast.error("Bulk reject failed"),
     });
+  };
+
+  const handleRetryFailed = () => {
+    if (!bulkRetryContext) return;
+    const failedIds = bulkResultItems.filter(r => !r.success).map(r => r.id);
+    if (failedIds.length === 0) return;
+
+    setBulkResultOpen(false);
+
+    if (bulkRetryContext.type === "assign") {
+      const { planId, planName, expiresAt, notes } = bulkRetryContext;
+      bulkAssignMutation.mutate({ data: { merchantIds: failedIds, planId, expiresAt, notes } }, {
+        onSuccess: (result) => {
+          const { updated, failed, results } = result;
+          qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+          setBulkResultTitle(`Bulk Plan Assignment — ${planName}`);
+          setBulkResultItems(results ?? []);
+          setBulkRetryContext({ type: "assign", planId, planName, expiresAt, notes });
+          setBulkResultOpen(true);
+          const label = `Retry: assigned plan to ${updated} merchant${updated !== 1 ? "s" : ""} — ${failed} failed`;
+          if (failed === 0) toast.success(label); else toast.warning(label);
+        },
+        onError: () => toast.error("Retry bulk plan assignment failed"),
+      });
+    } else if (bulkRetryContext.type === "approve") {
+      bulkApproveMutation.mutate({ data: { merchantIds: failedIds } }, {
+        onSuccess: (result) => {
+          const { updated, failed, results } = result;
+          qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+          setBulkResultTitle("Bulk Approve");
+          setBulkResultItems(results ?? []);
+          setBulkRetryContext({ type: "approve" });
+          setBulkResultOpen(true);
+          const label = `Retry: approved ${updated} merchant${updated !== 1 ? "s" : ""} — ${failed} failed`;
+          if (failed === 0) toast.success(label); else toast.warning(label);
+        },
+        onError: () => toast.error("Retry bulk approve failed"),
+      });
+    } else if (bulkRetryContext.type === "suspend" || bulkRetryContext.type === "reinstate") {
+      const capturedAction = bulkRetryContext.type;
+      const actionLabel = capturedAction === "suspend" ? "suspended" : "reinstated";
+      bulkSuspendMutation.mutate({ data: { merchantIds: failedIds, action: capturedAction } }, {
+        onSuccess: (result) => {
+          const { updated, failed, results } = result;
+          qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+          setBulkResultTitle(`Bulk ${capturedAction === "suspend" ? "Suspend" : "Reinstate"}`);
+          setBulkResultItems(results ?? []);
+          setBulkRetryContext({ type: capturedAction });
+          setBulkResultOpen(true);
+          const label = `Retry: ${actionLabel} ${updated} merchant${updated !== 1 ? "s" : ""} — ${failed} failed`;
+          if (failed === 0) toast.success(label); else toast.warning(label);
+        },
+        onError: () => toast.error(`Retry bulk ${capturedAction} failed`),
+      });
+    }
   };
 
   const exportCsv = () => {
@@ -1578,7 +1646,18 @@ export default function AdminMerchants() {
               </div>
             ))}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
+            {bulkResultItems.filter(r => !r.success).length > 0 && bulkRetryContext && (
+              <Button
+                variant="outline"
+                className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                onClick={handleRetryFailed}
+                disabled={bulkAssignMutation.isPending || bulkApproveMutation.isPending || bulkSuspendMutation.isPending}
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Retry failed ({bulkResultItems.filter(r => !r.success).length})
+              </Button>
+            )}
             <Button onClick={() => setBulkResultOpen(false)}>Dismiss</Button>
           </DialogFooter>
         </DialogContent>

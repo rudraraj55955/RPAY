@@ -48,7 +48,7 @@ function RetryHistorySection({ logId: _logId }: { logId: number }) {
 
 const RETRY_COOLDOWN_DEFAULT = 30;
 
-function CallbackRow({ log }: { log: any }) {
+function CallbackRow({ log, activeQrFilter, onFilterByQr }: { log: any; activeQrFilter: number | undefined; onFilterByQr: (id: number) => void }) {
   const [open, setOpen] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
@@ -136,6 +136,18 @@ function CallbackRow({ log }: { log: any }) {
               </div>
             </div>
             {open && <RetryHistorySection logId={log.id} />}
+            {log.qrCodeId && activeQrFilter !== log.qrCodeId && (
+              <div className="px-2 pt-3">
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); onFilterByQr(log.qrCodeId); }}
+                  className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors underline-offset-2 hover:underline"
+                >
+                  <QrCode className="w-3.5 h-3.5 shrink-0" />
+                  Show all for QR #{log.qrCodeId}
+                </button>
+              </div>
+            )}
             {canRetry && (
               <div className="flex items-center gap-3 mt-3 px-2">
                 <Button
@@ -279,6 +291,12 @@ export default function MerchantCallbacks() {
   const clearQrFilter = () => {
     setQrCodeIdInput("");
     setQrCodeId(undefined);
+    setPage(1);
+  };
+
+  const applyQrFilterById = (id: number) => {
+    setQrCodeIdInput(String(id));
+    setQrCodeId(id);
     setPage(1);
   };
 
@@ -472,7 +490,7 @@ export default function MerchantCallbacks() {
                       : qrCodeId ? `No webhook logs for QR #${qrCodeId}` : "No callback logs yet"}
                   </TableCell>
                 </TableRow>
-              ) : data?.data?.map(log => <CallbackRow key={log.id} log={log} />)}
+              ) : data?.data?.map(log => <CallbackRow key={log.id} log={log} activeQrFilter={qrCodeId} onFilterByQr={applyQrFilterById} />)}
             </TableBody>
           </Table>
           </div>

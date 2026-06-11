@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowDownLeft, Search, TrendingUp, Clock, CheckCircle, XCircle, Sparkles, X, Hash, CheckCircle2, Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
+import { ArrowDownLeft, Search, TrendingUp, Clock, CheckCircle, XCircle, Sparkles, X, Hash, CheckCircle2, Bookmark, BookmarkCheck, Trash2, CalendarIcon } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 
 interface SmartFilter {
@@ -153,6 +153,8 @@ export default function AdminDeposits() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [merchantId, setMerchantId] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
 
   const [smartInput, setSmartInput] = useState("");
@@ -167,8 +169,8 @@ export default function AdminDeposits() {
   const saveNameInputRef = useRef<HTMLInputElement>(null);
 
   const activeStatus = smartFilter?.txStatus ?? (status !== "all" ? status : undefined);
-  const activeDateFrom = smartFilter?.dateFrom ?? undefined;
-  const activeDateTo = smartFilter?.dateTo ?? undefined;
+  const activeDateFrom = smartFilter?.dateFrom ?? (dateFrom || undefined);
+  const activeDateTo = smartFilter?.dateTo ?? (dateTo || undefined);
   const amountMin = smartFilter?.amountMin;
   const amountMax = smartFilter?.amountMax;
 
@@ -197,7 +199,7 @@ export default function AdminDeposits() {
   const isCurrentFilterSaved = hasSmartFilter && savedFilters.some(
     f => f.rawInput === smartInput && JSON.stringify(f.filter) === JSON.stringify(smartFilter)
   );
-  const anyFilterActive = hasSmartFilter || !!search || !!merchantId || status !== "all";
+  const anyFilterActive = hasSmartFilter || !!search || !!merchantId || status !== "all" || !!dateFrom || !!dateTo;
 
   const applySmartSearch = () => {
     setSmartError("");
@@ -521,6 +523,48 @@ export default function AdminDeposits() {
               value={merchantId}
               onChange={e => { setMerchantId(e.target.value); setPage(1); }}
             />
+            <div className="relative flex items-center">
+              <CalendarIcon className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="date"
+                className="h-9 w-[150px] rounded-md border border-input bg-background pl-9 pr-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="From"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                title="Date from"
+              />
+              {dateFrom && (
+                <button
+                  className="absolute right-2 rounded-full p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => { setDateFrom(""); setPage(1); }}
+                  aria-label="Clear from date"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            <div className="relative flex items-center">
+              <CalendarIcon className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="date"
+                className="h-9 w-[150px] rounded-md border border-input bg-background pl-9 pr-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="To"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                title="Date to"
+              />
+              {dateTo && (
+                <button
+                  className="absolute right-2 rounded-full p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => { setDateTo(""); setPage(1); }}
+                  aria-label="Clear to date"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
             <Select
               value={smartFilter?.txStatus ?? status}
               onValueChange={v => {

@@ -68,7 +68,7 @@ type TestResult = {
   signed: boolean;
 };
 
-function WebhookTestPanel({ result, onDismiss }: { result: TestResult; onDismiss: () => void }) {
+function WebhookTestPanel({ result, onDismiss, onRetry, isRetrying }: { result: TestResult; onDismiss: () => void; onRetry?: () => void; isRetrying?: boolean }) {
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Copied to clipboard");
@@ -81,18 +81,36 @@ function WebhookTestPanel({ result, onDismiss }: { result: TestResult; onDismiss
           {result.delivered ? (
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           ) : (
-            <XCircle className="w-4 h-4 text-rose-400" />
+            isRetrying ? (
+              <RefreshCw className="w-4 h-4 text-rose-400 animate-spin" />
+            ) : (
+              <XCircle className="w-4 h-4 text-rose-400" />
+            )
           )}
           <span className={`text-sm font-semibold ${result.delivered ? "text-emerald-400" : "text-rose-400"}`}>
-            {result.delivered ? "Test delivered successfully" : "Test delivery failed"}
+            {result.delivered ? "Test delivered successfully" : isRetrying ? "Retrying…" : "Test delivery failed"}
           </span>
         </div>
-        <button
-          onClick={onDismiss}
-          className="text-muted-foreground/50 hover:text-muted-foreground text-xs transition-colors"
-        >
-          Dismiss
-        </button>
+        <div className="flex items-center gap-2">
+          {!result.delivered && onRetry && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRetry}
+              disabled={isRetrying}
+              className="h-6 px-2 text-xs gap-1 border-rose-500/30 hover:border-rose-500/60 hover:bg-rose-500/10 text-rose-400 hover:text-rose-300"
+            >
+              <RotateCcw className={`w-3 h-3 ${isRetrying ? "animate-spin" : ""}`} />
+              {isRetrying ? "Retrying…" : "Retry"}
+            </Button>
+          )}
+          <button
+            onClick={onDismiss}
+            className="text-muted-foreground/50 hover:text-muted-foreground text-xs transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3 text-xs">
@@ -338,6 +356,20 @@ export default function MerchantWebhook() {
     });
   };
 
+  const handleRetryTest = () => {
+    testMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        setTestResult(data);
+        if (data.delivered) {
+          toast.success("Test event delivered successfully");
+        } else {
+          toast.error(`Test event failed — HTTP ${data.httpStatus ?? "no response"}`);
+        }
+      },
+      onError: () => toast.error("Failed to send test event"),
+    });
+  };
+
   const handleRotateSecret = () => {
     if (!confirm("Generate a new callback signing secret? Any existing integrations using the old secret will stop working immediately.")) return;
     rotateMutation.mutate(undefined, {
@@ -446,7 +478,12 @@ export default function MerchantWebhook() {
       </div>
 
       {testResult && (
-        <WebhookTestPanel result={testResult} onDismiss={() => setTestResult(null)} />
+        <WebhookTestPanel
+          result={testResult}
+          onDismiss={() => setTestResult(null)}
+          onRetry={handleRetryTest}
+          isRetrying={testMutation.isPending}
+        />
       )}
 
       {/* Recent Deliveries */}

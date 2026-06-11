@@ -65,6 +65,16 @@ function CallbackRow({ log }: { log: any }) {
   );
 }
 
+function formatRelativeTime(ms: number): string {
+  const totalMinutes = Math.floor(ms / 60_000);
+  if (totalMinutes < 1) return "less than a minute";
+  if (totalMinutes < 60) return `${totalMinutes} minute${totalMinutes !== 1 ? "s" : ""}`;
+  const hours = Math.floor(totalMinutes / 60);
+  if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""}`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days !== 1 ? "s" : ""}`;
+}
+
 const SIG_WARN_THRESHOLD = 5;
 const SIG_WARN_KEY = "rasokart_sig_warn_dismissed_until";
 const SIG_WARN_TTL_MS = 24 * 60 * 60 * 1000;
@@ -124,6 +134,12 @@ export default function MerchantCallbacks() {
     const d = readSigWarnDismissal();
     return d != null && Date.now() < d.dismissedUntil;
   });
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const { data: stats } = useGetCallbackStats();
   const failureCount = stats?.signatureFailures24h ?? 0;
@@ -162,6 +178,16 @@ export default function MerchantCallbacks() {
     return !isSigWarnStillDismissed(d, recentLogs);
   })();
 
+  const dismissalStatusLine = (() => {
+    if (showSigWarning) return null;
+    if (!sigWarnDismissed) return null;
+    const d = readSigWarnDismissal();
+    if (!d || now >= d.dismissedUntil) return null;
+    const elapsed = formatRelativeTime(now - d.dismissedAt);
+    const remaining = formatRelativeTime(d.dismissedUntil - now);
+    return `Signature warning dismissed ${elapsed} ago — clears in ${remaining}`;
+  })();
+
   const applyQrFilter = () => {
     const parsed = parseInt(qrCodeIdInput.trim());
     if (!qrCodeIdInput.trim()) {
@@ -193,6 +219,9 @@ export default function MerchantCallbacks() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Callback Logs</h1>
         <p className="text-muted-foreground mt-1">Webhook delivery history for your endpoint</p>
+        {dismissalStatusLine && (
+          <p className="text-xs text-muted-foreground/60 mt-1">{dismissalStatusLine}</p>
+        )}
       </div>
 
       {showSigWarning && (

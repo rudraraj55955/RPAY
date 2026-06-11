@@ -14,6 +14,7 @@ import { initNonceCleanupScheduler, pruneExpiredNonces } from "./helpers/nonceCl
 import { initWebhookSecretScheduler } from "./helpers/webhookSecretScheduler";
 import { initStorageCleanupSchedulerFromDb } from "./helpers/storageCleanupScheduler";
 import { seedLastAlertSentAt } from "./helpers/signatureFailureAlert";
+import { initSignatureAlertLogCleanupScheduler, pruneOldAlertLogs } from "./helpers/signatureAlertLogCleanupScheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -75,6 +76,12 @@ async function main() {
   // NONCE_CLEANUP_INTERVAL_HOURS, default 6 — see nonceCleanupScheduler.ts).
   pruneExpiredNonces().catch((err) => {
     logger.warn({ err }, "Startup nonce cleanup sweep failed");
+  });
+  initSignatureAlertLogCleanupScheduler();
+  // Startup sweep: prune any alert log rows that aged out while the server
+  // was down, before the first nightly run (03:00) fires.
+  pruneOldAlertLogs().catch((err) => {
+    logger.warn({ err }, "Startup alert log cleanup sweep failed");
   });
   initWebhookSecretScheduler().catch((err) => {
     logger.warn({ err }, "Webhook secret scheduler init failed");

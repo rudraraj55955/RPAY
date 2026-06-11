@@ -208,9 +208,10 @@ async function backfillUpiPayloads(merchantId: number): Promise<void> {
 /**
  * Re-run the connection→transaction backfill scoped to a single merchant.
  * Mirrors the seed backfill time-window logic: for each provider-tagged
- * transaction that has no connectionId yet, assign the oldest qualifying
- * connection (created before the transaction, not yet deactivated at that
- * time).  Safe to call fire-and-forget after any isActive toggle.
+ * transaction, assign the oldest qualifying connection (created before the
+ * transaction, not yet deactivated at that time).  Re-maps ALL rows — not
+ * just NULL ones — so stale connection IDs are corrected after any toggle.
+ * Safe to call fire-and-forget after any isActive toggle.
  */
 async function backfillConnectionIds(merchantId: number): Promise<void> {
   await db.execute(sql`
@@ -225,9 +226,8 @@ async function backfillConnectionIds(merchantId: number): Promise<void> {
       ORDER BY created_at ASC
       LIMIT 1
     )
-    WHERE connection_id IS NULL
-      AND provider      IS NOT NULL
-      AND merchant_id   = ${merchantId}
+    WHERE provider    IS NOT NULL
+      AND merchant_id = ${merchantId}
   `);
 }
 

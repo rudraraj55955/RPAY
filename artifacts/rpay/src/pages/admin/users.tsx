@@ -10,10 +10,12 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Bell, BellOff, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function AdminUsers() {
   const qc = useQueryClient();
@@ -27,6 +29,11 @@ export default function AdminUsers() {
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
+
+  const noAdminAlerts = !isLoading && data?.data != null && (() => {
+    const admins = data.data.filter(u => u.role === "admin" && u.isActive);
+    return admins.length > 0 && admins.every(u => u.reconciliationAlertEmails === false);
+  })();
 
   const handleCreate = () => {
     if (!form.email || !form.password || !form.name) return;
@@ -58,6 +65,15 @@ export default function AdminUsers() {
         <Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4 mr-2" />Add User</Button>
       </div>
 
+      {noAdminAlerts && (
+        <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-400">
+          <AlertTriangle className="h-4 w-4 !text-amber-400" />
+          <AlertDescription>
+            No active admin has reconciliation alert emails enabled. Unmatched-item alerts won't be delivered to anyone.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader className="pb-4">
           <Select value={role} onValueChange={v => { setRole(v); setPage(1); }}>
@@ -70,6 +86,7 @@ export default function AdminUsers() {
           </Select>
         </CardHeader>
         <CardContent className="p-0">
+          <TooltipProvider>
           <Table>
             <TableHeader>
               <TableRow>
@@ -77,15 +94,16 @@ export default function AdminUsers() {
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Active</TableHead>
+                <TableHead>Recon Alerts</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>{Array.from({ length: 6 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
+                <TableRow key={i}>{Array.from({ length: 7 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
               )) : data?.data?.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-10">No users found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-10">No users found</TableCell></TableRow>
               ) : data?.data?.map(u => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.name}</TableCell>
@@ -93,6 +111,31 @@ export default function AdminUsers() {
                   <TableCell><Badge variant={u.role === "admin" ? "default" : "secondary"}>{u.role}</Badge></TableCell>
                   <TableCell>
                     <Switch checked={u.isActive} onCheckedChange={v => handleToggle(u.id, v)} disabled={u.id === currentUser?.id} />
+                  </TableCell>
+                  <TableCell>
+                    {u.role === "admin" ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center gap-1.5">
+                            {u.reconciliationAlertEmails !== false ? (
+                              <Bell className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <BellOff className="w-4 h-4 text-muted-foreground" />
+                            )}
+                            <span className={`text-xs font-medium ${u.reconciliationAlertEmails !== false ? "text-emerald-500" : "text-muted-foreground"}`}>
+                              {u.reconciliationAlertEmails !== false ? "On" : "Off"}
+                            </span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {u.reconciliationAlertEmails !== false
+                            ? "Receives reconciliation alert emails"
+                            : "Has opted out of reconciliation alert emails"}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/40">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{format(new Date(u.createdAt), "MMM d, yyyy")}</TableCell>
                   <TableCell className="text-right">
@@ -104,6 +147,7 @@ export default function AdminUsers() {
               ))}
             </TableBody>
           </Table>
+          </TooltipProvider>
         </CardContent>
       </Card>
 

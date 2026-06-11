@@ -14,6 +14,7 @@ const formatUser = (u: any) => ({
   name: u.name,
   isActive: u.isActive,
   merchantId: u.merchantId,
+  reconciliationAlertEmails: u.reconciliationAlertEmails,
   createdAt: u.createdAt,
 });
 

@@ -2093,6 +2093,7 @@ function ScheduleRow({
   onDelete,
   onSendNow,
   onAcknowledge,
+  onEdit,
   sendingId,
   acknowledgingId,
   highlighted,
@@ -2103,6 +2104,7 @@ function ScheduleRow({
   onDelete: (id: number) => void;
   onSendNow?: (id: number) => void;
   onAcknowledge?: (id: number) => void;
+  onEdit?: (s: any) => void;
   sendingId?: number | null;
   acknowledgingId?: number | null;
   highlighted?: boolean;
@@ -2276,6 +2278,20 @@ function ScheduleRow({
                 <span className="text-[10px] text-muted-foreground/40">·</span>
               </>
             )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/70 cursor-default">
+                    <RefreshCw className="w-3 h-3 shrink-0" />
+                    {s.maxRetryAttempts ?? 3} {(s.maxRetryAttempts ?? 3) === 1 ? "retry" : "retries"} · {s.retryBackoffMinutes ?? 60} min delay
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  On failure: up to {s.maxRetryAttempts ?? 3} automatic {(s.maxRetryAttempts ?? 3) === 1 ? "retry" : "retries"}, waiting {s.retryBackoffMinutes ?? 60} minute{(s.retryBackoffMinutes ?? 60) !== 1 ? "s" : ""} between each attempt
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <span className="text-[10px] text-muted-foreground/40">·</span>
             {s.lastSendStatus === "ok" && s.lastSentAt ? (
               <TooltipProvider>
                 <Tooltip>
@@ -2353,6 +2369,24 @@ function ScheduleRow({
               </Tooltip>
             </TooltipProvider>
           )}
+          {onEdit && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEdit(s)}
+                    className="text-xs h-7 px-2 text-muted-foreground hover:text-sky-400"
+                    title="Edit retry settings"
+                  >
+                    <Settings className="w-3 h-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Edit retry settings</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -2415,6 +2449,8 @@ function ScheduledReportsPanel() {
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newFrequency, setNewFrequency] = useState("weekly");
+  const [newMaxRetryAttempts, setNewMaxRetryAttempts] = useState("3");
+  const [newRetryBackoffMinutes, setNewRetryBackoffMinutes] = useState("60");
   const [adding, setAdding] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -2425,6 +2461,10 @@ function ScheduledReportsPanel() {
   const [bulkToggling, setBulkToggling] = useState(false);
   const [preActivatedIds, setPreActivatedIds] = useState<number[] | null>(null);
   const [healthFilter, setHealthFilter] = useState<"all" | "healthy" | "failing" | "never_sent">("all");
+  const [editSchedule, setEditSchedule] = useState<any | null>(null);
+  const [editRetryBackoff, setEditRetryBackoff] = useState("60");
+  const [editMaxRetry, setEditMaxRetry] = useState("3");
+  const [editSaving, setEditSaving] = useState(false);
 
   const schedules = schedulesData?.data ?? [];
 
@@ -2439,15 +2479,56 @@ function ScheduledReportsPanel() {
 
   async function handleAdd() {
     if (!newEmail.trim()) return;
+    const parsedMaxRetry = parseInt(newMaxRetryAttempts, 10);
+    const parsedBackoff = parseInt(newRetryBackoffMinutes, 10);
+    if (isNaN(parsedMaxRetry) || parsedMaxRetry < 0 || parsedMaxRetry > 10) return;
+    if (isNaN(parsedBackoff) || parsedBackoff < 1 || parsedBackoff > 1440) return;
     setAdding(true);
     try {
-      await createSchedule.mutateAsync({ data: { frequency: newFrequency as "daily" | "weekly" | "monthly", recipientEmail: newEmail.trim() } });
+      await createSchedule.mutateAsync({
+        data: {
+          frequency: newFrequency as "daily" | "weekly" | "monthly",
+          recipientEmail: newEmail.trim(),
+          maxRetryAttempts: parsedMaxRetry,
+          retryBackoffMinutes: parsedBackoff,
+        },
+      });
       invalidate();
       setShowAdd(false);
       setNewEmail("");
       setNewFrequency("weekly");
+      setNewMaxRetryAttempts("3");
+      setNewRetryBackoffMinutes("60");
     } finally {
       setAdding(false);
+    }
+  }
+
+  function openEditSchedule(s: any) {
+    setEditSchedule(s);
+    setEditMaxRetry(String(s.maxRetryAttempts ?? 3));
+    setEditRetryBackoff(String(s.retryBackoffMinutes ?? 60));
+  }
+
+  async function handleSaveEdit() {
+    if (!editSchedule) return;
+    const parsedMaxRetry = parseInt(editMaxRetry, 10);
+    const parsedBackoff = parseInt(editRetryBackoff, 10);
+    if (isNaN(parsedMaxRetry) || parsedMaxRetry < 0 || parsedMaxRetry > 10) return;
+    if (isNaN(parsedBackoff) || parsedBackoff < 1 || parsedBackoff > 1440) return;
+    setEditSaving(true);
+    try {
+      await updateSchedule.mutateAsync({
+        id: editSchedule.id,
+        data: { maxRetryAttempts: parsedMaxRetry, retryBackoffMinutes: parsedBackoff },
+      });
+      invalidate();
+      setEditSchedule(null);
+      toast.success("Retry settings updated");
+    } catch {
+      toast.error("Failed to save retry settings");
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -2684,6 +2765,7 @@ function ScheduledReportsPanel() {
                 onDelete={(id) => setConfirmDeleteId(id)}
                 onSendNow={handleSendNow}
                 onAcknowledge={handleAcknowledge}
+                onEdit={openEditSchedule}
                 sendingId={sendingId}
                 acknowledgingId={acknowledgingId}
                 highlighted={highlightId === s.id || openScheduleId === s.id}
@@ -2708,7 +2790,7 @@ function ScheduledReportsPanel() {
         </div>
       )}
 
-      <Dialog open={showAdd} onOpenChange={open => { if (!open) { setShowAdd(false); setNewEmail(""); setNewFrequency("weekly"); } }}>
+      <Dialog open={showAdd} onOpenChange={open => { if (!open) { setShowAdd(false); setNewEmail(""); setNewFrequency("weekly"); setNewMaxRetryAttempts("3"); setNewRetryBackoffMinutes("60"); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add Scheduled Report</DialogTitle>
@@ -2740,6 +2822,39 @@ function ScheduledReportsPanel() {
             <p className="text-xs text-muted-foreground">
               The CSV attachment will contain all audit log entries from the previous {newFrequency === "daily" ? "24 hours" : newFrequency === "weekly" ? "7 days" : "30 days"}.
             </p>
+            <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <RefreshCw className="w-3 h-3" />
+                Retry settings
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Max retries <span className="text-muted-foreground font-normal">(0–10)</span></Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={newMaxRetryAttempts}
+                    onChange={e => setNewMaxRetryAttempts(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Delay between retries <span className="text-muted-foreground font-normal">(minutes)</span></Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1440}
+                    value={newRetryBackoffMinutes}
+                    onChange={e => setNewRetryBackoffMinutes(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground/70">
+                On delivery failure, the scheduler will retry up to {newMaxRetryAttempts || "3"} time{(parseInt(newMaxRetryAttempts, 10) || 3) !== 1 ? "s" : ""}, waiting {newRetryBackoffMinutes || "60"} minute{(parseInt(newRetryBackoffMinutes, 10) || 60) !== 1 ? "s" : ""} between each attempt.
+              </p>
+            </div>
             <Button
               type="button"
               variant="outline"
@@ -2763,6 +2878,70 @@ function ScheduledReportsPanel() {
               className="bg-violet-600 hover:bg-violet-500 text-white"
             >
               {adding ? "Adding…" : "Add Schedule"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editSchedule !== null} onOpenChange={open => { if (!open) setEditSchedule(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-4 h-4 text-sky-400" />
+              Edit Retry Settings
+            </DialogTitle>
+          </DialogHeader>
+          {editSchedule && (
+            <div className="space-y-4 py-1">
+              <p className="text-xs text-muted-foreground">
+                Schedule: <span className="font-medium text-foreground">{editSchedule.recipientEmail}</span> — <span className="capitalize">{editSchedule.frequency}</span>
+              </p>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Max retry attempts <span className="text-muted-foreground font-normal text-xs">(0–10)</span></Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={editMaxRetry}
+                    onChange={e => setEditMaxRetry(e.target.value)}
+                    className="h-9"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Set to 0 to disable automatic retries.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Delay between retries <span className="text-muted-foreground font-normal text-xs">(minutes, 1–1440)</span></Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1440}
+                    value={editRetryBackoff}
+                    onChange={e => setEditRetryBackoff(e.target.value)}
+                    className="h-9"
+                  />
+                  <p className="text-[11px] text-muted-foreground">How long to wait before each subsequent retry attempt.</p>
+                </div>
+              </div>
+              {parseInt(editMaxRetry, 10) > 0 && (
+                <p className="text-[11px] text-sky-400/80 bg-sky-500/5 border border-sky-500/20 rounded px-2.5 py-1.5">
+                  On failure: up to {editMaxRetry} {parseInt(editMaxRetry, 10) === 1 ? "retry" : "retries"}, {editRetryBackoff} minute{parseInt(editRetryBackoff, 10) !== 1 ? "s" : ""} apart.
+                </p>
+              )}
+              {parseInt(editMaxRetry, 10) === 0 && (
+                <p className="text-[11px] text-amber-400/80 bg-amber-500/5 border border-amber-500/20 rounded px-2.5 py-1.5">
+                  Automatic retries disabled — failed deliveries will not be reattempted.
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditSchedule(null)} disabled={editSaving}>Cancel</Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={editSaving}
+              className="bg-sky-600 hover:bg-sky-500 text-white"
+            >
+              {editSaving ? "Saving…" : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

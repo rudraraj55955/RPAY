@@ -22,6 +22,7 @@ export function makeRateLimiter(
   const useMemory = process.env["RATE_LIMIT_STORE"] === "memory";
   const { limiterId, ...rest } = options;
   return rateLimit({
+    validate: { ip: false },
     ...rest,
     ...(useMemory ? {} : { store: new PostgresRateLimitStore(limiterId, options.windowMs) }),
   });

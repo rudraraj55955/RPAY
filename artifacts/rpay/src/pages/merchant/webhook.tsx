@@ -850,6 +850,15 @@ export default function MerchantWebhook() {
                         </span>
                       )
                     )}
+                    {(log.status === "failed" || log.status === "pending_retry") && (
+                      <span
+                        className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-400"
+                        title={`${log.attempts ?? 1} delivery ${(log.attempts ?? 1) === 1 ? "attempt" : "attempts"}`}
+                      >
+                        <RotateCcw className="w-2.5 h-2.5" />
+                        {log.attempts ?? 1}×
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

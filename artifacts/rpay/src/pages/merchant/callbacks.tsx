@@ -35,7 +35,7 @@ function AttemptStatusDot({ httpStatus }: { httpStatus: number | null | undefine
   return <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground/30 shrink-0 mt-0.5" />;
 }
 
-function CopyButton({ text }: { text: string | null | undefined }) {
+function CopyButton({ text, label = "Copy response" }: { text: string | null | undefined; label?: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -53,7 +53,7 @@ function CopyButton({ text }: { text: string | null | undefined }) {
         type="button"
         onClick={handleCopy}
         disabled={!text}
-        aria-label="Copy response to clipboard"
+        aria-label={`${label} to clipboard`}
         className="p-1 rounded text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
       >
         {copied ? (
@@ -67,7 +67,7 @@ function CopyButton({ text }: { text: string | null | undefined }) {
           copied ? "opacity-100" : "opacity-0 group-hover/copy:opacity-100"
         }`}
       >
-        {copied ? "Copied!" : "Copy response"}
+        {copied ? "Copied!" : label}
       </span>
     </div>
   );
@@ -301,7 +301,10 @@ function CallbackRow({ log, activeQrFilter, onFilterByQr, initialOpen, onDeepLin
           <TableCell colSpan={7} className="bg-muted/20 pb-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2 pt-2">
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Request</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Request</p>
+                  <CopyButton text={tryParse(log.requestBody)} label="Copy request" />
+                </div>
                 <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">{tryParse(log.requestBody) || "—"}</pre>
               </div>
               <div>

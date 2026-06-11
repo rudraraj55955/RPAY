@@ -794,7 +794,7 @@ export default function AdminVirtualAccounts() {
                       </TableCell>
                     </TableRow>
                   ) : auditData.data.map(entry => (
-                    <TableRow key={entry.id}>
+                    <TableRow key={entry.id} className={entry.backfilled ? "bg-amber-500/[0.06] border-l-2 border-l-amber-500/60" : ""}>
                       <TableCell className="font-mono text-xs">{entry.accountNumber}</TableCell>
                       <TableCell className="text-sm font-medium">{entry.merchantName ?? "—"}</TableCell>
                       <TableCell className="text-sm">
@@ -1287,7 +1287,7 @@ export default function AdminVirtualAccounts() {
                       const balChanged = entry.oldBalance != null && entry.newBalance != null && entry.oldBalance !== entry.newBalance;
                       const tcChanged = entry.oldTotalCollection != null && entry.newTotalCollection != null && entry.oldTotalCollection !== entry.newTotalCollection;
                       return (
-                        <div key={entry.id} className="rounded-lg border border-border bg-muted/20 px-4 py-3">
+                        <div key={entry.id} className={`rounded-lg border px-4 py-3 ${entry.backfilled ? "border-amber-500/40 border-l-2 border-l-amber-500 bg-amber-500/[0.04]" : "border-border bg-muted/20"}`}>
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <div className={`w-2 h-2 rounded-full ${entry.changedByRole === "admin" ? "bg-violet-400" : "bg-blue-400"}`} />

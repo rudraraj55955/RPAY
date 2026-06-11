@@ -314,6 +314,28 @@ function CallbackRow({ log, activeQrFilter, onFilterByQr, initialOpen, onDeepLin
                 <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">{tryParse(log.responseBody) || "—"}</pre>
               </div>
             </div>
+            <div className="px-2 pt-3">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-background/50 border border-border/50">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0">Retry Cap</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-mono text-foreground">
+                    {log.attempts ?? 0} {(log.attempts ?? 0) === 1 ? "attempt" : "attempts"}
+                    {log.maxRetries != null && (
+                      <span className="text-muted-foreground"> · max {log.maxRetries} {log.maxRetries === 1 ? "retry" : "retries"}</span>
+                    )}
+                  </span>
+                  {log.maxRetries == null && (
+                    <span className="text-xs text-muted-foreground italic">No webhook configured</span>
+                  )}
+                  {log.maxRetries != null && ((log.attempts ?? 0) - 1) >= log.maxRetries && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/25">
+                      <AlertTriangle className="w-3 h-3" />
+                      Retries exhausted
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
             <RetryHistorySection logId={log.id} open={open} />
             {log.qrCodeId && activeQrFilter !== log.qrCodeId && (
               <div className="px-2 pt-3">

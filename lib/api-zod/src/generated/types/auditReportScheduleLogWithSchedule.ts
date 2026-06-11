@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface AuditReportScheduleLog {
+export interface AuditReportScheduleLogWithSchedule {
   id: number;
   scheduleId: number;
   sentAt: string;
@@ -17,4 +17,6 @@ export interface AuditReportScheduleLog {
   isRetry: boolean;
   /** @nullable */
   deliveryCycleId?: string | null;
+  scheduleEmail: string;
+  scheduleFrequency: string;
 }

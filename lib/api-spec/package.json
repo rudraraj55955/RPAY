@@ -3,9 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "codegen": "orval --config ./orval.config.ts && node ./patch-zod-barrel.mjs && pnpm -w run typecheck:libs"
+    "codegen": "orval --config ./orval.config.mjs && node ./patch-zod-barrel.mjs && pnpm -w run typecheck:libs"
   },
   "devDependencies": {
     "orval": "^8.9.1"
+  },
+  "dependencies": {
+    "jiti": "^2.7.0"
   }
 }

@@ -1728,10 +1728,31 @@ export interface AuditReportScheduleLog {
   /** @nullable */
   errorMessage?: string | null;
   isRetry: boolean;
+  /** @nullable */
+  deliveryCycleId?: string | null;
 }
 
 export interface AuditReportScheduleLogListResponse {
   data: AuditReportScheduleLog[];
+}
+
+export interface AuditReportScheduleLogWithSchedule {
+  id: number;
+  scheduleId: number;
+  sentAt: string;
+  rowCount: number;
+  success: boolean;
+  /** @nullable */
+  errorMessage?: string | null;
+  isRetry: boolean;
+  /** @nullable */
+  deliveryCycleId?: string | null;
+  scheduleEmail: string;
+  scheduleFrequency: string;
+}
+
+export interface AuditReportScheduleLogWithScheduleListResponse {
+  data: AuditReportScheduleLogWithSchedule[];
 }
 
 export interface AdminAuditLog {
@@ -2834,6 +2855,10 @@ export const PreviewAuditReportEmailFrequency = {
   weekly: 'weekly',
   monthly: 'monthly',
 } as const;
+
+export type ListAllAuditReportScheduleLogsParams = {
+limit?: number;
+};
 
 export type ListAuditReportScheduleLogsParams = {
 limit?: number;

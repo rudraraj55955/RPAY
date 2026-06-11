@@ -412,6 +412,29 @@ router.get("/schedules", async (req, res) => {
   });
 });
 
+router.get("/schedules/logs", async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+  const limitNum = Math.min(200, Math.max(1, parseInt((req.query as Record<string, string>)['limit'] ?? "50") || 50));
+
+  const logs = await db
+    .select({
+      ...getTableColumns(scheduledAuditReportLogsTable),
+      scheduleEmail: scheduledAuditReportsTable.recipientEmail,
+      scheduleFrequency: scheduledAuditReportsTable.frequency,
+    })
+    .from(scheduledAuditReportLogsTable)
+    .innerJoin(scheduledAuditReportsTable, eq(scheduledAuditReportLogsTable.scheduleId, scheduledAuditReportsTable.id))
+    .orderBy(desc(scheduledAuditReportLogsTable.sentAt))
+    .limit(limitNum);
+
+  res.json({
+    data: logs.map(l => ({
+      ...l,
+      sentAt: l.sentAt.toISOString(),
+    })),
+  });
+});
+
 router.get("/schedules/:id/logs", async (req, res) => {
   if (!ensureAdmin(req, res)) return;
   const id = parseInt(req.params['id'] as string);

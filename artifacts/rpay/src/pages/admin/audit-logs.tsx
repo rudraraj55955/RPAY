@@ -6,6 +6,7 @@ import {
   useSendAuditReportNow,
   getListAuditReportSchedulesQueryKey,
   useListAuditReportScheduleLogs,
+  useListAllAuditReportScheduleLogs,
   previewAuditReportEmail,
   useListCredentialEvents,
 } from "@workspace/api-client-react";
@@ -19,8 +20,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
-  Shield, Search, Eye, Activity, FileDown, CalendarIcon, X,
-  CheckCircle2, XCircle, UserPlus, UserCog,
+  Shield, Search, Eye, Activity, FileDown, CalendarIcon, X, XCircle,
+  CheckCircle2, UserPlus, UserCog,
   Package, PencilLine, Trash2, ArrowRightLeft, CreditCard,
   Users, Loader2, QrCode, Landmark,
   Clock, Mail, Plus, Ban, Send, History, ChevronDown, ChevronUp, AlertCircle, Settings,
@@ -1460,6 +1461,140 @@ function ScheduledReportsPanel() {
   );
 }
 
+function GlobalDeliveryHistoryPanel() {
+  const { data, isLoading } = useListAllAuditReportScheduleLogs({ limit: 100 });
+  const [openCycles, setOpenCycles] = useState<Set<string>>(new Set());
+  const logs = data?.data ?? [];
+
+  const cycles = (() => {
+    const map = new Map<string, typeof logs>();
+    for (const log of logs) {
+      const key = log.deliveryCycleId ?? `orphan-${log.id}`;
+      const bucket = map.get(key) ?? [];
+      bucket.push(log);
+      map.set(key, bucket);
+    }
+    return Array.from(map.entries()).map(([cycleId, attempts]) => {
+      const overallSuccess = attempts.some(a => a.success);
+      const newestAttempt = attempts[0];
+      return { cycleId, attempts, overallSuccess, newestAttempt };
+    });
+  })();
+
+  function toggleCycle(cycleId: string) {
+    setOpenCycles(prev => {
+      const next = new Set(prev);
+      if (next.has(cycleId)) next.delete(cycleId);
+      else next.add(cycleId);
+      return next;
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-violet-400" />
+          <CardTitle className="text-base font-semibold">Global Report Delivery History</CardTitle>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          All delivery cycles across all schedules — each row is one logical delivery attempt, expandable to show individual retry attempts.
+        </p>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-10 bg-muted/20 rounded animate-pulse" />)}
+          </div>
+        ) : cycles.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+            <History className="w-7 h-7 opacity-30" />
+            <p className="text-sm">No delivery history yet</p>
+            <p className="text-xs opacity-60">History will appear here after the first scheduled report is sent</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/30 -mx-6 px-0">
+            {cycles.map(({ cycleId, attempts, overallSuccess, newestAttempt }) => {
+              const isOpen = openCycles.has(cycleId);
+              const hasRetries = attempts.length > 1;
+              const isOrphan = cycleId.startsWith("orphan-");
+              return (
+                <div key={cycleId}>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-3 px-6 py-2.5 text-left hover:bg-muted/10 transition-colors"
+                    onClick={() => toggleCycle(cycleId)}
+                  >
+                    <div className="shrink-0">
+                      {overallSuccess
+                        ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        : <XCircle className="w-4 h-4 text-rose-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-medium truncate">
+                          {format(new Date(newestAttempt.sentAt), "MMM d, yyyy 'at' HH:mm")}
+                        </span>
+                        {overallSuccess
+                          ? <span className="inline-flex items-center rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">Delivered</span>
+                          : <span className="inline-flex items-center rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">Failed</span>}
+                        {hasRetries && (
+                          <span className="inline-flex items-center rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                            {attempts.length} attempts
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                        {!isOrphan && <span className="font-mono opacity-60">{cycleId.slice(0, 8)}…</span>}
+                        <Mail className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{newestAttempt.scheduleEmail}</span>
+                        <span className="capitalize">{FREQUENCY_LABELS[newestAttempt.scheduleFrequency] ?? newestAttempt.scheduleFrequency}</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-muted-foreground">
+                      {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </div>
+                  </button>
+
+                  {isOpen && (
+                    <div className="bg-muted/5 border-t border-border/20 divide-y divide-border/20">
+                      {attempts.map((log: (typeof logs)[number]) => (
+                        <div key={log.id} className="flex items-start gap-3 px-10 py-2">
+                          <div className="mt-0.5 shrink-0">
+                            {log.success
+                              ? <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              : <AlertCircle className="w-3 h-3 text-rose-400" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                              <span className="font-medium">
+                                {format(new Date(log.sentAt), "MMM d, yyyy 'at' HH:mm:ss")}
+                              </span>
+                              {log.isRetry && (
+                                <span className="inline-flex items-center rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                                  Retry
+                                </span>
+                              )}
+                              <span className="text-muted-foreground">{log.rowCount} row{log.rowCount !== 1 ? "s" : ""}</span>
+                            </div>
+                            {log.errorMessage && (
+                              <p className="text-[10px] text-rose-400 mt-0.5 truncate">{log.errorMessage}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 const CREDENTIAL_EVENT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string; cardColor: string }> = {
   api_key_generated: {
     label: "API Key Generated",
@@ -1877,6 +2012,7 @@ export default function AdminAuditLogs() {
 
         <TabsContent value="admin-actions" className="space-y-6 mt-0">
           <ScheduledReportsPanel />
+          <GlobalDeliveryHistoryPanel />
 
           <Card>
             <CardHeader className="pb-4">

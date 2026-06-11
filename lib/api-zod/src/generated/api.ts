@@ -3049,7 +3049,33 @@ export const ListAuditReportScheduleLogsResponse = zod.object({
   "rowCount": zod.number(),
   "success": zod.boolean(),
   "errorMessage": zod.string().nullish(),
-  "isRetry": zod.boolean()
+  "isRetry": zod.boolean(),
+  "deliveryCycleId": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary List send history across all scheduled audit reports
+ */
+export const listAllAuditReportScheduleLogsQueryLimitDefault = 50;
+
+export const ListAllAuditReportScheduleLogsQueryParams = zod.object({
+  "limit": zod.coerce.number().default(listAllAuditReportScheduleLogsQueryLimitDefault)
+})
+
+export const ListAllAuditReportScheduleLogsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "scheduleId": zod.number(),
+  "sentAt": zod.string(),
+  "rowCount": zod.number(),
+  "success": zod.boolean(),
+  "errorMessage": zod.string().nullish(),
+  "isRetry": zod.boolean(),
+  "deliveryCycleId": zod.string().nullish(),
+  "scheduleEmail": zod.string(),
+  "scheduleFrequency": zod.string()
 }))
 })
 

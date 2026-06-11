@@ -3096,6 +3096,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /audit-logs/schedules/logs:
+    get:
+      operationId: listAllAuditReportScheduleLogs
+      tags: [dashboard]
+      summary: List send history across all scheduled audit reports
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: List of send-log entries across all schedules
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditReportScheduleLogWithScheduleListResponse"
+        "403":
+          description: Forbidden
+
   /audit-logs/schedules/{id}/logs:
     get:
       operationId: listAuditReportScheduleLogs
@@ -6719,6 +6738,8 @@ components:
           type: ["string", "null"]
         isRetry:
           type: boolean
+        deliveryCycleId:
+          type: ["string", "null"]
 
     AuditReportScheduleLogListResponse:
       type: object
@@ -6728,6 +6749,40 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AuditReportScheduleLog"
+
+    AuditReportScheduleLogWithSchedule:
+      type: object
+      required: [id, scheduleId, sentAt, rowCount, success, isRetry, scheduleEmail, scheduleFrequency]
+      properties:
+        id:
+          type: integer
+        scheduleId:
+          type: integer
+        sentAt:
+          type: string
+        rowCount:
+          type: integer
+        success:
+          type: boolean
+        errorMessage:
+          type: ["string", "null"]
+        isRetry:
+          type: boolean
+        deliveryCycleId:
+          type: ["string", "null"]
+        scheduleEmail:
+          type: string
+        scheduleFrequency:
+          type: string
+
+    AuditReportScheduleLogWithScheduleListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditReportScheduleLogWithSchedule"
 
     AdminAuditLog:
       type: object

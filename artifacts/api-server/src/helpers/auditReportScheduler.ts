@@ -1,4 +1,5 @@
 import cron, { type ScheduledTask } from "node-cron";
+import { randomUUID } from "node:crypto";
 import { db, scheduledAuditReportsTable, scheduledAuditReportLogsTable, auditLogsTable, usersTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { logger } from "../lib/logger";
@@ -171,6 +172,19 @@ export async function sendScheduledReport(
     errorMessage = err instanceof Error ? err.message : String(err);
   }
 
+  let deliveryCycleId: string;
+  if (!isRetry) {
+    deliveryCycleId = randomUUID();
+  } else {
+    const [latestLog] = await db
+      .select({ deliveryCycleId: scheduledAuditReportLogsTable.deliveryCycleId })
+      .from(scheduledAuditReportLogsTable)
+      .where(eq(scheduledAuditReportLogsTable.scheduleId, schedule.id))
+      .orderBy(desc(scheduledAuditReportLogsTable.sentAt))
+      .limit(1);
+    deliveryCycleId = latestLog?.deliveryCycleId ?? randomUUID();
+  }
+
   await db.insert(scheduledAuditReportLogsTable).values({
     scheduleId: schedule.id,
     sentAt,
@@ -179,6 +193,7 @@ export async function sendScheduledReport(
     errorMessage,
     isRetry,
     retryAttempt,
+    deliveryCycleId,
   });
 
   if (sent) {

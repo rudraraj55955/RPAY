@@ -1121,14 +1121,28 @@ function ScheduleHistoryPanel({ scheduleId }: { scheduleId: number }) {
                       </span>
                     )
                   }
+                  {log.isRetry && (
+                    <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                      ↩ Retry
+                    </span>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {log.rowCount.toLocaleString()} row{log.rowCount !== 1 ? "s" : ""}
                   </span>
                 </div>
                 {!log.success && log.errorMessage && (
-                  <p className="text-xs text-rose-400/80 mt-0.5 truncate" title={log.errorMessage}>
-                    {log.errorMessage}
-                  </p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p className="text-xs text-rose-400/80 mt-0.5 truncate cursor-default">
+                          {log.errorMessage}
+                        </p>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs break-words">
+                        {log.errorMessage}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             </div>

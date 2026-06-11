@@ -149,13 +149,44 @@ function credentialEventMeta(eventType: string) {
 // ── Page component ─────────────────────────────────────────────────────────────
 
 const SECURITY_LAST_SEEN_KEY = "rasokart_security_last_seen";
+const SECURITY_FILTERS_KEY = "rasokart_security_filters";
+
+interface PersistedFilters {
+  actionFilter: string;
+  dateFrom: string;
+  dateTo: string;
+}
+
+function readPersistedFilters(): PersistedFilters {
+  try {
+    const raw = localStorage.getItem(SECURITY_FILTERS_KEY);
+    if (!raw) return { actionFilter: "all", dateFrom: "", dateTo: "" };
+    const parsed = JSON.parse(raw) as Partial<PersistedFilters>;
+    return {
+      actionFilter: typeof parsed.actionFilter === "string" ? parsed.actionFilter : "all",
+      dateFrom: typeof parsed.dateFrom === "string" ? parsed.dateFrom : "",
+      dateTo: typeof parsed.dateTo === "string" ? parsed.dateTo : "",
+    };
+  } catch {
+    return { actionFilter: "all", dateFrom: "", dateTo: "" };
+  }
+}
+
+function writePersistedFilters(filters: PersistedFilters) {
+  try {
+    localStorage.setItem(SECURITY_FILTERS_KEY, JSON.stringify(filters));
+  } catch {
+    // ignore storage errors
+  }
+}
 
 export default function MerchantSecurity() {
   const [page, setPage] = useState(1);
   const [credPage, setCredPage] = useState(1);
-  const [actionFilter, setActionFilter] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const initialFilters = readPersistedFilters();
+  const [actionFilter, setActionFilter] = useState(initialFilters.actionFilter);
+  const [dateFrom, setDateFrom] = useState(initialFilters.dateFrom);
+  const [dateTo, setDateTo] = useState(initialFilters.dateTo);
   const LIMIT = 20;
   const CRED_LIMIT = 50;
 
@@ -194,16 +225,19 @@ export default function MerchantSecurity() {
   function handleActionFilter(value: string) {
     setActionFilter(value);
     setPage(1);
+    writePersistedFilters({ actionFilter: value, dateFrom, dateTo });
   }
 
   function handleDateFrom(value: string) {
     setDateFrom(value);
     setPage(1);
+    writePersistedFilters({ actionFilter, dateFrom: value, dateTo });
   }
 
   function handleDateTo(value: string) {
     setDateTo(value);
     setPage(1);
+    writePersistedFilters({ actionFilter, dateFrom, dateTo: value });
   }
 
   function clearFilters() {
@@ -211,6 +245,7 @@ export default function MerchantSecurity() {
     setDateFrom("");
     setDateTo("");
     setPage(1);
+    try { localStorage.removeItem(SECURITY_FILTERS_KEY); } catch { /* ignore */ }
   }
 
   return (

@@ -12,7 +12,17 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, RotateCcw } from "lucide-react";
+import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, RotateCcw, ShieldOff, Shield } from "lucide-react";
+
+function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }) {
+  if (value === true) {
+    return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 text-xs">✓ Verified</Badge>;
+  }
+  if (value === false) {
+    return <Badge className="bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20 text-xs">✗ Failed</Badge>;
+  }
+  return <span className="text-muted-foreground text-xs">— None</span>;
+}
 import { formatDistanceToNow } from "date-fns";
 
 const EVENTS = [
@@ -175,6 +185,7 @@ function DeliveryDetailModal({ log, onClose }: { log: CallbackLog | null; onClos
                 HTTP {log.httpStatus}
               </span>
             )}
+            <SignatureVerifiedBadge value={log.signatureVerified} />
             <span className="text-xs text-muted-foreground/70 ml-auto">
               {log.attempts} {log.attempts === 1 ? "attempt" : "attempts"}
             </span>
@@ -496,6 +507,7 @@ export default function MerchantWebhook() {
                         {retryingId === log.id ? "Retrying…" : "Retry"}
                       </Button>
                     )}
+                    <SignatureVerifiedBadge value={log.signatureVerified} />
                     <div className="text-xs text-muted-foreground/60 text-right">
                       {log.createdAt
                         ? formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })

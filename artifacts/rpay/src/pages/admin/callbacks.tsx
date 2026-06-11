@@ -14,12 +14,12 @@ import { toast } from "sonner";
 
 function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }) {
   if (value === true) {
-    return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 text-xs">Verified</Badge>;
+    return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 text-xs">✓ Verified</Badge>;
   }
   if (value === false) {
-    return <Badge className="bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20 text-xs">Failed</Badge>;
+    return <Badge className="bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20 text-xs">✗ Failed</Badge>;
   }
-  return <span className="text-muted-foreground text-xs">—</span>;
+  return <span className="text-muted-foreground text-xs">— None</span>;
 }
 
 function CallbackRow({ log }: { log: any }) {
@@ -154,7 +154,7 @@ export default function AdminCallbacks() {
                 <TableHead>Status</TableHead>
                 <TableHead>HTTP</TableHead>
                 <TableHead className="text-center">Attempts</TableHead>
-                <TableHead>Sig. Verified</TableHead>
+                <TableHead>Signature</TableHead>
                 <TableHead>Next Retry</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="w-20"></TableHead>

@@ -71,24 +71,18 @@ export default function MerchantCallbacks() {
   const [sigVerified, setSigVerified] = useState("all");
   const [qrCodeIdInput, setQrCodeIdInput] = useState("");
   const [qrCodeId, setQrCodeId] = useState<number | undefined>(undefined);
-  const [sigFilter, setSigFilter] = useState<"failed" | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [sigWarnDismissed, setSigWarnDismissed] = useState(false);
 
   const { data: stats } = useGetCallbackStats();
   const failureCount = stats?.signatureFailures24h ?? 0;
 
-  const signatureVerifiedParam =
-    sigFilter === "failed" ? "failed" :
-    sigVerified === "verified" ? "verified" :
-    sigVerified === "failed" ? "failed" :
-    sigVerified === "none" ? "none" :
-    undefined;
+  const sigFilter = sigVerified !== "all" ? sigVerified : undefined;
 
   const { data, isLoading } = useListCallbackLogs({
     status: status as any,
     qrCodeId,
-    signatureVerified: signatureVerifiedParam as any,
+    signatureVerified: sigFilter as any,
     page,
     limit: 20,
   });
@@ -117,12 +111,12 @@ export default function MerchantCallbacks() {
   };
 
   const applySigFailureFilter = () => {
-    setSigFilter("failed");
+    setSigVerified("failed");
     setPage(1);
   };
 
   const clearSigFilter = () => {
-    setSigFilter(undefined);
+    setSigVerified("all");
     setPage(1);
   };
 

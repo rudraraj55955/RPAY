@@ -11,13 +11,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Webhook, Search, CheckCircle2, XCircle, Activity, Eye } from "lucide-react";
 import { format } from "date-fns";
 
+function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }) {
+  if (value === true) {
+    return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 text-xs">✓ Verified</Badge>;
+  }
+  if (value === false) {
+    return <Badge className="bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20 text-xs">✗ Failed</Badge>;
+  }
+  return <span className="text-muted-foreground text-xs">— None</span>;
+}
+
 function exportCsv(data: any[]) {
   if (!data.length) return;
-  const rows = [["ID", "Merchant ID", "URL", "Status", "HTTP Status", "Attempts", "Date"]];
-  data.forEach(c => rows.push([
-    String(c.id), String(c.merchantId), c.url, c.status,
-    String(c.httpStatus ?? ""), String(c.attempts), c.createdAt,
-  ]));
+  const rows = [["ID", "Merchant ID", "URL", "Status", "HTTP Status", "Attempts", "Signature", "Date"]];
+  data.forEach(c => {
+    const sig = c.signatureVerified === true ? "verified" : c.signatureVerified === false ? "failed" : "none";
+    rows.push([
+      String(c.id), String(c.merchantId), c.url, c.status,
+      String(c.httpStatus ?? ""), String(c.attempts), sig, c.createdAt,
+    ]);
+  });
   const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
@@ -131,6 +144,7 @@ export default function AdminWebhookLogs() {
                 <TableHead>Endpoint URL</TableHead>
                 <TableHead>HTTP</TableHead>
                 <TableHead>Attempts</TableHead>
+                <TableHead>Signature</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead></TableHead>
@@ -140,14 +154,14 @@ export default function AdminWebhookLogs() {
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : !items.length ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
                     No webhook logs found
                   </TableCell>
                 </TableRow>
@@ -164,6 +178,7 @@ export default function AdminWebhookLogs() {
                       {c.attempts}x
                     </Badge>
                   </TableCell>
+                  <TableCell><SignatureVerifiedBadge value={c.signatureVerified} /></TableCell>
                   <TableCell><StatusBadge status={c.status} /></TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {format(new Date(c.createdAt), "MMM d, HH:mm")}
@@ -215,6 +230,10 @@ export default function AdminWebhookLogs() {
                 <div className="rounded-lg bg-muted/20 p-3">
                   <p className="text-xs text-muted-foreground mb-1">Merchant ID</p>
                   <p className="font-mono">#{selected.merchantId}</p>
+                </div>
+                <div className="rounded-lg bg-muted/20 p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Signature</p>
+                  <SignatureVerifiedBadge value={selected.signatureVerified} />
                 </div>
               </div>
               <div className="rounded-lg bg-muted/20 p-3">

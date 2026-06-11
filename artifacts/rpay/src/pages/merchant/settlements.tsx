@@ -211,6 +211,20 @@ interface CustomDatePreset {
 
 const CUSTOM_DATE_PRESETS_KEY = "rasokart_custom_date_presets_settlements";
 const LAST_DATE_RANGE_KEY = "rasokart_last_date_range_settlements";
+const LAST_STATUS_KEY = "rasokart_last_status_settlements";
+
+function loadLastStatus(): string {
+  try {
+    const raw = localStorage.getItem(LAST_STATUS_KEY);
+    if (!raw) return "all";
+    const valid = ["all", "pending", "processing", "paid", "rejected"];
+    return valid.includes(raw) ? raw : "all";
+  } catch { return "all"; }
+}
+
+function saveLastStatus(status: string): void {
+  localStorage.setItem(LAST_STATUS_KEY, status);
+}
 
 function loadLastDateRange(): { from: string; to: string } {
   try {
@@ -355,7 +369,7 @@ export default function MerchantSettlements() {
   const { isRateLimited, secondsLeft, trigger: triggerRateLimit, clear: clearRateLimit } = useRateLimit();
   const [dateFrom, setDateFrom] = useState(() => loadLastDateRange().from);
   const [dateTo, setDateTo] = useState(() => loadLastDateRange().to);
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState(() => loadLastStatus());
   const [search, setSearch] = useState("");
 
   // ── Smart search state ───────────────────────────────────────────────────
@@ -386,6 +400,10 @@ export default function MerchantSettlements() {
   useEffect(() => {
     saveLastDateRange(dateFrom, dateTo);
   }, [dateFrom, dateTo]);
+
+  useEffect(() => {
+    saveLastStatus(status);
+  }, [status]);
 
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {

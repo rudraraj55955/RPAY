@@ -22,6 +22,5 @@ export interface VaBalanceHistoryEntry {
   newTotalCollection?: string | null;
   /** @nullable */
   reason?: string | null;
-  backfilled: boolean;
   createdAt: string;
 }

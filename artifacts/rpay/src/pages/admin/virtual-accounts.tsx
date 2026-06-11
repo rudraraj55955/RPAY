@@ -750,36 +750,8 @@ export default function AdminVirtualAccounts() {
                     <TableHead>Merchant</TableHead>
                     <TableHead>Changed By</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>
-                      <TooltipProvider>
-                        <UITooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center gap-1 cursor-default">
-                              Balance Change
-                              <Info className="w-3 h-3 text-amber-500/70 shrink-0" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[220px] text-xs">
-                            <span className="text-amber-400 font-semibold italic">est.</span> means the value was estimated during a balance backfill and may not be exact.
-                          </TooltipContent>
-                        </UITooltip>
-                      </TooltipProvider>
-                    </TableHead>
-                    <TableHead>
-                      <TooltipProvider>
-                        <UITooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center gap-1 cursor-default">
-                              Collection Change
-                              <Info className="w-3 h-3 text-amber-500/70 shrink-0" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[220px] text-xs">
-                            <span className="text-amber-400 font-semibold italic">est.</span> means the value was estimated during a balance backfill and may not be exact.
-                          </TooltipContent>
-                        </UITooltip>
-                      </TooltipProvider>
-                    </TableHead>
+                    <TableHead>Balance Change</TableHead>
+                    <TableHead>Collection Change</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>Timestamp</TableHead>
                   </TableRow>
@@ -800,7 +772,7 @@ export default function AdminVirtualAccounts() {
                       </TableCell>
                     </TableRow>
                   ) : auditData.data.map(entry => (
-                    <TableRow key={entry.id} className={entry.backfilled ? "bg-amber-500/[0.06] border-l-2 border-l-amber-500/60" : ""}>
+                    <TableRow key={entry.id}>
                       <TableCell className="font-mono text-xs">{entry.accountNumber}</TableCell>
                       <TableCell className="text-sm font-medium">{entry.merchantName ?? "—"}</TableCell>
                       <TableCell className="text-sm">
@@ -821,13 +793,11 @@ export default function AdminVirtualAccounts() {
                               <span className="text-rose-400">₹{parseFloat(entry.oldBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                               <span className="text-muted-foreground">→</span>
                               <span className="text-emerald-400">₹{parseFloat(entry.newBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                              {entry.backfilled && <span className="text-[10px] text-amber-500/70 italic ml-0.5">est.</span>}
                             </div>
                           ) : (
                             <div className="flex items-center gap-1 text-xs font-mono">
                               <span className="text-muted-foreground/60">₹{parseFloat(entry.newBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                               <span className="text-[10px] text-muted-foreground/40 italic">unchanged</span>
-                              {entry.backfilled && <span className="text-[10px] text-amber-500/70 italic">est.</span>}
                             </div>
                           )
                         ) : (
@@ -841,13 +811,11 @@ export default function AdminVirtualAccounts() {
                               <span className="text-rose-400">₹{parseFloat(entry.oldTotalCollection).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                               <span className="text-muted-foreground">→</span>
                               <span className="text-emerald-400">₹{parseFloat(entry.newTotalCollection).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                              {entry.backfilled && <span className="text-[10px] text-amber-500/70 italic ml-0.5">est.</span>}
                             </div>
                           ) : (
                             <div className="flex items-center gap-1 text-xs font-mono">
                               <span className="text-muted-foreground/60">₹{parseFloat(entry.newTotalCollection).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                               <span className="text-[10px] text-muted-foreground/40 italic">unchanged</span>
-                              {entry.backfilled && <span className="text-[10px] text-amber-500/70 italic">est.</span>}
                             </div>
                           )
                         ) : (
@@ -856,7 +824,7 @@ export default function AdminVirtualAccounts() {
                       </TableCell>
                       <TableCell className="text-xs max-w-[180px]">
                         {(entry as any).reason ? (
-                          <span className="text-amber-300/80 italic truncate block" title={(entry as any).reason}>
+                          <span className="text-muted-foreground/80 italic truncate block" title={(entry as any).reason}>
                             {(entry as any).reason}
                           </span>
                         ) : (
@@ -1160,28 +1128,11 @@ export default function AdminVirtualAccounts() {
                   balance: e.newBalance != null ? parseFloat(e.newBalance) : undefined,
                   totalCollection: e.newTotalCollection != null ? parseFloat(e.newTotalCollection) : undefined,
                 }));
-              const backfilledCount = balList.filter(e => e.backfilled).length;
               return (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <p className="text-xs text-muted-foreground">{balHistoryData?.total ?? balList.length} change{(balHistoryData?.total ?? balList.length) !== 1 ? "s" : ""}</p>
-                      {backfilledCount > 0 && (
-                        <TooltipProvider>
-                          <UITooltip>
-                            <TooltipTrigger asChild>
-                              <span className="flex items-center gap-1 text-[10px] text-amber-500/80 italic cursor-default select-none">
-                                <Info className="w-3 h-3 shrink-0" />
-                                {backfilledCount} est.
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-                              <p><span className="text-amber-400 font-semibold italic">est.</span> rows were estimated during a balance backfill — they reconstruct historical values from deposit records and may not be exact.</p>
-                              <p className="mt-1 text-muted-foreground">{backfilledCount} of {balHistoryData?.total ?? balList.length} rows in this view are estimated.</p>
-                            </TooltipContent>
-                          </UITooltip>
-                        </TooltipProvider>
-                      )}
                     </div>
                     <div className="flex gap-2">
                       <ExportCsvButton label="Export This VA" onExport={exportBalanceHistoryCsv} />
@@ -1294,7 +1245,7 @@ export default function AdminVirtualAccounts() {
                       const balChanged = entry.oldBalance != null && entry.newBalance != null && entry.oldBalance !== entry.newBalance;
                       const tcChanged = entry.oldTotalCollection != null && entry.newTotalCollection != null && entry.oldTotalCollection !== entry.newTotalCollection;
                       return (
-                        <div key={entry.id} className={`rounded-lg border px-4 py-3 ${entry.backfilled ? "border-amber-500/40 border-l-2 border-l-amber-500 bg-amber-500/[0.04]" : "border-border bg-muted/20"}`}>
+                        <div key={entry.id} className="rounded-lg border border-border bg-muted/20 px-4 py-3">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <div className={`w-2 h-2 rounded-full ${entry.changedByRole === "admin" ? "bg-violet-400" : "bg-blue-400"}`} />
@@ -1308,7 +1259,7 @@ export default function AdminVirtualAccounts() {
                             </span>
                           </div>
                           {(entry as any).reason && (
-                            <p className="text-xs text-amber-300/80 italic mb-2 flex items-start gap-1.5">
+                            <p className="text-xs text-muted-foreground/80 italic mb-2 flex items-start gap-1.5">
                               <span className="shrink-0 mt-0.5">💬</span>
                               <span>{(entry as any).reason}</span>
                             </p>
@@ -1335,7 +1286,6 @@ export default function AdminVirtualAccounts() {
                                     <span className="text-[10px] text-muted-foreground/50 italic">unchanged</span>
                                   </>
                                 )}
-                                {entry.backfilled && <span className="text-[10px] text-amber-500/70 italic">est.</span>}
                               </div>
                             ) : null}
                             {entry.oldTotalCollection != null && entry.newTotalCollection != null ? (
@@ -1359,7 +1309,6 @@ export default function AdminVirtualAccounts() {
                                     <span className="text-[10px] text-muted-foreground/50 italic">unchanged</span>
                                   </>
                                 )}
-                                {entry.backfilled && <span className="text-[10px] text-amber-500/70 italic">est.</span>}
                               </div>
                             ) : null}
                           </div>

@@ -7025,7 +7025,7 @@ components:
 
     VaBalanceAuditEntry:
       type: object
-      required: [id, virtualAccountId, accountNumber, merchantName, changedBy, changedByRole, changedByName, backfilled, createdAt]
+      required: [id, virtualAccountId, accountNumber, merchantName, changedBy, changedByRole, changedByName, createdAt]
       properties:
         id:
           type: integer
@@ -7051,8 +7051,6 @@ components:
           type: ["string", "null"]
         reason:
           type: ["string", "null"]
-        backfilled:
-          type: boolean
         createdAt:
           type: string
 
@@ -7073,7 +7071,7 @@ components:
 
     VaBalanceHistoryEntry:
       type: object
-      required: [id, virtualAccountId, changedBy, changedByRole, changedByName, backfilled, createdAt]
+      required: [id, virtualAccountId, changedBy, changedByRole, changedByName, createdAt]
       properties:
         id:
           type: integer
@@ -7095,8 +7093,6 @@ components:
           type: ["string", "null"]
         reason:
           type: ["string", "null"]
-        backfilled:
-          type: boolean
         createdAt:
           type: string
 

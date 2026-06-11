@@ -2940,7 +2940,6 @@ export const ListVaBalanceAuditResponse = zod.object({
   "oldTotalCollection": zod.string().nullish(),
   "newTotalCollection": zod.string().nullish(),
   "reason": zod.string().nullish(),
-  "backfilled": zod.boolean(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -2973,7 +2972,6 @@ export const GetVirtualAccountBalanceHistoryResponse = zod.object({
   "oldTotalCollection": zod.string().nullish(),
   "newTotalCollection": zod.string().nullish(),
   "reason": zod.string().nullish(),
-  "backfilled": zod.boolean(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),

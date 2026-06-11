@@ -25,6 +25,5 @@ export interface VaBalanceAuditEntry {
   newTotalCollection?: string | null;
   /** @nullable */
   reason?: string | null;
-  backfilled: boolean;
   createdAt: string;
 }

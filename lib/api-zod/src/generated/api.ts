@@ -2884,6 +2884,12 @@ export const ListAuditReportSchedulesResponse = zod.object({
   "lastSentAt": zod.string().nullish(),
   "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
   "lastErrorMessage": zod.string().nullish(),
+  "failureAcknowledgedAt": zod.string().nullish(),
+  "failureAcknowledgedByEmail": zod.string().nullish(),
+  "sendCount": zod.number().describe('Total number of send attempts (successful and failed) for this schedule.'),
+  "successCount": zod.number().describe('Number of successful deliveries for this schedule.'),
+  "retryInProgress": zod.boolean().describe('True when the last delivery failed and automatic retries are still pending (currentRetryAttempt < maxRetryAttempts).'),
+  "currentRetryAttempt": zod.number().describe('The retry attempt number of the most recent log entry (0 = initial send, 1 = first retry, etc.).'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }))
@@ -2914,6 +2920,12 @@ export const SendAuditReportNowResponse = zod.object({
   "lastSentAt": zod.string().nullish(),
   "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
   "lastErrorMessage": zod.string().nullish(),
+  "failureAcknowledgedAt": zod.string().nullish(),
+  "failureAcknowledgedByEmail": zod.string().nullish(),
+  "sendCount": zod.number().describe('Total number of send attempts (successful and failed) for this schedule.'),
+  "successCount": zod.number().describe('Number of successful deliveries for this schedule.'),
+  "retryInProgress": zod.boolean().describe('True when the last delivery failed and automatic retries are still pending (currentRetryAttempt < maxRetryAttempts).'),
+  "currentRetryAttempt": zod.number().describe('The retry attempt number of the most recent log entry (0 = initial send, 1 = first retry, etc.).'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -2966,6 +2978,12 @@ export const UpdateAuditReportScheduleResponse = zod.object({
   "lastSentAt": zod.string().nullish(),
   "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
   "lastErrorMessage": zod.string().nullish(),
+  "failureAcknowledgedAt": zod.string().nullish(),
+  "failureAcknowledgedByEmail": zod.string().nullish(),
+  "sendCount": zod.number().describe('Total number of send attempts (successful and failed) for this schedule.'),
+  "successCount": zod.number().describe('Number of successful deliveries for this schedule.'),
+  "retryInProgress": zod.boolean().describe('True when the last delivery failed and automatic retries are still pending (currentRetryAttempt < maxRetryAttempts).'),
+  "currentRetryAttempt": zod.number().describe('The retry attempt number of the most recent log entry (0 = initial send, 1 = first retry, etc.).'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })

@@ -244,6 +244,15 @@ router.get("/schedules", async (req, res) => {
         ORDER BY sent_at DESC
         LIMIT 1
       )`,
+      sendCount: sql<number>`(
+        SELECT COUNT(*) FROM ${scheduledAuditReportLogsTable}
+        WHERE schedule_id = ${scheduledAuditReportsTable.id}
+      )`,
+      successCount: sql<number>`(
+        SELECT COUNT(*) FROM ${scheduledAuditReportLogsTable}
+        WHERE schedule_id = ${scheduledAuditReportsTable.id}
+        AND success = true
+      )`,
     })
     .from(scheduledAuditReportsTable)
     .orderBy(scheduledAuditReportsTable.createdAt);
@@ -253,6 +262,10 @@ router.get("/schedules", async (req, res) => {
       ...serializeSchedule(r),
       lastSendStatus: deriveLastSendStatus(r.lastSuccess),
       lastErrorMessage: r.lastErrorMessage ?? null,
+      sendCount: Number(r.sendCount),
+      successCount: Number(r.successCount),
+      currentRetryAttempt: 0,
+      retryInProgress: false,
     })),
   });
 });
@@ -305,7 +318,68 @@ router.post("/schedules", async (req, res) => {
     isActive: true,
   }).returning();
 
-  res.status(201).json(serializeSchedule(schedule));
+  res.status(201).json({ ...serializeSchedule(schedule), sendCount: 0, successCount: 0, retryInProgress: false, currentRetryAttempt: 0 });
+});
+
+router.patch("/schedules/bulk-toggle", async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  const { isActive, ids } = req.body;
+  if (typeof isActive !== "boolean") {
+    res.status(400).json({ error: "isActive must be a boolean" });
+    return;
+  }
+
+  // Optional: restrict update to a specific subset of schedule IDs
+  let whereClause: ReturnType<typeof eq> | undefined;
+  if (ids !== undefined) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: "ids must be a non-empty array of integers when provided" });
+      return;
+    }
+    const parsedIds: number[] = [];
+    for (const raw of ids) {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n <= 0) {
+        res.status(400).json({ error: `ids contains an invalid value: ${raw}` });
+        return;
+      }
+      parsedIds.push(n);
+    }
+    whereClause = sql`${scheduledAuditReportsTable.id} IN (${sql.join(parsedIds.map((id: number) => sql`${id}`), sql`, `)})` as any;
+  }
+
+  const updated = whereClause
+    ? await db.update(scheduledAuditReportsTable).set({ isActive, updatedAt: new Date() }).where(whereClause).returning()
+    : await db.update(scheduledAuditReportsTable).set({ isActive, updatedAt: new Date() }).returning();
+
+  const scheduleColumns = getTableColumns(scheduledAuditReportsTable);
+  const rows = await db
+    .select({
+      ...scheduleColumns,
+      lastSuccess: sql<boolean | null>`(
+        SELECT success FROM ${scheduledAuditReportLogsTable}
+        WHERE schedule_id = ${scheduledAuditReportsTable.id}
+        ORDER BY sent_at DESC LIMIT 1
+      )`,
+    })
+    .from(scheduledAuditReportsTable)
+    .where(
+      updated.length > 0
+        ? sql`${scheduledAuditReportsTable.id} IN (${sql.join(updated.map(u => sql`${u.id}`), sql`, `)})`
+        : sql`FALSE`
+    );
+
+  res.json({
+    data: rows.map(r => ({
+      ...serializeSchedule(r),
+      lastSendStatus: deriveLastSendStatus(r.lastSuccess),
+      sendCount: 0,
+      successCount: 0,
+      retryInProgress: false,
+      currentRetryAttempt: 0,
+    })),
+  });
 });
 
 router.patch("/schedules/:id", async (req, res) => {
@@ -335,7 +409,32 @@ router.patch("/schedules/:id", async (req, res) => {
     .returning();
 
   if (!updated) { res.status(404).json({ error: "Schedule not found" }); return; }
-  res.json(serializeSchedule(updated));
+
+  const [{ sendCount, successCount }] = await db
+    .select({
+      sendCount: sql<number>`COUNT(*)`,
+      successCount: sql<number>`COUNT(*) FILTER (WHERE success = true)`,
+    })
+    .from(scheduledAuditReportLogsTable)
+    .where(eq(scheduledAuditReportLogsTable.scheduleId, id));
+
+  const [lastLog] = await db
+    .select({
+      success: scheduledAuditReportLogsTable.success,
+    })
+    .from(scheduledAuditReportLogsTable)
+    .where(eq(scheduledAuditReportLogsTable.scheduleId, id))
+    .orderBy(desc(scheduledAuditReportLogsTable.sentAt))
+    .limit(1);
+
+  res.json({
+    ...serializeSchedule(updated),
+    lastSendStatus: deriveLastSendStatus(lastLog?.success ?? null),
+    sendCount: Number(sendCount),
+    successCount: Number(successCount),
+    currentRetryAttempt: 0,
+    retryInProgress: false,
+  });
 });
 
 router.delete("/schedules/:id", async (req, res) => {
@@ -375,7 +474,7 @@ router.post("/schedules/:id/send", async (req, res) => {
     .from(scheduledAuditReportsTable)
     .where(eq(scheduledAuditReportsTable.id, id));
 
-  res.json(serializeSchedule(updated!));
+  res.json({ ...serializeSchedule(updated!), retryInProgress: false, currentRetryAttempt: 0 });
 });
 
 export default router;

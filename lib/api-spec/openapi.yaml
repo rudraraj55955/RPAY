@@ -6261,7 +6261,7 @@ components:
 
     AuditReportSchedule:
       type: object
-      required: [id, frequency, recipientEmail, isActive, lastSendStatus, createdAt, updatedAt]
+      required: [id, frequency, recipientEmail, isActive, maxRetryAttempts, retryBackoffMinutes, consecutiveFailures, autoPauseAfterFailures, lastSendStatus, sendCount, successCount, retryInProgress, currentRetryAttempt, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -6279,6 +6279,22 @@ components:
           enum: [ok, failed, none]
         lastErrorMessage:
           type: ["string", "null"]
+        failureAcknowledgedAt:
+          type: ["string", "null"]
+        failureAcknowledgedByEmail:
+          type: ["string", "null"]
+        sendCount:
+          type: integer
+          description: Total number of send attempts (successful and failed) for this schedule.
+        successCount:
+          type: integer
+          description: Number of successful deliveries for this schedule.
+        retryInProgress:
+          type: boolean
+          description: True when the last delivery failed and automatic retries are still pending (currentRetryAttempt < maxRetryAttempts).
+        currentRetryAttempt:
+          type: integer
+          description: The retry attempt number of the most recent log entry (0 = initial send, 1 = first retry, etc.).
         createdAt:
           type: string
         updatedAt:

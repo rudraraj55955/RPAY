@@ -18,6 +18,18 @@ export interface AuditReportSchedule {
   lastSendStatus: AuditReportScheduleLastSendStatus;
   /** @nullable */
   lastErrorMessage?: string | null;
+  /** @nullable */
+  failureAcknowledgedAt?: string | null;
+  /** @nullable */
+  failureAcknowledgedByEmail?: string | null;
+  /** Total number of send attempts (successful and failed) for this schedule. */
+  sendCount: number;
+  /** Number of successful deliveries for this schedule. */
+  successCount: number;
+  /** True when the last delivery failed and automatic retries are still pending (currentRetryAttempt < maxRetryAttempts). */
+  retryInProgress: boolean;
+  /** The retry attempt number of the most recent log entry (0 = initial send, 1 = first retry, etc.). */
+  currentRetryAttempt: number;
   createdAt: string;
   updatedAt: string;
 }

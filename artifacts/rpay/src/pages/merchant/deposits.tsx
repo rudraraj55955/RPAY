@@ -21,11 +21,13 @@ import {
   Search,
   Clock,
   CheckCircle,
+  CheckCircle2,
   XCircle,
   Plus,
   QrCode,
   Building2,
   TrendingUp,
+  Hash,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -117,10 +119,10 @@ export default function MerchantDeposits() {
     });
   };
 
-  // Stats derived from all data
   const successCount = data?.data?.filter(t => t.status === "success").length ?? 0;
   const pendingCount = data?.data?.filter(t => t.status === "pending").length ?? 0;
-  const failedCount = data?.data?.filter(t => t.status === "failed").length ?? 0;
+
+  const anyFilterActive = !!(search || status !== "all" || dateFrom || dateTo);
 
   return (
     <div className="space-y-6">
@@ -199,6 +201,50 @@ export default function MerchantDeposits() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Filter summary bar */}
+      {anyFilterActive && (
+        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Filter results</span>
+            <div className="flex items-center gap-1.5 text-sm">
+              <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="font-semibold text-foreground">
+                {isLoading ? <span className="inline-block w-8 h-3.5 bg-muted/60 rounded animate-pulse" /> : (data?.total ?? 0).toLocaleString()}
+              </span>
+              <span className="text-muted-foreground">deposits</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-sm">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-semibold text-emerald-400">
+                {isLoading ? <span className="inline-block w-16 h-3.5 bg-muted/60 rounded animate-pulse" /> : `₹${(data?.stats?.depositVolume ?? 0).toLocaleString()}`}
+              </span>
+              <span className="text-muted-foreground">total amount</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-sm">
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+              <span className="font-semibold text-green-400">
+                {isLoading ? <span className="inline-block w-6 h-3.5 bg-muted/60 rounded animate-pulse" /> : (data?.stats?.successCount ?? 0).toLocaleString()}
+              </span>
+              <span className="text-muted-foreground">success</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-sm">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-semibold text-amber-400">
+                {isLoading ? <span className="inline-block w-6 h-3.5 bg-muted/60 rounded animate-pulse" /> : (data?.stats?.pendingCount ?? 0).toLocaleString()}
+              </span>
+              <span className="text-muted-foreground">pending</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-sm">
+              <XCircle className="w-3.5 h-3.5 text-rose-400" />
+              <span className="font-semibold text-rose-400">
+                {isLoading ? <span className="inline-block w-6 h-3.5 bg-muted/60 rounded animate-pulse" /> : (data?.stats?.failedCount ?? 0).toLocaleString()}
+              </span>
+              <span className="text-muted-foreground">failed</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <Card>

@@ -1531,7 +1531,9 @@ export const GetAdminCallbackStatsResponse = zod.object({
   "merchantId": zod.number(),
   "merchantName": zod.string().nullish(),
   "failures": zod.number().describe('Number of signature failures in the last 24 hours for this merchant')
-})).describe('Per-merchant breakdown of signature failures in the last 24 hours, sorted by failure count descending')
+})).describe('Per-merchant breakdown of signature failures in the last 24 hours, sorted by failure count descending'),
+  "thresholdExceeded": zod.boolean().describe('Whether the 24-hour signature failure count has exceeded the configured alert threshold'),
+  "alertThreshold": zod.number().describe('The configured signature failure alert threshold')
 })
 
 

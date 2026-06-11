@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, RefreshCw, RotateCcw, ShieldAlert, Users, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, RefreshCw, RotateCcw, ShieldAlert, Users, X } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -200,7 +200,11 @@ export default function AdminCallbacks() {
 
   const { data: adminStats } = useGetAdminCallbackStats();
 
-  const hasFailures = (adminStats?.signatureFailures24h ?? 0) > 0;
+  const failures24h = adminStats?.signatureFailures24h ?? 0;
+  const alertThreshold = adminStats?.alertThreshold ?? 0;
+  const thresholdExceeded = adminStats?.thresholdExceeded ?? false;
+  const nearThreshold = !thresholdExceeded && alertThreshold > 0 && failures24h > alertThreshold * 0.5;
+  const showBanner = thresholdExceeded || nearThreshold;
   const breakdown = adminStats?.merchantBreakdown ?? [];
 
   function filterToSignatureFailures() {
@@ -229,59 +233,73 @@ export default function AdminCallbacks() {
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold tracking-tight">Callback Logs</h1><p className="text-muted-foreground mt-1">Webhook delivery history with automatic retry</p></div>
 
-      {hasFailures && (
-        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 overflow-hidden">
-          <button
-            onClick={() => setBreakdownExpanded(e => !e)}
-            className="w-full text-left px-4 py-3 hover:bg-rose-500/10 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-rose-400">
-                  {adminStats!.signatureFailures24h} signature {adminStats!.signatureFailures24h === 1 ? "failure" : "failures"} in the last 24 hours
-                </p>
-                <p className="text-xs text-rose-400/70 mt-0.5 flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  {adminStats!.affectedMerchants} {adminStats!.affectedMerchants === 1 ? "merchant" : "merchants"} affected — {breakdownExpanded ? "click to collapse" : "click to see breakdown"}
-                </p>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-rose-400/70 transition-transform ${breakdownExpanded ? "rotate-180" : ""}`} />
-            </div>
-          </button>
+      {showBanner && (() => {
+        const isExceeded = thresholdExceeded;
+        const color = isExceeded
+          ? { border: "border-rose-500/30", bg: "bg-rose-500/10", hoverBg: "hover:bg-rose-500/10", divider: "border-rose-500/20", icon: "text-rose-400", text: "text-rose-400", textMuted: "text-rose-400/70", badgeBg: "bg-rose-500/10", rowHover: "hover:bg-rose-500/10", rowText: "text-rose-300", rowTextHover: "group-hover:text-rose-200", rowBadge: "text-rose-400", chevron: "text-rose-400/40 group-hover:text-rose-400", sectionLabel: "text-rose-400/60" }
+          : { border: "border-amber-500/30", bg: "bg-amber-500/10", hoverBg: "hover:bg-amber-500/10", divider: "border-amber-500/20", icon: "text-amber-400", text: "text-amber-400", textMuted: "text-amber-400/70", badgeBg: "bg-amber-500/10", rowHover: "hover:bg-amber-500/10", rowText: "text-amber-300", rowTextHover: "group-hover:text-amber-200", rowBadge: "text-amber-400", chevron: "text-amber-400/40 group-hover:text-amber-400", sectionLabel: "text-amber-400/60" };
 
-          {breakdownExpanded && breakdown.length > 0 && (
-            <div className="border-t border-rose-500/20 px-4 py-3 space-y-1">
-              <p className="text-xs font-medium text-rose-400/60 uppercase tracking-wider mb-2">Per-merchant breakdown</p>
-              {breakdown.map(entry => (
-                <button
-                  key={entry.merchantId}
-                  onClick={() => filterToMerchant(entry.merchantId, entry.merchantName)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-rose-500/10 transition-colors group text-left"
-                >
-                  <span className="text-sm text-rose-300 group-hover:text-rose-200 font-medium truncate">
-                    {entry.merchantName ?? `Merchant #${entry.merchantId}`}
-                  </span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">
-                      {entry.failures} {entry.failures === 1 ? "failure" : "failures"}
+        const Icon = isExceeded ? ShieldAlert : AlertTriangle;
+
+        return (
+          <div className={`rounded-lg border ${color.border} ${color.bg} overflow-hidden`}>
+            <button
+              onClick={() => setBreakdownExpanded(e => !e)}
+              className={`w-full text-left px-4 py-3 ${color.hoverBg} transition-colors`}
+            >
+              <div className="flex items-center gap-3">
+                <Icon className={`w-5 h-5 ${color.icon} shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${color.text}`}>
+                    {isExceeded
+                      ? `Alert threshold exceeded — ${failures24h} signature ${failures24h === 1 ? "failure" : "failures"} in the last 24 hours`
+                      : `Signature failure spike — ${failures24h} of ${alertThreshold} threshold in the last 24 hours`}
+                  </p>
+                  <p className={`text-xs ${color.textMuted} mt-0.5 flex items-center gap-2`}>
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {adminStats!.affectedMerchants} {adminStats!.affectedMerchants === 1 ? "merchant" : "merchants"} affected
                     </span>
-                    <ChevronRight className="w-3 h-3 text-rose-400/40 group-hover:text-rose-400" />
-                  </div>
-                </button>
-              ))}
-              <div className="pt-1">
-                <button
-                  onClick={filterToSignatureFailures}
-                  className="text-xs text-rose-400/60 hover:text-rose-400 transition-colors"
-                >
-                  Show all signature failures →
-                </button>
+                    <span>·</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); filterToSignatureFailures(); }}
+                      className={`underline underline-offset-2 ${color.text} hover:opacity-80 transition-opacity`}
+                    >
+                      Filter by signature failures →
+                    </button>
+                    <span>·</span>
+                    <span>{breakdownExpanded ? "click to collapse" : "click to see breakdown"}</span>
+                  </p>
+                </div>
+                <ChevronDown className={`w-4 h-4 ${color.textMuted} transition-transform ${breakdownExpanded ? "rotate-180" : ""}`} />
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            </button>
+
+            {breakdownExpanded && breakdown.length > 0 && (
+              <div className={`border-t ${color.divider} px-4 py-3 space-y-1`}>
+                <p className={`text-xs font-medium ${color.sectionLabel} uppercase tracking-wider mb-2`}>Per-merchant breakdown</p>
+                {breakdown.map(entry => (
+                  <button
+                    key={entry.merchantId}
+                    onClick={() => filterToMerchant(entry.merchantId, entry.merchantName)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-md ${color.rowHover} transition-colors group text-left`}
+                  >
+                    <span className={`text-sm ${color.rowText} ${color.rowTextHover} font-medium truncate`}>
+                      {entry.merchantName ?? `Merchant #${entry.merchantId}`}
+                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs font-mono ${color.rowBadge} ${color.badgeBg} px-2 py-0.5 rounded`}>
+                        {entry.failures} {entry.failures === 1 ? "failure" : "failures"}
+                      </span>
+                      <ChevronRight className={`w-3 h-3 ${color.chevron}`} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <Card>
         <CardHeader className="pb-4">

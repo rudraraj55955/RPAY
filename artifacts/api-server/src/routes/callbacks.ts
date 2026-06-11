@@ -6,6 +6,7 @@ import { requireApiKey, verifyCallbackSignature } from "../middlewares/callbackA
 import { logger } from "../lib/logger";
 import { fireCallback, scheduleCallbackRetry, recordAttempt } from "../helpers/callbackRetry";
 import { dismissSecretRotationNotifications } from "../helpers/webhookSecretChecker";
+import { ALERT_THRESHOLD } from "../helpers/signatureFailureAlert";
 
 const router = Router();
 
@@ -230,10 +231,13 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
     .groupBy(callbackLogsTable.merchantId, merchantsTable.businessName)
     .orderBy(sql`count(*) DESC`);
 
+  const signatureFailures24h = row?.signatureFailures24h ?? 0;
   res.json({
-    signatureFailures24h: row?.signatureFailures24h ?? 0,
+    signatureFailures24h,
     affectedMerchants: row?.affectedMerchants ?? 0,
     merchantBreakdown: breakdown,
+    thresholdExceeded: signatureFailures24h > ALERT_THRESHOLD,
+    alertThreshold: ALERT_THRESHOLD,
   });
 });
 

@@ -739,6 +739,10 @@ export interface AdminCallbackStatsResponse {
   affectedMerchants: number;
   /** Per-merchant breakdown of signature failures in the last 24 hours, sorted by failure count descending */
   merchantBreakdown: MerchantSignatureFailure[];
+  /** Whether the 24-hour signature failure count has exceeded the configured alert threshold */
+  thresholdExceeded: boolean;
+  /** The configured signature failure alert threshold */
+  alertThreshold: number;
 }
 
 export type SettlementStatus = typeof SettlementStatus[keyof typeof SettlementStatus];

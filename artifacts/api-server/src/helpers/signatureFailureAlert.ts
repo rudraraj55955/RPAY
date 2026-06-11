@@ -5,7 +5,7 @@ import { sendMail } from "./mailer";
 
 const APP_DOMAIN = process.env["APP_DOMAIN"] ?? "https://rasokart.com";
 
-const ALERT_THRESHOLD = (() => {
+export const ALERT_THRESHOLD = (() => {
   const raw = process.env["SIGNATURE_FAILURE_ALERT_THRESHOLD"];
   if (raw) {
     const parsed = parseInt(raw, 10);

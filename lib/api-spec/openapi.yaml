@@ -5732,7 +5732,7 @@ components:
 
     AdminCallbackStatsResponse:
       type: object
-      required: [signatureFailures24h, affectedMerchants, merchantBreakdown]
+      required: [signatureFailures24h, affectedMerchants, merchantBreakdown, thresholdExceeded, alertThreshold]
       properties:
         signatureFailures24h:
           type: integer
@@ -5745,6 +5745,12 @@ components:
           description: Per-merchant breakdown of signature failures in the last 24 hours, sorted by failure count descending
           items:
             $ref: "#/components/schemas/MerchantSignatureFailure"
+        thresholdExceeded:
+          type: boolean
+          description: Whether the 24-hour signature failure count has exceeded the configured alert threshold
+        alertThreshold:
+          type: integer
+          description: The configured signature failure alert threshold
 
     Settlement:
       type: object

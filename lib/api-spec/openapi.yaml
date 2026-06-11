@@ -1757,6 +1757,29 @@ paths:
         "403":
           description: Merchant access only
 
+  /callbacks/secret/history:
+    get:
+      operationId: listCredentialEvents
+      tags: [callbacks]
+      summary: List credential rotation history for the authenticated merchant
+      description: Returns all credential events (callback secret rotations, API key generation/revocation) for the authenticated merchant, ordered oldest to newest.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Credential event history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialEventListResponse"
+        "403":
+          description: Merchant access only
+
   /settlements:
     get:
       operationId: listSettlements
@@ -5503,6 +5526,39 @@ components:
         secret:
           type: string
           description: The newly generated 64-character hex signing secret. Shown only once — store it immediately.
+
+    CredentialEvent:
+      type: object
+      required: [id, merchantId, eventType, createdAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        eventType:
+          type: string
+          enum: [callback_secret_rotated, api_key_generated, api_key_revoked]
+        keyPrefix:
+          type: ["string", "null"]
+          description: Masked key prefix for api_key_generated and api_key_revoked events
+        createdAt:
+          type: string
+          format: date-time
+
+    CredentialEventListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CredentialEvent"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
 
     PaymentCallbackInput:
       type: object

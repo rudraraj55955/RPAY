@@ -36,3 +36,4 @@ export * from "./callbackLogAttempts";
 export * from "./savedFilters";
 export * from "./merchantFilterPresets";
 export * from "./storageCleanupRuns";
+export * from "./credentialEvents";

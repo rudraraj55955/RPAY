@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useGetCallbackSecret, useListApiKeys, useGetMe, useListMySecurityActivity } from "@workspace/api-client-react";
+import { useGetCallbackSecret, useListApiKeys, useGetMe, useListMySecurityActivity, useListCredentialEvents } from "@workspace/api-client-react";
 import { SECRET_WARN_DAYS, SECRET_ROTATION_OVERDUE_DAYS } from "@/lib/webhook-constants";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ShieldCheck, KeyRound, Webhook, RotateCcw, CheckCircle2, AlertTriangle, Clock, Lock, Shield, ChevronLeft, ChevronRight, AlertCircle, UserCog, CreditCard, FileText, Sliders, Info, X } from "lucide-react";
+import { ShieldCheck, KeyRound, Webhook, RotateCcw, CheckCircle2, AlertTriangle, Clock, Lock, Shield, ChevronLeft, ChevronRight, AlertCircle, UserCog, CreditCard, FileText, Sliders, Info, X, History } from "lucide-react";
 import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 import { Link } from "wouter";
 
@@ -129,14 +129,33 @@ function CredentialRow({
   );
 }
 
+// ── Credential event timeline ──────────────────────────────────────────────────
+
+const CREDENTIAL_EVENT_META: Record<string, { label: string; icon: React.ElementType; color: string; dotColor: string }> = {
+  callback_secret_rotated: { label: "Callback Secret Rotated", icon: Webhook,   color: "text-sky-400",     dotColor: "bg-sky-500" },
+  api_key_generated:       { label: "API Key Generated",        icon: KeyRound,  color: "text-emerald-400", dotColor: "bg-emerald-500" },
+  api_key_revoked:         { label: "API Key Revoked",          icon: KeyRound,  color: "text-rose-400",    dotColor: "bg-rose-500" },
+};
+
+function credentialEventMeta(eventType: string) {
+  return CREDENTIAL_EVENT_META[eventType] ?? {
+    label: formatAction(eventType),
+    icon: Shield,
+    color: "text-muted-foreground",
+    dotColor: "bg-muted-foreground",
+  };
+}
+
 // ── Page component ─────────────────────────────────────────────────────────────
 
 export default function MerchantSecurity() {
   const [page, setPage] = useState(1);
+  const [credPage, setCredPage] = useState(1);
   const [actionFilter, setActionFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const LIMIT = 20;
+  const CRED_LIMIT = 50;
 
   const { data: me, isLoading: meLoading } = useGetMe();
   const { data: secretStatus, isLoading: secretLoading } = useGetCallbackSecret();
@@ -148,6 +167,7 @@ export default function MerchantSecurity() {
     ...(dateFrom ? { dateFrom } : {}),
     ...(dateTo ? { dateTo } : {}),
   });
+  const { data: credEventData, isLoading: credEventsLoading } = useListCredentialEvents({ page: credPage, limit: CRED_LIMIT });
 
   const allKeys = apiKeys ?? [];
   const activeKeys = allKeys.filter(k => k.isActive);
@@ -156,6 +176,10 @@ export default function MerchantSecurity() {
   const entries = activityData?.data ?? [];
   const total = activityData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+
+  const credEvents = credEventData?.data ?? [];
+  const credTotal = credEventData?.total ?? 0;
+  const credTotalPages = Math.max(1, Math.ceil(credTotal / CRED_LIMIT));
 
   const credentialsLoading = meLoading || secretLoading || keysLoading;
 
@@ -372,6 +396,80 @@ export default function MerchantSecurity() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Credential event timeline ── */}
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2 mb-3">
+          <History className="w-5 h-5 text-primary" />
+          Credential Event Log
+        </h2>
+
+        <Card>
+          <CardContent className="p-0">
+            {credEventsLoading ? (
+              <div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>
+            ) : credEvents.length === 0 ? (
+              <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
+                <History className="w-10 h-10 opacity-20" />
+                <p className="text-sm">No credential events recorded yet</p>
+                <p className="text-xs text-muted-foreground/60">Events will appear here when you rotate your callback secret or generate/revoke API keys</p>
+              </div>
+            ) : (
+              <div className="relative px-5 py-4">
+                {/* Timeline vertical line */}
+                <div className="absolute left-[2.125rem] top-4 bottom-4 w-px bg-border/40" />
+                <ul className="space-y-0">
+                  {credEvents.map((event, idx) => {
+                    const meta = credentialEventMeta(event.eventType);
+                    const Icon = meta.icon;
+                    const isLast = idx === credEvents.length - 1;
+                    return (
+                      <li key={event.id} className={`flex items-start gap-4 ${isLast ? "pb-0" : "pb-5"}`}>
+                        {/* Timeline dot */}
+                        <div className="relative z-10 flex-shrink-0 w-5 h-5 mt-0.5 flex items-center justify-center">
+                          <span className={`w-2.5 h-2.5 rounded-full ring-2 ring-background ${meta.dotColor}`} />
+                        </div>
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Icon className={`w-3.5 h-3.5 ${meta.color} shrink-0`} />
+                            <span className={`text-sm font-medium ${meta.color}`}>{meta.label}</span>
+                            {event.keyPrefix && (
+                              <code className="text-[11px] font-mono bg-muted/40 border border-border/40 px-1.5 py-0.5 rounded text-muted-foreground">
+                                {event.keyPrefix}…
+                              </code>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground/50 mt-0.5">
+                            {format(new Date(event.createdAt), "dd MMM yyyy, HH:mm")}
+                            {" · "}
+                            {formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {credTotalPages > 1 && (
+          <div className="flex items-center justify-between text-sm text-muted-foreground mt-3">
+            <span>Page {credPage} of {credTotalPages} · {credTotal} total</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={credPage <= 1} onClick={() => setCredPage(p => p - 1)}>
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Previous
+              </Button>
+              <Button variant="outline" size="sm" disabled={credPage >= credTotalPages} onClick={() => setCredPage(p => p + 1)}>
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Admin activity log ── */}
       <div>

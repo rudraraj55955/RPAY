@@ -550,6 +550,34 @@ export interface CallbackSecretRotateResponse {
   secret: string;
 }
 
+export type CredentialEventEventType = typeof CredentialEventEventType[keyof typeof CredentialEventEventType];
+
+
+export const CredentialEventEventType = {
+  callback_secret_rotated: 'callback_secret_rotated',
+  api_key_generated: 'api_key_generated',
+  api_key_revoked: 'api_key_revoked',
+} as const;
+
+export interface CredentialEvent {
+  id: number;
+  merchantId: number;
+  eventType: CredentialEventEventType;
+  /**
+     * Masked key prefix for api_key_generated and api_key_revoked events
+     * @nullable
+     */
+  keyPrefix?: string | null;
+  createdAt: string;
+}
+
+export interface CredentialEventListResponse {
+  data: CredentialEvent[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 /**
  * Payment notification body. Caller must supply a valid merchant API key in the
 X-Api-Key request header — merchantId is derived from the key automatically.
@@ -2678,6 +2706,11 @@ export const ListCallbackLogsEventType = {
 export type RetryCallback200 = {
   success: boolean;
   id: number;
+};
+
+export type ListCredentialEventsParams = {
+page?: number;
+limit?: number;
 };
 
 export type ListSettlementsParams = {

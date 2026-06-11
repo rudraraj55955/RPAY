@@ -67,6 +67,7 @@ import type {
   CreateMerchantFilterPresetInput,
   CreateSavedFilterInput,
   CreateSettlementInput,
+  CredentialEventListResponse,
   DashboardStats,
   DeleteAccountDetail200,
   ErrorResponse,
@@ -91,6 +92,7 @@ import type {
   ListAdminAuditLogsParams,
   ListAuditReportScheduleLogsParams,
   ListCallbackLogsParams,
+  ListCredentialEventsParams,
   ListInvoicesParams,
   ListLedgerEntriesParams,
   ListMerchantConnectionsParams,
@@ -5242,6 +5244,91 @@ export const useRotateCallbackSecret = <TError = ErrorType<void>,
       > => {
       return useMutation(getRotateCallbackSecretMutationOptions(options));
     }
+
+export const getListCredentialEventsUrl = (params?: ListCredentialEventsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/callbacks/secret/history?${stringifiedParams}` : `/api/callbacks/secret/history`
+}
+
+/**
+ * Returns all credential events (callback secret rotations, API key generation/revocation) for the authenticated merchant, ordered oldest to newest.
+ * @summary List credential rotation history for the authenticated merchant
+ */
+export const listCredentialEvents = async (params?: ListCredentialEventsParams, options?: RequestInit): Promise<CredentialEventListResponse> => {
+
+  return customFetch<CredentialEventListResponse>(getListCredentialEventsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCredentialEventsQueryKey = (params?: ListCredentialEventsParams,) => {
+    return [
+    `/api/callbacks/secret/history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCredentialEventsQueryOptions = <TData = Awaited<ReturnType<typeof listCredentialEvents>>, TError = ErrorType<void>>(params?: ListCredentialEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCredentialEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCredentialEventsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCredentialEvents>>> = ({ signal }) => listCredentialEvents(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCredentialEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCredentialEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listCredentialEvents>>>
+export type ListCredentialEventsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List credential rotation history for the authenticated merchant
+ */
+
+export function useListCredentialEvents<TData = Awaited<ReturnType<typeof listCredentialEvents>>, TError = ErrorType<void>>(
+ params?: ListCredentialEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCredentialEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCredentialEventsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListSettlementsUrl = (params?: ListSettlementsParams,) => {
   const normalizedParams = new URLSearchParams();

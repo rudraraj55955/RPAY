@@ -1648,6 +1648,29 @@ export const RotateCallbackSecretResponse = zod.object({
 
 
 /**
+ * Returns all credential events (callback secret rotations, API key generation/revocation) for the authenticated merchant, ordered oldest to newest.
+ * @summary List credential rotation history for the authenticated merchant
+ */
+export const ListCredentialEventsQueryParams = zod.object({
+  "page": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListCredentialEventsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "eventType": zod.enum(['callback_secret_rotated', 'api_key_generated', 'api_key_revoked']),
+  "keyPrefix": zod.string().nullish().describe('Masked key prefix for api_key_generated and api_key_revoked events'),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
  * @summary List settlements
  */
 export const ListSettlementsQueryParams = zod.object({

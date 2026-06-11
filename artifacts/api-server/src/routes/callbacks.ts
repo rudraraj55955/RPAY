@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable } from "@workspace/db";
-import { eq, and, count, countDistinct, sql, gte, isNull, like } from "drizzle-orm";
+import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable, credentialEventsTable } from "@workspace/db";
+import { eq, and, count, countDistinct, sql, gte, isNull, like, asc } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { requireApiKey, verifyCallbackSignature } from "../middlewares/callbackAuth";
 import { logger } from "../lib/logger";
@@ -286,12 +286,49 @@ router.post("/secret/rotate", async (req, res) => {
 
   req.log.info({ merchantId: user.merchantId }, "Callback secret rotated");
 
+  // Record credential rotation event (fire-and-forget)
+  db.insert(credentialEventsTable).values({
+    merchantId: user.merchantId,
+    eventType: "callback_secret_rotated",
+  }).catch((err: unknown) => {
+    req.log.warn({ err, merchantId: user.merchantId }, "Failed to record credential event for secret rotation");
+  });
+
   // Dismiss any pending rotation reminder/overdue notifications for this user
   dismissSecretRotationNotifications(user.id).catch((err: unknown) => {
     req.log.warn({ err, userId: user.id }, "Failed to dismiss webhook secret rotation notifications");
   });
 
   res.json({ secret: newSecret });
+});
+
+// GET /api/callbacks/secret/history — credential rotation history for the authenticated merchant
+router.get("/secret/history", async (req, res) => {
+  const user = (req as any).user;
+  if (user.role !== "merchant") {
+    res.status(403).json({ error: "Merchant access only" });
+    return;
+  }
+
+  const { page = "1", limit = "50" } = req.query as Record<string, string>;
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.min(200, Math.max(1, parseInt(limit)));
+  const offset = (pageNum - 1) * limitNum;
+
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(credentialEventsTable)
+    .where(eq(credentialEventsTable.merchantId, user.merchantId));
+
+  const rows = await db
+    .select()
+    .from(credentialEventsTable)
+    .where(eq(credentialEventsTable.merchantId, user.merchantId))
+    .orderBy(asc(credentialEventsTable.createdAt))
+    .limit(limitNum)
+    .offset(offset);
+
+  res.json({ data: rows, total, page: pageNum, limit: limitNum });
 });
 
 // POST /api/callbacks/:id/retry — admin only

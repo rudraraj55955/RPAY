@@ -389,7 +389,7 @@ router.post("/simulate", async (req, res, next) => {
 // GET /api/transactions/export/csv
 router.get("/export/csv", async (req, res) => {
   const user = (req as any).user;
-  const { type, status, search, merchantId, dateFrom, dateTo, connectionProvider } = req.query as Record<string, string>;
+  const { type, status, search, merchantId, dateFrom, dateTo, connectionProvider, amountMin, amountMax } = req.query as Record<string, string>;
 
   const conditions = [];
   const merchantCond = buildMerchantCondition(user);
@@ -418,6 +418,8 @@ router.get("/export/csv", async (req, res) => {
     end.setHours(23, 59, 59, 999);
     conditions.push(lte(transactionsTable.createdAt, end));
   }
+  if (amountMin) conditions.push(gte(sql`CAST(${transactionsTable.amount} AS DECIMAL)`, parseFloat(amountMin)));
+  if (amountMax) conditions.push(lte(sql`CAST(${transactionsTable.amount} AS DECIMAL)`, parseFloat(amountMax)));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -460,7 +462,7 @@ router.get("/export/csv", async (req, res) => {
     targetId: null,
     details: JSON.stringify({
       rowCount: rows.length,
-      filters: { type: type ?? null, status: status ?? null, search: search ?? null, merchantId: merchantId ?? null, dateFrom: dateFrom ?? null, dateTo: dateTo ?? null },
+      filters: { type: type ?? null, status: status ?? null, search: search ?? null, merchantId: merchantId ?? null, dateFrom: dateFrom ?? null, dateTo: dateTo ?? null, amountMin: amountMin ?? null, amountMax: amountMax ?? null },
     }),
     ipAddress: req.ip ?? null,
   }).catch(() => {});

@@ -17,6 +17,7 @@ import {
   useSendSecurityReminder,
   getListMerchantsQueryKey,
   listMerchants,
+  useListCallbackLogs,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -31,7 +32,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw, Upload, Loader2, X, Info, KeyRound, Clock, BellOff, Bell, Globe, Pencil } from "lucide-react";
+import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw, Upload, Loader2, X, Info, KeyRound, Clock, BellOff, Bell, Globe, Pencil, Webhook, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { getApiErrorMessage } from "@/lib/utils";
@@ -181,6 +182,10 @@ export default function AdminMerchants() {
   const { data: merchantWebhookUrl, refetch: refetchWebhookUrl } = useGetAdminMerchantWebhookUrl(
     assignPlanMerchant?.id ?? 0,
     { query: { enabled: !!assignPlanMerchant, queryKey: getGetAdminMerchantWebhookUrlQueryKey(assignPlanMerchant?.id ?? 0) } }
+  );
+  const { data: recentWebhookLogs, isLoading: webhookLogsLoading } = useListCallbackLogs(
+    { merchantId: assignPlanMerchant?.id, limit: 10 },
+    { query: { enabled: !!assignPlanMerchant, queryKey: ["listCallbackLogs", assignPlanMerchant?.id] } }
   );
   // Fetch the deep-link merchant by ID so the panel opens regardless of which page they're on
   const { data: deepLinkMerchant } = useGetMerchant(
@@ -2104,6 +2109,61 @@ export default function AdminMerchants() {
                       {updateWebhookUrlMutation.isPending ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</> : "Save"}
                     </Button>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Recent Webhook Deliveries */}
+            <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Webhook className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recent Webhook Deliveries</p>
+                </div>
+                {assignPlanMerchant && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+                    onClick={() => navigate(`/admin/webhook-logs?merchantId=${assignPlanMerchant.id}`)}
+                  >
+                    View all <ExternalLink className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+              {webhookLogsLoading ? (
+                <div className="space-y-1.5 pt-1">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-8 bg-muted/30 rounded animate-pulse" />
+                  ))}
+                </div>
+              ) : !recentWebhookLogs?.data?.length ? (
+                <p className="text-xs text-muted-foreground italic py-1">No webhook deliveries yet for this merchant.</p>
+              ) : (
+                <div className="rounded-lg border border-border/40 overflow-hidden mt-1">
+                  {(recentWebhookLogs.data as any[]).map((log: any, idx: number) => (
+                    <div
+                      key={log.id}
+                      className={`flex items-center gap-3 px-3 py-2 text-xs ${idx < recentWebhookLogs.data.length - 1 ? "border-b border-border/30" : ""} ${idx % 2 === 0 ? "bg-muted/10" : ""}`}
+                    >
+                      <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${log.status === "success" ? "bg-emerald-500/10 text-emerald-400" : log.status === "failed" ? "bg-rose-500/10 text-rose-400" : "bg-amber-500/10 text-amber-400"}`}>
+                        {log.status === "success" ? "✓" : log.status === "failed" ? "✗" : "↻"} {log.status}
+                      </span>
+                      <span className="text-muted-foreground/70 font-mono shrink-0">
+                        {log.httpStatus != null ? (
+                          <span className={log.httpStatus < 300 ? "text-emerald-400" : log.httpStatus < 500 ? "text-amber-400" : "text-rose-400"}>
+                            {log.httpStatus}
+                          </span>
+                        ) : "—"}
+                      </span>
+                      <span className="flex-1 text-muted-foreground/60 truncate">
+                        {log.eventType ?? "payment.received"}
+                      </span>
+                      <span className="shrink-0 text-muted-foreground/50">
+                        {format(new Date(log.createdAt), "MMM d, HH:mm")}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

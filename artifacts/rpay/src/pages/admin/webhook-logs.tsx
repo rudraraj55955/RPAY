@@ -108,14 +108,20 @@ export default function AdminWebhookLogs() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [sigVerified, setSigVerified] = useState("all");
+  const [merchantIdFilter, setMerchantIdFilter] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("merchantId") ?? "";
+  });
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any | null>(null);
 
   const sigVerifiedParam = sigVerified === "all" ? undefined : (sigVerified as any);
+  const merchantIdParam = merchantIdFilter.trim() ? parseInt(merchantIdFilter.trim()) : undefined;
 
   const { data, isLoading } = useListCallbackLogs({
     status: status === "all" ? undefined : (status as any),
     signatureVerified: sigVerifiedParam,
+    merchantId: merchantIdParam,
     page,
     limit: 20,
   } as any);
@@ -185,8 +191,8 @@ export default function AdminWebhookLogs() {
 
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 className="pl-9"
@@ -195,6 +201,12 @@ export default function AdminWebhookLogs() {
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
               />
             </div>
+            <Input
+              className="w-[140px]"
+              placeholder="Merchant ID..."
+              value={merchantIdFilter}
+              onChange={e => { setMerchantIdFilter(e.target.value.replace(/\D/g, "")); setPage(1); }}
+            />
             <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>
               <SelectTrigger className="w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>

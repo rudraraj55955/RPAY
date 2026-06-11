@@ -218,6 +218,7 @@ import type {
   VisibilityRuleUpdateInput,
   WebhookConfig,
   WebhookConfigInput,
+  WebhookHealthSummary,
   WebhookLogStatsResponse,
   WebhookRetriesConfig,
   WebhookRetryPolicy,
@@ -10732,6 +10733,83 @@ export function useGetDashboardRisk<TData = Awaited<ReturnType<typeof getDashboa
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetDashboardRiskQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetDashboardWebhookHealthUrl = () => {
+
+
+
+
+  return `/api/dashboard/webhook-health`
+}
+
+/**
+ * @summary Get webhook health summary (admin only)
+ */
+export const getDashboardWebhookHealth = async ( options?: RequestInit): Promise<WebhookHealthSummary> => {
+
+  return customFetch<WebhookHealthSummary>(getGetDashboardWebhookHealthUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDashboardWebhookHealthQueryKey = () => {
+    return [
+    `/api/dashboard/webhook-health`
+    ] as const;
+    }
+
+
+export const getGetDashboardWebhookHealthQueryOptions = <TData = Awaited<ReturnType<typeof getDashboardWebhookHealth>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardWebhookHealth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDashboardWebhookHealthQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDashboardWebhookHealth>>> = ({ signal }) => getDashboardWebhookHealth({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDashboardWebhookHealth>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDashboardWebhookHealthQueryResult = NonNullable<Awaited<ReturnType<typeof getDashboardWebhookHealth>>>
+export type GetDashboardWebhookHealthQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get webhook health summary (admin only)
+ */
+
+export function useGetDashboardWebhookHealth<TData = Awaited<ReturnType<typeof getDashboardWebhookHealth>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardWebhookHealth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDashboardWebhookHealthQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

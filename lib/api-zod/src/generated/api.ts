@@ -3313,6 +3313,16 @@ export const GetDashboardRiskResponse = zod.object({
 
 
 /**
+ * @summary Get webhook health summary (admin only)
+ */
+export const GetDashboardWebhookHealthResponse = zod.object({
+  "failedCount": zod.number().describe('Total permanently-failed webhook logs in the last 24 hours'),
+  "affectedMerchants": zod.number().describe('Number of distinct merchants with failed webhooks in the last 24 hours'),
+  "windowHours": zod.number().describe('The time window in hours used for this summary')
+})
+
+
+/**
  * @summary Get latest auto-reconciliation run summary
  */
 export const GetDashboardReconSummaryResponse = zod.object({

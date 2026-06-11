@@ -1929,6 +1929,15 @@ export interface AdminNotificationListResponse {
   total: number;
 }
 
+export interface WebhookHealthSummary {
+  /** Total permanently-failed webhook logs in the last 24 hours */
+  failedCount: number;
+  /** Number of distinct merchants with failed webhooks in the last 24 hours */
+  affectedMerchants: number;
+  /** The time window in hours used for this summary */
+  windowHours: number;
+}
+
 export type AdminRiskStatsTopFailingMerchantsItem = {
   merchantId?: number;
   merchantName?: string;

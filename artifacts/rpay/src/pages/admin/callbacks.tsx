@@ -386,8 +386,14 @@ function RetryScheduleBanner({ maxAttempts, delays }: { maxAttempts: number; del
   );
 }
 
+function getInitialStatus(): string {
+  const params = new URLSearchParams(window.location.search);
+  const s = params.get("status");
+  return s === "failed" || s === "success" || s === "pending_retry" ? s : "all";
+}
+
 export default function AdminCallbacks() {
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState(getInitialStatus);
   const [sigVerified, setSigVerified] = useState("all");
   const [rejectionReason, setRejectionReason] = useState("all");
   const [eventTypeFilter, setEventTypeFilter] = useState("all");

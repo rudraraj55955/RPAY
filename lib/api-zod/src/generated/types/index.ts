@@ -295,6 +295,7 @@ export * from './virtualAccountUpdateInputStatus';
 export * from './visibilityRuleUpdateInput';
 export * from './webhookConfig';
 export * from './webhookConfigInput';
+export * from './webhookHealthSummary';
 export * from './webhookLogEventStat';
 export * from './webhookLogStatsResponse';
 export * from './webhookRetriesConfig';

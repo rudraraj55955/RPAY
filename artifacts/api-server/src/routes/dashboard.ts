@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, transactionsTable, merchantsTable, callbackLogsTable, qrCodesTable, virtualAccountsTable, reconciliationRunsTable, settlementsTable, merchantPlansTable, providersTable } from "@workspace/db";
-import { eq, sql, and, gte, count, inArray, lte, isNotNull } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { eq, sql, and, gte, count, countDistinct, inArray, lte, isNotNull } from "drizzle-orm";
+import { requireAuth, requireAdmin } from "../middlewares/auth";
 
 const router = Router();
 router.use(requireAuth);
@@ -412,6 +412,38 @@ router.get("/recon-summary", async (req, res, next) => {
       matchedAmount: Number(run.matchedAmount),
       unmatchedAmount: Number(run.unmatchedAmount),
       triggeredBy: run.triggeredBy,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/dashboard/webhook-health — admin only
+router.get("/webhook-health", requireAdmin, async (req, res, next) => {
+  try {
+    const windowHours = 24;
+    const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+
+    const [failedRow] = await db
+      .select({ failedCount: count() })
+      .from(callbackLogsTable)
+      .where(and(
+        eq(callbackLogsTable.status, "failed"),
+        gte(callbackLogsTable.createdAt, since),
+      ));
+
+    const [merchantRow] = await db
+      .select({ affectedMerchants: countDistinct(callbackLogsTable.merchantId) })
+      .from(callbackLogsTable)
+      .where(and(
+        eq(callbackLogsTable.status, "failed"),
+        gte(callbackLogsTable.createdAt, since),
+      ));
+
+    res.json({
+      failedCount: failedRow?.failedCount ?? 0,
+      affectedMerchants: merchantRow?.affectedMerchants ?? 0,
+      windowHours,
     });
   } catch (err) {
     next(err);

@@ -1,7 +1,7 @@
-import { useGetDashboardStats, useGetDashboardChart, useGetDashboardMerchantVolumes, useGetDashboardNotifications, useGetDashboardRisk, useGetDashboardReconSummary, useGetDashboardProviderVolumes, useGetGithubSyncStatus } from "@workspace/api-client-react";
+import { useGetDashboardStats, useGetDashboardChart, useGetDashboardMerchantVolumes, useGetDashboardNotifications, useGetDashboardRisk, useGetDashboardReconSummary, useGetDashboardProviderVolumes, useGetGithubSyncStatus, useGetDashboardWebhookHealth } from "@workspace/api-client-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDownLeft, ArrowUpRight, Activity, Clock, Store, AlertTriangle, Bell, TrendingDown, ShieldAlert, ChevronRight, CheckCircle2, XCircle, GitCompareArrows, Zap, Github } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Activity, Clock, Store, AlertTriangle, Bell, TrendingDown, ShieldAlert, ChevronRight, CheckCircle2, XCircle, GitCompareArrows, Zap, Github, Webhook } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend } from "recharts";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
@@ -30,6 +30,7 @@ export default function AdminDashboard() {
   const { data: reconSummary } = useGetDashboardReconSummary();
   const { data: providerVolumes, isLoading: pvLoading } = useGetDashboardProviderVolumes();
   const { data: githubSync } = useGetGithubSyncStatus();
+  const { data: webhookHealth } = useGetDashboardWebhookHealth();
 
   return (
     <div className="space-y-6">
@@ -143,6 +144,39 @@ export default function AdminDashboard() {
           </Card>
         </div>
       )}
+
+      {webhookHealth && (() => {
+        const hasFailed = webhookHealth.failedCount > 0;
+        return (
+          <Link href="/admin/callbacks?status=failed">
+            <Card className={`cursor-pointer transition-all hover:border-border/80 ${hasFailed ? "border-rose-500/40 bg-rose-500/5 hover:bg-rose-500/10" : "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10"}`}>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${hasFailed ? "bg-rose-500/15" : "bg-emerald-500/15"}`}>
+                      <Webhook className={`w-4 h-4 ${hasFailed ? "text-rose-400" : "text-emerald-400"}`} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Webhook Health — Last 24h</p>
+                      {hasFailed ? (
+                        <p className="text-sm font-semibold text-rose-400">
+                          {webhookHealth.failedCount} failed {webhookHealth.failedCount === 1 ? "delivery" : "deliveries"} across {webhookHealth.affectedMerchants} {webhookHealth.affectedMerchants === 1 ? "merchant" : "merchants"}
+                        </p>
+                      ) : (
+                        <p className="text-sm font-semibold text-emerald-400">All webhooks healthy — no failures</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span>View logs</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        );
+      })()}
 
       {reconSummary && reconSummary.runId != null && (() => {
         const hasUnmatched = (reconSummary.totalUnmatched ?? 0) > 0;

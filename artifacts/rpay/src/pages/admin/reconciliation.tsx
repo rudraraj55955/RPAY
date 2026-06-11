@@ -1127,9 +1127,18 @@ export default function AdminReconciliation() {
 
   const [selectedRunId, setSelectedRunId] = useState<number | null>(() => {
     const params = new URLSearchParams(search);
-    const id = parseInt(params.get("runId") ?? "");
+    const raw = params.get("run") ?? params.get("runId") ?? "";
+    const id = parseInt(raw);
     return isNaN(id) ? null : id;
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const raw = params.get("run") ?? params.get("runId") ?? "";
+    const id = parseInt(raw);
+    const next = isNaN(id) ? null : id;
+    setSelectedRunId(prev => (prev === next ? prev : next));
+  }, [search]);
   const [resolveItem, setResolveItem] = useState<any | null>(null);
   const [exportFilter, setExportFilter] = useState<"all" | "matched" | "unmatched_deposit" | "unmatched_settlement">("all");
   const [csvExportFilter, setCsvExportFilter] = useState<"all" | "matched" | "unmatched">("all");
@@ -1605,7 +1614,12 @@ export default function AdminReconciliation() {
                               variant="ghost"
                               size="sm"
                               className="h-7 gap-1 text-xs"
-                              onClick={() => setSelectedRunId(run.id)}
+                              onClick={() => {
+                                const params = new URLSearchParams(window.location.search);
+                                params.set("run", String(run.id));
+                                params.delete("runId");
+                                navigate(`/admin/reconciliation?${params.toString()}`, { replace: true });
+                              }}
                             >
                               Details <ChevronRight className="w-3 h-3" />
                             </Button>
@@ -1703,7 +1717,8 @@ export default function AdminReconciliation() {
             setNotesValue("");
             setNotesHistoryOpen(false);
             const params = new URLSearchParams(window.location.search);
-            if (params.has("runId")) {
+            if (params.has("run") || params.has("runId")) {
+              params.delete("run");
               params.delete("runId");
               const newSearch = params.toString();
               navigate(`/admin/reconciliation${newSearch ? `?${newSearch}` : ""}`, { replace: true });

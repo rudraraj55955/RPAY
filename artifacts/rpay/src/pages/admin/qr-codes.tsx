@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "wouter";
 import { useListQrCodes, useDeleteQrCode, useGetQrCodeStats, useBulkDeleteQrCodes, useGetQrCodeActivity } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -175,7 +176,12 @@ function AdminInlineQrRow({ qr }: { qr: AdminQrRow }) {
               <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
               <div>
                 <span className="text-xs text-muted-foreground">Merchant · </span>
-                <span className="text-sm font-semibold">{qr.merchantName ?? "Unknown"}</span>
+                <Link
+                  href={`/admin/merchants?open=${qr.merchantId}`}
+                  className="text-sm font-semibold hover:text-primary hover:underline underline-offset-2 transition-colors"
+                >
+                  {qr.merchantName ?? "Unknown"}
+                </Link>
                 <span className="text-xs text-muted-foreground ml-2">ID #{qr.merchantId}</span>
               </div>
             </div>

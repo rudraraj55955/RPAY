@@ -11,7 +11,7 @@ import {
   useUpdateMerchantBranding, useGetMerchantPlanUsageAdmin,
   useGetAdminMerchantCallbackSecret, useResetAdminMerchantCallbackSecret,
   useUpdateMerchantCallbackWindow,
-  useScheduleMerchantPlanRenewal,
+  useScheduleMerchantPlanRenewal, useGetMerchant,
   getListMerchantsQueryKey,
   listMerchants,
 } from "@workspace/api-client-react";
@@ -98,6 +98,15 @@ export default function AdminMerchants() {
   const [scheduleRenewalDate, setScheduleRenewalDate] = useState<string>("");
   const [confirmSecretReset, setConfirmSecretReset] = useState(false);
 
+  // Parse ?open=<merchantId> once on mount (e.g. linked from QR/VA detail panels)
+  const [deepLinkId] = useState<number | null>(() => {
+    const raw = new URLSearchParams(window.location.search).get("open");
+    if (!raw) return null;
+    const id = parseInt(raw);
+    return isNaN(id) ? null : id;
+  });
+  const deepLinkOpenedRef = useRef(false);
+
   // Bulk selection state
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [selectAllMode, setSelectAllMode] = useState(false);
@@ -156,6 +165,11 @@ export default function AdminMerchants() {
     assignPlanMerchant?.id ?? 0,
     { query: { enabled: !!assignPlanMerchant, queryKey: ["getAdminMerchantCallbackSecret", assignPlanMerchant?.id ?? 0] } }
   );
+  // Fetch the deep-link merchant by ID so the panel opens regardless of which page they're on
+  const { data: deepLinkMerchant } = useGetMerchant(
+    deepLinkId ?? 0,
+    { query: { enabled: deepLinkId != null } as any }
+  );
   const resetCallbackSecretMutation = useResetAdminMerchantCallbackSecret();
   const updateCallbackWindowMutation = useUpdateMerchantCallbackWindow();
   const updateBrandingMutation = useUpdateMerchantBranding();
@@ -175,6 +189,19 @@ export default function AdminMerchants() {
   const bulkApproveMutation = useBulkApproveMerchants();
   const bulkSuspendMutation = useBulkSuspendMerchants();
   const bulkRejectMutation = useBulkRejectMerchants();
+
+  // Clean ?open= param from the URL immediately so back-navigation doesn't re-trigger the panel
+  useEffect(() => {
+    if (deepLinkId == null) return;
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Open the merchant panel once the deep-link merchant is fetched (works regardless of pagination)
+  useEffect(() => {
+    if (!deepLinkMerchant || deepLinkId == null || deepLinkOpenedRef.current) return;
+    deepLinkOpenedRef.current = true;
+    openAssignPlan(deepLinkId, deepLinkMerchant.businessName);
+  }, [deepLinkMerchant, deepLinkId]);
 
   // Countdown timer for undo window
   useEffect(() => {

@@ -552,8 +552,32 @@ export default function MerchantQrCodes() {
       {/* Filter summary bar */}
       {anyFilterActive && (
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Filter results</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Active filters</span>
+            {status !== "all" && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
+                Status: {status.charAt(0).toUpperCase() + status.slice(1)}
+                <button
+                  onClick={() => { setStatus("all"); setPage(1); setSelectedIds(new Set()); }}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
+                  aria-label="Remove status filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {search && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
+                Search: <span className="font-mono">{search}</span>
+                <button
+                  onClick={() => { setSearch(""); setPage(1); }}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
+                  aria-label="Remove search filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -561,7 +585,7 @@ export default function MerchantQrCodes() {
               className="ml-auto h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 gap-1.5"
             >
               <X className="w-3 h-3" />
-              Clear filters
+              Clear all
             </Button>
           </div>
         </div>

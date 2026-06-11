@@ -1214,9 +1214,82 @@ export default function MerchantTransactions() {
 
       {/* Live Filter Summary Bar */}
       {anyFilterActive && (
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Filter results</span>
+        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Active filters</span>
+            {type !== "all" && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
+                Type: {type.charAt(0).toUpperCase() + type.slice(1)}s
+                <button
+                  onClick={() => { setType("all"); setPage(1); }}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
+                  aria-label="Remove type filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {status !== "all" && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
+                Status: {status.charAt(0).toUpperCase() + status.slice(1)}
+                <button
+                  onClick={() => { setStatus("all"); setPage(1); }}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
+                  aria-label="Remove status filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {provider !== "all" && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
+                Provider: {formatProvider(provider)}
+                <button
+                  onClick={() => { setProvider("all"); setPage(1); }}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
+                  aria-label="Remove provider filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {activeDateFrom && activeDateTo && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
+                <CalendarRange className="w-3 h-3" />
+                {activeDateFrom} – {activeDateTo}
+                <button
+                  onClick={() => { setDateFrom(""); setDateTo(""); if (smartFilter?.dateFrom || smartFilter?.dateTo) { setSmartFilter(null); setSmartInput(""); } setPage(1); }}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
+                  aria-label="Remove date filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {(activeDateFrom && !activeDateTo) && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
+                From: {activeDateFrom}
+                <button
+                  onClick={() => { setDateFrom(""); if (smartFilter?.dateFrom) { setSmartFilter(null); setSmartInput(""); } setPage(1); }}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
+                  aria-label="Remove from-date filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {(!activeDateFrom && activeDateTo) && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
+                Until: {activeDateTo}
+                <button
+                  onClick={() => { setDateTo(""); if (smartFilter?.dateTo) { setSmartFilter(null); setSmartInput(""); } setPage(1); }}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
+                  aria-label="Remove to-date filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -1224,8 +1297,10 @@ export default function MerchantTransactions() {
               className="ml-auto h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 gap-1.5"
             >
               <X className="w-3 h-3" />
-              Clear filters
+              Clear all
             </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <div className="flex items-center gap-1.5 text-sm">
               <Hash className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="font-semibold text-foreground">

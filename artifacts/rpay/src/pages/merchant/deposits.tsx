@@ -517,14 +517,23 @@ export default function MerchantDeposits() {
                       : "border-sky-500/30 bg-sky-500/8 text-sky-300 hover:border-sky-500/60"
                   }`}
                 >
-                  <button
-                    onClick={() => applyCustomDatePreset(preset)}
-                    className="flex items-center gap-1 h-8 px-2.5 hover:text-sky-100 transition-colors"
-                    title={`${preset.from} – ${preset.to}`}
-                  >
-                    <CalendarRange className="w-3 h-3 shrink-0" />
-                    {preset.name}
-                  </button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => applyCustomDatePreset(preset)}
+                          className="flex items-center gap-1 h-8 px-2.5 hover:text-sky-100 transition-colors"
+                        >
+                          <CalendarRange className="w-3 h-3 shrink-0" />
+                          {preset.name}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Query</p>
+                        <p className="font-mono text-xs">{preset.from} – {preset.to}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <button
                     onClick={() => deleteCustomDatePreset(preset.id)}
                     className="pr-1.5 rounded-r-md text-sky-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100 h-8 flex items-center"

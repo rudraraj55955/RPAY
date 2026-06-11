@@ -28,6 +28,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
 import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
 import { ChevronDown, ChevronRight, Search, X, MoreHorizontal, TrendingUp, Clock, CheckCircle2, DollarSign, RefreshCw, CheckSquare, AlertTriangle, Wallet, Sparkles, Hash, Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
 
@@ -575,14 +576,23 @@ export default function AdminSettlements() {
                   key={saved.id}
                   className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2.5 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
                 >
-                  <button
-                    onClick={() => applySavedFilter(saved)}
-                    className="flex items-center gap-1 hover:text-violet-100 transition-colors"
-                    title={`Apply: ${saved.rawInput}`}
-                  >
-                    <BookmarkCheck className="w-3 h-3 shrink-0" />
-                    {saved.name}
-                  </button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => applySavedFilter(saved)}
+                          className="flex items-center gap-1 hover:text-violet-100 transition-colors"
+                        >
+                          <BookmarkCheck className="w-3 h-3 shrink-0" />
+                          {saved.name}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Query</p>
+                        <p className="font-mono text-xs break-all">{saved.rawInput}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <button
                     onClick={() => deleteSavedFilter(saved.id)}
                     className="ml-0.5 rounded-full p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"

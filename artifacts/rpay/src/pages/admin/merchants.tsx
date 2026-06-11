@@ -160,7 +160,7 @@ export default function AdminMerchants() {
   );
   const { data: merchantPlanUsage } = useGetMerchantPlanUsageAdmin(
     assignPlanMerchant?.id ?? 0,
-    { query: { enabled: !!assignPlanMerchant && !!currentMerchantPlan, queryKey: ["getMerchantPlanUsageAdmin", assignPlanMerchant?.id ?? 0] } }
+    { query: { enabled: !!assignPlanMerchant, queryKey: ["getMerchantPlanUsageAdmin", assignPlanMerchant?.id ?? 0] } }
   );
   const { data: callbackSecretStatus, refetch: refetchCallbackSecret } = useGetAdminMerchantCallbackSecret(
     assignPlanMerchant?.id ?? 0,
@@ -1470,6 +1470,48 @@ export default function AdminMerchants() {
       <Dialog open={!!assignPlanMerchant} onOpenChange={closeAssignPlan}>
         <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Assign Plan — {assignPlanMerchant?.name}</DialogTitle></DialogHeader>
+
+          {/* Quick resource summary */}
+          {merchantPlanUsage && (
+            <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground border border-border/40 rounded-md bg-muted/10 px-3 py-2">
+              <button
+                type="button"
+                className="font-semibold text-foreground hover:text-primary transition-colors"
+                onClick={() => {
+                  const name = encodeURIComponent(assignPlanMerchant?.name ?? "");
+                  closeAssignPlan();
+                  navigate(`/admin/qr-codes?merchant=${name}`);
+                }}
+              >
+                {merchantPlanUsage.dynamicQr.used + merchantPlanUsage.staticQr.used} QR codes
+              </button>
+              <span className="text-muted-foreground/40">·</span>
+              <button
+                type="button"
+                className="font-semibold text-foreground hover:text-primary transition-colors"
+                onClick={() => {
+                  const name = encodeURIComponent(assignPlanMerchant?.name ?? "");
+                  closeAssignPlan();
+                  navigate(`/admin/virtual-accounts?merchant=${name}`);
+                }}
+              >
+                {merchantPlanUsage.virtualAccount.used} Virtual Accounts
+              </button>
+              <span className="text-muted-foreground/40">·</span>
+              <button
+                type="button"
+                className="font-semibold text-foreground hover:text-primary transition-colors"
+                onClick={() => {
+                  const name = encodeURIComponent(assignPlanMerchant?.name ?? "");
+                  closeAssignPlan();
+                  navigate(`/admin/payment-links?merchant=${name}`);
+                }}
+              >
+                {merchantPlanUsage.paymentLink.used} Payment Links
+              </button>
+            </div>
+          )}
+
           <div className="space-y-4 py-2">
             {/* Current Plan */}
             {planLoading ? (

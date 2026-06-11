@@ -14,4 +14,5 @@ search?: string;
 page?: number;
 limit?: number;
 expiryStatus?: ListMerchantsExpiryStatus;
+rejectionReason?: string;
 };

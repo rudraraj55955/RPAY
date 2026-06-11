@@ -53,7 +53,7 @@ async function logPlanHistory(opts: {
 
 // GET /api/merchants
 router.get("/", requireAdmin, async (req, res) => {
-  const { status, search, page = "1", limit = "20", expiryStatus } = req.query as Record<string, string>;
+  const { status, search, page = "1", limit = "20", expiryStatus, rejectionReason } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
@@ -69,6 +69,9 @@ router.get("/", requireAdmin, async (req, res) => {
       ilike(merchantsTable.email, `%${search}%`),
       ilike(merchantsTable.contactName, `%${search}%`),
     )!);
+  }
+  if (rejectionReason) {
+    conditions.push(ilike(merchantsTable.rejectionReason, `%${rejectionReason}%`));
   }
 
   const planConditions = [];

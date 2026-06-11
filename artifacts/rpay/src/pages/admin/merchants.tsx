@@ -52,6 +52,7 @@ export default function AdminMerchants() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [expiryStatus, setExpiryStatus] = useState<"" | "expiring" | "expired">("");
+  const [rejectionReasonFilter, setRejectionReasonFilter] = useState("");
   const [page, setPage] = useState(1);
   const [rejectId, setRejectId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -100,7 +101,7 @@ export default function AdminMerchants() {
   const [bulkResultTitle, setBulkResultTitle] = useState("");
   const [bulkResultItems, setBulkResultItems] = useState<{ id: number; name: string; success: boolean; reason?: string | null }[]>([]);
 
-  const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined });
+  const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined });
   const { data: plans } = useListPlans();
   const { data: currentMerchantPlan, isLoading: planLoading } = useGetMerchantPlan(
     assignPlanMerchant?.id ?? 0,
@@ -412,12 +413,18 @@ export default function AdminMerchants() {
   const clearSelection = () => { setSelected(new Set()); setSelectAllMode(false); };
 
   const handleSearchChange = (v: string) => { setSearch(v); setPage(1); clearSelection(); };
-  const handleStatusChange = (v: string) => { setStatus(v); setPage(1); clearSelection(); };
+  const handleStatusChange = (v: string) => {
+    setStatus(v);
+    setPage(1);
+    clearSelection();
+    if (v !== "rejected" && v !== "all") setRejectionReasonFilter("");
+  };
   const handleExpiryChange = (v: "" | "expiring" | "expired") => { setExpiryStatus(v); setPage(1); clearSelection(); };
+  const handleRejectionReasonFilterChange = (v: string) => { setRejectionReasonFilter(v); setPage(1); clearSelection(); };
 
   const handleSelectAllPages = async () => {
     try {
-      const allData = await listMerchants({ status: status as any, search, page: 1, limit: total, expiryStatus: expiryStatus as any || undefined });
+      const allData = await listMerchants({ status: status as any, search, page: 1, limit: total, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined });
       setSelected(new Set(allData.data.map(m => m.id)));
       setSelectAllMode(true);
     } catch {
@@ -473,49 +480,62 @@ export default function AdminMerchants() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search merchants..." value={search} onChange={e => handleSearchChange(e.target.value)} />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input className="pl-9" placeholder="Search merchants..." value={search} onChange={e => handleSearchChange(e.target.value)} />
+          </div>
+          <div className="flex gap-1 flex-wrap">
+            {(["all", "pending", "approved", "rejected", "suspended"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => handleStatusChange(tab)}
+                className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors border ${
+                  status === tab
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-transparent"
+                }`}
+              >
+                {tab === "all" ? "All" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 flex-wrap">
+            {([
+              { value: "", label: "Any Expiry" },
+              { value: "expiring", label: "Expiring Soon" },
+              { value: "expired", label: "Expired" },
+            ] as const).map(tab => (
+              <button
+                key={tab.value}
+                onClick={() => handleExpiryChange(tab.value)}
+                className={`px-3 py-1.5 rounded-md text-sm transition-colors border ${
+                  expiryStatus === tab.value
+                    ? tab.value === "expired"
+                      ? "bg-rose-500/20 text-rose-400 border-rose-500/40"
+                      : tab.value === "expiring"
+                        ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                        : "bg-primary text-primary-foreground border-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-transparent"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-1 flex-wrap">
-          {(["all", "pending", "approved", "rejected", "suspended"] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => handleStatusChange(tab)}
-              className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors border ${
-                status === tab
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-transparent"
-              }`}
-            >
-              {tab === "all" ? "All" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1 flex-wrap">
-          {([
-            { value: "", label: "Any Expiry" },
-            { value: "expiring", label: "Expiring Soon" },
-            { value: "expired", label: "Expired" },
-          ] as const).map(tab => (
-            <button
-              key={tab.value}
-              onClick={() => handleExpiryChange(tab.value)}
-              className={`px-3 py-1.5 rounded-md text-sm transition-colors border ${
-                expiryStatus === tab.value
-                  ? tab.value === "expired"
-                    ? "bg-rose-500/20 text-rose-400 border-rose-500/40"
-                    : tab.value === "expiring"
-                      ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-                      : "bg-primary text-primary-foreground border-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-transparent"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {(status === "rejected" || status === "all") && (
+          <div className="relative max-w-sm">
+            <XCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Filter by rejection reason…"
+              value={rejectionReasonFilter}
+              onChange={e => handleRejectionReasonFilterChange(e.target.value)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Bulk action toolbar */}
@@ -651,6 +671,11 @@ export default function AdminMerchants() {
                     <div>
                       <p className="font-medium">{merchant.businessName}</p>
                       <p className="text-xs text-muted-foreground">{merchant.email}</p>
+                      {merchant.status === "rejected" && merchant.rejectionReason && (
+                        <p className="text-xs text-rose-400 mt-0.5 max-w-[200px] truncate" title={merchant.rejectionReason}>
+                          ✕ {merchant.rejectionReason}
+                        </p>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

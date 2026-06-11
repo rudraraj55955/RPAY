@@ -2017,6 +2017,7 @@ search?: string;
 page?: number;
 limit?: number;
 expiryStatus?: ListMerchantsExpiryStatus;
+rejectionReason?: string;
 };
 
 export type ListMerchantsStatus = typeof ListMerchantsStatus[keyof typeof ListMerchantsStatus];

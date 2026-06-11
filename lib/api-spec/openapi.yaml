@@ -240,6 +240,10 @@ paths:
           schema:
             type: string
             enum: [expiring, expired]
+        - name: rejectionReason
+          in: query
+          schema:
+            type: string
       responses:
         "200":
           description: List of merchants

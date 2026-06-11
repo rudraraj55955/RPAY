@@ -186,19 +186,6 @@ function formatJsonBody(raw: string | null | undefined): string {
   }
 }
 
-function parseEventType(requestBody: string | null | undefined): string | null {
-  if (!requestBody) return null;
-  try {
-    const parsed = JSON.parse(requestBody);
-    if (typeof parsed?.event === "string" && parsed.event.length > 0) {
-      return parsed.event as string;
-    }
-  } catch {
-    // ignore parse errors
-  }
-  return null;
-}
-
 const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   "payment.success":      { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/25" },
   "payment.failed":       { bg: "bg-rose-500/10",    text: "text-rose-400",    border: "border-rose-500/25"    },
@@ -325,7 +312,7 @@ function DeliveryDetailModal({ log, onClose, onRetry, isRetrying }: { log: Callb
 
   const reqBody = formatJsonBody(log.requestBody);
   const resBody = formatJsonBody(log.responseBody);
-  const eventType = log.eventType ?? parseEventType(log.requestBody);
+  const eventType = log.eventType;
 
   return (
     <Dialog open={!!log} onOpenChange={onClose}>
@@ -843,7 +830,7 @@ export default function MerchantWebhook() {
           ) : (
             <div className="divide-y divide-border/50">
               {logs.map(log => {
-                const rowEventType = log.eventType ?? parseEventType(log.requestBody);
+                const rowEventType = log.eventType;
                 return (
                 <div
                   key={log.id}

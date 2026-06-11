@@ -1,7 +1,7 @@
 import { db, callbackLogsTable, usersTable, notificationsTable, webhooksTable } from "@workspace/db";
 import { eq, and, lte, sql, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
-import { createNotification } from "./notifications";
+import { createNotification, createBulkNotifications } from "./notifications";
 
 const WEBHOOK_FAILURE_WINDOW_HOURS = 1;
 
@@ -45,6 +45,48 @@ async function notifyWebhookFailure(merchantId: number, url: string, attempts: n
     body: `Callback to ${url} failed after ${attempts} attempt${attempts !== 1 ? "s" : ""}${qrLabel}. Please check your endpoint and ensure it returns a 2xx response.`,
     metadata: { qrCodeId, url, attempts, dedupeKey },
   });
+}
+
+async function notifyAdminsOfWebhookFailure(merchantId: number, url: string, attempts: number, qrCodeId: number | null): Promise<void> {
+  // Deduplication: at most one admin alert per merchant per hour window.
+  const now = new Date();
+  const windowHour = Math.floor(now.getUTCHours() / WEBHOOK_FAILURE_WINDOW_HOURS) * WEBHOOK_FAILURE_WINDOW_HOURS;
+  const hourBucket = `${now.toISOString().slice(0, 11)}${String(windowHour).padStart(2, "0")}`;
+  const dedupeKey = `admin_webhook_failure_${merchantId}_${hourBucket}`;
+
+  const admins = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.role, "admin"), eq(usersTable.isActive, true)));
+
+  if (admins.length === 0) return;
+
+  // Check dedup against any one admin (they all share the same dedupeKey pattern)
+  const [existing] = await db
+    .select({ id: notificationsTable.id })
+    .from(notificationsTable)
+    .where(and(
+      eq(notificationsTable.userId, admins[0]!.id),
+      eq(notificationsTable.type, "webhook_failure"),
+      sql`${notificationsTable.metadata}->>'dedupeKey' = ${dedupeKey}`,
+    ))
+    .limit(1);
+
+  if (existing) {
+    logger.info({ merchantId, dedupeKey }, "Admin webhook failure notification suppressed (duplicate within window)");
+    return;
+  }
+
+  const qrLabel = qrCodeId != null ? ` (QR Code #${qrCodeId})` : "";
+  await createBulkNotifications(
+    admins.map(admin => ({
+      userId: admin.id,
+      type: "webhook_failure" as const,
+      title: "Merchant Webhook Permanently Failed",
+      body: `Merchant #${merchantId} webhook to ${url} permanently failed after ${attempts} attempt${attempts !== 1 ? "s" : ""}${qrLabel}. Consider reaching out to the merchant.`,
+      metadata: { merchantId, qrCodeId, url, attempts, dedupeKey },
+    }))
+  );
 }
 
 const MAX_ATTEMPTS = 4; // 1 initial + 3 retries (default when no per-webhook config)
@@ -195,6 +237,9 @@ export async function processPendingRetries(): Promise<void> {
         if (!log.isTest) {
           await notifyWebhookFailure(log.merchantId, log.url, newAttempts, log.qrCodeId ?? null).catch((err) => {
             logger.error({ err, logId: log.id }, "Failed to send webhook failure notification");
+          });
+          await notifyAdminsOfWebhookFailure(log.merchantId, log.url, newAttempts, log.qrCodeId ?? null).catch((err) => {
+            logger.error({ err, logId: log.id }, "Failed to send admin webhook failure notification");
           });
         }
       } else {

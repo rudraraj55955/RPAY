@@ -18,7 +18,6 @@ export const callbackLogsTable = pgTable("callback_logs", {
   eventType: text("event_type"), // e.g. payment.received, payment.success, payment.failed, payment.pending
   signatureVerified: boolean("signature_verified"), // true = HMAC passed, false = HMAC failed, null = no secret configured
   isTest: boolean("is_test").notNull().default(false),
-  eventType: text("event_type"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

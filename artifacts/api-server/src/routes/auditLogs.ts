@@ -403,6 +403,8 @@ function serializeSchedule(s: typeof scheduledAuditReportsTable.$inferSelect) {
   return {
     ...s,
     lastSentAt: s.lastSentAt ? s.lastSentAt.toISOString() : null,
+    failureAcknowledgedAt: s.failureAcknowledgedAt ? s.failureAcknowledgedAt.toISOString() : null,
+    failureAcknowledgedByEmail: s.failureAcknowledgedByEmail ?? null,
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
     consecutiveFailures: s.consecutiveFailures,
@@ -642,8 +644,16 @@ router.patch("/schedules/:id", async (req, res) => {
   const id = parseInt(req.params['id'] as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { frequency, recipientEmail, isActive } = req.body;
-  const updates: Partial<{ frequency: string; recipientEmail: string; isActive: boolean; updatedAt: Date }> = {
+  const user = (req as any).user;
+  const { frequency, recipientEmail, isActive, acknowledgeFailure } = req.body;
+  const updates: Partial<{
+    frequency: string;
+    recipientEmail: string;
+    isActive: boolean;
+    failureAcknowledgedAt: Date | null;
+    failureAcknowledgedByEmail: string | null;
+    updatedAt: Date;
+  }> = {
     updatedAt: new Date(),
   };
 
@@ -656,6 +666,10 @@ router.patch("/schedules/:id", async (req, res) => {
   }
   if (recipientEmail !== undefined) updates.recipientEmail = (recipientEmail as string).trim();
   if (isActive !== undefined) updates.isActive = Boolean(isActive);
+  if (acknowledgeFailure === true) {
+    updates.failureAcknowledgedAt = new Date();
+    updates.failureAcknowledgedByEmail = user.email;
+  }
 
   const [updated] = await db
     .update(scheduledAuditReportsTable)

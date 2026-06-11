@@ -11,4 +11,6 @@ export interface AuditReportSchedulePatch {
   frequency?: AuditReportSchedulePatchFrequency;
   recipientEmail?: string;
   isActive?: boolean;
+  /** When true, sets failureAcknowledgedAt and failureAcknowledgedByEmail to mark the current failure as reviewed. */
+  acknowledgeFailure?: boolean;
 }

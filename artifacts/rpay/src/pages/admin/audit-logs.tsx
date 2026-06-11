@@ -1145,12 +1145,14 @@ function ScheduleRow({
   onToggle,
   onDelete,
   onSendNow,
+  onAcknowledge,
   sendingId,
 }: {
   s: any;
   onToggle: (id: number, isActive: boolean) => void;
   onDelete: (id: number) => void;
   onSendNow?: (id: number) => void;
+  onAcknowledge?: (id: number) => void;
   sendingId?: number | null;
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -1212,7 +1214,7 @@ function ScheduleRow({
                 </Tooltip>
               </TooltipProvider>
             )}
-            {s.lastSendStatus === "failed" && !s.retryInProgress && (
+            {s.lastSendStatus === "failed" && !s.retryInProgress && !s.failureAcknowledgedAt && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1223,6 +1225,39 @@ function ScheduleRow({
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-xs">
                     {s.lastErrorMessage ?? "Last delivery attempt failed"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {s.lastSendStatus === "failed" && !s.retryInProgress && !s.failureAcknowledgedAt && onAcknowledge && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => onAcknowledge(s.id)}
+                      className="inline-flex items-center gap-1 rounded-md border border-rose-500/20 bg-rose-500/5 px-2 py-0.5 text-xs font-medium text-rose-400/70 hover:bg-rose-500/15 hover:text-rose-300 hover:border-rose-500/40 transition-colors"
+                    >
+                      <CheckCircle2 className="w-2.5 h-2.5" />
+                      Dismiss
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    Mark this failure as reviewed and dismiss the alert
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {s.lastSendStatus === "failed" && !s.retryInProgress && s.failureAcknowledgedAt && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-muted/20 px-2 py-0.5 text-xs font-medium text-muted-foreground cursor-default">
+                      <CheckCircle2 className="w-2.5 h-2.5" />
+                      Dismissed
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    Acknowledged by {s.failureAcknowledgedByEmail}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -1401,6 +1436,11 @@ function ScheduledReportsPanel() {
     invalidate();
   }
 
+  async function handleAcknowledge(id: number) {
+    await updateSchedule.mutateAsync({ id, data: { acknowledgeFailure: true } });
+    invalidate();
+  }
+
   async function handleDelete(id: number) {
     setDeleting(true);
     try {
@@ -1479,6 +1519,7 @@ function ScheduledReportsPanel() {
                 onToggle={handleToggleActive}
                 onDelete={(id) => setConfirmDeleteId(id)}
                 onSendNow={handleSendNow}
+                onAcknowledge={handleAcknowledge}
                 sendingId={sendingId}
               />
             ))}

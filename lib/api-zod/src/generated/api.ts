@@ -3204,7 +3204,8 @@ export const UpdateAuditReportScheduleParams = zod.object({
 export const UpdateAuditReportScheduleBody = zod.object({
   "frequency": zod.enum(['daily', 'weekly', 'monthly']).optional(),
   "recipientEmail": zod.string().optional(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "acknowledgeFailure": zod.boolean().optional().describe('When true, sets failureAcknowledgedAt and failureAcknowledgedByEmail to mark the current failure as reviewed.')
 })
 
 export const UpdateAuditReportScheduleResponse = zod.object({

@@ -7123,6 +7123,9 @@ components:
           type: string
         isActive:
           type: boolean
+        acknowledgeFailure:
+          type: boolean
+          description: When true, sets failureAcknowledgedAt and failureAcknowledgedByEmail to mark the current failure as reviewed.
 
     AuditReportEmailPreview:
       type: object

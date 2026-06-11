@@ -258,7 +258,7 @@ export async function sendScheduledReport(
     if (shouldAutoPause) {
       await db
         .update(scheduledAuditReportsTable)
-        .set({ consecutiveFailures: newConsecutiveFailures, isActive: false, updatedAt: new Date() })
+        .set({ consecutiveFailures: newConsecutiveFailures, isActive: false, failureAcknowledgedAt: null, failureAcknowledgedByEmail: null, updatedAt: new Date() })
         .where(eq(scheduledAuditReportsTable.id, schedule.id));
       logger.warn(
         { scheduleId: schedule.id, consecutiveFailures: newConsecutiveFailures, autoPauseAfterFailures: schedule.autoPauseAfterFailures },
@@ -268,7 +268,7 @@ export async function sendScheduledReport(
     } else {
       await db
         .update(scheduledAuditReportsTable)
-        .set({ consecutiveFailures: newConsecutiveFailures, updatedAt: new Date() })
+        .set({ consecutiveFailures: newConsecutiveFailures, failureAcknowledgedAt: null, failureAcknowledgedByEmail: null, updatedAt: new Date() })
         .where(eq(scheduledAuditReportsTable.id, schedule.id));
     }
 

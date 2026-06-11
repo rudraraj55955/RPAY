@@ -62,6 +62,8 @@ async function apiPost(path: string, body: object) {
 export default function AdminProviders() {
   const qc = useQueryClient();
   const providerRateLimit = useRateLimit();
+  const broadcastRateLimit = useRateLimit();
+  const bulkVisRateLimit = useRateLimit();
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -87,7 +89,7 @@ export default function AdminProviders() {
       setBroadcastTarget("all");
       setBroadcastMerchantId("");
     },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to send broadcast")),
+    onError: (err: unknown) => { if (isRateLimitError(err)) broadcastRateLimit.trigger(); toast.error(getApiErrorMessage(err, "Failed to send broadcast")); },
   });
 
   // Create / Edit / Delete dialog
@@ -215,7 +217,7 @@ export default function AdminProviders() {
     if (selectedMerchants.size === 0) { toast.error("Select at least one merchant"); return; }
     bulkVisMut.mutate({ id: visDrawer.id, data: { merchantIds: Array.from(selectedMerchants), visible } }, {
       onSuccess: () => { refetchVis(); qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success(`Updated ${selectedMerchants.size} merchants`); setSelectedMerchants(new Set()); },
-      onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to update bulk visibility")),
+      onError: (e: unknown) => { if (isRateLimitError(e)) bulkVisRateLimit.trigger(); toast.error(getApiErrorMessage(e, "Failed to update bulk visibility")); },
     });
   }
 
@@ -565,6 +567,7 @@ export default function AdminProviders() {
               <p className="text-xs text-muted-foreground text-right">{broadcastBody.length}/500</p>
             </div>
           </div>
+          <RateLimitBanner secondsLeft={broadcastRateLimit.secondsLeft} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setBroadcastOpen(false)}>Cancel</Button>
             <Button
@@ -577,7 +580,8 @@ export default function AdminProviders() {
                 !broadcastTitle.trim() ||
                 !broadcastBody.trim() ||
                 (broadcastTarget === "merchant" && !broadcastMerchantId) ||
-                broadcastMut.isPending
+                broadcastMut.isPending ||
+                broadcastRateLimit.isRateLimited
               }
             >
               {broadcastMut.isPending ? "Sending…" : broadcastTarget === "merchant" ? "Send to Merchant" : "Send to All Merchants"}
@@ -620,10 +624,13 @@ export default function AdminProviders() {
 
                 {/* Bulk actions */}
                 {selectedMerchants.size > 0 && (
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                    <span className="text-xs text-muted-foreground flex-1">{selectedMerchants.size} merchant{selectedMerchants.size > 1 ? "s" : ""} selected</span>
-                    <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleBulkVisibility(true)} disabled={bulkVisMut.isPending}>Enable</Button>
-                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-rose-400 border-rose-500/30" onClick={() => handleBulkVisibility(false)} disabled={bulkVisMut.isPending}>Disable</Button>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                      <span className="text-xs text-muted-foreground flex-1">{selectedMerchants.size} merchant{selectedMerchants.size > 1 ? "s" : ""} selected</span>
+                      <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleBulkVisibility(true)} disabled={bulkVisMut.isPending || bulkVisRateLimit.isRateLimited}>Enable</Button>
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-rose-400 border-rose-500/30" onClick={() => handleBulkVisibility(false)} disabled={bulkVisMut.isPending || bulkVisRateLimit.isRateLimited}>Disable</Button>
+                    </div>
+                    <RateLimitBanner secondsLeft={bulkVisRateLimit.secondsLeft} />
                   </div>
                 )}
 

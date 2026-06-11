@@ -33,7 +33,7 @@ import {
   LogIn,
   Monitor,
 } from "lucide-react";
-import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO, startOfDay, endOfDay, isBefore, isAfter } from "date-fns";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -547,7 +547,6 @@ export default function MerchantSecurity() {
   function formatAction(action: string): string {
     return action.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   }
-
 
   return (
     <div className="space-y-6">

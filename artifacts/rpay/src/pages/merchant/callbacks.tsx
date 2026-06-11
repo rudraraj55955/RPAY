@@ -71,7 +71,7 @@ const SIG_WARN_TTL_MS = 24 * 60 * 60 * 1000;
 
 interface SigWarnDismissal {
   dismissedUntil: number;
-  snapshotNewestFailedAt: string | null;
+  dismissedAt: number;
 }
 
 function readSigWarnDismissal(): SigWarnDismissal | null {
@@ -84,21 +84,21 @@ function readSigWarnDismissal(): SigWarnDismissal | null {
   }
 }
 
-function isWithinDismissalWindow(dismissal: SigWarnDismissal, newestFailedAt: string | null): boolean {
+function isSigWarnStillDismissed(dismissal: SigWarnDismissal, recentLogs: any[]): boolean {
   if (Date.now() >= dismissal.dismissedUntil) return false;
-  if (newestFailedAt && dismissal.snapshotNewestFailedAt) {
-    if (new Date(newestFailedAt) > new Date(dismissal.snapshotNewestFailedAt)) {
-      return false;
-    }
-  }
+  const hasNewFailure = recentLogs.some(
+    l => l.signatureVerified === false && new Date(l.createdAt).getTime() > dismissal.dismissedAt
+  );
+  if (hasNewFailure) return false;
   return true;
 }
 
-function writeSigWarnDismissal(newestFailedAt: string | null) {
+function writeSigWarnDismissal() {
   try {
+    const now = Date.now();
     const dismissal: SigWarnDismissal = {
-      dismissedUntil: Date.now() + SIG_WARN_TTL_MS,
-      snapshotNewestFailedAt: newestFailedAt,
+      dismissedUntil: now + SIG_WARN_TTL_MS,
+      dismissedAt: now,
     };
     localStorage.setItem(SIG_WARN_KEY, JSON.stringify(dismissal));
   } catch {
@@ -135,14 +135,13 @@ export default function MerchantCallbacks() {
   const allRecentFailed =
     recentN.length >= SIG_WARN_THRESHOLD &&
     recentN.every(l => l.signatureVerified === false);
-  const newestFailedAt = allRecentFailed ? (recentN[0]?.createdAt ?? null) : null;
 
   const showSigWarning = (() => {
     if (!allRecentFailed) return false;
     if (!sigWarnDismissed) return true;
     const d = readSigWarnDismissal();
     if (!d) return true;
-    return !isWithinDismissalWindow(d, newestFailedAt);
+    return !isSigWarnStillDismissed(d, recentLogs);
   })();
 
   const applyQrFilter = () => {
@@ -198,7 +197,7 @@ export default function MerchantCallbacks() {
           <button
             type="button"
             aria-label="Dismiss warning"
-            onClick={() => { writeSigWarnDismissal(newestFailedAt); setSigWarnDismissed(true); }}
+            onClick={() => { writeSigWarnDismissal(); setSigWarnDismissed(true); }}
             className="shrink-0 text-amber-400/60 hover:text-amber-300 transition-colors"
           >
             <X className="w-4 h-4" />

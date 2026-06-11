@@ -13,6 +13,8 @@ export const qrCodesTable = pgTable("qr_codes", {
   callbackUrl: text("callback_url"),
   merchantReference: text("merchant_reference"),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
+  ekqrOrderId: text("ekqr_order_id"),       // EKQR order ID returned by create_order
+  ekqrPaymentUrl: text("ekqr_payment_url"), // EKQR hosted payment URL (for non-UPI clients)
   status: text("status").notNull().default("active"), // active | inactive | expired | used
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

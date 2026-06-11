@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable, signatureFailureAlertLogsTable, storageCleanupRunsTable, uploadedObjectsTable, merchantsTable } from "@workspace/db";
-import { inArray, desc, count, sql } from "drizzle-orm";
+import { ekqrCreateOrder, ekqrClientTxnId } from "../helpers/ekqr";
+import { inArray, desc, count, sql, eq } from "drizzle-orm";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { rescheduleFromDb, getNextRunTime } from "../helpers/reconScheduler";
@@ -842,6 +843,85 @@ router.post("/storage-cleanup/run", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// ── EKQR / UPI Gateway config ──────────────────────────────────────────────
+
+async function getEkqrConfig() {
+  const keys = [SYSTEM_CONFIG_KEYS.EKQR_API_KEY, SYSTEM_CONFIG_KEYS.EKQR_ENABLED];
+  const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
+  const map = new Map(rows.map((r) => [r.key, r.value]));
+  const rawKey = map.get(SYSTEM_CONFIG_KEYS.EKQR_API_KEY) ?? "";
+  return {
+    apiKeySet: rawKey.length > 0,
+    apiKeyMasked: rawKey.length > 0 ? `${rawKey.slice(0, 4)}${"*".repeat(Math.max(0, rawKey.length - 8))}${rawKey.slice(-4)}` : "",
+    enabled: (map.get(SYSTEM_CONFIG_KEYS.EKQR_ENABLED) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.EKQR_ENABLED]) === "true",
+  };
+}
+
+// GET /api/system-config/ekqr
+router.get("/ekqr", async (req, res, next) => {
+  try {
+    res.json(await getEkqrConfig());
+  } catch (err) { next(err); }
+});
+
+// PUT /api/system-config/ekqr
+router.put("/ekqr", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { apiKey, enabled } = req.body as { apiKey?: string; enabled?: boolean };
+
+    if (apiKey !== undefined) {
+      await db.insert(systemConfigTable)
+        .values({ key: SYSTEM_CONFIG_KEYS.EKQR_API_KEY, value: apiKey, updatedByEmail: user.email })
+        .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: apiKey, updatedByEmail: user.email } });
+    }
+
+    if (enabled !== undefined) {
+      const val = enabled ? "true" : "false";
+      await db.insert(systemConfigTable)
+        .values({ key: SYSTEM_CONFIG_KEYS.EKQR_ENABLED, value: val, updatedByEmail: user.email })
+        .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: val, updatedByEmail: user.email } });
+    }
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id, adminEmail: user.email,
+      action: "system_config_updated", targetType: "system_config", targetId: null,
+      details: JSON.stringify({ section: "ekqr", apiKeyUpdated: apiKey !== undefined, enabled }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ enabled, apiKeyUpdated: apiKey !== undefined }, "EKQR config updated");
+    res.json(await getEkqrConfig());
+  } catch (err) { next(err); }
+});
+
+// POST /api/system-config/ekqr/test
+// Places a test create_order call to verify the API key works.
+router.post("/ekqr/test", async (req, res, next) => {
+  try {
+    const [keyRow] = await db.select({ value: systemConfigTable.value })
+      .from(systemConfigTable).where(eq(systemConfigTable.key, SYSTEM_CONFIG_KEYS.EKQR_API_KEY)).limit(1);
+
+    const apiKey = keyRow?.value ?? "";
+    if (!apiKey) { res.status(400).json({ error: "EKQR API key is not configured" }); return; }
+
+    const testPayload = {
+      key: apiKey,
+      client_txn_id: ekqrClientTxnId(0) + "-test-" + Date.now(),
+      amount: "1.00",
+      p_info: "RasoKart Test",
+      customer_name: "Test User",
+      customer_email: "test@rasokart.com",
+      customer_mobile: "9999999999",
+      redirect_url: "https://rasokart.com",
+    };
+
+    const { raw, parsed } = await ekqrCreateOrder(testPayload);
+    req.log.info({ status: parsed.status, msg: parsed.msg }, "EKQR test connection result");
+    res.json({ ok: parsed.status === true, msg: parsed.msg, raw });
+  } catch (err) { next(err); }
 });
 
 export default router;

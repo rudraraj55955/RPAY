@@ -1,9 +1,11 @@
 import { Router, type Request } from "express";
-import { db, qrCodesTable, merchantsTable, merchantConnectionsTable, transactionsTable, qrPaymentEventsTable, auditLogsTable } from "@workspace/db";
+import { db, qrCodesTable, merchantsTable, merchantConnectionsTable, transactionsTable, qrPaymentEventsTable, auditLogsTable, systemConfigTable, SYSTEM_CONFIG_KEYS } from "@workspace/db";
 import { eq, and, ilike, count, sql, or, desc, gte, lte, inArray, type SQL } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { checkPlanLimit, rejectWithLimitError } from "../helpers/planLimits";
 import { makeRateLimiter } from "../helpers/makeRateLimiter";
+import { ekqrCreateOrder, ekqrCheckOrderStatus, ekqrClientTxnId, ekqrFormatDate } from "../helpers/ekqr";
+import { logger } from "../lib/logger";
 
 const qrCodeCreateLimiter = makeRateLimiter({
   windowMs: 60 * 1000,
@@ -325,12 +327,88 @@ router.post("/", qrCodeCreateLimiter, async (req, res) => {
   const limitCheck = await checkPlanLimit(merchantId, limitType, user.id);
   if (!limitCheck.allowed) { rejectWithLimitError(res, limitCheck.message!); return; }
 
-  // Fetch active connection to auto-generate UPI payload
-  const connections = await db.select()
-    .from(merchantConnectionsTable)
-    .where(and(eq(merchantConnectionsTable.merchantId, merchantId), eq(merchantConnectionsTable.isActive, true)))
-    .limit(10);
+  // Fetch active connections and merchant info in parallel
+  const [connections, [merchant]] = await Promise.all([
+    db.select()
+      .from(merchantConnectionsTable)
+      .where(and(eq(merchantConnectionsTable.merchantId, merchantId), eq(merchantConnectionsTable.isActive, true)))
+      .limit(10),
+    db.select({ businessName: merchantsTable.businessName })
+      .from(merchantsTable).where(eq(merchantsTable.id, merchantId)).limit(1),
+  ]);
 
+  // ── EKQR path: if merchant has an active EKQR connection and EKQR is globally enabled ──
+  const ekqrConn = connections.find(c => c.provider === "ekqr");
+  if (ekqrConn) {
+    // Check global EKQR enabled flag and API key
+    const ekqrRows = await db.select()
+      .from(systemConfigTable)
+      .where(inArray(systemConfigTable.key, [SYSTEM_CONFIG_KEYS.EKQR_ENABLED, SYSTEM_CONFIG_KEYS.EKQR_API_KEY]));
+    const ekqrMap = new Map(ekqrRows.map(r => [r.key, r.value]));
+    const ekqrEnabled = ekqrMap.get(SYSTEM_CONFIG_KEYS.EKQR_ENABLED) === "true";
+    const ekqrApiKey = ekqrMap.get(SYSTEM_CONFIG_KEYS.EKQR_API_KEY) ?? "";
+
+    if (ekqrEnabled && ekqrApiKey) {
+      // Insert QR row first to get the ID for client_txn_id
+      const clientTxnId = ekqrClientTxnId(Date.now()); // temp ID, will update after insert
+      const [row] = await db.insert(qrCodesTable).values({
+        merchantId, type, label: label ?? null,
+        payload: "", // placeholder — updated after EKQR responds
+        amount: amount ?? null,
+        orderId: orderId ?? null,
+        callbackUrl: callbackUrl ?? null,
+        merchantReference: merchantReference ?? null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+      }).returning();
+
+      const finalClientTxnId = ekqrClientTxnId(row.id);
+      const redirectUrl = `https://rasokart.com/merchant/qr-codes`;
+
+      try {
+        const { raw, parsed } = await ekqrCreateOrder({
+          key: ekqrApiKey,
+          client_txn_id: finalClientTxnId,
+          amount: amount ?? "1",
+          p_info: label ?? merchantReference ?? "QR Payment",
+          customer_name: merchant?.businessName ?? "Customer",
+          customer_email: "payments@rasokart.com",
+          customer_mobile: "9999999999",
+          redirect_url: redirectUrl,
+          udf1: String(row.id),
+          udf2: String(merchantId),
+        });
+
+        logger.info({ qrId: row.id, status: parsed.status, msg: parsed.msg }, "EKQR create_order result");
+
+        const paymentUrl = parsed.payment_url ?? "";
+        const upiPayload = paymentUrl || `ekqr://pay?txn=${finalClientTxnId}`;
+
+        await db.update(qrCodesTable).set({
+          payload: upiPayload,
+          ekqrOrderId: finalClientTxnId,
+          ekqrPaymentUrl: paymentUrl || null,
+        }).where(eq(qrCodesTable.id, row.id));
+
+        const updatedRow = { ...row, payload: upiPayload, ekqrOrderId: finalClientTxnId, ekqrPaymentUrl: paymentUrl || null };
+        await logQrAudit(req, "qr_code_created", row.id, { label: row.label ?? null, type: row.type, merchantId, provider: "ekqr", ekqrStatus: parsed.status });
+
+        res.status(201).json({
+          ...serializeQr(updatedRow as typeof row, merchant?.businessName ?? null),
+          provider: "ekqr",
+          ekqrPaymentUrl: paymentUrl || null,
+          ekqrRaw: raw,
+        });
+      } catch (err) {
+        // EKQR call failed — delete the placeholder row and return error
+        await db.delete(qrCodesTable).where(eq(qrCodesTable.id, row.id)).catch(() => {});
+        logger.error({ err, qrId: row.id }, "EKQR create_order failed");
+        res.status(502).json({ error: "EKQR gateway error. Please try again." });
+      }
+      return;
+    }
+  }
+
+  // ── Standard UPI path ────────────────────────────────────────────────────
   // Priority: upi_id first, then others
   const sorted = [...connections].sort(a => a.provider === "upi_id" ? -1 : 1);
   let vpa: string | null = null;
@@ -345,9 +423,6 @@ router.post("/", qrCodeCreateLimiter, async (req, res) => {
     return;
   }
 
-  // Get merchant business name for display
-  const [merchant] = await db.select({ businessName: merchantsTable.businessName })
-    .from(merchantsTable).where(eq(merchantsTable.id, merchantId)).limit(1);
   const displayName = deriveDisplayName(activeConn.provider, activeConn.credentials ?? null, merchant?.businessName ?? "Merchant");
 
   // Include amount in UPI payload for both static (fixed) and dynamic (pre-filled hint)
@@ -449,6 +524,43 @@ router.post("/bulk-delete", async (req, res) => {
     .returning({ id: qrCodesTable.id });
 
   res.json({ deleted: deleted.length });
+});
+
+// POST /api/qr-codes/:id/ekqr-sync
+// Admin or owning merchant: calls EKQR check_order_status and returns the result.
+router.post("/:id/ekqr-sync", async (req, res) => {
+  const user = (req as any).user;
+  const id = parseInt(req.params['id'] as string);
+
+  const conditions = [eq(qrCodesTable.id, id)];
+  if (user.role !== "admin") conditions.push(eq(qrCodesTable.merchantId, user.merchantId!));
+
+  const [qr] = await db.select().from(qrCodesTable).where(and(...conditions)).limit(1);
+  if (!qr) { res.status(404).json({ error: "QR code not found" }); return; }
+
+  if (!qr.ekqrOrderId) {
+    res.status(400).json({ error: "This QR code was not created via EKQR" });
+    return;
+  }
+
+  // Load EKQR API key
+  const [keyRow] = await db.select({ value: systemConfigTable.value })
+    .from(systemConfigTable).where(eq(systemConfigTable.key, SYSTEM_CONFIG_KEYS.EKQR_API_KEY)).limit(1);
+  const apiKey = keyRow?.value ?? "";
+  if (!apiKey) { res.status(400).json({ error: "EKQR API key is not configured" }); return; }
+
+  const txnDate = ekqrFormatDate(qr.createdAt instanceof Date ? qr.createdAt : new Date(qr.createdAt));
+
+  const { raw, parsed } = await ekqrCheckOrderStatus(apiKey, qr.ekqrOrderId, txnDate);
+
+  logger.info({ qrId: id, ekqrOrderId: qr.ekqrOrderId, status: parsed.data?.status }, "EKQR status sync");
+
+  // Auto-update QR status if EKQR confirms payment
+  if (parsed.status && parsed.data?.status?.toUpperCase() === "SUCCESS" && qr.status === "active") {
+    await db.update(qrCodesTable).set({ status: "used" }).where(eq(qrCodesTable.id, id));
+  }
+
+  res.json({ raw, parsed, qrStatus: qr.status });
 });
 
 export default router;

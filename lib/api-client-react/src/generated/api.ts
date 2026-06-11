@@ -73,6 +73,11 @@ import type {
   CredentialEventListResponse,
   DashboardStats,
   DeleteAccountDetail200,
+  EkqrConfig,
+  EkqrConfigInput,
+  EkqrPaymentWebhook200,
+  EkqrSyncResult,
+  EkqrTestResult,
   ErrorResponse,
   ExpiryCheckResult,
   ExportAdminAuditLogsCsvParams,
@@ -16175,4 +16180,362 @@ export function useGetGithubSyncStatus<TData = Awaited<ReturnType<typeof getGith
 
 
 
+
+export const getGetEkqrConfigUrl = () => {
+
+
+
+
+  return `/api/system-config/ekqr`
+}
+
+/**
+ * @summary Get EKQR gateway configuration
+ */
+export const getEkqrConfig = async ( options?: RequestInit): Promise<EkqrConfig> => {
+
+  return customFetch<EkqrConfig>(getGetEkqrConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEkqrConfigQueryKey = () => {
+    return [
+    `/api/system-config/ekqr`
+    ] as const;
+    }
+
+
+export const getGetEkqrConfigQueryOptions = <TData = Awaited<ReturnType<typeof getEkqrConfig>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEkqrConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEkqrConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEkqrConfig>>> = ({ signal }) => getEkqrConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEkqrConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEkqrConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getEkqrConfig>>>
+export type GetEkqrConfigQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get EKQR gateway configuration
+ */
+
+export function useGetEkqrConfig<TData = Awaited<ReturnType<typeof getEkqrConfig>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEkqrConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEkqrConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateEkqrConfigUrl = () => {
+
+
+
+
+  return `/api/system-config/ekqr`
+}
+
+/**
+ * @summary Update EKQR gateway configuration
+ */
+export const updateEkqrConfig = async (ekqrConfigInput: EkqrConfigInput, options?: RequestInit): Promise<EkqrConfig> => {
+
+  return customFetch<EkqrConfig>(getUpdateEkqrConfigUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      ekqrConfigInput,)
+  }
+);}
+
+
+
+
+export const getUpdateEkqrConfigMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEkqrConfig>>, TError,{data: BodyType<EkqrConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEkqrConfig>>, TError,{data: BodyType<EkqrConfigInput>}, TContext> => {
+
+const mutationKey = ['updateEkqrConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEkqrConfig>>, {data: BodyType<EkqrConfigInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateEkqrConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEkqrConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateEkqrConfig>>>
+    export type UpdateEkqrConfigMutationBody = BodyType<EkqrConfigInput>
+    export type UpdateEkqrConfigMutationError = ErrorType<void>
+
+    /**
+ * @summary Update EKQR gateway configuration
+ */
+export const useUpdateEkqrConfig = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEkqrConfig>>, TError,{data: BodyType<EkqrConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEkqrConfig>>,
+        TError,
+        {data: BodyType<EkqrConfigInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateEkqrConfigMutationOptions(options));
+    }
+
+export const getTestEkqrConnectionUrl = () => {
+
+
+
+
+  return `/api/system-config/ekqr/test`
+}
+
+/**
+ * @summary Test EKQR API key by placing a dummy create_order call
+ */
+export const testEkqrConnection = async ( options?: RequestInit): Promise<EkqrTestResult> => {
+
+  return customFetch<EkqrTestResult>(getTestEkqrConnectionUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getTestEkqrConnectionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testEkqrConnection>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testEkqrConnection>>, TError,void, TContext> => {
+
+const mutationKey = ['testEkqrConnection'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testEkqrConnection>>, void> = () => {
+
+
+          return  testEkqrConnection(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestEkqrConnectionMutationResult = NonNullable<Awaited<ReturnType<typeof testEkqrConnection>>>
+
+    export type TestEkqrConnectionMutationError = ErrorType<void>
+
+    /**
+ * @summary Test EKQR API key by placing a dummy create_order call
+ */
+export const useTestEkqrConnection = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testEkqrConnection>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testEkqrConnection>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getTestEkqrConnectionMutationOptions(options));
+    }
+
+export const getSyncEkqrQrStatusUrl = (id: number,) => {
+
+
+
+
+  return `/api/qr-codes/${id}/ekqr-sync`
+}
+
+/**
+ * @summary Sync EKQR payment status for a QR code
+ */
+export const syncEkqrQrStatus = async (id: number, options?: RequestInit): Promise<EkqrSyncResult> => {
+
+  return customFetch<EkqrSyncResult>(getSyncEkqrQrStatusUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSyncEkqrQrStatusMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncEkqrQrStatus>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncEkqrQrStatus>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['syncEkqrQrStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncEkqrQrStatus>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  syncEkqrQrStatus(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncEkqrQrStatusMutationResult = NonNullable<Awaited<ReturnType<typeof syncEkqrQrStatus>>>
+
+    export type SyncEkqrQrStatusMutationError = ErrorType<void>
+
+    /**
+ * @summary Sync EKQR payment status for a QR code
+ */
+export const useSyncEkqrQrStatus = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncEkqrQrStatus>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncEkqrQrStatus>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getSyncEkqrQrStatusMutationOptions(options));
+    }
+
+export const getEkqrPaymentWebhookUrl = () => {
+
+
+
+
+  return `/api/payment/webhook`
+}
+
+/**
+ * @summary EKQR inbound payment webhook — called by EKQR on payment confirmation
+ */
+export const ekqrPaymentWebhook = async ( options?: RequestInit): Promise<EkqrPaymentWebhook200> => {
+
+  return customFetch<EkqrPaymentWebhook200>(getEkqrPaymentWebhookUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getEkqrPaymentWebhookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof ekqrPaymentWebhook>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof ekqrPaymentWebhook>>, TError,void, TContext> => {
+
+const mutationKey = ['ekqrPaymentWebhook'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof ekqrPaymentWebhook>>, void> = () => {
+
+
+          return  ekqrPaymentWebhook(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EkqrPaymentWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof ekqrPaymentWebhook>>>
+
+    export type EkqrPaymentWebhookMutationError = ErrorType<unknown>
+
+    /**
+ * @summary EKQR inbound payment webhook — called by EKQR on payment confirmation
+ */
+export const useEkqrPaymentWebhook = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof ekqrPaymentWebhook>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof ekqrPaymentWebhook>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getEkqrPaymentWebhookMutationOptions(options));
+    }
 

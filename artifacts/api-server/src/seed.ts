@@ -560,12 +560,19 @@ export async function seed() {
       { name: "Razorpay",             slug: "razorpay",        category: "gateway", status: "live",        description: "Razorpay full-stack payment gateway (cards, UPI, wallets)", sortOrder: 14 },
       { name: "Cashfree Payments",    slug: "cashfree",        category: "gateway", status: "live",        description: "Cashfree multi-mode payment gateway",                        sortOrder: 15 },
       { name: "PayU",                 slug: "payu",            category: "gateway", status: "live",        description: "PayU merchant payment gateway",                              sortOrder: 16 },
+      { name: "EKQR / UPI Gateway",   slug: "ekqr",            category: "gateway", status: "live",        description: "EKQR UPI payment gateway — dynamic QR & auto-credit deposits", sortOrder: 17 },
     ];
     for (const p of PROVIDERS) {
       await db.insert(providersTable).values(p).onConflictDoUpdate({ target: providersTable.slug, set: { name: p.name, status: p.status, sortOrder: p.sortOrder } });
     }
     console.log("Providers seeded");
   }
+
+  // ── Idempotent upsert for EKQR (ensures it exists even on already-seeded DBs) ─
+  await db.insert(providersTable).values({
+    name: "EKQR / UPI Gateway", slug: "ekqr", category: "gateway", status: "live",
+    description: "EKQR UPI payment gateway — dynamic QR & auto-credit deposits", sortOrder: 17,
+  }).onConflictDoUpdate({ target: providersTable.slug, set: { name: "EKQR / UPI Gateway", status: "live", sortOrder: 17 } });
 
   // ── Merchant Connections (demo data) ──────────────────────────────────────
   const [connSeedMerchant] = await db.select({ id: merchantsTable.id }).from(merchantsTable).where(eq(merchantsTable.email, "merchant2@demo.com")).limit(1);

@@ -4832,3 +4832,60 @@ export const GetGithubSyncStatusResponse = zod.object({
 })
 
 
+/**
+ * @summary Get EKQR gateway configuration
+ */
+export const GetEkqrConfigResponse = zod.object({
+  "apiKeySet": zod.boolean().describe('Whether an EKQR API key has been configured'),
+  "apiKeyMasked": zod.string().describe('Masked version of the API key (first 4 + last 4 chars visible)'),
+  "enabled": zod.boolean().describe('Whether EKQR gateway is enabled')
+})
+
+
+/**
+ * @summary Update EKQR gateway configuration
+ */
+export const UpdateEkqrConfigBody = zod.object({
+  "apiKey": zod.string().optional().describe('EKQR API key (omit to leave unchanged)'),
+  "enabled": zod.boolean().optional().describe('Whether to enable\/disable EKQR gateway')
+})
+
+export const UpdateEkqrConfigResponse = zod.object({
+  "apiKeySet": zod.boolean().describe('Whether an EKQR API key has been configured'),
+  "apiKeyMasked": zod.string().describe('Masked version of the API key (first 4 + last 4 chars visible)'),
+  "enabled": zod.boolean().describe('Whether EKQR gateway is enabled')
+})
+
+
+/**
+ * @summary Test EKQR API key by placing a dummy create_order call
+ */
+export const TestEkqrConnectionResponse = zod.object({
+  "ok": zod.boolean().describe('Whether the EKQR API key is valid'),
+  "msg": zod.string().describe('EKQR API response message'),
+  "raw": zod.string().optional().describe('Raw EKQR API response body')
+})
+
+
+/**
+ * @summary Sync EKQR payment status for a QR code
+ */
+export const SyncEkqrQrStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SyncEkqrQrStatusResponse = zod.object({
+  "raw": zod.string().describe('Raw EKQR check_order_status response'),
+  "parsed": zod.record(zod.string(), zod.unknown()).optional().describe('Parsed EKQR response object'),
+  "qrStatus": zod.string().describe('Current QR code status in RasoKart')
+})
+
+
+/**
+ * @summary EKQR inbound payment webhook — called by EKQR on payment confirmation
+ */
+export const EkqrPaymentWebhookResponse = zod.object({
+  "success": zod.boolean().optional()
+})
+
+

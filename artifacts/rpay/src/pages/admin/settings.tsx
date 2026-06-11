@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff, History, XCircle, HardDrive, RotateCcw, ShieldAlert, KeyRound, RefreshCw, Wrench, GitBranch } from "lucide-react";
+import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff, History, XCircle, HardDrive, RotateCcw, ShieldAlert, KeyRound, RefreshCw, Wrench, GitBranch, Zap, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetCleanupStats, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetCleanupStats, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, getGetEkqrConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -220,6 +220,12 @@ export default function AdminSettings() {
   const [githubSyncEnabled, setGithubSyncEnabled] = useState<boolean>(true);
   const [githubSyncSchedule, setGithubSyncSchedule] = useState<string>("0 2 * * *");
   const [githubSyncInitialized, setGithubSyncInitialized] = useState(false);
+
+  const [ekqrApiKey, setEkqrApiKey] = useState("");
+  const [ekqrEnabled, setEkqrEnabled] = useState(false);
+  const [ekqrInitialized, setEkqrInitialized] = useState(false);
+  const [showEkqrKey, setShowEkqrKey] = useState(false);
+  const [ekqrTestResult, setEkqrTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // SMTP config form state
   const [smtpHost, setSmtpHost] = useState("");
@@ -685,6 +691,43 @@ export default function AdminSettings() {
         setGithubSyncEnabled(updated.enabled);
         setGithubSyncSchedule(updated.schedule);
         setGithubSyncInitialized(true);
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
+
+  const { data: ekqrConfig, isLoading: ekqrLoading } = useGetEkqrConfig({
+    query: {
+      onSuccess: (d: { apiKeySet: boolean; apiKeyMasked: string; enabled: boolean }) => {
+        if (!ekqrInitialized) {
+          setEkqrEnabled(d.enabled);
+          setEkqrInitialized(true);
+        }
+      },
+    },
+  } as any);
+
+  const currentEkqrEnabled = ekqrConfig?.enabled ?? false;
+  const ekqrUnchanged = ekqrApiKey === "" && ekqrEnabled === currentEkqrEnabled;
+
+  const { mutate: saveEkqrConfig, isPending: savingEkqr } = useUpdateEkqrConfig({
+    mutation: {
+      onSuccess: () => {
+        toast.success("EKQR settings saved");
+        setEkqrApiKey("");
+        setEkqrInitialized(false);
+        qc.invalidateQueries({ queryKey: getGetEkqrConfigQueryKey() });
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
+
+  const { mutate: testEkqr, isPending: testingEkqr } = useTestEkqrConnection({
+    mutation: {
+      onSuccess: (d: { ok: boolean; msg: string }) => {
+        setEkqrTestResult(d);
+        if (d.ok) toast.success("EKQR connection successful");
+        else toast.error(`EKQR test failed: ${d.msg}`);
       },
       onError: (err: Error) => toast.error(err.message),
     },
@@ -2184,6 +2227,109 @@ export default function AdminSettings() {
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── EKQR / UPI Gateway ──────────────────────────────────────── */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Zap className="w-4 h-4 text-yellow-400" />
+            EKQR / UPI Gateway
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Configure the EKQR payment gateway for dynamic QR code generation and auto-credit deposits.
+            Webhook URL: <code className="bg-muted px-1 rounded text-[11px]">https://rasokart.com/api/payment/webhook</code>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Enable/Disable toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Enable EKQR Gateway</p>
+              <p className="text-xs text-muted-foreground">
+                When enabled, merchants with an EKQR connection will use this gateway for QR payments
+              </p>
+            </div>
+            <Switch
+              checked={ekqrEnabled}
+              onCheckedChange={setEkqrEnabled}
+              disabled={ekqrLoading}
+            />
+          </div>
+
+          {/* API Key input */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">API Key</Label>
+            {ekqrConfig?.apiKeySet && ekqrApiKey === "" && (
+              <p className="text-xs text-muted-foreground mb-1">
+                Current key: <span className="font-mono">{ekqrConfig.apiKeyMasked || "••••••••"}</span>
+                {" — "}Enter a new key below to replace it
+              </p>
+            )}
+            <div className="relative">
+              <Input
+                type={showEkqrKey ? "text" : "password"}
+                placeholder={ekqrConfig?.apiKeySet ? "Enter new API key to replace…" : "Enter EKQR API key"}
+                value={ekqrApiKey}
+                onChange={e => setEkqrApiKey(e.target.value)}
+                className="h-8 text-xs pr-9 font-mono"
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowEkqrKey(v => !v)}
+              >
+                {showEkqrKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Test result banner */}
+          {ekqrTestResult && (
+            <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-md ${ekqrTestResult.ok ? "bg-green-500/10 text-green-400" : "bg-destructive/10 text-destructive"}`}>
+              {ekqrTestResult.ok
+                ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+              {ekqrTestResult.ok ? "Connection successful" : ekqrTestResult.msg}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              onClick={() => saveEkqrConfig({ data: { ...(ekqrApiKey ? { apiKey: ekqrApiKey } : {}), enabled: ekqrEnabled } })}
+              disabled={savingEkqr || ekqrLoading || ekqrUnchanged}
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              {savingEkqr ? "Saving…" : "Save"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { setEkqrTestResult(null); testEkqr(); }}
+              disabled={testingEkqr || ekqrLoading || !ekqrConfig?.apiKeySet}
+            >
+              <FlaskConical className="w-3.5 h-3.5 mr-1.5" />
+              {testingEkqr ? "Testing…" : "Test Connection"}
+            </Button>
+            {!ekqrUnchanged && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setEkqrApiKey(""); setEkqrEnabled(currentEkqrEnabled); setEkqrTestResult(null); }}
+                disabled={savingEkqr}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Assign EKQR to merchants via{" "}
+            <a href="/admin/providers" className="underline underline-offset-2">Payment Providers → Provider Visibility</a>.
+          </p>
         </CardContent>
       </Card>
 

@@ -2680,6 +2680,45 @@ export interface UploadUrlResponse {
   metadata?: UploadUrlRequest;
 }
 
+export interface EkqrConfig {
+  /** Whether an EKQR API key has been configured */
+  apiKeySet: boolean;
+  /** Masked version of the API key (first 4 + last 4 chars visible) */
+  apiKeyMasked: string;
+  /** Whether EKQR gateway is enabled */
+  enabled: boolean;
+}
+
+export interface EkqrConfigInput {
+  /** EKQR API key (omit to leave unchanged) */
+  apiKey?: string;
+  /** Whether to enable/disable EKQR gateway */
+  enabled?: boolean;
+}
+
+export interface EkqrTestResult {
+  /** Whether the EKQR API key is valid */
+  ok: boolean;
+  /** EKQR API response message */
+  msg: string;
+  /** Raw EKQR API response body */
+  raw?: string;
+}
+
+/**
+ * Parsed EKQR response object
+ */
+export type EkqrSyncResultParsed = { [key: string]: unknown };
+
+export interface EkqrSyncResult {
+  /** Raw EKQR check_order_status response */
+  raw: string;
+  /** Parsed EKQR response object */
+  parsed?: EkqrSyncResultParsed;
+  /** Current QR code status in RasoKart */
+  qrStatus: string;
+}
+
 export type UpdateMyPreferencesBody = {
   reconciliationAlertEmails?: boolean;
   planExpiryAlertEmails?: boolean;
@@ -3368,5 +3407,9 @@ export type UpdateGithubSyncConfigBody = {
   enabled?: boolean;
   /** Cron expression for the sync schedule (e.g. "0 2 * * *") */
   schedule?: string;
+};
+
+export type EkqrPaymentWebhook200 = {
+  success?: boolean;
 };
 

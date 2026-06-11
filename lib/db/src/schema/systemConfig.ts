@@ -32,6 +32,8 @@ export const SYSTEM_CONFIG_KEYS = {
   AUDIT_REPORT_CLEANUP_LAST_RUN_DELETED: "audit_report_cleanup_last_run_deleted",
   VA_CLEANUP_LAST_RUN_AT: "va_cleanup_last_run_at",
   VA_CLEANUP_LAST_DELETED: "va_cleanup_last_deleted",
+  EKQR_API_KEY: "ekqr_api_key",
+  EKQR_ENABLED: "ekqr_enabled",
 } as const;
 
 export const SYSTEM_CONFIG_DEFAULTS = {
@@ -48,4 +50,5 @@ export const SYSTEM_CONFIG_DEFAULTS = {
   [SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3]: "3600",
   [SYSTEM_CONFIG_KEYS.TEST_EMAIL_HISTORY_RETENTION_DAYS]: "30",
   [SYSTEM_CONFIG_KEYS.AUDIT_REPORT_LOG_RETENTION_DAYS]: "90",
+  [SYSTEM_CONFIG_KEYS.EKQR_ENABLED]: "false",
 } as const;

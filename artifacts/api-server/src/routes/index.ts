@@ -31,6 +31,7 @@ import storageRouter from "./storage";
 import savedFiltersRouter from "./savedFilters";
 import githubSyncRouter from "./githubSync";
 import securityRouter from "./security";
+import paymentWebhookRouter from "./paymentWebhook";
 
 const router: IRouter = Router();
 
@@ -66,5 +67,6 @@ router.use(storageRouter);
 router.use("/saved-filters", savedFiltersRouter);
 router.use("/github-sync", githubSyncRouter);
 router.use("/security", securityRouter);
+router.use("/payment", paymentWebhookRouter);
 
 export default router;

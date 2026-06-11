@@ -15,6 +15,16 @@ const qrCodeCreateLimiter = rateLimit({
   message: { error: "Too many QR code creation requests. Please slow down and try again shortly." },
 });
 
+const qrCodeUpdateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  validate: { ip: false },
+  keyGenerator: (req: Request) => String((req as Request & { user?: { merchantId?: number | null; id: number } }).user?.merchantId ?? req.ip),
+  message: { error: "Too many QR code update requests. Please slow down and try again in a few minutes." },
+});
+
 async function logQrAudit(req: any, action: string, targetId: number | null, details: object) {
   await db.insert(auditLogsTable).values({
     adminId: req.user.id,
@@ -368,7 +378,7 @@ router.post("/", qrCodeCreateLimiter, async (req, res) => {
 });
 
 // PUT /api/qr-codes/:id
-router.put("/:id", async (req, res) => {
+router.put("/:id", qrCodeUpdateLimiter, async (req, res) => {
   const user = (req as any).user;
   const id = parseInt(req.params['id'] as string);
   const { label, status, callbackUrl, merchantReference } = req.body;

@@ -6,7 +6,6 @@ import {
   useGetVirtualAccountTransactions,
   useGetVirtualAccountBalanceHistory,
   useListVaBalanceAudit,
-  useBackfillVaBalanceHistory,
   useRunVaCleanup,
 } from "@workspace/api-client-react";
 import {
@@ -287,7 +286,6 @@ export default function AdminVirtualAccounts() {
 
   const updateMutation = useUpdateVirtualAccount();
   const deleteMutation = useDeleteVirtualAccount();
-  const backfillMutation = useBackfillVaBalanceHistory();
   const cleanupMutation = useRunVaCleanup();
 
   const handleRunCleanup = () => {
@@ -740,28 +738,6 @@ export default function AdminVirtualAccounts() {
                       <X className="w-3.5 h-3.5 mr-1.5" />Clear filters
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={backfillMutation.isPending}
-                    onClick={() => {
-                      backfillMutation.mutate(undefined, {
-                        onSuccess: (result) => {
-                          if (result.rowsUpdated === 0) {
-                            toast.info("No rows needed backfilling");
-                          } else {
-                            toast.success(`Backfilled ${result.rowsUpdated} history row${result.rowsUpdated !== 1 ? "s" : ""} across ${result.vasProcessed} virtual account${result.vasProcessed !== 1 ? "s" : ""}`);
-                          }
-                          qc.invalidateQueries({ queryKey: ["/api/virtual-accounts"] });
-                        },
-                        onError: () => toast.error("Backfill failed"),
-                      });
-                    }}
-                    className="text-muted-foreground whitespace-nowrap"
-                  >
-                    <History className="w-3.5 h-3.5 mr-1.5" />
-                    {backfillMutation.isPending ? "Backfilling…" : "Backfill History"}
-                  </Button>
                 </div>
               </div>
             </CardHeader>

@@ -47,7 +47,6 @@ export * from './auditReportScheduleLogWithScheduleListResponse';
 export * from './auditReportSchedulePatch';
 export * from './auditReportSchedulePatchFrequency';
 export * from './authResponse';
-export * from './backfillVaBalanceHistory200';
 export * from './broadcastNotificationInput';
 export * from './broadcastNotificationResult';
 export * from './bulkAssignPlanInput';

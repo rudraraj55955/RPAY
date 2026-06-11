@@ -2754,25 +2754,6 @@ paths:
                     type: integer
                     description: Number of closed VAs with zero balance/collection that were deleted
 
-  /virtual-accounts/backfill:
-    post:
-      operationId: backfillVaBalanceHistory
-      tags: [virtual-accounts]
-      summary: Backfill null balance/totalCollection fields on existing VA history rows (admin only)
-      responses:
-        "200":
-          description: Backfill result
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [rowsUpdated, vasProcessed]
-                properties:
-                  rowsUpdated:
-                    type: integer
-                  vasProcessed:
-                    type: integer
-
   /virtual-accounts/balance-history/export:
     get:
       operationId: exportMerchantBalanceHistory

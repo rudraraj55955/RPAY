@@ -2770,15 +2770,6 @@ export const RunVaCleanupResponse = zod.object({
 
 
 /**
- * @summary Backfill null balance/totalCollection fields on existing VA history rows (admin only)
- */
-export const BackfillVaBalanceHistoryResponse = zod.object({
-  "rowsUpdated": zod.number(),
-  "vasProcessed": zod.number()
-})
-
-
-/**
  * @summary Export balance change history for all VAs of a merchant as CSV (admin only)
  */
 export const ExportMerchantBalanceHistoryQueryParams = zod.object({

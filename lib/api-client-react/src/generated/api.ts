@@ -46,7 +46,6 @@ import type {
   AuditReportScheduleLogWithScheduleListResponse,
   AuditReportSchedulePatch,
   AuthResponse,
-  BackfillVaBalanceHistory200,
   BroadcastNotificationInput,
   BroadcastNotificationResult,
   BulkAssignPlanInput,
@@ -8624,76 +8623,6 @@ export const useRunVaCleanup = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRunVaCleanupMutationOptions(options));
-    }
-
-export const getBackfillVaBalanceHistoryUrl = () => {
-
-
-
-
-  return `/api/virtual-accounts/backfill`
-}
-
-/**
- * @summary Backfill null balance/totalCollection fields on existing VA history rows (admin only)
- */
-export const backfillVaBalanceHistory = async ( options?: RequestInit): Promise<BackfillVaBalanceHistory200> => {
-
-  return customFetch<BackfillVaBalanceHistory200>(getBackfillVaBalanceHistoryUrl(),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-export const getBackfillVaBalanceHistoryMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof backfillVaBalanceHistory>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof backfillVaBalanceHistory>>, TError,void, TContext> => {
-
-const mutationKey = ['backfillVaBalanceHistory'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof backfillVaBalanceHistory>>, void> = () => {
-
-
-          return  backfillVaBalanceHistory(requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type BackfillVaBalanceHistoryMutationResult = NonNullable<Awaited<ReturnType<typeof backfillVaBalanceHistory>>>
-
-    export type BackfillVaBalanceHistoryMutationError = ErrorType<unknown>
-
-    /**
- * @summary Backfill null balance/totalCollection fields on existing VA history rows (admin only)
- */
-export const useBackfillVaBalanceHistory = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof backfillVaBalanceHistory>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof backfillVaBalanceHistory>>,
-        TError,
-        void,
-        TContext
-      > => {
-      return useMutation(getBackfillVaBalanceHistoryMutationOptions(options));
     }
 
 export const getExportMerchantBalanceHistoryUrl = (params: ExportMerchantBalanceHistoryParams,) => {

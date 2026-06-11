@@ -2820,11 +2820,6 @@ export type RunVaCleanup200 = {
   deleted: number;
 };
 
-export type BackfillVaBalanceHistory200 = {
-  rowsUpdated: number;
-  vasProcessed: number;
-};
-
 export type ExportMerchantBalanceHistoryParams = {
 merchantId: number;
 };

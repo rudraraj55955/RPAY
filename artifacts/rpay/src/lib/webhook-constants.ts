@@ -1,0 +1,2 @@
+export const SECRET_ROTATION_OVERDUE_DAYS = 90;
+export const SECRET_WARN_DAYS = 75;

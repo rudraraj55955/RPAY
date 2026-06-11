@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, getGetWebhookLogsQueryKey, useSendWebhookTest, useRetryWebhookLog, WebhookTestRequestEventType } from "@workspace/api-client-react";
+import { SECRET_WARN_DAYS, SECRET_ROTATION_OVERDUE_DAYS } from "@/lib/webhook-constants";
 import type { CallbackLog } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -676,8 +677,9 @@ export default function MerchantWebhook() {
             const ageInDays = secretStatus?.isSet && secretStatus.lastRotatedAt != null
               ? differenceInDays(new Date(), new Date(secretStatus.lastRotatedAt))
               : null;
-            const daysLeft = ageInDays != null ? Math.max(0, 90 - ageInDays) : null;
-            const isOverdue = ageInDays != null && ageInDays >= 90;
+            const daysLeft = ageInDays != null ? Math.max(0, SECRET_ROTATION_OVERDUE_DAYS - ageInDays) : null;
+            const isOverdue = ageInDays != null && ageInDays >= SECRET_ROTATION_OVERDUE_DAYS;
+            const isWarningSoon = ageInDays != null && ageInDays >= SECRET_WARN_DAYS && !isOverdue;
             return (
               <div className="space-y-2">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/50">
@@ -695,8 +697,8 @@ export default function MerchantWebhook() {
                           <span className="text-muted-foreground/50">
                             ({formatDistanceToNow(new Date(secretStatus.lastRotatedAt), { addSuffix: true })})
                           </span>
-                          {daysLeft != null && !isOverdue && (
-                            <span className={`ml-2 font-medium ${daysLeft <= 14 ? "text-amber-400/90" : "text-muted-foreground/60"}`}>
+                          {daysLeft != null && !isOverdue && !isWarningSoon && (
+                            <span className="ml-2 font-medium text-muted-foreground/60">
                               · Rotation due in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
                             </span>
                           )}
@@ -720,6 +722,27 @@ export default function MerchantWebhook() {
                     </Button>
                   </div>
                 </div>
+                {isWarningSoon && daysLeft != null && (
+                  <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-medium">Rotation due in {daysLeft} day{daysLeft !== 1 ? "s" : ""} — </span>
+                      <span className="text-xs text-amber-400/80">
+                        Rotate your callback secret soon to keep your integration secure.
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRotateSecret}
+                      disabled={rotateMutation.isPending}
+                      className="shrink-0 gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/60 hover:text-amber-300 h-7 px-2.5 text-xs"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Rotate now
+                    </Button>
+                  </div>
+                )}
                 {isOverdue && ageInDays != null && (
                   <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
                     <AlertTriangle className="w-4 h-4 shrink-0" />

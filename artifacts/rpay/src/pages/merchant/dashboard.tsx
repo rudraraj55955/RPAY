@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { useGetDashboardStats, useGetDashboardChart, useGetMe, useGetMyPlan, useGetMyPlanUsage, useListMerchantConnections, useUpdateMerchantConnection, getListMerchantConnectionsQueryKey, listPaymentLinks, ListPaymentLinksStatus, type PaymentLink } from "@workspace/api-client-react";
+import { useGetDashboardStats, useGetDashboardChart, useGetMe, useGetMyPlan, useGetMyPlanUsage, useListMerchantConnections, useUpdateMerchantConnection, getListMerchantConnectionsQueryKey, listPaymentLinks, ListPaymentLinksStatus, type PaymentLink, useGetCallbackSecret } from "@workspace/api-client-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { TrendingUp, ArrowDownLeft, QrCode, Building2, CreditCard, Infinity, AlertTriangle, ChevronRight, Lock, Plug, Link2, Hash } from "lucide-react";
+import { TrendingUp, ArrowDownLeft, QrCode, Building2, CreditCard, Infinity, AlertTriangle, ChevronRight, Lock, Plug, Link2, Hash, ShieldAlert } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { Link } from "wouter";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import { SECRET_WARN_DAYS, SECRET_ROTATION_OVERDUE_DAYS } from "@/lib/webhook-constants";
 
 interface UsageRowProps { label: string; used: number; limit: number; }
 
@@ -121,6 +122,7 @@ export default function MerchantDashboard() {
   const { data: chartData, isLoading: chartLoading } = useGetDashboardChart();
   const { data: myPlan } = useGetMyPlan();
   const { data: usage } = useGetMyPlanUsage();
+  const { data: secretStatus } = useGetCallbackSecret();
   const { data: connectionsRaw, isLoading: connectionsLoading } = useListMerchantConnections();
   const { data: allPaymentLinks, isLoading: paymentLinksLoading } = useQuery<PaymentLink[]>({
     queryKey: ["payment-links-all-for-dashboard"],
@@ -155,6 +157,13 @@ export default function MerchantDashboard() {
   });
 
   const isExpiringSoon = myPlan && !myPlan.isExpired && myPlan.daysUntilExpiry != null && myPlan.daysUntilExpiry <= 7;
+
+  const secretAgeInDays = secretStatus?.isSet && secretStatus.lastRotatedAt != null
+    ? differenceInDays(new Date(), new Date(secretStatus.lastRotatedAt))
+    : null;
+  const secretDaysLeft = secretAgeInDays != null ? Math.max(0, SECRET_ROTATION_OVERDUE_DAYS - secretAgeInDays) : null;
+  const isSecretOverdue = secretAgeInDays != null && secretAgeInDays >= SECRET_ROTATION_OVERDUE_DAYS;
+  const isSecretWarningSoon = secretAgeInDays != null && secretAgeInDays >= SECRET_WARN_DAYS && !isSecretOverdue;
 
   const allLinks = allPaymentLinks ?? [];
   const activeLinks = allLinks.filter(l => l.status === ListPaymentLinksStatus.active);
@@ -236,6 +245,30 @@ export default function MerchantDashboard() {
             </div>
             <Link href="/merchant/plan">
               <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 shrink-0">View Plan</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {(isSecretWarningSoon || isSecretOverdue) && secretDaysLeft != null && (
+        <Card className="border-amber-500/40 bg-amber-950/20">
+          <CardContent className="py-4 flex items-center gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
+            <div className="flex-1">
+              {isSecretOverdue ? (
+                <>
+                  <p className="text-sm text-amber-400 font-medium">Callback Secret Rotation Overdue</p>
+                  <p className="text-xs text-amber-400/70">Your callback signing secret is {secretAgeInDays} days old. Rotate it now to keep your integration secure.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-amber-400 font-medium">Callback Secret Rotation Due in {secretDaysLeft} Day{secretDaysLeft !== 1 ? "s" : ""}</p>
+                  <p className="text-xs text-amber-400/70">Rotate your callback signing secret soon to keep your integration secure.</p>
+                </>
+              )}
+            </div>
+            <Link href="/merchant/webhook">
+              <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 shrink-0">Rotate Secret</Button>
             </Link>
           </CardContent>
         </Card>

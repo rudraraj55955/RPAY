@@ -895,6 +895,18 @@ export async function seed() {
   `);
   console.log("Connection ID backfill complete.");
 
+  // Backfill actionedBy from processedBy for approved/rejected settlements that
+  // pre-date the actionedBy column. Idempotent: WHERE clause limits to rows
+  // where actioned_by IS NULL AND processed_by IS NOT NULL.
+  await db.execute(sql`
+    UPDATE settlements
+    SET actioned_by = processed_by
+    WHERE status IN ('approved', 'rejected')
+      AND actioned_by IS NULL
+      AND processed_by IS NOT NULL
+  `);
+  console.log("Settlement actionedBy backfill complete.");
+
   console.log("Seed complete.");
 }
 

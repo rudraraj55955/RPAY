@@ -845,6 +845,20 @@ export default function MerchantTransactions() {
   const hasSmartProviderFilter = smartFilter != null && !!smartFilter.txProvider;
   const anyFilterActive = hasSmartFilter || hasUtrSearch || hasTypeFilter || hasStatusFilter || hasProviderFilter || hasDateFilter || hasSmartProviderFilter;
 
+  const clearAllFilters = () => {
+    setType("all");
+    setStatus("all");
+    setProvider("all");
+    setDateFrom("");
+    setDateTo("");
+    setSmartFilter(null);
+    setSmartInput("");
+    setSmartError("");
+    setUtrSearch("");
+    setUtrInput("");
+    setPage(1);
+  };
+
   // Check if the current active smart filter is already saved
   const isCurrentFilterSaved = hasSmartFilter && savedFilters.some(
     f => f.rawInput === smartInput && JSON.stringify(f.filter) === JSON.stringify(smartFilter)
@@ -1085,6 +1099,15 @@ export default function MerchantTransactions() {
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Filter results</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearAllFilters}
+              className="ml-auto h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 gap-1.5"
+            >
+              <X className="w-3 h-3" />
+              Clear filters
+            </Button>
             <div className="flex items-center gap-1.5 text-sm">
               <Hash className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="font-semibold text-foreground">

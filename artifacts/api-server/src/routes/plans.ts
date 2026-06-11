@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, plansTable, merchantPlansTable, merchantsTable, planHistoryTable, auditLogsTable } from "@workspace/db";
-import { eq, and, gte, lte, count, desc, sql, SQL } from "drizzle-orm";
+import { eq, and, gte, count, desc, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { getMerchantPlanUsage } from "../helpers/planLimits";
 
@@ -93,67 +93,14 @@ router.get("/", async (_req, res) => {
   res.json(rows.map(serializePlan));
 });
 
-// GET /api/plans/history/export — admin: export plan history as CSV
-router.get("/history/export", requireAdmin, async (req, res) => {
-  const { merchantId, action } = req.query as Record<string, string>;
-
-  const conditions: SQL[] = [];
-  if (merchantId) conditions.push(eq(planHistoryTable.merchantId, parseInt(merchantId)));
-  if (action) conditions.push(eq(planHistoryTable.action, action));
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-  const rows = await db
-    .select({
-      h: planHistoryTable,
-      toPlan: { id: plansTable.id, name: plansTable.name },
-      merchant: { id: merchantsTable.id, businessName: merchantsTable.businessName },
-    })
-    .from(planHistoryTable)
-    .leftJoin(plansTable, eq(planHistoryTable.toPlanId, plansTable.id))
-    .leftJoin(merchantsTable, eq(planHistoryTable.merchantId, merchantsTable.id))
-    .where(where)
-    .orderBy(desc(planHistoryTable.createdAt));
-
-  const escape = (v: string | null | undefined) => {
-    if (v == null) return "";
-    const s = String(v);
-    if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
-
-  const header = "Date,Merchant,Action,Plan,Assigned By,Expires,Notes\n";
-  const lines = rows.map(r => [
-    escape(r.h.createdAt.toISOString()),
-    escape(r.merchant?.businessName),
-    escape(r.h.action),
-    escape(r.toPlan?.name),
-    escape(r.h.adminEmail),
-    escape(r.h.expiresAt ? new Date(r.h.expiresAt).toISOString() : null),
-    escape(r.h.notes),
-  ].join(",")).join("\n");
-
-  res.setHeader("Content-Type", "text/csv");
-  res.setHeader("Content-Disposition", "attachment; filename=\"plan-history.csv\"");
-  res.send(header + lines);
-});
-
 // GET /api/plans/history — admin: plan history across all merchants
 router.get("/history", requireAdmin, async (req, res) => {
-  const { merchantId, action, fromDate, toDate, page = "1", limit = "25" } = req.query as Record<string, string>;
+  const { merchantId, page = "1", limit = "25" } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
 
-  const conditions: SQL[] = [];
-  if (merchantId) conditions.push(eq(planHistoryTable.merchantId, parseInt(merchantId)));
-  if (action) conditions.push(eq(planHistoryTable.action, action));
-  if (fromDate) conditions.push(gte(planHistoryTable.createdAt, new Date(fromDate)));
-  if (toDate) {
-    const to = new Date(toDate);
-    to.setUTCHours(23, 59, 59, 999);
-    conditions.push(lte(planHistoryTable.createdAt, to));
-  }
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const where = merchantId ? eq(planHistoryTable.merchantId, parseInt(merchantId)) : undefined;
   const [{ total }] = await db.select({ total: count() }).from(planHistoryTable).where(where);
 
   const rows = await db

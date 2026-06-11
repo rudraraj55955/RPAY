@@ -15,8 +15,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Eye, Users, Globe, RefreshCw, Search, GripVertical, Megaphone } from "lucide-react";
-import { getApiErrorMessage, isRateLimitError } from "@/lib/utils";
-import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   live:         { label: "Live",        color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
@@ -61,9 +59,6 @@ async function apiPost(path: string, body: object) {
 
 export default function AdminProviders() {
   const qc = useQueryClient();
-  const providerRateLimit = useRateLimit();
-  const broadcastRateLimit = useRateLimit();
-  const bulkVisRateLimit = useRateLimit();
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -89,7 +84,7 @@ export default function AdminProviders() {
       setBroadcastTarget("all");
       setBroadcastMerchantId("");
     },
-    onError: (err: unknown) => { if (isRateLimitError(err)) broadcastRateLimit.trigger(); toast.error(getApiErrorMessage(err, "Failed to send broadcast")); },
+    onError: () => toast.error("Failed to send broadcast"),
   });
 
   // Create / Edit / Delete dialog
@@ -141,7 +136,7 @@ export default function AdminProviders() {
   const reorderMut = useMutation({
     mutationFn: (order: number[]) => apiPut("/providers/reorder", { order }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Sort order saved"); },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save sort order")),
+    onError: () => toast.error("Failed to save sort order"),
   });
 
   // Merchant visibility drawer data
@@ -174,12 +169,12 @@ export default function AdminProviders() {
     if (dialog === "create") {
       createMut.mutate({ data: payload }, {
         onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Provider created"); setDialog(null); },
-        onError: (e: unknown) => { if (isRateLimitError(e)) providerRateLimit.trigger(); toast.error(getApiErrorMessage(e, "Failed to create provider")); },
+        onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed to create provider"),
       });
     } else if (editing) {
       updateMut.mutate({ id: editing.id, data: payload }, {
         onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Provider updated"); setDialog(null); },
-        onError: (e: unknown) => { if (isRateLimitError(e)) providerRateLimit.trigger(); toast.error(getApiErrorMessage(e, "Failed to update provider")); },
+        onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed to update provider"),
       });
     }
   }
@@ -188,28 +183,28 @@ export default function AdminProviders() {
     if (!editing) return;
     deleteMut.mutate({ id: editing.id }, {
       onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Provider deleted"); setDialog(null); setEditing(null); },
-      onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to delete provider")),
+      onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed to delete provider"),
     });
   }
 
   function handleInlineStatus(providerId: number, newStatus: string) {
     updateMut.mutate({ id: providerId, data: { status: newStatus } }, {
       onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Status updated"); },
-      onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to update status")),
+      onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed to update status"),
     });
   }
 
   function handleGlobalVisibility(providerId: number, visible: boolean) {
     setVisMut.mutate({ id: providerId, data: { merchantId: null, visible } }, {
       onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/providers"] }); refetchVis(); toast.success(visible ? "Enabled for all merchants" : "Disabled for all merchants"); },
-      onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to update visibility")),
+      onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed to update visibility"),
     });
   }
 
   function handleMerchantToggle(providerId: number, merchantId: number, visible: boolean) {
     setVisMut.mutate({ id: providerId, data: { merchantId, visible } }, {
       onSuccess: () => { refetchVis(); qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success("Visibility updated"); },
-      onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to update merchant visibility")),
+      onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed"),
     });
   }
 
@@ -217,7 +212,7 @@ export default function AdminProviders() {
     if (selectedMerchants.size === 0) { toast.error("Select at least one merchant"); return; }
     bulkVisMut.mutate({ id: visDrawer.id, data: { merchantIds: Array.from(selectedMerchants), visible } }, {
       onSuccess: () => { refetchVis(); qc.invalidateQueries({ queryKey: ["/api/providers"] }); toast.success(`Updated ${selectedMerchants.size} merchants`); setSelectedMerchants(new Set()); },
-      onError: (e: unknown) => { if (isRateLimitError(e)) bulkVisRateLimit.trigger(); toast.error(getApiErrorMessage(e, "Failed to update bulk visibility")); },
+      onError: (e: any) => toast.error(e?.response?.data?.error ?? "Failed"),
     });
   }
 
@@ -479,10 +474,9 @@ export default function AdminProviders() {
               <Input type="number" value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: e.target.value }))} />
             </div>
           </div>
-          <RateLimitBanner secondsLeft={providerRateLimit.secondsLeft} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={createMut.isPending || updateMut.isPending || providerRateLimit.isRateLimited}>
+            <Button onClick={handleSubmit} disabled={createMut.isPending || updateMut.isPending}>
               {createMut.isPending || updateMut.isPending ? "Saving…" : dialog === "create" ? "Add Provider" : "Save Changes"}
             </Button>
           </DialogFooter>
@@ -567,7 +561,6 @@ export default function AdminProviders() {
               <p className="text-xs text-muted-foreground text-right">{broadcastBody.length}/500</p>
             </div>
           </div>
-          <RateLimitBanner secondsLeft={broadcastRateLimit.secondsLeft} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setBroadcastOpen(false)}>Cancel</Button>
             <Button
@@ -580,8 +573,7 @@ export default function AdminProviders() {
                 !broadcastTitle.trim() ||
                 !broadcastBody.trim() ||
                 (broadcastTarget === "merchant" && !broadcastMerchantId) ||
-                broadcastMut.isPending ||
-                broadcastRateLimit.isRateLimited
+                broadcastMut.isPending
               }
             >
               {broadcastMut.isPending ? "Sending…" : broadcastTarget === "merchant" ? "Send to Merchant" : "Send to All Merchants"}
@@ -624,13 +616,10 @@ export default function AdminProviders() {
 
                 {/* Bulk actions */}
                 {selectedMerchants.size > 0 && (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                      <span className="text-xs text-muted-foreground flex-1">{selectedMerchants.size} merchant{selectedMerchants.size > 1 ? "s" : ""} selected</span>
-                      <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleBulkVisibility(true)} disabled={bulkVisMut.isPending || bulkVisRateLimit.isRateLimited}>Enable</Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-rose-400 border-rose-500/30" onClick={() => handleBulkVisibility(false)} disabled={bulkVisMut.isPending || bulkVisRateLimit.isRateLimited}>Disable</Button>
-                    </div>
-                    <RateLimitBanner secondsLeft={bulkVisRateLimit.secondsLeft} />
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <span className="text-xs text-muted-foreground flex-1">{selectedMerchants.size} merchant{selectedMerchants.size > 1 ? "s" : ""} selected</span>
+                    <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleBulkVisibility(true)} disabled={bulkVisMut.isPending}>Enable</Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-rose-400 border-rose-500/30" onClick={() => handleBulkVisibility(false)} disabled={bulkVisMut.isPending}>Disable</Button>
                   </div>
                 )}
 

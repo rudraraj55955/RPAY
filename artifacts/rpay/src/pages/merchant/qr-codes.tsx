@@ -18,10 +18,9 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight, ScanLine, Zap, X } from "lucide-react";
+import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight, ScanLine, Zap } from "lucide-react";
 import { toast } from "sonner";
-import { getApiErrorMessage, isRateLimitError } from "@/lib/utils";
-import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
+import { getApiErrorMessage } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -324,7 +323,6 @@ export default function MerchantQrCodes() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
-  const { isRateLimited: createRateLimited, secondsLeft: createSecondsLeft, trigger: triggerCreateRateLimit, clear: clearCreateRateLimit } = useRateLimit();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [downloadQr, setDownloadQr] = useState<QrRow | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -412,15 +410,10 @@ export default function MerchantQrCodes() {
           toast.success("QR code created");
           setShowCreate(false);
           setForm({ amount: "", orderId: "", expiresAt: "", callbackUrl: "", merchantReference: "" });
-          clearCreateRateLimit();
           invalidate();
         },
         onError: (err: unknown) => {
-          if (isRateLimitError(err)) {
-            triggerCreateRateLimit();
-          } else {
-            toast.error(getApiErrorMessage(err, "Failed to create QR code"));
-          }
+          toast.error(getApiErrorMessage(err, "Failed to create QR code"));
         },
       }
     );
@@ -430,7 +423,7 @@ export default function MerchantQrCodes() {
     if (!confirm("Delete this QR code?")) return;
     deleteMutation.mutate({ id }, {
       onSuccess: () => { toast.success("QR code deleted"); invalidate(); },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to delete")),
+      onError: () => toast.error("Failed to delete"),
     });
   };
 
@@ -457,8 +450,8 @@ export default function MerchantQrCodes() {
         setBulkConfirm(null);
         invalidate();
       },
-      onError: (err: unknown) => {
-        toast.error(getApiErrorMessage(err, "Bulk delete failed"));
+      onError: () => {
+        toast.error("Bulk delete failed");
         setBulkConfirm(null);
       },
     });
@@ -476,15 +469,6 @@ export default function MerchantQrCodes() {
   const showDeleteAllExpired = status === "expired" && (stats?.expired ?? 0) > 0;
   const showDeleteAllUsed = status === "used" && (stats?.used ?? 0) > 0;
   const selectedCount = selectedIds.size;
-
-  const anyFilterActive = !!(search || status !== "all");
-
-  const clearFilters = () => {
-    setSearch("");
-    setStatus("all");
-    setPage(1);
-    setSelectedIds(new Set());
-  };
 
   return (
     <div className="space-y-6">
@@ -548,48 +532,6 @@ export default function MerchantQrCodes() {
           );
         })}
       </div>
-
-      {/* Filter summary bar */}
-      {anyFilterActive && (
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Active filters</span>
-            {status !== "all" && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Status: {status.charAt(0).toUpperCase() + status.slice(1)}
-                <button
-                  onClick={() => { setStatus("all"); setPage(1); setSelectedIds(new Set()); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove status filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {search && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Search: <span className="font-mono">{search}</span>
-                <button
-                  onClick={() => { setSearch(""); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove search filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="ml-auto h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 gap-1.5"
-            >
-              <X className="w-3 h-3" />
-              Clear all
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Table */}
       <Card>
@@ -821,18 +763,10 @@ export default function MerchantQrCodes() {
               </div>
             </div>
           </div>
-          {createRateLimited && (
-            <div className="px-0 pb-2">
-              <RateLimitBanner
-                secondsLeft={createSecondsLeft}
-                message="You've created too many QR codes recently. Please wait a few minutes and try again."
-              />
-            </div>
-          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowCreate(false); clearCreateRateLimit(); }}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createMutation.isPending || !hasProvider || createRateLimited}>
-              {createMutation.isPending ? "Creating..." : createRateLimited ? `Try again in ${createSecondsLeft}s` : "Generate QR"}
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={createMutation.isPending || !hasProvider}>
+              {createMutation.isPending ? "Creating..." : "Generate QR"}
             </Button>
           </DialogFooter>
         </DialogContent>

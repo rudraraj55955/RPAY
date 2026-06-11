@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Search, Plus, Pencil, Trash2, Download, Eye, Globe, Lock, CreditCard, Building2, QrCode, Smartphone } from "lucide-react";
 import { format } from "date-fns";
-import { getApiErrorMessage } from "@/lib/utils";
 
 const ACCOUNT_TYPES = [
   { value: "bank_account",        label: "Bank Account",          icon: Building2 },
@@ -81,19 +80,19 @@ export default function AdminAccountDetails() {
   const createMutation = useMutation({
     mutationFn: (body: object) => api("POST", "/account-details", body),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["account-details"] }); toast.success("Account detail created"); setDialog(null); },
-    onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to create account detail")),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, body }: { id: number; body: object }) => api("PUT", `/account-details/${id}`, body),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["account-details"] }); toast.success("Account detail updated"); setDialog(null); },
-    onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to update account detail")),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api("DELETE", `/account-details/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["account-details"] }); toast.success("Account detail deleted"); setDialog(null); setEditing(null); },
-    onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to delete account detail")),
+    onError: (e: any) => toast.error(e.message),
   });
 
   function openCreate() {

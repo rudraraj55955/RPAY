@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
-import { EVENT_TYPE_COLORS, EventTypeBadge } from "@/components/ui/event-type-badge";
-import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, getGetWebhookLogsQueryKey, useSendWebhookTest, useRetryWebhookLog, useGetWebhookLogAttempts, WebhookTestRequestEventType, GetWebhookLogsEventType } from "@workspace/api-client-react";
+import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, getGetWebhookLogsQueryKey, useSendWebhookTest, useRetryWebhookLog, WebhookTestRequestEventType } from "@workspace/api-client-react";
 import { SECRET_WARN_DAYS, SECRET_ROTATION_OVERDUE_DAYS } from "@/lib/webhook-constants";
-import type { CallbackLog, CallbackLogAttempt } from "@workspace/api-client-react";
+import type { CallbackLog } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +13,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { getApiErrorMessage } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, RotateCcw, ShieldOff, Shield, FlaskRound, ListOrdered, Loader2, X } from "lucide-react";
+import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, RotateCcw, ShieldOff, Shield, FlaskRound } from "lucide-react";
 import { formatDistanceToNow, format, differenceInDays } from "date-fns";
 
 function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }) {
@@ -72,15 +69,6 @@ type TestResult = {
   targetUrl: string;
   signed: boolean;
 };
-
-function retryFailureDetail(httpStatus: number | null | undefined, responseBody: string | null | undefined): string {
-  if (httpStatus != null) return `HTTP ${httpStatus}`;
-  if (responseBody) {
-    const truncated = responseBody.length > 80 ? responseBody.slice(0, 80) + "…" : responseBody;
-    return truncated;
-  }
-  return "no response from endpoint";
-}
 
 function WebhookTestPanel({ result, onDismiss, onRetry, isRetrying }: { result: TestResult; onDismiss: () => void; onRetry?: () => void; isRetrying?: boolean }) {
   const copy = (text: string) => {
@@ -138,33 +126,13 @@ function WebhookTestPanel({ result, onDismiss, onRetry, isRetrying }: { result: 
           <p className="text-muted-foreground/60 mb-0.5">Duration</p>
           <p className="font-mono font-semibold text-foreground">{result.durationMs}ms</p>
         </div>
-        <div className={`rounded p-2 border ${result.signed ? "bg-violet-500/10 border-violet-500/30" : "bg-black/30 border-border/30"}`}>
+        <div className="rounded bg-black/30 p-2 border border-border/30">
           <p className="text-muted-foreground/60 mb-0.5">Signature</p>
-          <p className={`font-semibold flex items-center gap-1 ${result.signed ? "text-violet-400" : "text-amber-400"}`}>
-            {result.signed
-              ? <><ShieldCheck className="w-3.5 h-3.5" />Signed</>
-              : <><ShieldOff className="w-3.5 h-3.5" />Unsigned</>}
+          <p className={`font-semibold ${result.signed ? "text-emerald-400" : "text-amber-400"}`}>
+            {result.signed ? "Signed" : "Unsigned"}
           </p>
         </div>
       </div>
-
-      {result.signed && (
-        <div className={`rounded-lg border px-3 py-2.5 text-xs flex items-start gap-2 ${result.delivered ? "border-emerald-500/25 bg-emerald-500/5" : "border-amber-500/25 bg-amber-500/5"}`}>
-          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${result.delivered ? "text-emerald-400" : "text-amber-400"}`} />
-          <div className="space-y-0.5">
-            <p className={`font-semibold ${result.delivered ? "text-emerald-300" : "text-amber-300"}`}>
-              {result.delivered
-                ? "Signed: true — endpoint returned 2xx"
-                : "Signed: true — endpoint did not return 2xx"}
-            </p>
-            <p className="text-muted-foreground/70 leading-relaxed">
-              {result.delivered
-                ? "The X-Signature (HMAC-SHA256) header was sent with this request. Your endpoint accepted the signed payload."
-                : "The X-Signature (HMAC-SHA256) header was sent. If your server verifies signatures, check that the secret matches and your HMAC logic is correct."}
-            </p>
-          </div>
-        </div>
-      )}
 
       <div>
         <p className="text-xs text-muted-foreground/60 mb-1">Target URL</p>
@@ -220,97 +188,23 @@ function parseEventType(requestBody: string | null | undefined): string | null {
   return null;
 }
 
-const RETRY_COOLDOWN_SECONDS = 30;
+const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  "payment.success":      { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/25" },
+  "payment.failed":       { bg: "bg-rose-500/10",    text: "text-rose-400",    border: "border-rose-500/25"    },
+  "payment.pending":      { bg: "bg-amber-500/10",   text: "text-amber-400",   border: "border-amber-500/25"   },
+  "payment.received":     { bg: "bg-sky-500/10",     text: "text-sky-400",     border: "border-sky-500/25"     },
+  "withdrawal.approved":  { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/25" },
+  "withdrawal.rejected":  { bg: "bg-rose-500/10",    text: "text-rose-400",    border: "border-rose-500/25"    },
+  "settlement.processed": { bg: "bg-violet-500/10",  text: "text-violet-400",  border: "border-violet-500/25"  },
+};
 
-function useCooldownSeconds(lastAttemptAt: string | null | undefined): number {
-  const [remaining, setRemaining] = useState(() => {
-    if (!lastAttemptAt) return 0;
-    const elapsed = (Date.now() - new Date(lastAttemptAt).getTime()) / 1000;
-    return Math.max(0, Math.ceil(RETRY_COOLDOWN_SECONDS - elapsed));
-  });
-
-  useEffect(() => {
-    if (!lastAttemptAt) { setRemaining(0); return; }
-    const elapsed = (Date.now() - new Date(lastAttemptAt).getTime()) / 1000;
-    const initial = Math.max(0, Math.ceil(RETRY_COOLDOWN_SECONDS - elapsed));
-    setRemaining(initial);
-    if (initial <= 0) return;
-    const tick = setInterval(() => {
-      setRemaining(prev => {
-        const next = prev - 1;
-        if (next <= 0) { clearInterval(tick); return 0; }
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(tick);
-  }, [lastAttemptAt]);
-
-  return remaining;
-}
-
-function AttemptStatusDot({ httpStatus }: { httpStatus: number | null | undefined }) {
-  if (httpStatus != null && httpStatus >= 200 && httpStatus < 300) {
-    return <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 shrink-0" />;
-  }
-  if (httpStatus != null) {
-    return <span className="inline-block w-2 h-2 rounded-full bg-rose-400 shrink-0" />;
-  }
-  return <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground/30 shrink-0" />;
-}
-
-function RetryHistorySection({ logId }: { logId: number }) {
-  const { data, isLoading } = useGetWebhookLogAttempts(logId);
-  const attempts: CallbackLogAttempt[] = data?.data ?? [];
-
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-2">
-        <ListOrdered className="w-3.5 h-3.5 text-muted-foreground/60" />
-        <p className="text-xs text-muted-foreground/60 uppercase tracking-wider font-medium">Retry History</p>
-      </div>
-      {isLoading ? (
-        <div className="flex items-center gap-2 py-3 text-muted-foreground/50">
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          <span className="text-xs">Loading…</span>
-        </div>
-      ) : attempts.length === 0 ? (
-        <p className="text-xs text-muted-foreground/50 italic px-1">No per-attempt records yet — history is recorded for new deliveries going forward.</p>
-      ) : (
-        <div className="space-y-0 rounded-lg border border-border/40 overflow-hidden">
-          {attempts.map((attempt, idx) => (
-            <div
-              key={attempt.id}
-              className={`flex items-start gap-3 px-3 py-2.5 text-xs ${idx < attempts.length - 1 ? "border-b border-border/30" : ""} ${idx % 2 === 0 ? "bg-muted/10" : ""}`}
-            >
-              <AttemptStatusDot httpStatus={attempt.httpStatus} />
-              <div className="shrink-0 w-16">
-                <span className="text-muted-foreground/50">#{attempt.attemptNumber}</span>
-              </div>
-              <div className="flex-1 min-w-0 space-y-0.5">
-                <div className="flex items-center gap-3 flex-wrap">
-                  {attempt.httpStatus != null ? (
-                    <span className={`font-mono font-semibold ${attempt.httpStatus >= 200 && attempt.httpStatus < 300 ? "text-emerald-400" : "text-rose-400"}`}>
-                      HTTP {attempt.httpStatus}
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground/50 italic">No response</span>
-                  )}
-                  <span className="text-muted-foreground/50 font-mono">
-                    {format(new Date(attempt.firedAt), "MMM d, HH:mm:ss")}
-                  </span>
-                </div>
-                {attempt.responseBody && (
-                  <p className="text-muted-foreground/60 font-mono truncate" title={attempt.responseBody}>
-                    {attempt.responseBody}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function EventTypeBadge({ eventType, size = "sm" }: { eventType: string | null; size?: "sm" | "md" }) {
+  if (!eventType) return null;
+  const colors = EVENT_TYPE_COLORS[eventType] ?? { bg: "bg-muted/40", text: "text-muted-foreground", border: "border-border/50" };
+  const cls = size === "md"
+    ? `inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-mono font-semibold ${colors.bg} ${colors.text} ${colors.border}`
+    : `inline-flex items-center rounded border px-1.5 py-px text-[10px] font-mono font-semibold ${colors.bg} ${colors.text} ${colors.border}`;
+  return <span className={cls}>{eventType}</span>;
 }
 
 function DeliveryDetailModal({ log, onClose, onRetry, isRetrying }: { log: CallbackLog | null; onClose: () => void; onRetry?: (id: number) => void; isRetrying?: boolean }) {
@@ -319,15 +213,13 @@ function DeliveryDetailModal({ log, onClose, onRetry, isRetrying }: { log: Callb
     toast.success("Copied to clipboard");
   };
 
-  const cooldownRemaining = useCooldownSeconds(log?.lastAttemptAt);
-
   if (!log) return null;
 
   const canRetry = (log.status === "failed" || log.status === "pending_retry") && !!log.requestBody;
 
   const reqBody = formatJsonBody(log.requestBody);
   const resBody = formatJsonBody(log.responseBody);
-  const eventType = log.eventType;
+  const eventType = parseEventType(log.requestBody);
 
   return (
     <Dialog open={!!log} onOpenChange={onClose}>
@@ -342,15 +234,6 @@ function DeliveryDetailModal({ log, onClose, onRetry, isRetrying }: { log: Callb
                 Test
               </span>
             )}
-            {(log.attempts ?? 1) > 1 && (() => {
-              const retries = (log.attempts ?? 1) - 1;
-              return (
-                <span className="flex items-center gap-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 px-2 py-0.5 text-xs font-semibold" title={`Auto-retried ${retries} time${retries === 1 ? "" : "s"}`}>
-                  <RefreshCw className="w-3 h-3" />
-                  Auto-retried
-                </span>
-              );
-            })()}
           </DialogTitle>
         </DialogHeader>
 
@@ -402,9 +285,6 @@ function DeliveryDetailModal({ log, onClose, onRetry, isRetrying }: { log: Callb
             </div>
           )}
 
-          {/* Retry history */}
-          <RetryHistorySection logId={log.id} />
-
           {/* Request body */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -427,7 +307,7 @@ function DeliveryDetailModal({ log, onClose, onRetry, isRetrying }: { log: Callb
           {/* Response body */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider font-medium">Last Response Body</p>
+              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider font-medium">Response Body</p>
               {resBody && (
                 <button onClick={() => copy(resBody)} className="text-muted-foreground/50 hover:text-muted-foreground transition-colors" title="Copy response body">
                   <Copy className="w-3.5 h-3.5" />
@@ -459,24 +339,16 @@ function DeliveryDetailModal({ log, onClose, onRetry, isRetrying }: { log: Callb
 
           {/* Retry action */}
           {canRetry && onRetry && (
-            <div className="pt-2 border-t border-border/40 space-y-2">
-              {cooldownRemaining > 0 && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-400">
-                  <Clock className="w-4 h-4 shrink-0" />
-                  <p className="text-xs font-medium">
-                    Please wait <span className="font-mono font-semibold">{cooldownRemaining}s</span> before retrying again
-                  </p>
-                </div>
-              )}
+            <div className="pt-2 border-t border-border/40">
               <Button
                 size="sm"
                 variant="outline"
-                disabled={isRetrying || cooldownRemaining > 0}
+                disabled={isRetrying}
                 onClick={() => onRetry(log.id)}
-                className="w-full border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/50 disabled:opacity-50"
+                className="w-full border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/50"
               >
                 <RotateCcw className={`w-3.5 h-3.5 mr-1.5 ${isRetrying ? "animate-spin" : ""}`} />
-                {isRetrying ? "Retrying…" : cooldownRemaining > 0 ? `Retry in ${cooldownRemaining}s` : "Retry now"}
+                {isRetrying ? "Retrying…" : "Retry now"}
               </Button>
             </div>
           )}
@@ -490,25 +362,7 @@ export default function MerchantWebhook() {
   const qc = useQueryClient();
   const { data: config, isLoading } = useGetWebhookConfig();
   const { data: secretStatus, isLoading: secretLoading } = useGetCallbackSecret();
-  const [eventTypeFilter, setEventTypeFilter] = useState<GetWebhookLogsEventType | null>(null);
-  const logsParams = { limit: 20, ...(eventTypeFilter != null ? { eventType: eventTypeFilter } : {}) };
-  const [secretSavedAt, setSecretSavedAt] = useState<number | null>(null);
-  const [secretVerifiedDismissed, setSecretVerifiedDismissed] = useState(false);
-  const logsRefetchInterval = secretSavedAt != null ? 5_000 : 30_000;
-  const { data: logsData, isLoading: logsLoading, isFetching: logsRefetching, dataUpdatedAt } = useGetWebhookLogs(logsParams, {
-    query: { refetchInterval: logsRefetchInterval, queryKey: getGetWebhookLogsQueryKey(logsParams) },
-  });
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 10_000);
-    return () => clearInterval(id);
-  }, []);
-  useEffect(() => {
-    if (!secretSavedAt) return;
-    const id = setTimeout(() => setSecretSavedAt(null), 120_000);
-    return () => clearTimeout(id);
-  }, [secretSavedAt]);
-  const lastUpdated = dataUpdatedAt > 0 ? new Date(dataUpdatedAt) : null;
+  const { data: logsData, isLoading: logsLoading } = useGetWebhookLogs({ limit: 10 });
   const updateMutation = useUpdateWebhookConfig();
   const rotateMutation = useRotateCallbackSecret();
   const testMutation = useSendWebhookTest();
@@ -539,17 +393,9 @@ export default function MerchantWebhook() {
 
   const handleSave = () => {
     if (!url.trim()) { toast.error("Webhook URL is required"); return; }
-    const hasSecret = !!secret.trim();
     updateMutation.mutate({ data: { url: url.trim(), isActive, events, secret: secret || null } }, {
-      onSuccess: () => {
-        toast.success("Webhook configuration saved");
-        qc.invalidateQueries({ queryKey: getGetWebhookConfigQueryKey() });
-        if (hasSecret) {
-          setSecretSavedAt(Date.now());
-          setSecretVerifiedDismissed(false);
-        }
-      },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save configuration")),
+      onSuccess: () => { toast.success("Webhook configuration saved"); qc.invalidateQueries({ queryKey: getGetWebhookConfigQueryKey() }); },
+      onError: () => toast.error("Failed to save configuration"),
     });
   };
 
@@ -568,7 +414,7 @@ export default function MerchantWebhook() {
           toast.error(`Test event failed — HTTP ${data.httpStatus ?? "no response"}`);
         }
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to send test event")),
+      onError: () => toast.error("Failed to send test event"),
       onSettled: () => qc.invalidateQueries({ queryKey: getGetWebhookLogsQueryKey() }),
     });
   };
@@ -583,7 +429,7 @@ export default function MerchantWebhook() {
           toast.error(`Test event failed — HTTP ${data.httpStatus ?? "no response"}`);
         }
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to send test event")),
+      onError: () => toast.error("Failed to send test event"),
       onSettled: () => qc.invalidateQueries({ queryKey: getGetWebhookLogsQueryKey() }),
     });
   };
@@ -595,7 +441,7 @@ export default function MerchantWebhook() {
         setNewSecret(data.secret);
         qc.invalidateQueries({ queryKey: getGetCallbackSecretQueryKey() });
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to rotate secret")),
+      onError: () => toast.error("Failed to rotate secret"),
     });
   };
 
@@ -606,22 +452,14 @@ export default function MerchantWebhook() {
         if (data.delivered) {
           toast.success("Retry succeeded — webhook delivered");
         } else {
-          const log = data.log as CallbackLog | undefined;
-          toast.error(`Retry failed — ${retryFailureDetail(log?.httpStatus, log?.responseBody)}`);
+          toast.error("Retry failed — endpoint still unreachable");
         }
         qc.invalidateQueries({ queryKey: getGetWebhookLogsQueryKey() });
         if (data.log) {
           setSelectedLog(prev => (prev?.id === logId ? (data.log as CallbackLog) : prev));
         }
       },
-      onError: (error: unknown) => {
-        const e = error as any;
-        if (e?.response?.status === 429 && e?.response?.data?.retryAfter != null) {
-          toast.error(`Please wait ${e.response.data.retryAfter}s before retrying again`);
-        } else {
-          toast.error(getApiErrorMessage(error, "Retry request failed"));
-        }
-      },
+      onError: () => toast.error("Retry request failed"),
       onSettled: () => setRetryingId(null),
     });
   };
@@ -632,14 +470,6 @@ export default function MerchantWebhook() {
   };
 
   const logs = logsData?.data ?? [];
-
-  const secretVerified = (() => {
-    if (!secretSavedAt || secretVerifiedDismissed) return false;
-    const withSig = logs.filter(l => l.signatureVerified != null);
-    if (withSig.length === 0) return false;
-    const recentN = withSig.slice(0, 3);
-    return recentN.every(l => l.signatureVerified === true);
-  })();
 
   if (isLoading) return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-muted/50 rounded-lg animate-pulse" />)}</div>;
 
@@ -693,55 +523,42 @@ export default function MerchantWebhook() {
           <Save className="w-4 h-4 mr-2" />
           {updateMutation.isPending ? "Saving..." : "Save Configuration"}
         </Button>
-        <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-          <div className="flex items-center gap-2">
-            <Select
-              value={testEventType}
-              onValueChange={(v) => setTestEventType(v as WebhookTestRequestEventType)}
-              disabled={testMutation.isPending || !url.trim()}
-            >
-              <SelectTrigger className="w-[190px] h-9 text-xs font-mono">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {EVENTS.map(event => (
-                  <SelectItem key={event.id} value={event.id} className="text-xs">
-                    <span className="font-mono">{event.id}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              onClick={handleSendTest}
-              disabled={testMutation.isPending || !url.trim()}
-              className={`gap-2 h-9 ${config?.secret ? "border-violet-500/40 text-violet-300 hover:border-violet-500/60 hover:bg-violet-500/10 hover:text-violet-200" : ""}`}
-              title={!url.trim() ? "Configure and save a webhook URL first" : config?.secret ? "Sends a signed test — X-Signature header included" : undefined}
-            >
-              {testMutation.isPending ? (
-                <>
-                  <Zap className="w-4 h-4 animate-pulse" />
-                  Sending…
-                </>
-              ) : config?.secret ? (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  Send signed test
-                </>
-              ) : (
-                <>
-                  <FlaskConical className="w-4 h-4" />
-                  Send test
-                </>
-              )}
-            </Button>
-          </div>
-          {config?.secret && url.trim() && (
-            <p className="text-[11px] text-violet-400/70 flex items-center gap-1 pl-0.5">
-              <ShieldCheck className="w-3 h-3" />
-              X-Signature header will be included using your saved secret
-            </p>
-          )}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Select
+            value={testEventType}
+            onValueChange={(v) => setTestEventType(v as WebhookTestRequestEventType)}
+            disabled={testMutation.isPending || !url.trim()}
+          >
+            <SelectTrigger className="w-[190px] h-9 text-xs font-mono">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {EVENTS.map(event => (
+                <SelectItem key={event.id} value={event.id} className="text-xs">
+                  <span className="font-mono">{event.id}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            onClick={handleSendTest}
+            disabled={testMutation.isPending || !url.trim()}
+            className="gap-2 h-9"
+            title={!url.trim() ? "Configure and save a webhook URL first" : undefined}
+          >
+            {testMutation.isPending ? (
+              <>
+                <Zap className="w-4 h-4 animate-pulse" />
+                Sending…
+              </>
+            ) : (
+              <>
+                <FlaskConical className="w-4 h-4" />
+                Send test
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
@@ -754,89 +571,16 @@ export default function MerchantWebhook() {
         />
       )}
 
-      {secretVerified && (
-        <div className="flex items-start gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3">
-          <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-emerald-300">
-              Secret verified — recent deliveries are passing signature checks
-            </p>
-            <p className="text-xs text-emerald-400/70 mt-0.5">
-              Your signing secret is working correctly. View the full history on the{" "}
-              <Link
-                href="/merchant/callbacks"
-                className="underline text-emerald-400 hover:text-emerald-300 transition-colors"
-              >
-                callback logs page →
-              </Link>
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label="Dismiss"
-            onClick={() => setSecretVerifiedDismissed(true)}
-            className="shrink-0 text-emerald-400/60 hover:text-emerald-300 transition-colors mt-0.5"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
       {/* Recent Deliveries */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-primary" />
-              <CardTitle>Recent Deliveries</CardTitle>
-            </div>
-            {lastUpdated != null && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground/60 shrink-0">
-                {logsRefetching && !logsLoading ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3 h-3" />
-                )}
-                {logsRefetching && !logsLoading
-                  ? "Refreshing…"
-                  : `Updated ${formatDistanceToNow(lastUpdated, { addSuffix: true })}`}
-              </span>
-            )}
+          <div className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-primary" />
+            <CardTitle>Recent Deliveries</CardTitle>
           </div>
-          <CardDescription>Last 20 webhook delivery attempts to your endpoint</CardDescription>
+          <CardDescription>Last 10 webhook delivery attempts to your endpoint</CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Event type filter pills */}
-          <div className="flex items-center gap-1.5 flex-wrap mb-4 pb-3 border-b border-border/40">
-            <button
-              onClick={() => setEventTypeFilter(null)}
-              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                eventTypeFilter === null
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground border border-border/50"
-              }`}
-            >
-              All
-            </button>
-            {EVENTS.map(event => {
-              const colors = EVENT_TYPE_COLORS[event.id] ?? { bg: "bg-muted/40", text: "text-muted-foreground", border: "border-border/50" };
-              const isActive = eventTypeFilter === event.id;
-              return (
-                <button
-                  key={event.id}
-                  onClick={() => setEventTypeFilter(isActive ? null : event.id as GetWebhookLogsEventType)}
-                  className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-mono font-medium transition-colors ${
-                    isActive
-                      ? `${colors.bg} ${colors.text} ${colors.border} ring-1 ring-inset ring-current/30`
-                      : "bg-muted/20 text-muted-foreground border-border/40 hover:bg-muted/40 hover:text-foreground"
-                  }`}
-                >
-                  {event.id}
-                </button>
-              );
-            })}
-          </div>
-
           {logsLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -846,47 +590,21 @@ export default function MerchantWebhook() {
           ) : logs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <Activity className="w-8 h-8 text-muted-foreground/40 mb-3" />
-              <p className="text-sm text-muted-foreground">
-                {eventTypeFilter != null ? `No deliveries for ${eventTypeFilter}` : "No deliveries yet"}
-              </p>
-              <p className="text-xs text-muted-foreground/60 mt-1">
-                {eventTypeFilter != null
-                  ? "Try a different event type filter or select All"
-                  : "Delivery logs appear here once webhooks are triggered"}
-              </p>
+              <p className="text-sm text-muted-foreground">No deliveries yet</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Delivery logs appear here once webhooks are triggered</p>
             </div>
           ) : (
             <div className="divide-y divide-border/50">
               {logs.map(log => {
-                const rowEventType = log.eventType;
+                const rowEventType = parseEventType(log.requestBody);
                 return (
                 <div
                   key={log.id}
                   className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 group cursor-pointer hover:bg-muted/20 -mx-1 px-1 rounded transition-colors"
                   onClick={() => setSelectedLog(log)}
                 >
-                  <div className="w-28 shrink-0 flex flex-col items-start gap-1">
+                  <div className="w-28 shrink-0">
                     <StatusBadge status={log.status} />
-                    {(log.status === "failed" || log.status === "pending_retry") && (
-                      log.httpStatus != null ? (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-rose-500/10 border border-rose-500/25 text-rose-400">
-                          {log.httpStatus}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-orange-500/10 border border-orange-500/25 text-orange-400">
-                          no resp
-                        </span>
-                      )
-                    )}
-                    {(log.status === "failed" || log.status === "pending_retry") && (
-                      <span
-                        className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-400"
-                        title={`${log.attempts ?? 1} delivery ${(log.attempts ?? 1) === 1 ? "attempt" : "attempts"}`}
-                      >
-                        <RotateCcw className="w-2.5 h-2.5" />
-                        {log.attempts ?? 1}×
-                      </span>
-                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -897,25 +615,18 @@ export default function MerchantWebhook() {
                           Test
                         </span>
                       )}
-                      {(log.attempts ?? 1) > 1 && (() => {
-                        const retries = (log.attempts ?? 1) - 1;
-                        return (
-                          <span className="shrink-0 flex items-center gap-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 px-1.5 py-0.5 text-[10px] font-semibold" title={`Auto-retried ${retries} time${retries === 1 ? "" : "s"}`}>
-                            <RefreshCw className="w-2.5 h-2.5" />
-                            Auto-retried
-                          </span>
-                        );
-                      })()}
                       <p className="text-xs font-mono text-muted-foreground truncate" title={log.url}>{log.url}</p>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
-                      {log.httpStatus != null && (
-                        <span className="text-xs text-muted-foreground/70">
+                      <span className="text-xs text-muted-foreground/70">
+                        {log.httpStatus != null ? (
                           <span className={log.httpStatus >= 200 && log.httpStatus < 300 ? "text-emerald-400/80" : "text-rose-400/80"}>
                             HTTP {log.httpStatus}
                           </span>
-                        </span>
-                      )}
+                        ) : (
+                          <span className="text-muted-foreground/50">No response</span>
+                        )}
+                      </span>
                       <span className="text-xs text-muted-foreground/50">·</span>
                       <span className="text-xs text-muted-foreground/70">
                         {log.attempts} {log.attempts === 1 ? "attempt" : "attempts"}
@@ -982,34 +693,18 @@ export default function MerchantWebhook() {
                         <p className="text-xs text-muted-foreground font-mono">{secretStatus.secretPrefix}</p>
                       )}
                       {secretStatus?.isSet && secretStatus.lastRotatedAt != null && (
-                        <div className="mt-1 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-muted-foreground/70">
-                              Last rotated {ageInDays === 0 ? "today" : `${ageInDays} day${ageInDays !== 1 ? "s" : ""} ago`}
-                            </span>
-                            {isOverdue ? (
-                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block" />
-                                Overdue
-                              </span>
-                            ) : isWarningSoon ? (
-                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-                                Rotation recommended
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                                Fresh
-                              </span>
-                            )}
-                          </div>
+                        <p className="text-xs text-muted-foreground/70 mt-0.5">
+                          Last rotated: {format(new Date(secretStatus.lastRotatedAt), "dd MMM yyyy")}
+                          {" "}
+                          <span className="text-muted-foreground/50">
+                            ({formatDistanceToNow(new Date(secretStatus.lastRotatedAt), { addSuffix: true })})
+                          </span>
                           {daysLeft != null && !isOverdue && !isWarningSoon && (
-                            <p className="text-[11px] text-muted-foreground/50">
-                              Rotation due in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
-                            </p>
+                            <span className="ml-2 font-medium text-muted-foreground/60">
+                              · Rotation due in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+                            </span>
                           )}
-                        </div>
+                        </p>
                       )}
                     </div>
                   </div>
@@ -1051,11 +746,11 @@ export default function MerchantWebhook() {
                   </div>
                 )}
                 {isOverdue && ageInDays != null && (
-                  <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-400">
+                  <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-medium">Rotation overdue — </span>
-                      <span className="text-xs text-rose-400/80">
+                      <span className="text-xs text-amber-400/80">
                         This secret is {ageInDays} days old. Rotate it now to keep your integration secure.
                       </span>
                     </div>
@@ -1064,7 +759,7 @@ export default function MerchantWebhook() {
                       size="sm"
                       onClick={handleRotateSecret}
                       disabled={rotateMutation.isPending}
-                      className="shrink-0 gap-1.5 border-rose-500/40 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/60 hover:text-rose-300 h-7 px-2.5 text-xs"
+                      className="shrink-0 gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/60 hover:text-amber-300 h-7 px-2.5 text-xs"
                     >
                       <RefreshCw className="w-3 h-3" />
                       Rotate now

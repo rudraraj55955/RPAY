@@ -16,7 +16,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PlusCircle, CheckCircle2, Ban, Search, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { getApiErrorMessage } from "@/lib/utils";
 
 const STATUS_STYLE: Record<string, string> = {
   draft: "text-muted-foreground border-muted-foreground/30",
@@ -65,14 +64,14 @@ export default function AdminInvoices() {
       },
     }, {
       onSuccess: () => { toast.success("Invoice created"); setCreateOpen(false); invalidate(); },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to create invoice")),
+      onError: () => toast.error("Failed to create invoice"),
     });
   };
 
   const handleMarkPaid = (id: number) => {
     markPaidMutation.mutate({ id }, {
       onSuccess: () => { toast.success("Marked as paid"); invalidate(); },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to mark as paid")),
+      onError: () => toast.error("Failed to mark as paid"),
     });
   };
 
@@ -80,7 +79,7 @@ export default function AdminInvoices() {
     if (!confirm("Void this invoice?")) return;
     voidMutation.mutate({ id }, {
       onSuccess: () => { toast.success("Invoice voided"); invalidate(); },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to void invoice")),
+      onError: () => toast.error("Failed to void invoice"),
     });
   };
 

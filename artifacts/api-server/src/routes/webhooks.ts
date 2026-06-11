@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { db, webhooksTable, callbackLogsTable, callbackLogAttemptsTable } from "@workspace/db";
-import { and, eq, isNull, lt, or, sql, asc } from "drizzle-orm";
-import { requireAuth, requireAdmin } from "../middlewares/auth";
-import { fireCallback, recordAttempt, loadWebhookRetryConfig } from "../helpers/callbackRetry";
+import { db, webhooksTable, callbackLogsTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
+import { requireAuth } from "../middlewares/auth";
+import { fireCallback } from "../helpers/callbackRetry";
 import crypto from "crypto";
 import dns from "dns";
 import net from "net";
@@ -131,30 +131,11 @@ router.get("/logs", async (req, res) => {
   }
 
   const limitNum = Math.min(50, Math.max(1, parseInt((req.query['limit'] as string) || "10")));
-  const eventType = (req.query['eventType'] as string | undefined) ?? null;
-
-  const ALLOWED_EVENT_TYPES = new Set([
-    "payment.success",
-    "payment.failed",
-    "payment.pending",
-    "withdrawal.approved",
-    "withdrawal.rejected",
-    "settlement.processed",
-  ]);
-
-  if (eventType !== null && !ALLOWED_EVENT_TYPES.has(eventType)) {
-    res.status(400).json({ error: "Invalid eventType" });
-    return;
-  }
-
-  const whereClause = eventType !== null
-    ? sql`${callbackLogsTable.merchantId} = ${merchantId} AND ${callbackLogsTable.eventType} = ${eventType}`
-    : eq(callbackLogsTable.merchantId, merchantId);
 
   const data = await db
     .select()
     .from(callbackLogsTable)
-    .where(whereClause)
+    .where(eq(callbackLogsTable.merchantId, merchantId))
     .orderBy(sql`${callbackLogsTable.createdAt} DESC`)
     .limit(limitNum);
 
@@ -202,40 +183,11 @@ router.post("/logs/:id/retry", async (req, res) => {
     return;
   }
 
-  const RETRY_COOLDOWN_SECONDS = 30;
   const now = new Date();
-  const cutoff = new Date(now.getTime() - RETRY_COOLDOWN_SECONDS * 1000);
-
-  // Atomically claim the retry slot by updating lastAttemptAt only when not in cooldown.
-  // This prevents concurrent requests from all passing a read-then-check guard.
-  const claimed = await db
-    .update(callbackLogsTable)
-    .set({ lastAttemptAt: now })
-    .where(
-      and(
-        eq(callbackLogsTable.id, id),
-        or(
-          isNull(callbackLogsTable.lastAttemptAt),
-          lt(callbackLogsTable.lastAttemptAt, cutoff)
-        )
-      )
-    )
-    .returning({ id: callbackLogsTable.id });
-
-  if (claimed.length === 0) {
-    const retryAfter = log.lastAttemptAt
-      ? Math.max(1, Math.ceil(RETRY_COOLDOWN_SECONDS - (now.getTime() - new Date(log.lastAttemptAt).getTime()) / 1000))
-      : 1;
-    res.status(429).json({ error: `Please wait ${retryAfter} seconds before retrying again`, retryAfter });
-    return;
-  }
-
   const { ok, httpStatus, responseBody } = await fireCallback(log.url, log.requestBody);
 
   const newAttempts = log.attempts + 1;
   const newStatus = ok ? "success" : "failed";
-
-  await recordAttempt(id, newAttempts, httpStatus, responseBody);
 
   const [updated] = await db
     .update(callbackLogsTable)
@@ -253,50 +205,6 @@ router.post("/logs/:id/retry", async (req, res) => {
   req.log.info({ logId: id, ok, httpStatus, merchantId }, "Merchant-triggered webhook retry");
 
   res.json({ success: ok, delivered: ok, log: updated });
-});
-
-// GET /api/webhooks/logs/:id/attempts — per-attempt retry history for a delivery log
-// Accessible by the owning merchant or any admin.
-router.get("/logs/:id/attempts", async (req, res) => {
-  const user = (req as any).user;
-  const isAdmin = user.role === "admin";
-  const merchantId = user.role === "merchant" ? user.merchantId! : undefined;
-
-  if (!isAdmin && !merchantId) {
-    res.status(403).json({ error: "Access denied" });
-    return;
-  }
-
-  const id = parseInt(req.params['id'] as string);
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid log id" });
-    return;
-  }
-
-  const [log] = await db
-    .select({ id: callbackLogsTable.id, merchantId: callbackLogsTable.merchantId })
-    .from(callbackLogsTable)
-    .where(eq(callbackLogsTable.id, id))
-    .limit(1);
-
-  if (!log) {
-    res.status(404).json({ error: "Webhook log not found" });
-    return;
-  }
-
-  // Merchants may only view their own logs; admins may view any log.
-  if (!isAdmin && log.merchantId !== merchantId) {
-    res.status(403).json({ error: "Access denied" });
-    return;
-  }
-
-  const attempts = await db
-    .select()
-    .from(callbackLogAttemptsTable)
-    .where(eq(callbackLogAttemptsTable.callbackLogId, id))
-    .orderBy(asc(callbackLogAttemptsTable.attemptNumber));
-
-  res.json({ data: attempts });
 });
 
 const SUPPORTED_TEST_EVENTS = [
@@ -502,13 +410,9 @@ router.post("/test", async (req, res) => {
   const durationMs = Date.now() - start;
 
   // Insert a log row so test deliveries appear in Recent Deliveries with an isTest flag.
-  // If the delivery failed, schedule one automatic retry after the configured delay so the
-  // developer experience mirrors live deliveries (which also queue for automatic retry).
   try {
-    const retryConfig = delivered ? null : await loadWebhookRetryConfig();
-    const deliveryStatus = delivered ? "success" : "pending_retry";
-    const nextRetryAt = delivered ? null : new Date(Date.now() + (retryConfig!.testRetryDelaySeconds * 1000));
-    const [inserted] = await db.insert(callbackLogsTable).values({
+    const deliveryStatus = delivered ? "success" : "failed";
+    await db.insert(callbackLogsTable).values({
       merchantId,
       url: targetUrl,
       status: deliveryStatus,
@@ -516,16 +420,10 @@ router.post("/test", async (req, res) => {
       requestBody: body,
       responseBody,
       attempts: 1,
-      nextRetryAt,
       lastAttemptAt: new Date(),
       signatureVerified: signed ? true : null,
       isTest: true,
-      eventType,
-    }).returning({ id: callbackLogsTable.id });
-
-    if (inserted) {
-      await recordAttempt(inserted.id, 1, httpStatus, responseBody);
-    }
+    });
   } catch (err) {
     req.log.warn({ err, merchantId }, "Failed to insert test webhook delivery log");
   }
@@ -578,16 +476,6 @@ router.put("/", async (req, res) => {
       .returning();
   }
   res.json(webhook);
-});
-
-// POST /api/webhooks/logs/backfill — admin-only one-time backfill of event_type from request_body JSON
-router.post("/logs/backfill", requireAdmin, async (req, res) => {
-  const result = await db.execute(
-    sql`UPDATE callback_logs SET event_type = (request_body)::json->>'event' WHERE event_type IS NULL AND request_body IS NOT NULL`
-  );
-  const rowsUpdated = (result as any).rowCount ?? 0;
-  req.log.info({ rowsUpdated }, "webhook_event_type_backfill_complete");
-  res.json({ rowsUpdated });
 });
 
 export default router;

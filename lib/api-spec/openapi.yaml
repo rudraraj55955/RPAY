@@ -61,8 +61,6 @@ tags:
     description: Object storage upload and serving endpoints
   - name: saved-filters
     description: Admin-scoped saved smart search filter presets
-  - name: merchant-filter-presets
-    description: Merchant-scoped filter preset management
 paths:
   /healthz:
     get:
@@ -164,8 +162,6 @@ paths:
                   type: boolean
                 settlementStateEmails:
                   type: boolean
-                signatureFailureAlertEmails:
-                  type: boolean
       responses:
         "200":
           description: Updated preferences
@@ -259,12 +255,6 @@ paths:
           schema:
             type: string
             enum: ["true", "false"]
-        - name: secretOverdue
-          in: query
-          description: When "true", returns only merchants whose callback secret has not been rotated within SECRET_ROTATION_OVERDUE_DAYS (90 days), or has never been set.
-          schema:
-            type: string
-            enum: ["true"]
       responses:
         "200":
           description: List of merchants
@@ -450,36 +440,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PlanHistory"
-
-  /merchants/{id}/credential-events:
-    get:
-      operationId: getAdminMerchantCredentialEvents
-      tags: [merchants]
-      summary: Get credential event history for a merchant (admin only)
-      description: Returns all credential events (callback secret rotations, API key generation/revocation) for a specific merchant, ordered oldest to newest.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: limit
-          in: query
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Credential event history
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CredentialEventListResponse"
-        "403":
-          description: Admin access only
 
   /merchants/bulk-reject:
     post:
@@ -865,81 +825,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Admin access only
-        "404":
-          description: Merchant not found
-
-  /merchants/{id}/webhook-url:
-    get:
-      operationId: getAdminMerchantWebhookUrl
-      tags: [merchants]
-      summary: Get the webhook URL configured for a merchant (admin only)
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Current webhook URL
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MerchantWebhookUrlResponse"
-        "403":
-          description: Admin access only
-        "404":
-          description: Merchant not found
-    patch:
-      operationId: updateAdminMerchantWebhookUrl
-      tags: [merchants]
-      summary: Update the webhook URL for a merchant (admin only)
-      description: Overwrites the merchant's webhook callback URL. If no webhook config exists yet one is created. An email notification is sent to the merchant. Only HTTPS URLs are accepted.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateMerchantWebhookUrlInput"
-      responses:
-        "200":
-          description: Updated webhook URL
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MerchantWebhookUrlResponse"
-        "400":
-          description: Invalid input
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Admin access only
-        "404":
-          description: Merchant not found
-    delete:
-      operationId: deleteAdminMerchantWebhookUrl
-      tags: [merchants]
-      summary: Remove the webhook URL for a merchant (admin only)
-      description: Clears the merchant's webhook callback URL and marks it inactive. An email notification is sent to the merchant.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Webhook URL removed
         "403":
           description: Admin access only
         "404":
@@ -1438,18 +1323,6 @@ paths:
             minimum: 1
             maximum: 50
           description: Number of recent log entries to return (default 10, max 50)
-        - name: eventType
-          in: query
-          schema:
-            type: string
-            enum:
-              - payment.success
-              - payment.failed
-              - payment.pending
-              - withdrawal.approved
-              - withdrawal.rejected
-              - settlement.processed
-          description: Filter logs to only those matching this event type
       responses:
         "200":
           description: Recent webhook delivery logs
@@ -1457,33 +1330,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CallbackLogListResponse"
-
-  /webhooks/logs/backfill:
-    post:
-      operationId: backfillWebhookEventTypes
-      tags: [webhooks]
-      summary: Back-fill missing event_type on webhook logs
-      description: |
-        Admin-only one-time maintenance action. Updates all `callback_logs` rows
-        where `event_type` is NULL by extracting the `event` field from the stored
-        `request_body` JSON. Safe to run multiple times — only rows with a NULL
-        event_type are touched.
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Number of rows updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  rowsUpdated:
-                    type: integer
-                    description: Number of callback_logs rows that were updated
-                required: [rowsUpdated]
-        "403":
-          description: Admin access required
 
   /webhooks/logs/{id}/retry:
     post:
@@ -1517,53 +1363,6 @@ paths:
                 required: [success, delivered, log]
         "400":
           description: Log is not in failed status or has no request body to replay
-        "403":
-          description: Merchant access only, or log does not belong to this merchant
-        "404":
-          description: Webhook log not found
-        "429":
-          description: Retry cooldown — last attempt was too recent (within 30 s)
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  retryAfter:
-                    type: integer
-                    description: Seconds remaining until a retry is allowed
-                required: [error, retryAfter]
-
-  /webhooks/logs/{id}/attempts:
-    get:
-      operationId: getWebhookLogAttempts
-      tags: [webhooks]
-      summary: Get per-attempt retry history for a webhook delivery log
-      description: |
-        Returns the ordered list of individual delivery attempts recorded for a
-        specific callback log entry. Each attempt captures the exact timestamp,
-        HTTP status code, and truncated response body so merchants can diagnose
-        the exact sequence of failures.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Attempt history for the given delivery log
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/CallbackLogAttempt"
         "403":
           description: Merchant access only, or log does not belong to this merchant
         "404":
@@ -1661,28 +1460,6 @@ paths:
         "403":
           description: Admin access only
 
-  /callbacks/admin/alert-history:
-    get:
-      operationId: getSignatureFailureAlertHistory
-      tags: [callbacks]
-      summary: Get signature failure alert dispatch history
-      description: Admin-only. Returns the history of signature failure alert emails that have been sent, including failure counts, affected merchants, and recipient counts.
-      parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-          description: Maximum number of records to return (default 20)
-      responses:
-        "200":
-          description: Signature failure alert history
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SignatureFailureAlertHistoryResponse"
-        "403":
-          description: Admin access only
-
   /callbacks:
     post:
       operationId: receivePaymentCallback
@@ -1767,29 +1544,6 @@ paths:
             "replay_detected" = duplicate nonce,
             "bad_signature" = HMAC mismatch,
             "missing_header" = required header absent.
-        - name: merchantId
-          in: query
-          schema:
-            type: integer
-          description: Admin only — filter logs by a specific merchant ID
-        - name: eventType
-          in: query
-          schema:
-            type: string
-            enum: [payment.received, payment.success, payment.failed, payment.pending]
-          description: Filter logs by event type stored on the callback log row
-        - name: from
-          in: query
-          schema:
-            type: string
-            format: date-time
-          description: ISO 8601 datetime — return logs created at or after this timestamp
-        - name: to
-          in: query
-          schema:
-            type: string
-            format: date-time
-          description: ISO 8601 datetime — return logs created at or before this timestamp
         - name: page
           in: query
           schema:
@@ -1869,29 +1623,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CallbackSecretRotateResponse"
-        "403":
-          description: Merchant access only
-
-  /callbacks/secret/history:
-    get:
-      operationId: listCredentialEvents
-      tags: [callbacks]
-      summary: List credential rotation history for the authenticated merchant
-      description: Returns all credential events (callback secret rotations, API key generation/revocation) for the authenticated merchant, ordered oldest to newest.
-      parameters:
-        - name: page
-          in: query
-          schema: { type: integer }
-        - name: limit
-          in: query
-          schema: { type: integer }
-      responses:
-        "200":
-          description: Credential event history
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CredentialEventListResponse"
         "403":
           description: Merchant access only
 
@@ -2101,31 +1832,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/Settlement"
 
-  /settlements/{id}/history:
-    get:
-      operationId: getSettlementHistory
-      tags: [settlements]
-      summary: Get action trail for a settlement
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Settlement action trail
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/SettlementEvent"
-
   /users:
     get:
       operationId: listUsers
@@ -2257,39 +1963,9 @@ paths:
       operationId: listMerchantConnections
       tags: [connections]
       summary: List merchant payment provider connections
-      parameters:
-        - name: search
-          in: query
-          schema:
-            type: string
-        - name: provider
-          in: query
-          schema:
-            type: string
-        - name: merchantId
-          in: query
-          schema:
-            type: integer
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: limit
-          in: query
-          schema:
-            type: integer
-        - name: status
-          in: query
-          description: Filter by connection status — active (isActive=true) or inactive (isActive=false)
-          schema:
-            type: string
-            enum: [active, inactive]
       responses:
         "200":
-          description: >
-            Merchant: flat array of own connections.
-            Admin: paginated object { data, total, page, limit, activeCount, inactiveCount } —
-            counts reflect provider/merchant/search filters but ignore the status filter.
+          description: List of connections
           content:
             application/json:
               schema:
@@ -2409,29 +2085,6 @@ paths:
                 items:
                   $ref: "#/components/schemas/PlanHistory"
 
-  /plans/history/export:
-    get:
-      operationId: exportPlanHistory
-      tags: [plans]
-      summary: Export plan history as CSV (admin only)
-      parameters:
-        - name: merchantId
-          in: query
-          schema:
-            type: integer
-        - name: action
-          in: query
-          schema:
-            type: string
-            enum: [assigned, upgraded, downgraded, suspended, reinstated, renewed, unassigned]
-      responses:
-        "200":
-          description: CSV file download
-          content:
-            text/csv:
-              schema:
-                type: string
-
   /plans/history:
     get:
       operationId: listPlanHistory
@@ -2442,23 +2095,6 @@ paths:
           in: query
           schema:
             type: integer
-        - name: action
-          in: query
-          schema:
-            type: string
-            enum: [assigned, upgraded, downgraded, suspended, reinstated, renewed, unassigned]
-        - name: fromDate
-          in: query
-          schema:
-            type: string
-            format: date
-          description: Filter entries on or after this date (YYYY-MM-DD)
-        - name: toDate
-          in: query
-          schema:
-            type: string
-            format: date
-          description: Filter entries on or before this date (YYYY-MM-DD)
         - name: page
           in: query
           schema:
@@ -3287,44 +2923,6 @@ paths:
         "403":
           description: Forbidden
 
-  /audit-logs/schedules/bulk-toggle:
-    patch:
-      operationId: bulkToggleAuditReportSchedules
-      tags: [dashboard]
-      summary: Pause or resume audit report schedules — all or a specific subset
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [isActive]
-              properties:
-                isActive:
-                  type: boolean
-                ids:
-                  type: array
-                  items:
-                    type: integer
-                  description: >
-                    Optional list of schedule IDs to target. When omitted every schedule is updated.
-                    When provided only the listed IDs are toggled, leaving all others untouched.
-      responses:
-        "200":
-          description: Updated list of all schedules
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuditReportScheduleListResponse"
-        "400":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Forbidden
-
   /audit-logs/schedules/{id}/send:
     post:
       operationId: sendAuditReportNow
@@ -3355,47 +2953,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /audit-logs/schedules/logs:
-    get:
-      operationId: listAllAuditReportScheduleLogs
-      tags: [dashboard]
-      summary: List send history across all audit report schedules
-      parameters:
-        - name: scheduleId
-          in: query
-          schema: { type: integer }
-        - name: page
-          in: query
-          schema: { type: integer, default: 1 }
-        - name: limit
-          in: query
-          schema: { type: integer, default: 20 }
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [success, failed]
-        - name: triggerType
-          in: query
-          schema:
-            type: string
-            enum: [manual, scheduled, auto_recovery]
-        - name: dateFrom
-          in: query
-          schema: { type: string }
-        - name: dateTo
-          in: query
-          schema: { type: string }
-      responses:
-        "200":
-          description: Paginated list of schedule run logs across all schedules
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuditReportScheduleLogWithScheduleListResponse"
-        "403":
-          description: Forbidden
-
   /audit-logs/schedules/{id}/logs:
     get:
       operationId: listAuditReportScheduleLogs
@@ -3406,28 +2963,9 @@ paths:
           in: path
           required: true
           schema: { type: integer }
-        - name: page
-          in: query
-          schema: { type: integer, default: 1 }
         - name: limit
           in: query
           schema: { type: integer, default: 20 }
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [success, failed]
-        - name: triggerType
-          in: query
-          schema:
-            type: string
-            enum: [manual, scheduled, auto_recovery]
-        - name: dateFrom
-          in: query
-          schema: { type: string }
-        - name: dateTo
-          in: query
-          schema: { type: string }
       responses:
         "200":
           description: List of send-log entries for the schedule
@@ -3496,72 +3034,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /audit-logs/my-activity:
-    get:
-      operationId: listMySecurityActivity
-      tags: [dashboard]
-      summary: List admin-initiated security events for the authenticated merchant
-      parameters:
-        - name: page
-          in: query
-          schema: { type: integer }
-        - name: limit
-          in: query
-          schema: { type: integer }
-        - name: action
-          in: query
-          description: "Filter by action type (e.g. plan_assigned, merchant_suspended)"
-          schema: { type: string }
-        - name: dateFrom
-          in: query
-          description: "Filter events on or after this date (ISO 8601, e.g. 2025-01-01)"
-          schema: { type: string, format: date }
-        - name: dateTo
-          in: query
-          description: "Filter events on or before this date (ISO 8601, e.g. 2025-12-31)"
-          schema: { type: string, format: date }
-        - name: since
-          in: query
-          description: "Return only entries created after this ISO 8601 timestamp (exclusive)"
-          schema: { type: string, format: date-time }
-      responses:
-        "200":
-          description: Merchant security activity log
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MerchantActivityLogListResponse"
-        "403":
-          description: Forbidden
-
-  /audit-logs/my-activity/export:
-    get:
-      operationId: exportMySecurityActivity
-      tags: [dashboard]
-      summary: Export merchant security activity log as CSV
-      parameters:
-        - name: action
-          in: query
-          description: "Filter by action type (e.g. plan_assigned, merchant_suspended)"
-          schema: { type: string }
-        - name: dateFrom
-          in: query
-          description: "Filter events on or after this date (ISO 8601, e.g. 2025-01-01)"
-          schema: { type: string, format: date }
-        - name: dateTo
-          in: query
-          description: "Filter events on or before this date (ISO 8601, e.g. 2025-12-31)"
-          schema: { type: string, format: date }
-      responses:
-        "200":
-          description: CSV file download
-          content:
-            text/csv:
-              schema:
-                type: string
-        "403":
-          description: Forbidden
-
   /audit-logs/stats:
     get:
       operationId: getAdminAuditLogStats
@@ -3606,26 +3078,6 @@ paths:
             text/csv:
               schema:
                 type: string
-        "403":
-          description: Forbidden
-
-  /audit-logs/test-email-history:
-    delete:
-      operationId: clearTestEmailHistory
-      tags: [dashboard]
-      summary: Delete all test_email_sent audit log entries
-      responses:
-        "200":
-          description: Cleared
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [deleted]
-                properties:
-                  deleted:
-                    type: integer
-                    description: Number of rows deleted
         "403":
           description: Forbidden
 
@@ -3752,19 +3204,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LastReconSummary"
-
-  /dashboard/security-health:
-    get:
-      operationId: getDashboardSecurityHealth
-      tags: [dashboard]
-      summary: Get platform-wide security health summary (admin only)
-      responses:
-        "200":
-          description: Security health stats
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SecurityHealthStats"
 
   /feature-control:
     get:
@@ -4315,25 +3754,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/BroadcastNotificationResult"
 
-  /notifications/security-reminder:
-    post:
-      operationId: sendSecurityReminder
-      tags: [notifications]
-      summary: Send callback-secret setup reminder to selected merchants (admin only)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SecurityReminderInput"
-      responses:
-        "200":
-          description: Reminder result
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SecurityReminderResult"
-
   /notifications/check-expiry:
     get:
       operationId: checkPlanExpiry
@@ -4346,19 +3766,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExpiryCheckResult"
-
-  /notifications/check-webhook-secrets:
-    get:
-      operationId: checkWebhookSecrets
-      tags: [notifications]
-      summary: Trigger webhook secret rotation reminder check (admin only)
-      responses:
-        "200":
-          description: Check result
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WebhookSecretCheckResult"
 
   /reconciliation/run:
     post:
@@ -4598,133 +4005,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /system-config/reconciliation/report-recipients:
-    get:
-      operationId: getReconciliationReportRecipients
-      tags: [system-config]
-      summary: Get reconciliation report email recipients (admin only)
-      responses:
-        "200":
-          description: List of configured report recipient email addresses
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReconciliationReportRecipients"
-    post:
-      operationId: addReconciliationReportRecipient
-      tags: [system-config]
-      summary: Add a reconciliation report email recipient (admin only)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReconciliationReportRecipientInput"
-      responses:
-        "200":
-          description: Updated recipient list
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReconciliationReportRecipients"
-        "400":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /system-config/reconciliation/report-recipients/{email}:
-    delete:
-      operationId: removeReconciliationReportRecipient
-      tags: [system-config]
-      summary: Remove a reconciliation report email recipient (admin only)
-      parameters:
-        - name: email
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Updated recipient list
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReconciliationReportRecipients"
-        "404":
-          description: Recipient not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /system-config/reconciliation/lookback-presets:
-    get:
-      operationId: getReconciliationLookbackPresets
-      tags: [system-config]
-      summary: Get saved lookback window presets (admin only)
-      responses:
-        "200":
-          description: List of saved lookback window presets
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LookbackPreset"
-    post:
-      operationId: addReconciliationLookbackPreset
-      tags: [system-config]
-      summary: Add or update a lookback window preset (admin only)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LookbackPreset"
-      responses:
-        "200":
-          description: Updated list of presets
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LookbackPreset"
-        "400":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /system-config/reconciliation/lookback-presets/{days}:
-    delete:
-      operationId: deleteReconciliationLookbackPreset
-      tags: [system-config]
-      summary: Delete a lookback window preset by day count (admin only)
-      parameters:
-        - name: days
-          in: path
-          required: true
-          schema: { type: integer }
-      responses:
-        "200":
-          description: Updated list of presets
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LookbackPreset"
-        "404":
-          description: Preset not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /system-config/qr-cleanup:
     get:
       operationId: getQrCleanupConfig
@@ -4761,78 +4041,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /system-config/test-email-retention:
-    get:
-      operationId: getTestEmailRetentionConfig
-      tags: [system-config]
-      summary: Get test email history auto-delete retention configuration (admin only)
-      responses:
-        "200":
-          description: Current test email retention config
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TestEmailRetentionConfig"
-    put:
-      operationId: updateTestEmailRetentionConfig
-      tags: [system-config]
-      summary: Update test email history auto-delete retention configuration (admin only)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TestEmailRetentionConfig"
-      responses:
-        "200":
-          description: Updated test email retention config
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TestEmailRetentionConfig"
-        "400":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /system-config/signature-failure-alert:
-    get:
-      operationId: getSignatureFailureAlertConfig
-      tags: [system-config]
-      summary: Get signature failure alert configuration (admin only)
-      responses:
-        "200":
-          description: Current signature failure alert config
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SignatureFailureAlertConfig"
-    put:
-      operationId: updateSignatureFailureAlertConfig
-      tags: [system-config]
-      summary: Update signature failure alert configuration (admin only)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SignatureFailureAlertConfig"
-      responses:
-        "200":
-          description: Updated signature failure alert config
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SignatureFailureAlertConfig"
-        "400":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /notifications/{id}/read:
     post:
       operationId: markNotificationRead
@@ -4856,39 +4064,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
-  /storage/uploaded-objects:
-    get:
-      tags: [storage]
-      operationId: listUploadedObjects
-      summary: List previously uploaded objects for the authenticated merchant
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: List of uploaded objects.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/UploadedObjectEntry'
-        '401':
-          description: Unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Failed to list uploaded objects.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
   /storage/uploads/request-url:
     post:
@@ -4948,185 +4123,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Failed to serve object.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /storage/cleanup-orphans:
-    post:
-      tags: [storage]
-      operationId: runStorageCleanup
-      summary: Delete orphaned uploaded_objects rows and their GCS objects (admin only)
-      description: >
-        Scans the uploaded_objects table for rows whose objectPath is not
-        referenced by any merchant's or provider's logoUrl, then deletes the
-        GCS object and removes the row. Safe to run repeatedly.
-      responses:
-        '200':
-          description: Cleanup completed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StorageCleanupResult'
-        '500':
-          description: Cleanup failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /storage/cleanup-runs:
-    get:
-      tags: [storage]
-      operationId: listStorageCleanupRuns
-      summary: List past storage cleanup runs (admin only)
-      parameters:
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          description: Maximum number of runs to return, newest first.
-      responses:
-        '200':
-          description: List of past cleanup runs.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/StorageCleanupRun'
-        '401':
-          description: Unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /merchant/filter-presets/reorder:
-    patch:
-      operationId: reorderMerchantFilterPresets
-      tags: [merchant-filter-presets]
-      summary: Update the sort order of the current merchant's filter presets
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MerchantFilterPresetReorderInput'
-      responses:
-        '200':
-          description: Order updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Validation error.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /merchant/filter-presets:
-    get:
-      operationId: listMerchantFilterPresets
-      tags: [merchant-filter-presets]
-      summary: List all filter presets for the current merchant
-      responses:
-        '200':
-          description: List of merchant filter presets.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/MerchantFilterPreset'
-        '401':
-          description: Unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    post:
-      operationId: createMerchantFilterPreset
-      tags: [merchant-filter-presets]
-      summary: Create a named filter preset for the current merchant
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateMerchantFilterPresetInput'
-      responses:
-        '201':
-          description: Created merchant filter preset.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MerchantFilterPreset'
-        '400':
-          description: Validation error.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Duplicate name.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /merchant/filter-presets/{id}:
-    delete:
-      operationId: deleteMerchantFilterPreset
-      tags: [merchant-filter-presets]
-      summary: Delete a merchant filter preset
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Deleted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '401':
-          description: Unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found.
           content:
             application/json:
               schema:
@@ -5192,85 +4188,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /saved-filters/reorder:
-    put:
-      operationId: reorderSavedFilters
-      tags: [saved-filters]
-      summary: Reorder saved filter presets for the current admin
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReorderSavedFiltersInput'
-      responses:
-        '200':
-          description: Reordered successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Validation error.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /saved-filters/{id}:
-    patch:
-      operationId: renameSavedFilter
-      tags: [saved-filters]
-      summary: Rename a saved filter preset
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RenameSavedFilterInput'
-      responses:
-        '200':
-          description: Updated saved filter.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SavedFilter'
-        '400':
-          description: Validation error.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Duplicate name.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteSavedFilter
       tags: [saved-filters]
@@ -5317,22 +4235,9 @@ components:
           type: object
           description: SmartFilter JSON object
           additionalProperties: true
-        sortOrder:
-          type: integer
-          nullable: true
         createdAt:
           type: string
           format: date-time
-
-    ReorderSavedFiltersInput:
-      type: object
-      required: [ids]
-      properties:
-        ids:
-          type: array
-          items:
-            type: integer
-          description: Ordered array of saved filter IDs (front to back)
 
     CreateSavedFilterInput:
       type: object
@@ -5349,15 +4254,6 @@ components:
           type: object
           description: SmartFilter JSON object
           additionalProperties: true
-
-    RenameSavedFilterInput:
-      type: object
-      required: [name]
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 40
 
     HealthStatus:
       type: object
@@ -5443,10 +4339,6 @@ components:
           type: boolean
         settlementStateEmails:
           type: boolean
-        signatureFailureAlertEmails:
-          type: boolean
-        passwordUpdatedAt:
-          type: ["string", "null"]
         createdAt:
           type: string
 
@@ -5487,9 +4379,6 @@ components:
         callbackSecretSet:
           type: boolean
           description: Whether the merchant has configured a callback signing secret.
-        callbackSecretUpdatedAt:
-          type: ["string", "null"]
-          description: ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.
         currentPlanName:
           type: ["string", "null"]
         currentPlanStatus:
@@ -5522,22 +4411,6 @@ components:
         windowSeconds:
           type: ["integer", "null"]
           description: Replay-protection window in seconds (1–86400), or null to reset to global default.
-
-    MerchantWebhookUrlResponse:
-      type: object
-      required: [url]
-      properties:
-        url:
-          type: ["string", "null"]
-          description: The merchant's current webhook callback URL, or null if not configured.
-
-    UpdateMerchantWebhookUrlInput:
-      type: object
-      required: [url]
-      properties:
-        url:
-          type: string
-          description: New webhook callback URL. Must be HTTPS.
 
     MerchantBrandingInput:
       type: object
@@ -5979,39 +4852,6 @@ components:
           type: string
           description: The newly generated 64-character hex signing secret. Shown only once — store it immediately.
 
-    CredentialEvent:
-      type: object
-      required: [id, merchantId, eventType, createdAt]
-      properties:
-        id:
-          type: integer
-        merchantId:
-          type: integer
-        eventType:
-          type: string
-          enum: [callback_secret_rotated, api_key_generated, api_key_revoked]
-        keyPrefix:
-          type: ["string", "null"]
-          description: Masked key prefix for api_key_generated and api_key_revoked events
-        createdAt:
-          type: string
-          format: date-time
-
-    CredentialEventListResponse:
-      type: object
-      required: [data, total, page, limit]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/CredentialEvent"
-        total:
-          type: integer
-        page:
-          type: integer
-        limit:
-          type: integer
-
     PaymentCallbackInput:
       type: object
       description: |
@@ -6080,27 +4920,6 @@ components:
           items:
             $ref: "#/components/schemas/QrCodeActivity"
 
-    CallbackLogAttempt:
-      type: object
-      required: [id, callbackLogId, attemptNumber, firedAt]
-      properties:
-        id:
-          type: integer
-        callbackLogId:
-          type: integer
-        attemptNumber:
-          type: integer
-          description: 1-based sequence number of this attempt within the delivery log
-        firedAt:
-          type: string
-          description: ISO timestamp when this attempt was made
-        httpStatus:
-          type: ["integer", "null"]
-          description: HTTP status returned by the remote endpoint, null if connection failed
-        responseBody:
-          type: ["string", "null"]
-          description: Truncated response body (up to 500 chars)
-
     CallbackLog:
       type: object
       required: [id, merchantId, transactionId, url, status, httpStatus, createdAt]
@@ -6141,9 +4960,6 @@ components:
         isTest:
           type: boolean
           description: true if this delivery was triggered by a merchant test event, not a real payment
-        eventType:
-          type: ["string", "null"]
-          description: Event type extracted from the payload (e.g. payment.success, payment.received) — null for rows created before this field was added
         createdAt:
           type: string
 
@@ -6170,21 +4986,9 @@ components:
           type: integer
           description: Number of signature verification failures in the last 24 hours for this merchant
 
-    MerchantSignatureFailure:
-      type: object
-      required: [merchantId, failures]
-      properties:
-        merchantId:
-          type: integer
-        merchantName:
-          type: ["string", "null"]
-        failures:
-          type: integer
-          description: Number of signature failures in the last 24 hours for this merchant
-
     AdminCallbackStatsResponse:
       type: object
-      required: [signatureFailures24h, affectedMerchants, merchantBreakdown, thresholdExceeded, alertThreshold, hourlyTrend]
+      required: [signatureFailures24h, affectedMerchants]
       properties:
         signatureFailures24h:
           type: integer
@@ -6192,86 +4996,6 @@ components:
         affectedMerchants:
           type: integer
           description: Number of distinct merchants with at least one signature failure in the last 24 hours
-        merchantBreakdown:
-          type: array
-          description: Per-merchant breakdown of signature failures in the last 24 hours, sorted by failure count descending
-          items:
-            $ref: "#/components/schemas/MerchantSignatureFailure"
-        thresholdExceeded:
-          type: boolean
-          description: Whether the 24-hour signature failure count has exceeded the configured alert threshold
-        alertThreshold:
-          type: integer
-          description: The configured signature failure alert threshold
-        hourlyTrend:
-          type: array
-          description: Hourly signature failure counts for the last 24 hours, oldest first
-          items:
-            $ref: "#/components/schemas/HourlyFailureCount"
-
-    HourlyFailureCount:
-      type: object
-      required: [hour, count]
-      properties:
-        hour:
-          type: string
-          format: date-time
-          description: The start of the hour (UTC)
-        count:
-          type: integer
-          description: Number of signature failures in that hour
-
-    SignatureFailureAlertLogEntry:
-      type: object
-      required: [id, sentAt, failureCount, affectedMerchantCount, recipientCount, recipientEmails, affectedMerchants, windowHours, threshold]
-      properties:
-        id:
-          type: integer
-        sentAt:
-          type: string
-          format: date-time
-        failureCount:
-          type: integer
-          description: Total signature failures in the rolling window at the time the alert was sent
-        affectedMerchantCount:
-          type: integer
-          description: Number of distinct merchants affected at the time the alert was sent
-        recipientCount:
-          type: integer
-          description: Number of admin emails the alert was successfully delivered to
-        recipientEmails:
-          type: array
-          items:
-            type: string
-          description: List of admin email addresses the alert was sent to
-        affectedMerchants:
-          type: array
-          items:
-            type: object
-            required: [name, count]
-            properties:
-              name:
-                type: string
-              count:
-                type: integer
-          description: Per-merchant breakdown captured at alert dispatch time
-        windowHours:
-          type: number
-          description: Rolling window (hours) used to count failures
-        threshold:
-          type: integer
-          description: Failure threshold that triggered this alert
-
-    SignatureFailureAlertHistoryResponse:
-      type: object
-      required: [data, total]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/SignatureFailureAlertLogEntry"
-        total:
-          type: integer
 
     Settlement:
       type: object
@@ -6305,10 +5029,6 @@ components:
         processedBy:
           type: ["integer", "null"]
         processedAt:
-          type: ["string", "null"]
-        actionedBy:
-          type: ["integer", "null"]
-        actionedByEmail:
           type: ["string", "null"]
         paidAt:
           type: ["string", "null"]
@@ -6357,26 +5077,6 @@ components:
         remark:
           type: string
         referenceNumber:
-          type: string
-
-    SettlementEvent:
-      type: object
-      required: [id, settlementId, event, createdAt]
-      properties:
-        id:
-          type: integer
-        settlementId:
-          type: integer
-        event:
-          type: string
-          enum: [requested, processing, approved, rejected, paid, held]
-        actorId:
-          type: ["integer", "null"]
-        actorEmail:
-          type: ["string", "null"]
-        note:
-          type: ["string", "null"]
-        createdAt:
           type: string
 
     SettlementStats:
@@ -6459,17 +5159,6 @@ components:
           type: number
         triggeredBy:
           type: string
-
-    SecurityHealthStats:
-      type: object
-      required: [totalMerchants, merchantsWithoutSecret]
-      properties:
-        totalMerchants:
-          type: integer
-          description: Total number of active merchants
-        merchantsWithoutSecret:
-          type: integer
-          description: Number of active merchants with no callback signing secret configured
 
     DashboardStats:
       type: object
@@ -6557,29 +5246,6 @@ components:
       properties:
         enabled:
           type: boolean
-
-    ConnectionsListPage:
-      type: object
-      description: Paginated admin response for GET /connections. Includes per-status counts respecting all filters except status itself.
-      required: [data, total, page, limit, activeCount, inactiveCount]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/MerchantConnection"
-        total:
-          type: integer
-          description: Total count of connections matching all active filters (including status).
-        page:
-          type: integer
-        limit:
-          type: integer
-        activeCount:
-          type: integer
-          description: Number of active connections matching provider/merchant/search filters (ignores status filter).
-        inactiveCount:
-          type: integer
-          description: Number of inactive connections matching provider/merchant/search filters (ignores status filter).
 
     MerchantConnection:
       type: object
@@ -7499,7 +6165,7 @@ components:
 
     AuditReportSchedule:
       type: object
-      required: [id, frequency, recipientEmail, isActive, maxRetryAttempts, retryBackoffMinutes, consecutiveFailures, autoPauseAfterFailures, lastSendStatus, sendCount, successCount, createdAt, updatedAt]
+      required: [id, frequency, recipientEmail, isActive, lastSendStatus, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -7510,21 +6176,6 @@ components:
           type: string
         isActive:
           type: boolean
-        maxRetryAttempts:
-          type: integer
-          description: Maximum number of automatic retry attempts after an initial delivery failure (0–10).
-        retryBackoffMinutes:
-          type: integer
-          description: Minutes to wait between consecutive retry attempts (1–1440).
-        consecutiveFailures:
-          type: integer
-          description: Number of consecutive complete delivery cycles that have failed (reset to 0 on success).
-        autoPauseAfterFailures:
-          type: integer
-          description: Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause).
-        autoPausedAt:
-          type: ["string", "null"]
-          description: Timestamp when the schedule was automatically paused due to repeated failures.
         lastSentAt:
           type: ["string", "null"]
         lastSendStatus:
@@ -7532,16 +6183,6 @@ components:
           enum: [ok, failed, none]
         lastErrorMessage:
           type: ["string", "null"]
-        failureAcknowledgedAt:
-          type: ["string", "null"]
-        failureAcknowledgedByEmail:
-          type: ["string", "null"]
-        sendCount:
-          type: integer
-          description: Total number of send attempts (successful and failed) for this schedule.
-        successCount:
-          type: integer
-          description: Number of successful deliveries for this schedule.
         createdAt:
           type: string
         updatedAt:
@@ -7556,15 +6197,6 @@ components:
           enum: [daily, weekly, monthly]
         recipientEmail:
           type: string
-        maxRetryAttempts:
-          type: integer
-          description: Maximum number of automatic retry attempts (0–10). Defaults to 3.
-        retryBackoffMinutes:
-          type: integer
-          description: Minutes to wait between consecutive retry attempts (1–1440). Defaults to 60.
-        autoPauseAfterFailures:
-          type: integer
-          description: Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause). Defaults to 3.
 
     AuditReportSchedulePatch:
       type: object
@@ -7576,18 +6208,6 @@ components:
           type: string
         isActive:
           type: boolean
-        maxRetryAttempts:
-          type: integer
-          description: Maximum number of automatic retry attempts (0–10).
-        retryBackoffMinutes:
-          type: integer
-          description: Minutes to wait between consecutive retry attempts (1–1440).
-        autoPauseAfterFailures:
-          type: integer
-          description: Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause).
-        acknowledgeFailure:
-          type: boolean
-          description: When true, records the current timestamp as failureAcknowledgedAt, clearing the delivery-failure badge.
 
     AuditReportEmailPreview:
       type: object
@@ -7607,7 +6227,7 @@ components:
 
     AuditReportScheduleLog:
       type: object
-      required: [id, scheduleId, sentAt, rowCount, success, isRetry, retryAttempt, triggerType]
+      required: [id, scheduleId, sentAt, rowCount, success, isRetry]
       properties:
         id:
           type: integer
@@ -7623,100 +6243,15 @@ components:
           type: ["string", "null"]
         isRetry:
           type: boolean
-        retryAttempt:
-          type: integer
-          description: Which attempt number this log entry represents (0 = initial, 1 = first retry, 2 = second retry, etc.).
-        recipientEmail:
-          type: ["string", "null"]
-        triggerType:
-          type: string
-          enum: [manual, scheduled, auto_recovery]
-        deliveryCycleId:
-          type: ["string", "null"]
-          description: UUID shared by the initial attempt and all its retries within a single delivery cycle.
-
-    AuditReportScheduleLogWithSchedule:
-      type: object
-      required: [id, scheduleId, sentAt, rowCount, success, isRetry, triggerType, scheduleFrequency, scheduleRecipient]
-      properties:
-        id:
-          type: integer
-        scheduleId:
-          type: integer
-        sentAt:
-          type: string
-        rowCount:
-          type: integer
-        success:
-          type: boolean
-        errorMessage:
-          type: ["string", "null"]
-        recipientEmail:
-          type: ["string", "null"]
-        isRetry:
-          type: boolean
-        triggerType:
-          type: string
-          enum: [manual, scheduled, auto_recovery]
-        scheduleFrequency:
-          type: string
-          enum: [daily, weekly, monthly]
-        scheduleRecipient:
-          type: string
-        deliveryCycleId:
-          type: ["string", "null"]
-          description: UUID shared by the initial attempt and all its retries within a single delivery cycle.
-
-    FailureBreakdownItem:
-      type: object
-      required: [errorMessage, count]
-      properties:
-        errorMessage:
-          type: ["string", "null"]
-        count:
-          type: integer
-
-    AuditReportScheduleLogWithScheduleListResponse:
-      type: object
-      required: [data, total, failureCount, filteredTotal, page, failureBreakdown]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/AuditReportScheduleLogWithSchedule"
-        total:
-          type: integer
-        failureCount:
-          type: integer
-        filteredTotal:
-          type: integer
-        page:
-          type: integer
-        failureBreakdown:
-          type: array
-          items:
-            $ref: "#/components/schemas/FailureBreakdownItem"
 
     AuditReportScheduleLogListResponse:
       type: object
-      required: [data, total, failureCount, filteredTotal, page, failureBreakdown]
+      required: [data]
       properties:
         data:
           type: array
           items:
             $ref: "#/components/schemas/AuditReportScheduleLog"
-        total:
-          type: integer
-        failureCount:
-          type: integer
-        filteredTotal:
-          type: integer
-        page:
-          type: integer
-        failureBreakdown:
-          type: array
-          items:
-            $ref: "#/components/schemas/FailureBreakdownItem"
 
     AdminAuditLog:
       type: object
@@ -7753,39 +6288,6 @@ components:
           type: ["integer", "null"]
         details:
           type: ["string", "null"]
-
-    MerchantActivityLogEntry:
-      type: object
-      required: [id, action, adminEmail, targetType, createdAt]
-      properties:
-        id:
-          type: integer
-        action:
-          type: string
-        adminEmail:
-          type: string
-          description: Anonymised admin email (e.g. a****@rasokart.com)
-        targetType:
-          type: string
-        details:
-          type: ["string", "null"]
-        createdAt:
-          type: string
-
-    MerchantActivityLogListResponse:
-      type: object
-      required: [data, total, page, limit]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/MerchantActivityLogEntry"
-        total:
-          type: integer
-        page:
-          type: integer
-        limit:
-          type: integer
 
     AdminAuditLogStatsResponse:
       type: object
@@ -8242,28 +6744,6 @@ components:
         message: { type: string }
         count: { type: integer }
 
-    SecurityReminderInput:
-      type: object
-      required: [merchantIds]
-      properties:
-        merchantIds:
-          type: array
-          items:
-            type: integer
-          description: IDs of merchants to remind; only those without a callback secret will receive a notification
-
-    SecurityReminderResult:
-      type: object
-      required: [message, sent, skipped]
-      properties:
-        message: { type: string }
-        sent:
-          type: integer
-          description: Number of merchants who received a reminder notification
-        skipped:
-          type: integer
-          description: Number of merchants skipped because they already have a callback secret
-
     ReconciliationRunInput:
       type: object
       required: [dateFrom, dateTo]
@@ -8277,10 +6757,6 @@ components:
         merchantId:
           type: integer
           nullable: true
-        notes:
-          type: string
-          nullable: true
-          description: Optional reason or notes for this manual run (audit trail)
 
     ReconciliationSchedulerStatus:
       type: object
@@ -8336,15 +6812,6 @@ components:
           type: string
           nullable: true
         createdAt: { type: string }
-        lastEmail:
-          type: object
-          nullable: true
-          description: 'Summary of the most recent email delivery for this run'
-          required: [sentAt, status, recipients]
-          properties:
-            sentAt: { type: string }
-            status: { type: string }
-            recipients: { type: string }
 
     ReconciliationRunListResponse:
       type: object
@@ -8457,15 +6924,6 @@ components:
         expiringCount: { type: integer }
         expiredCount: { type: integer }
 
-    WebhookSecretCheckResult:
-      type: object
-      required: [message, notificationsSent, reminderCount, overdueCount]
-      properties:
-        message: { type: string }
-        notificationsSent: { type: integer }
-        reminderCount: { type: integer }
-        overdueCount: { type: integer }
-
     ReconciliationNextRun:
       type: object
       required: [nextRunAt]
@@ -8478,10 +6936,6 @@ components:
           type: string
           nullable: true
           description: IANA timezone name of the server (e.g. "America/New_York") used to interpret scheduled hour/minute
-        serverTime:
-          type: string
-          nullable: true
-          description: Current wall-clock time on the server at the moment of the request (HH:MM:SS, as-of page load)
 
     ReconciliationScheduleConfig:
       type: object
@@ -8506,111 +6960,6 @@ components:
           type: boolean
           description: Whether the scheduled auto-reconciliation is enabled
 
-    StorageCleanupResult:
-      type: object
-      required: [totalScanned, deleted, errors]
-      properties:
-        totalScanned:
-          type: integer
-          description: Number of uploaded_objects rows examined.
-        deleted:
-          type: integer
-          description: Number of orphaned rows successfully deleted (GCS object + DB row).
-        errors:
-          type: integer
-          description: Number of orphaned rows that could not be deleted due to errors.
-
-    StorageCleanupRun:
-      type: object
-      required: [id, runAt, totalScanned, deleted, errors, triggeredBy, createdAt]
-      properties:
-        id:
-          type: integer
-        runAt:
-          type: string
-          format: date-time
-        totalScanned:
-          type: integer
-        deleted:
-          type: integer
-        errors:
-          type: integer
-        triggeredBy:
-          type: string
-          description: Email or identifier of the admin who triggered the run.
-        createdAt:
-          type: string
-          format: date-time
-
-    LookbackPreset:
-      type: object
-      required: [name, days]
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 50
-          description: Human-readable name for this preset (e.g. "Fortnightly")
-        days:
-          type: integer
-          minimum: 1
-          maximum: 90
-          description: Number of days to look back
-
-    ReconciliationReportRecipients:
-      type: object
-      required: [recipients]
-      properties:
-        recipients:
-          type: array
-          items:
-            type: string
-          description: List of email addresses that receive reconciliation reports
-
-    ReconciliationReportRecipientInput:
-      type: object
-      required: [email]
-      properties:
-        email:
-          type: string
-          description: Email address to add to the report recipient list
-
-    SignatureFailureAlertConfig:
-      type: object
-      required: [threshold, windowHours, rateLimitHours]
-      properties:
-        threshold:
-          type: integer
-          minimum: 1
-          maximum: 10000
-          description: >
-            Number of signature verification failures within the window that must
-            be exceeded before an alert email is sent.
-        windowHours:
-          type: number
-          minimum: 0.25
-          maximum: 72
-          description: >
-            Rolling time window (in hours) over which signature failures are counted.
-        rateLimitHours:
-          type: number
-          minimum: 0.25
-          maximum: 72
-          description: >
-            Minimum hours between consecutive alert emails (cooldown period).
-
-    TestEmailRetentionConfig:
-      type: object
-      required: [retentionDays]
-      properties:
-        retentionDays:
-          type: integer
-          minimum: 0
-          maximum: 365
-          description: >
-            Days to retain test_email_sent audit log rows.
-            Set to 0 to disable automatic cleanup.
-
     QrCleanupConfig:
       type: object
       required: [retentionDays]
@@ -8622,71 +6971,6 @@ components:
           description: >
             Days to retain expired/used QR codes before auto-deleting them.
             Set to 0 to disable automatic cleanup.
-
-    UploadedObjectEntry:
-      type: object
-      required: [objectPath, contentType, createdAt]
-      properties:
-        objectPath:
-          type: string
-          description: Normalized object path (e.g. /objects/uploads/uuid).
-        contentType:
-          type: string
-          description: MIME type of the uploaded file.
-        contentHash:
-          type: string
-          description: SHA-256 hex digest of the file contents (if recorded).
-        createdAt:
-          type: string
-          format: date-time
-          description: When the object was first uploaded.
-
-    MerchantFilterPreset:
-      type: object
-      required: [id, merchantId, name, presetType, payload, sortOrder, createdAt]
-      properties:
-        id:
-          type: integer
-        merchantId:
-          type: integer
-        name:
-          type: string
-        presetType:
-          type: string
-          enum: [combined, smart, date]
-        payload:
-          type: object
-          additionalProperties: true
-        sortOrder:
-          type: integer
-        createdAt:
-          type: string
-          format: date-time
-
-    MerchantFilterPresetReorderInput:
-      type: object
-      required: [ids]
-      properties:
-        ids:
-          type: array
-          items:
-            type: integer
-          description: Preset IDs in the desired new order
-
-    CreateMerchantFilterPresetInput:
-      type: object
-      required: [name, presetType, payload]
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 40
-        presetType:
-          type: string
-          enum: [combined, smart, date]
-        payload:
-          type: object
-          additionalProperties: true
 
     UploadUrlRequest:
       type: object

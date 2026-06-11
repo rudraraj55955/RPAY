@@ -1,13 +1,12 @@
 import { Router, type Request } from "express";
-import { db, settlementsTable, merchantsTable, ledgerEntriesTable, usersTable, auditLogsTable, settlementEventsTable } from "@workspace/db";
-import { eq, and, count, sql, gte, lte, sum, asc } from "drizzle-orm";
+import { db, settlementsTable, merchantsTable, ledgerEntriesTable, usersTable, auditLogsTable } from "@workspace/db";
+import { eq, and, count, sql, gte, lte, sum } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { createNotification } from "../helpers/notifications";
 import { notifyAdminsOfSettlementStateChange } from "../helpers/adminNotifyEmail";
-import { makeRateLimiter } from "../helpers/makeRateLimiter";
+import rateLimit from "express-rate-limit";
 
-const settlementCreateLimiter = makeRateLimiter({
-  limiterId: "settlement-create",
+const settlementCreateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
   standardHeaders: "draft-8",
@@ -29,13 +28,12 @@ async function getMerchantName(merchantId: number): Promise<string> {
 const router = Router();
 router.use(requireAuth);
 
-function mapSettlement(s: typeof settlementsTable.$inferSelect, merchantName?: string | null, actionedByEmail?: string | null) {
+function mapSettlement(s: typeof settlementsTable.$inferSelect, merchantName?: string | null) {
   return {
     ...s,
     amount: Number(s.amount),
     requestedAmount: s.requestedAmount != null ? Number(s.requestedAmount) : null,
     merchantName: merchantName ?? null,
-    actionedByEmail: actionedByEmail ?? null,
   };
 }
 
@@ -88,17 +86,16 @@ router.get("/", async (req, res) => {
   const [{ total }] = await db.select({ total: count() }).from(settlementsTable).where(where);
 
   const rows = await db
-    .select({ settlement: settlementsTable, merchantName: merchantsTable.businessName, actionedByEmail: usersTable.email })
+    .select({ settlement: settlementsTable, merchantName: merchantsTable.businessName })
     .from(settlementsTable)
     .leftJoin(merchantsTable, eq(settlementsTable.merchantId, merchantsTable.id))
-    .leftJoin(usersTable, eq(settlementsTable.actionedBy, usersTable.id))
     .where(where)
     .limit(limitNum)
     .offset(offset)
     .orderBy(sql`${settlementsTable.createdAt} DESC`);
 
   res.json({
-    data: rows.map(r => mapSettlement(r.settlement, r.merchantName, r.actionedByEmail)),
+    data: rows.map(r => mapSettlement(r.settlement, r.merchantName)),
     total,
     page: pageNum,
     limit: limitNum,
@@ -220,14 +217,6 @@ router.post("/", settlementCreateLimiter, async (req, res) => {
     transactionCount: 0,
   }).returning();
 
-  void db.insert(settlementEventsTable).values({
-    settlementId: settlement.id,
-    event: "requested",
-    actorId: user.id,
-    actorEmail: user.email,
-    note: requestedNote || null,
-  }).catch(() => {});
-
   res.status(201).json(mapSettlement(settlement));
 });
 
@@ -275,14 +264,6 @@ router.post("/:id/process", requireAdmin, async (req, res) => {
     res.status(409).json({ error: "Settlement status changed — concurrent modification detected" });
     return;
   }
-
-  void db.insert(settlementEventsTable).values({
-    settlementId: id,
-    event: "processing",
-    actorId: user.id,
-    actorEmail: user.email,
-    note: remark,
-  }).catch(() => {});
 
   res.json(mapSettlement(updated));
 
@@ -350,7 +331,7 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
       }
 
       const [result] = await tx.update(settlementsTable)
-        .set({ status: "approved", adminRemark: remark, processedBy: user.id, actionedBy: user.id })
+        .set({ status: "approved", adminRemark: remark, processedBy: user.id })
         .where(and(eq(settlementsTable.id, id), eq(settlementsTable.status, "processing")))
         .returning();
 
@@ -380,14 +361,6 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
     res.status(code).json({ error: err?.message ?? "Approval failed" });
     return;
   }
-
-  void db.insert(settlementEventsTable).values({
-    settlementId: id,
-    event: "approved",
-    actorId: user.id,
-    actorEmail: user.email,
-    note: remark,
-  }).catch(() => {});
 
   // Settlement approved — notify the merchant
   void getUserIdForMerchant(s.merchantId).then(uid => {
@@ -431,7 +404,7 @@ router.post("/:id/reject", requireAdmin, async (req, res) => {
   if (!remark) { res.status(400).json({ error: "Remark is required" }); return; }
 
   const [updated] = await db.update(settlementsTable)
-    .set({ status: "rejected", adminRemark: remark, processedBy: user.id, processedAt: new Date(), actionedBy: user.id })
+    .set({ status: "rejected", adminRemark: remark, processedBy: user.id, processedAt: new Date() })
     .where(and(eq(settlementsTable.id, id), sql`${settlementsTable.status} IN ('pending', 'processing')`))
     .returning();
 
@@ -439,14 +412,6 @@ router.post("/:id/reject", requireAdmin, async (req, res) => {
     res.status(409).json({ error: "Settlement status changed — concurrent modification detected" });
     return;
   }
-
-  void db.insert(settlementEventsTable).values({
-    settlementId: id,
-    event: "rejected",
-    actorId: user.id,
-    actorEmail: user.email,
-    note: remark,
-  }).catch(() => {});
 
   // Settlement rejected — notify the merchant
   void getUserIdForMerchant(s.merchantId).then(uid => {
@@ -499,14 +464,6 @@ router.post("/:id/hold", requireAdmin, async (req, res) => {
     return;
   }
 
-  void db.insert(settlementEventsTable).values({
-    settlementId: id,
-    event: "held",
-    actorId: user.id,
-    actorEmail: user.email,
-    note: remark,
-  }).catch(() => {});
-
   res.json(mapSettlement(updated));
 });
 
@@ -547,14 +504,6 @@ router.post("/:id/mark-paid", requireAdmin, async (req, res) => {
     return;
   }
 
-  void db.insert(settlementEventsTable).values({
-    settlementId: id,
-    event: "paid",
-    actorId: user.id,
-    actorEmail: user.email,
-    note: `${remark} (ref: ${referenceNumber.trim()})`,
-  }).catch(() => {});
-
   // Settlement paid — notify the merchant
   void getUserIdForMerchant(s.merchantId).then(uid => {
     if (uid) createNotification({
@@ -579,36 +528,6 @@ router.post("/:id/mark-paid", requireAdmin, async (req, res) => {
       note: remark,
     })
   ).catch(() => {});
-});
-
-// GET /api/settlements/:id/history
-router.get("/:id/history", async (req, res) => {
-  const user = (req as any).user;
-  const id = parseId(req.params['id'] as string);
-
-  // Verify the settlement exists and belongs to this merchant (or admin can access any)
-  const [s] = await db.select({ id: settlementsTable.id, merchantId: settlementsTable.merchantId })
-    .from(settlementsTable)
-    .where(eq(settlementsTable.id, id))
-    .limit(1);
-
-  if (!s) {
-    res.status(404).json({ error: "Settlement not found" });
-    return;
-  }
-
-  if (user.role !== "admin" && s.merchantId !== user.merchantId) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
-
-  const events = await db
-    .select()
-    .from(settlementEventsTable)
-    .where(eq(settlementEventsTable.settlementId, id))
-    .orderBy(asc(settlementEventsTable.createdAt));
-
-  res.json({ data: events });
 });
 
 export default router;

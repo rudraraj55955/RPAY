@@ -8,7 +8,7 @@ import {
   usersTable,
   notificationsTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, inArray, sql, or, isNull, isNotNull, ne, desc } from "drizzle-orm";
+import { eq, and, gte, lte, inArray, sql, or, isNull, isNotNull, ne } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { createBulkNotifications } from "./notifications";
 import { sendReconciliationReportEmail } from "./reconcileEmail";
@@ -19,11 +19,10 @@ export interface ReconcileOptions {
   merchantId?: number | null;
   createdBy?: number | null;
   triggeredBy?: "manual" | "auto";
-  notes?: string | null;
 }
 
 export async function runReconciliation(opts: ReconcileOptions) {
-  const { dateFrom, dateTo, merchantId = null, createdBy = null, triggeredBy = "manual", notes = null } = opts;
+  const { dateFrom, dateTo, merchantId = null, createdBy = null, triggeredBy = "manual" } = opts;
 
   const fromDate = new Date(dateFrom + "T00:00:00.000Z");
   const toDate = new Date(dateTo + "T23:59:59.999Z");
@@ -35,7 +34,6 @@ export async function runReconciliation(opts: ReconcileOptions) {
     status: "running",
     createdBy: createdBy ?? null,
     triggeredBy,
-    notes,
   }).returning();
 
   try {
@@ -192,100 +190,12 @@ export async function runReconciliation(opts: ReconcileOptions) {
       logger.error({ err, runId: updated.id }, "Unexpected error in reconciliation report email");
     });
 
-    // Check for slow run and notify admins if threshold exceeded (non-blocking, best-effort)
-    const runDurationMs =
-      updated.completedAt && run.runAt
-        ? new Date(updated.completedAt).getTime() - new Date(run.runAt).getTime()
-        : 0;
-    if (runDurationMs > 0) {
-      checkAndNotifySlowRun(updated.id, runDurationMs).catch(err => {
-        logger.error({ err, runId: updated.id }, "Unexpected error in slow-run anomaly check");
-      });
-    }
-
     return updated;
   } catch (err) {
     await db.update(reconciliationRunsTable)
       .set({ status: "failed", completedAt: new Date(), notes: err instanceof Error ? err.message : "Unknown error" })
       .where(eq(reconciliationRunsTable.id, run.id));
     throw err;
-  }
-}
-
-const SLOW_RUN_THRESHOLD = parseFloat(process.env['RECONCILIATION_SLOW_RUN_THRESHOLD'] ?? '3');
-const SLOW_RUN_SAMPLE_SIZE = 20;
-const SLOW_RUN_MIN_SAMPLES = 3;
-
-async function checkAndNotifySlowRun(currentRunId: number, currentDurationMs: number) {
-  try {
-    const recentRuns = await db
-      .select({
-        runAt: reconciliationRunsTable.runAt,
-        completedAt: reconciliationRunsTable.completedAt,
-      })
-      .from(reconciliationRunsTable)
-      .where(
-        and(
-          eq(reconciliationRunsTable.status, "complete"),
-          isNotNull(reconciliationRunsTable.completedAt),
-          ne(reconciliationRunsTable.id, currentRunId),
-        )
-      )
-      .orderBy(desc(reconciliationRunsTable.id))
-      .limit(SLOW_RUN_SAMPLE_SIZE);
-
-    const durations = recentRuns
-      .map(r =>
-        r.completedAt && r.runAt
-          ? new Date(r.completedAt).getTime() - new Date(r.runAt).getTime()
-          : null
-      )
-      .filter((d): d is number => d !== null && d > 0);
-
-    if (durations.length < SLOW_RUN_MIN_SAMPLES) {
-      return;
-    }
-
-    const avgDurationMs = durations.reduce((a, b) => a + b, 0) / durations.length;
-    const thresholdMs = SLOW_RUN_THRESHOLD * avgDurationMs;
-
-    if (currentDurationMs <= thresholdMs) {
-      return;
-    }
-
-    const admins = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(and(eq(usersTable.role, "admin"), eq(usersTable.isActive, true)));
-
-    if (admins.length === 0) return;
-
-    const currentSeconds = (currentDurationMs / 1000).toFixed(1);
-    const avgSeconds = (avgDurationMs / 1000).toFixed(1);
-    const multiple = (currentDurationMs / avgDurationMs).toFixed(1);
-
-    logger.warn(
-      { runId: currentRunId, durationMs: currentDurationMs, avgDurationMs, multiple },
-      "Reconciliation run exceeded slow-run threshold"
-    );
-
-    await createBulkNotifications(
-      admins.map(admin => ({
-        userId: admin.id,
-        type: "system_notice" as const,
-        title: "Reconciliation Run Took Unusually Long",
-        body: `Run #${currentRunId} completed in ${currentSeconds}s — ${multiple}× the rolling average of ${avgSeconds}s (last ${durations.length} runs). This may indicate a performance regression.`,
-        metadata: {
-          runId: currentRunId,
-          durationMs: currentDurationMs,
-          avgDurationMs,
-          multiple: parseFloat(multiple),
-          sampleSize: durations.length,
-        },
-      }))
-    );
-  } catch (err) {
-    logger.error({ err, runId: currentRunId }, "Failed to check reconciliation run duration anomaly");
   }
 }
 

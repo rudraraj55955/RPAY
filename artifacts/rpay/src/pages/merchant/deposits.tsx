@@ -33,190 +33,10 @@ import {
   CalendarRange,
   Trash2,
   X,
-  Sparkles,
-  Bookmark,
-  BookmarkCheck,
-  Layers,
-  Pencil,
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  RefreshCw,
-  Link2,
 } from "lucide-react";
-import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay, parseISO, isValid, formatDistanceToNow } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { toast } from "sonner";
-import { getApiErrorMessage } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-// ── Smart search types & parsing ──────────────────────────────────────────────
-
-function formatFilterCriteria(f: SmartFilter): string[] {
-  const parts: string[] = [];
-  if (f.txStatus) {
-    const labels: Record<string, string> = { pending: "Pending", success: "Successful", failed: "Failed" };
-    parts.push(labels[f.txStatus] ?? f.txStatus);
-  }
-  if (f.amountMin != null && f.amountMax != null) {
-    parts.push(`₹${f.amountMin.toLocaleString("en-IN")} – ₹${f.amountMax.toLocaleString("en-IN")}`);
-  } else if (f.amountMin != null) {
-    parts.push(`≥ ₹${f.amountMin.toLocaleString("en-IN")}`);
-  } else if (f.amountMax != null) {
-    parts.push(`≤ ₹${f.amountMax.toLocaleString("en-IN")}`);
-  }
-  if (f.dateFrom && f.dateTo) {
-    const from = format(new Date(f.dateFrom), "dd MMM yyyy");
-    const to = format(new Date(f.dateTo), "dd MMM yyyy");
-    parts.push(from === to ? from : `${from} – ${to}`);
-  } else if (f.dateFrom) {
-    parts.push(`From ${format(new Date(f.dateFrom), "dd MMM yyyy")}`);
-  } else if (f.dateTo) {
-    parts.push(`Until ${format(new Date(f.dateTo), "dd MMM yyyy")}`);
-  }
-  return parts.length > 0 ? parts : ["No criteria set"];
-}
-
-interface SmartFilter {
-  amountMin?: number;
-  amountMax?: number;
-  dateFrom?: string;
-  dateTo?: string;
-  txStatus?: "pending" | "success" | "failed";
-}
-
-const STATUS_KEYWORDS: Record<string, "pending" | "success" | "failed"> = {
-  pending: "pending",
-  success: "success",
-  successful: "success",
-  failed: "failed",
-  failure: "failed",
-};
-
-function parseDateToken(token: string, now: Date): Pick<SmartFilter, "dateFrom" | "dateTo"> | null {
-  if (token === "today") {
-    return { dateFrom: format(startOfDay(now), "yyyy-MM-dd"), dateTo: format(endOfDay(now), "yyyy-MM-dd") };
-  }
-  if (token === "this week") {
-    return {
-      dateFrom: format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
-      dateTo: format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
-    };
-  }
-  if (token === "this month") {
-    return { dateFrom: format(startOfMonth(now), "yyyy-MM-dd"), dateTo: format(endOfMonth(now), "yyyy-MM-dd") };
-  }
-  if (token === "last month") {
-    const prev = subMonths(now, 1);
-    return { dateFrom: format(startOfMonth(prev), "yyyy-MM-dd"), dateTo: format(endOfMonth(prev), "yyyy-MM-dd") };
-  }
-  if (token === "last week") {
-    const prevWeekStart = startOfWeek(subDays(now, 7), { weekStartsOn: 1 });
-    const prevWeekEnd = endOfWeek(subDays(now, 7), { weekStartsOn: 1 });
-    return { dateFrom: format(prevWeekStart, "yyyy-MM-dd"), dateTo: format(prevWeekEnd, "yyyy-MM-dd") };
-  }
-  return null;
-}
-
-function parseAmountToken(token: string): Pick<SmartFilter, "amountMin" | "amountMax"> | null {
-  const gtMatch = token.match(/^(>=?)(\d+(?:\.\d+)?)$/);
-  if (gtMatch) {
-    const inclusive = gtMatch[1] === ">=";
-    const val = parseFloat(gtMatch[2]!);
-    return { amountMin: inclusive ? val : val + 0.01 };
-  }
-  const ltMatch = token.match(/^(<=?)(\d+(?:\.\d+)?)$/);
-  if (ltMatch) {
-    const inclusive = ltMatch[1] === "<=";
-    const val = parseFloat(ltMatch[2]!);
-    return { amountMax: inclusive ? val : val - 0.01 };
-  }
-  const rangeMatch = token.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
-  if (rangeMatch) {
-    const min = parseFloat(rangeMatch[1]!);
-    const max = parseFloat(rangeMatch[2]!);
-    if (min <= max) return { amountMin: min, amountMax: max };
-  }
-  return null;
-}
-
-function parseSmartQuery(raw: string): SmartFilter | null {
-  const q = raw.trim().toLowerCase();
-  if (!q) return null;
-
-  const filter: SmartFilter = {};
-  const now = new Date();
-
-  for (const phrase of ["this week", "this month", "last month", "last week"]) {
-    if (q.includes(phrase)) {
-      const dateResult = parseDateToken(phrase, now);
-      if (dateResult) { Object.assign(filter, dateResult); break; }
-    }
-  }
-
-  let remaining = q;
-  if (filter.dateFrom) {
-    for (const phrase of ["this week", "this month", "last month", "last week"]) {
-      remaining = remaining.replace(phrase, "").trim();
-    }
-  }
-
-  const tokens = remaining.split(/\s+/).filter(Boolean);
-  for (const token of tokens) {
-    if (token in STATUS_KEYWORDS) { filter.txStatus = STATUS_KEYWORDS[token]!; continue; }
-    if (!filter.dateFrom) {
-      const dateResult = parseDateToken(token, now);
-      if (dateResult) { Object.assign(filter, dateResult); continue; }
-    }
-    if (filter.amountMin == null && filter.amountMax == null) {
-      const amtResult = parseAmountToken(token);
-      if (amtResult) { Object.assign(filter, amtResult); continue; }
-    }
-  }
-
-  const hasContent =
-    filter.txStatus != null || filter.dateFrom != null ||
-    filter.amountMin != null || filter.amountMax != null;
-
-  return hasContent ? filter : null;
-}
-
-// ── URL search param sync ─────────────────────────────────────────────────────
-
-function pushSmartQuery(q: string): void {
-  const params = new URLSearchParams(window.location.search);
-  if (q) {
-    params.set("q", q);
-  } else {
-    params.delete("q");
-  }
-  const search = params.toString();
-  window.history.pushState(null, "", window.location.pathname + (search ? "?" + search : ""));
-}
-
-// ── Saved filters ─────────────────────────────────────────────────────────────
-
-interface SavedFilter {
-  id: string;
-  name: string;
-  filter: SmartFilter;
-  rawInput: string;
-}
-
-const MERCHANT_DEPOSITS_SAVED_FILTERS_KEY = "rasokart_merchant_deposits_saved_filters";
-
-function loadSavedFilters(): SavedFilter[] {
-  try {
-    const raw = localStorage.getItem(MERCHANT_DEPOSITS_SAVED_FILTERS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as SavedFilter[];
-  } catch { return []; }
-}
-
-function storeSavedFilters(filters: SavedFilter[]): void {
-  localStorage.setItem(MERCHANT_DEPOSITS_SAVED_FILTERS_KEY, JSON.stringify(filters));
-}
-
-// ── Date presets ──────────────────────────────────────────────────────────────
 
 const DATE_PRESETS = [
   {
@@ -265,21 +85,6 @@ interface CustomDatePreset {
 }
 
 const CUSTOM_DATE_PRESETS_KEY = "rasokart_custom_date_presets_deposits";
-const LAST_DATE_RANGE_KEY = "rasokart_last_date_range_deposits";
-
-function loadLastDateRange(): { from: string; to: string } {
-  try {
-    const raw = localStorage.getItem(LAST_DATE_RANGE_KEY);
-    if (!raw) return { from: "", to: "" };
-    const parsed = JSON.parse(raw) as { from: string; to: string };
-    if (typeof parsed.from === "string" && typeof parsed.to === "string") return parsed;
-    return { from: "", to: "" };
-  } catch { return { from: "", to: "" }; }
-}
-
-function saveLastDateRange(from: string, to: string): void {
-  localStorage.setItem(LAST_DATE_RANGE_KEY, JSON.stringify({ from, to }));
-}
 
 function loadCustomDatePresets(): CustomDatePreset[] {
   try {
@@ -293,47 +98,6 @@ function loadCustomDatePresets(): CustomDatePreset[] {
 
 function storeCustomDatePresets(presets: CustomDatePreset[]): void {
   localStorage.setItem(CUSTOM_DATE_PRESETS_KEY, JSON.stringify(presets));
-}
-
-interface CombinedPreset {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  provider: string;
-  dateFrom: string;
-  dateTo: string;
-  source?: string;
-}
-
-const COMBINED_PRESETS_KEY = "rasokart_combined_presets";
-
-function loadCombinedPresets(): CombinedPreset[] {
-  try {
-    const raw = localStorage.getItem(COMBINED_PRESETS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as CombinedPreset[];
-  } catch {
-    return [];
-  }
-}
-
-function storeCombinedPresets(presets: CombinedPreset[]): void {
-  localStorage.setItem(COMBINED_PRESETS_KEY, JSON.stringify(presets));
-}
-
-const PROVIDER_LABELS: Record<string, string> = {
-  phonepe: "PhonePe",
-  paytm: "Paytm",
-  bharatpe: "BharatPe",
-  yono_sbi: "YONO SBI",
-  hdfc_smarthub: "HDFC SmartHub",
-  upi_id: "UPI",
-};
-
-function formatProvider(p: string | null | undefined): string {
-  if (!p) return "—";
-  return PROVIDER_LABELS[p] ?? p.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function buildCsvText(data: any[]): string {
@@ -355,57 +119,19 @@ function buildCsvText(data: any[]): string {
 export default function MerchantDeposits() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState(() => {
-    return new URLSearchParams(window.location.search).get("status") ?? "all";
-  });
-  const [dateFrom, setDateFrom] = useState(() => {
-    const urlFrom = new URLSearchParams(window.location.search).get("from");
-    return urlFrom ?? loadLastDateRange().from;
-  });
-  const [dateTo, setDateTo] = useState(() => {
-    const urlTo = new URLSearchParams(window.location.search).get("to");
-    return urlTo ?? loadLastDateRange().to;
-  });
+  const [status, setStatus] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
-  const [provider, setProvider] = useState(() => {
-    return new URLSearchParams(window.location.search).get("provider") ?? "all";
-  });
+  const [provider, setProvider] = useState("all");
   const [exporting, setExporting] = useState(false);
   const [lastExportCount, setLastExportCount] = useState<number | null>(null);
 
-  // ── Smart search state ───────────────────────────────────────────────────
-  const [smartInput, setSmartInput] = useState<string>(() => {
-    return new URLSearchParams(window.location.search).get("q") ?? "";
-  });
-  const [smartFilter, setSmartFilter] = useState<SmartFilter | null>(() => {
-    const q = new URLSearchParams(window.location.search).get("q") ?? "";
-    return q ? parseSmartQuery(q) : null;
-  });
-  const [smartError, setSmartError] = useState("");
-  const smartInputRef = useRef<HTMLInputElement>(null);
-
-  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => loadSavedFilters());
-  const [showSaveInput, setShowSaveInput] = useState(false);
-  const [saveFilterName, setSaveFilterName] = useState("");
-  const [saveFilterNameError, setSaveFilterNameError] = useState("");
-  const saveNameInputRef = useRef<HTMLInputElement>(null);
-
-  // ── Custom date preset state ─────────────────────────────────────────────
   const [customDatePresets, setCustomDatePresets] = useState<CustomDatePreset[]>(() => loadCustomDatePresets());
   const [showSaveDatePreset, setShowSaveDatePreset] = useState(false);
   const [saveDatePresetName, setSaveDatePresetName] = useState("");
   const [saveDatePresetNameError, setSaveDatePresetNameError] = useState("");
   const saveDatePresetNameRef = useRef<HTMLInputElement>(null);
-
-  const [allCombinedPresets, setAllCombinedPresets] = useState<CombinedPreset[]>(() => loadCombinedPresets());
-  const combinedPresets = allCombinedPresets.filter(p => p.type === "deposit");
-  const [showSaveCombinedPreset, setShowSaveCombinedPreset] = useState(false);
-  const [saveCombinedPresetName, setSaveCombinedPresetName] = useState("");
-  const [saveCombinedPresetNameError, setSaveCombinedPresetNameError] = useState("");
-  const saveCombinedPresetNameRef = useRef<HTMLInputElement>(null);
-
-  const [renamingCombinedPresetId, setRenamingCombinedPresetId] = useState<string | null>(null);
-  const [renameCombinedValue, setRenameCombinedValue] = useState("");
 
   useEffect(() => {
     if (showSaveDatePreset) {
@@ -413,153 +139,6 @@ export default function MerchantDeposits() {
     }
   }, [showSaveDatePreset]);
 
-  useEffect(() => {
-    saveLastDateRange(dateFrom, dateTo);
-  }, [dateFrom, dateTo]);
-
-  useEffect(() => {
-    if (showSaveCombinedPreset) {
-      setTimeout(() => saveCombinedPresetNameRef.current?.focus(), 50);
-    }
-  }, [showSaveCombinedPreset]);
-
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === MERCHANT_DEPOSITS_SAVED_FILTERS_KEY) {
-        setSavedFilters(loadSavedFilters());
-      } else if (e.key === CUSTOM_DATE_PRESETS_KEY) {
-        setCustomDatePresets(loadCustomDatePresets());
-      } else if (e.key === COMBINED_PRESETS_KEY) {
-        setAllCombinedPresets(loadCombinedPresets());
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
-  useEffect(() => {
-    const onPop = () => {
-      const params = new URLSearchParams(window.location.search);
-      const q = params.get("q") ?? "";
-      setSmartInput(q);
-      setSmartFilter(q ? parseSmartQuery(q) : null);
-      setSmartError("");
-      setStatus(params.get("status") ?? "all");
-      setDateFrom(params.get("from") ?? "");
-      setDateTo(params.get("to") ?? "");
-      setProvider(params.get("provider") ?? "all");
-      setPage(1);
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  // ── Sync filter dropdowns to URL ─────────────────────────────────────────
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (status !== "all") params.set("status", status);
-    else params.delete("status");
-    if (dateFrom) params.set("from", dateFrom);
-    else params.delete("from");
-    if (dateTo) params.set("to", dateTo);
-    else params.delete("to");
-    if (provider !== "all") params.set("provider", provider);
-    else params.delete("provider");
-    const search = params.toString();
-    window.history.replaceState(null, "", window.location.pathname + (search ? "?" + search : ""));
-  }, [status, dateFrom, dateTo, provider]);
-
-  // Effective filter values — smart filter takes precedence over manual dropdowns
-  const activeStatus = smartFilter?.txStatus ?? (status !== "all" ? status : undefined);
-  const activeDateFrom = smartFilter?.dateFrom ?? (dateFrom || undefined);
-  const activeDateTo = smartFilter?.dateTo ?? (dateTo || undefined);
-  const amountMin = smartFilter?.amountMin;
-  const amountMax = smartFilter?.amountMax;
-
-  // ── Smart search handlers ────────────────────────────────────────────────
-  const applySmartSearch = () => {
-    setSmartError("");
-    const filter = parseSmartQuery(smartInput);
-    if (!filter) {
-      setSmartError("Try: pending, success >500, failed this week, >500, today");
-      return;
-    }
-    setSmartFilter(filter);
-    pushSmartQuery(smartInput);
-    if (filter.txStatus) setStatus("all");
-    setPage(1);
-    setShowSaveInput(false);
-    setSaveFilterName("");
-  };
-
-  const clearSmartFilter = () => {
-    setSmartFilter(null);
-    setSmartInput("");
-    setSmartError("");
-    pushSmartQuery("");
-    setShowSaveInput(false);
-    setSaveFilterName("");
-    setSaveFilterNameError("");
-    setPage(1);
-    smartInputRef.current?.focus();
-  };
-
-  const applySavedFilter = (saved: SavedFilter) => {
-    setSmartFilter(saved.filter);
-    setSmartInput(saved.rawInput);
-    pushSmartQuery(saved.rawInput);
-    setSmartError("");
-    setShowSaveInput(false);
-    setSaveFilterName("");
-    setSaveFilterNameError("");
-    if (saved.filter.txStatus) setStatus("all");
-    setPage(1);
-  };
-
-  const confirmSaveFilter = () => {
-    const trimmed = saveFilterName.trim();
-    if (!trimmed) { setSaveFilterNameError("Please enter a name for this filter."); saveNameInputRef.current?.focus(); return; }
-    if (!smartFilter) return;
-    if (savedFilters.some(f => f.name.toLowerCase() === trimmed.toLowerCase())) {
-      setSaveFilterNameError("A filter with this name already exists."); saveNameInputRef.current?.focus(); return;
-    }
-    const newFilter: SavedFilter = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      name: trimmed, filter: smartFilter, rawInput: smartInput,
-    };
-    const updated = [...savedFilters, newFilter];
-    setSavedFilters(updated);
-    storeSavedFilters(updated);
-    setShowSaveInput(false);
-    setSaveFilterName("");
-    setSaveFilterNameError("");
-  };
-
-  const cancelSaveFilter = () => { setShowSaveInput(false); setSaveFilterName(""); setSaveFilterNameError(""); };
-
-  const deleteSavedFilter = (id: string) => {
-    const updated = savedFilters.filter(f => f.id !== id);
-    setSavedFilters(updated);
-    storeSavedFilters(updated);
-  };
-
-  const moveSavedFilter = (id: string, direction: "left" | "right") => {
-    const idx = savedFilters.findIndex(f => f.id === id);
-    if (idx === -1) return;
-    const newIdx = direction === "left" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= savedFilters.length) return;
-    const updated = [...savedFilters];
-    [updated[idx], updated[newIdx]] = [updated[newIdx]!, updated[idx]!];
-    setSavedFilters(updated);
-    storeSavedFilters(updated);
-  };
-
-  const hasSmartFilter = smartFilter !== null;
-  const isCurrentFilterSaved = hasSmartFilter && savedFilters.some(
-    f => f.rawInput === smartInput && JSON.stringify(f.filter) === JSON.stringify(smartFilter)
-  );
-
-  // ── Date preset handlers ─────────────────────────────────────────────────
   const applyPreset = (preset: (typeof DATE_PRESETS)[number]) => {
     const { from, to } = preset.getRange();
     setDateFrom(from);
@@ -630,131 +209,6 @@ export default function MerchantDeposits() {
     storeCustomDatePresets(updated);
   };
 
-  const moveCustomDatePreset = (id: string, direction: "left" | "right") => {
-    const idx = customDatePresets.findIndex(p => p.id === id);
-    if (idx === -1) return;
-    const newIdx = direction === "left" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= customDatePresets.length) return;
-    const updated = [...customDatePresets];
-    [updated[idx], updated[newIdx]] = [updated[newIdx]!, updated[idx]!];
-    setCustomDatePresets(updated);
-    storeCustomDatePresets(updated);
-  };
-
-  const applyCombinedPreset = (preset: CombinedPreset) => {
-    setStatus(preset.status);
-    setProvider(preset.provider);
-    setDateFrom(preset.dateFrom);
-    setDateTo(preset.dateTo);
-    setShowSaveCombinedPreset(false);
-    setPage(1);
-  };
-
-  const openSaveCombinedPreset = () => {
-    setSaveCombinedPresetName("");
-    setSaveCombinedPresetNameError("");
-    setShowSaveCombinedPreset(true);
-  };
-
-  const confirmSaveCombinedPreset = () => {
-    const trimmed = saveCombinedPresetName.trim();
-    if (!trimmed) {
-      setSaveCombinedPresetNameError("Please enter a name for this preset.");
-      saveCombinedPresetNameRef.current?.focus();
-      return;
-    }
-    const alreadyExists = allCombinedPresets.some(
-      p => p.name.toLowerCase() === trimmed.toLowerCase()
-    );
-    if (alreadyExists) {
-      setSaveCombinedPresetNameError("A preset with this name already exists.");
-      saveCombinedPresetNameRef.current?.focus();
-      return;
-    }
-    const newPreset: CombinedPreset = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      name: trimmed,
-      type: "deposit",
-      status,
-      provider,
-      dateFrom,
-      dateTo,
-      source: "deposits",
-    };
-    const updated = [...allCombinedPresets, newPreset];
-    setAllCombinedPresets(updated);
-    storeCombinedPresets(updated);
-    setShowSaveCombinedPreset(false);
-    setSaveCombinedPresetName("");
-    setSaveCombinedPresetNameError("");
-  };
-
-  const cancelSaveCombinedPreset = () => {
-    setShowSaveCombinedPreset(false);
-    setSaveCombinedPresetName("");
-    setSaveCombinedPresetNameError("");
-  };
-
-  const deleteCombinedPreset = (id: string) => {
-    const updated = allCombinedPresets.filter(p => p.id !== id);
-    setAllCombinedPresets(updated);
-    storeCombinedPresets(updated);
-  };
-
-  const startRenameCombinedPreset = (preset: CombinedPreset) => {
-    setRenamingCombinedPresetId(preset.id);
-    setRenameCombinedValue(preset.name);
-  };
-
-  const confirmRenameCombinedPreset = () => {
-    if (!renamingCombinedPresetId) return;
-    const trimmed = renameCombinedValue.trim();
-    if (trimmed) {
-      const updated = allCombinedPresets.map(p =>
-        p.id === renamingCombinedPresetId ? { ...p, name: trimmed } : p
-      );
-      setAllCombinedPresets(updated);
-      storeCombinedPresets(updated);
-    }
-    setRenamingCombinedPresetId(null);
-    setRenameCombinedValue("");
-  };
-
-  const cancelRenameCombinedPreset = () => {
-    setRenamingCombinedPresetId(null);
-    setRenameCombinedValue("");
-  };
-
-  const moveCombinedPreset = (id: string, direction: "left" | "right") => {
-    const depositIndices = allCombinedPresets
-      .map((p, i) => ({ p, i }))
-      .filter(({ p }) => p.type === "deposit")
-      .map(({ i }) => i);
-    const posInDeposits = depositIndices.findIndex(idx => allCombinedPresets[idx]!.id === id);
-    if (posInDeposits === -1) return;
-    const newPos = direction === "left" ? posInDeposits - 1 : posInDeposits + 1;
-    if (newPos < 0 || newPos >= depositIndices.length) return;
-    const updated = [...allCombinedPresets];
-    const idxA = depositIndices[posInDeposits]!;
-    const idxB = depositIndices[newPos]!;
-    [updated[idxA], updated[idxB]] = [updated[idxB]!, updated[idxA]!];
-    setAllCombinedPresets(updated);
-    storeCombinedPresets(updated);
-  };
-
-  const isCombinedPresetActive = (preset: CombinedPreset) =>
-    preset.type === "deposit" &&
-    status === preset.status && provider === preset.provider &&
-    dateFrom === preset.dateFrom && dateTo === preset.dateTo;
-
-  const buildCombinedPresetLabel = (preset: CombinedPreset): string => {
-    const parts: string[] = [];
-    if (preset.status !== "all") parts.push(preset.status.charAt(0).toUpperCase() + preset.status.slice(1));
-    if (preset.provider !== "all") parts.push(formatProvider(preset.provider));
-    parts.push(`${preset.dateFrom} – ${preset.dateTo}`);
-    return parts.join(" · ");
-  };
-
   const isCustomDateRangeEntered = !!(dateFrom && dateTo);
   const isBuiltInPresetActive = DATE_PRESETS.some(p => {
     const { from, to } = p.getRange();
@@ -763,18 +217,7 @@ export default function MerchantDeposits() {
   const isCustomDateAlreadySaved = customDatePresets.some(p => p.from === dateFrom && p.to === dateTo);
   const canSaveDatePreset = isCustomDateRangeEntered && !isBuiltInPresetActive && !isCustomDateAlreadySaved;
 
-  const hasStatusFilter = status !== "all";
-  const hasProviderFilter = provider !== "all";
-  const isCombinedPresetAlreadySaved = allCombinedPresets.some(
-    p => p.type === "deposit" && p.status === status && p.provider === provider &&
-      p.dateFrom === dateFrom && p.dateTo === dateTo
-  );
-  const canSaveCombinedPreset =
-    (hasStatusFilter || hasProviderFilter) &&
-    !!(dateFrom && dateTo) &&
-    !isCombinedPresetAlreadySaved;
-
-  // ── Simulate payment dialog state ────────────────────────────────────────
+  // Simulate payment dialog state
   const [showSimulate, setShowSimulate] = useState(false);
   const [simSourceType, setSimSourceType] = useState<"qr" | "va">("qr");
   const [simSourceId, setSimSourceId] = useState("");
@@ -783,24 +226,16 @@ export default function MerchantDeposits() {
   const [simExpected, setSimExpected] = useState<"success" | "failed" | "pending">("success");
   const [simProvider, setSimProvider] = useState("");
 
-  const { data, isLoading, isFetching, dataUpdatedAt } = useListTransactions({
+  const { data, isLoading } = useListTransactions({
     type: "deposit",
-    status: activeStatus as any,
+    status: status === "all" ? undefined : (status as any),
     search: search || undefined,
-    dateFrom: activeDateFrom,
-    dateTo: activeDateTo,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
     connectionProvider: provider !== "all" ? provider as import("@workspace/api-client-react").ListTransactionsConnectionProvider : undefined,
-    ...(amountMin != null ? { amountMin } : {}),
-    ...(amountMax != null ? { amountMax } : {}),
     page,
     limit: 20,
-  }, { query: { refetchInterval: 30_000 } } as any);
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 10_000);
-    return () => clearInterval(id);
-  }, []);
-  const lastUpdated = dataUpdatedAt > 0 ? new Date(dataUpdatedAt) : null;
+  });
 
   const { data: stats } = useGetDashboardStats();
   const { data: qrList } = useListQrCodes({ status: "active", limit: 100 });
@@ -819,8 +254,8 @@ export default function MerchantDeposits() {
         queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
         queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       },
-      onError: (err: unknown) => {
-        toast.error(getApiErrorMessage(err, "Failed to simulate payment"));
+      onError: (err: any) => {
+        toast.error(err?.message ?? "Failed to simulate payment");
       },
     },
   });
@@ -858,18 +293,13 @@ export default function MerchantDeposits() {
     }
   }
 
+
   const successCount = data?.data?.filter(t => t.status === "success").length ?? 0;
   const pendingCount = data?.data?.filter(t => t.status === "pending").length ?? 0;
 
-  const anyFilterActive = hasSmartFilter || !!(search || status !== "all" || dateFrom || dateTo || provider !== "all");
+  const anyFilterActive = !!(search || status !== "all" || dateFrom || dateTo || provider !== "all");
 
-  const clearAllFilters = () => {
-    setSmartFilter(null);
-    setSmartInput("");
-    setSmartError("");
-    setShowSaveInput(false);
-    setSaveFilterName("");
-    setSaveFilterNameError("");
+  const clearFilters = () => {
     setSearch("");
     setStatus("all");
     setDateFrom("");
@@ -884,21 +314,7 @@ export default function MerchantDeposits() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Deposits</h1>
-          <div className="flex items-center gap-3 mt-1">
-            <p className="text-muted-foreground">All incoming payments via QR and Virtual Accounts</p>
-            {lastUpdated != null && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground/60 shrink-0">
-                {isFetching && !isLoading ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3 h-3" />
-                )}
-                {isFetching && !isLoading
-                  ? "Refreshing…"
-                  : `Updated ${formatDistanceToNow(lastUpdated, { addSuffix: true })}`}
-              </span>
-            )}
-          </div>
+          <p className="text-muted-foreground mt-1">All incoming payments via QR and Virtual Accounts</p>
         </div>
         <div className="flex gap-2">
           <TooltipProvider>
@@ -989,263 +405,20 @@ export default function MerchantDeposits() {
         </Card>
       </div>
 
-      {/* Smart Search Bar */}
-      <Card>
-        <CardContent className="pt-4 pb-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Smart Search</p>
-
-          {savedFilters.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="text-xs text-muted-foreground font-medium">Saved:</span>
-              {savedFilters.map((saved, idx) => (
-                <TooltipProvider key={saved.id}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                <span
-                  className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
-                >
-                  <button
-                    onClick={() => applySavedFilter(saved)}
-                    className="flex items-center gap-1 pl-0.5 hover:text-violet-100 transition-colors"
-                    title={`Apply: ${saved.rawInput}`}
-                  >
-                    <BookmarkCheck className="w-3 h-3 shrink-0" />
-                    {saved.name}
-                  </button>
-                  <button
-                    onClick={() => moveSavedFilter(saved.id, "left")}
-                    disabled={idx === 0}
-                    className="p-0.5 text-violet-400/50 hover:text-violet-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-                    aria-label={`Move "${saved.name}" left`}
-                    title="Move left"
-                  >
-                    <ChevronLeft className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => moveSavedFilter(saved.id, "right")}
-                    disabled={idx === savedFilters.length - 1}
-                    className="p-0.5 text-violet-400/50 hover:text-violet-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-                    aria-label={`Move "${saved.name}" right`}
-                    title="Move right"
-                  >
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => deleteSavedFilter(saved.id)}
-                    className="p-0.5 rounded-full text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                    aria-label={`Delete saved filter "${saved.name}"`}
-                  >
-                    <Trash2 className="w-2.5 h-2.5" />
-                  </button>
-                </span>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="bottom"
-                      className="bg-zinc-900 border border-zinc-700 text-zinc-100 px-3 py-2 max-w-[220px]"
-                    >
-                      <p className="text-[11px] font-semibold text-zinc-400 mb-1 uppercase tracking-wide">Filter preview</p>
-                      {formatFilterCriteria(saved.filter).map((line) => (
-                        <p key={line} className="text-xs leading-relaxed">{line}</p>
-                      ))}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ))}
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <div className="relative flex-1">
-              <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-violet-400" />
-              <Input
-                ref={smartInputRef}
-                className="pl-9"
-                placeholder="Try: pending  ·  success >500  ·  failed this week  ·  >500  ·  today"
-                value={smartInput}
-                onChange={e => { setSmartInput(e.target.value); setSmartError(""); }}
-                onKeyDown={e => { if (e.key === "Enter") applySmartSearch(); }}
-              />
-            </div>
-            <Button onClick={applySmartSearch} disabled={!smartInput.trim()}>
-              <Search className="w-4 h-4 mr-2" />Apply
-            </Button>
-            {hasSmartFilter && !isCurrentFilterSaved && !showSaveInput && (
-              <Button
-                variant="outline"
-                onClick={() => { setSaveFilterName(""); setSaveFilterNameError(""); setShowSaveInput(true); }}
-                className="border-violet-500/40 text-violet-300 hover:bg-violet-500/10 hover:text-violet-200"
-              >
-                <Bookmark className="w-4 h-4 mr-2" />Save filter
-              </Button>
-            )}
-            {hasSmartFilter && isCurrentFilterSaved && (
-              <Button variant="outline" disabled className="border-violet-500/20 text-violet-400/50 cursor-default">
-                <BookmarkCheck className="w-4 h-4 mr-2" />Saved
-              </Button>
-            )}
-          </div>
-
-          {showSaveInput && (
-            <div className="mt-3 flex items-start gap-2">
-              <div className="flex-1">
-                <Input
-                  ref={saveNameInputRef}
-                  className="h-8 text-sm"
-                  placeholder="Name this filter (e.g. Large deposits)"
-                  value={saveFilterName}
-                  onChange={e => { setSaveFilterName(e.target.value); setSaveFilterNameError(""); }}
-                  onKeyDown={e => { if (e.key === "Enter") confirmSaveFilter(); if (e.key === "Escape") cancelSaveFilter(); }}
-                  maxLength={40}
-                />
-                {saveFilterNameError && <p className="mt-1 text-xs text-rose-400">{saveFilterNameError}</p>}
-              </div>
-              <Button size="sm" onClick={confirmSaveFilter} className="h-8 shrink-0">Save</Button>
-              <Button size="sm" variant="ghost" onClick={cancelSaveFilter} className="h-8 shrink-0 px-2"><X className="w-4 h-4" /></Button>
-            </div>
-          )}
-
-          {smartError && <p className="mt-2 text-xs text-amber-400">{smartError}</p>}
-          <p className="mt-2 text-xs text-muted-foreground">
-            Status: <span className="font-mono text-foreground/60">pending</span>, <span className="font-mono text-foreground/60">success</span>, <span className="font-mono text-foreground/60">failed</span> — Amount: <span className="font-mono text-foreground/60">{">500"}</span>, <span className="font-mono text-foreground/60">{"200-999"}</span> — Date: <span className="font-mono text-foreground/60">today</span>, <span className="font-mono text-foreground/60">this week</span>, <span className="font-mono text-foreground/60">this month</span> — Combine: <span className="font-mono text-foreground/60">failed this week</span>
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Active smart filter chips */}
-      {hasSmartFilter && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground font-medium">Smart filter:</span>
-          {(() => {
-            const sf = smartFilter!;
-            const chips: { label: string; key: string }[] = [];
-            if (sf.txStatus) chips.push({ key: "status", label: sf.txStatus.charAt(0).toUpperCase() + sf.txStatus.slice(1) });
-            if (sf.dateFrom || sf.dateTo) {
-              const d = sf.dateFrom && sf.dateTo
-                ? `${sf.dateFrom} – ${sf.dateTo}`
-                : sf.dateFrom ? `From ${sf.dateFrom}` : `Until ${sf.dateTo}`;
-              chips.push({ key: "date", label: d });
-            }
-            if (sf.amountMin != null && sf.amountMax != null) {
-              chips.push({ key: "amount", label: `₹${sf.amountMin.toLocaleString()} – ₹${sf.amountMax.toLocaleString()}` });
-            } else if (sf.amountMin != null) {
-              chips.push({ key: "amount", label: `≥ ₹${sf.amountMin.toLocaleString()}` });
-            } else if (sf.amountMax != null) {
-              chips.push({ key: "amount", label: `≤ ₹${sf.amountMax.toLocaleString()}` });
-            }
-            return chips.map((chip, i) => (
-              <span key={chip.key} className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                <Sparkles className="w-3 h-3" />
-                {chip.label}
-                {i === chips.length - 1 && (
-                  <button
-                    onClick={clearSmartFilter}
-                    className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                    aria-label="Remove smart filter"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </span>
-            ));
-          })()}
-        </div>
-      )}
-
       {/* Filter summary bar */}
       {anyFilterActive && (
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 space-y-2.5">
-          {/* Row 1: label + active filter chips + clear button */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Active filters</span>
-            {search && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Search: <span className="font-mono">{search}</span>
-                <button
-                  onClick={() => { setSearch(""); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove search filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {status !== "all" && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Status: {status.charAt(0).toUpperCase() + status.slice(1)}
-                <button
-                  onClick={() => { setStatus("all"); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove status filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {dateFrom && (() => { const d = parseISO(dateFrom); return isValid(d) ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                From: {format(d, "MMM d, yyyy")}
-                <button
-                  onClick={() => { setDateFrom(""); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove from-date filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ) : null; })()}
-            {dateTo && (() => { const d = parseISO(dateTo); return isValid(d) ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                To: {format(d, "MMM d, yyyy")}
-                <button
-                  onClick={() => { setDateTo(""); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove to-date filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ) : null; })()}
-            {provider !== "all" && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Provider: {provider.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
-                <button
-                  onClick={() => { setProvider("all"); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove provider filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            <div className="ml-auto flex items-center gap-1.5">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href).then(() => {
-                    toast.success("Link copied");
-                  }).catch(() => {
-                    toast.error("Could not copy link");
-                  });
-                }}
-                className="h-7 px-2.5 text-xs text-violet-400 hover:text-violet-200 hover:bg-violet-500/10 gap-1.5"
-              >
-                <Link2 className="w-3 h-3" />
-                Copy link
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearAllFilters}
-                className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 gap-1.5"
-              >
-                <X className="w-3 h-3" />
-                Clear filters
-              </Button>
-            </div>
-          </div>
-          {/* Row 2: aggregate stats */}
+        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Filter results</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="ml-auto h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 gap-1.5"
+            >
+              <X className="w-3 h-3" />
+              Clear filters
+            </Button>
             <div className="flex items-center gap-1.5 text-sm">
               <Hash className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="font-semibold text-foreground">
@@ -1288,194 +461,37 @@ export default function MerchantDeposits() {
       {/* Filters */}
       <Card>
         <CardHeader className="pb-4">
-          <div className="space-y-3">
-            {/* Combined preset chips */}
-            {combinedPresets.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                  <Layers className="w-3 h-3" />Presets:
-                </span>
-                {combinedPresets.map((preset, idx) =>
-                  renamingCombinedPresetId === preset.id ? (
-                    <span
-                      key={preset.id}
-                      className="inline-flex items-center gap-1 rounded-full border border-teal-500/60 bg-teal-500/15 text-teal-200 px-2 py-0.5 text-xs font-medium"
-                    >
-                      <Layers className="w-3 h-3 shrink-0" />
-                      <input
-                        className="bg-transparent border-none outline-none text-teal-100 w-24 min-w-0 text-xs"
-                        value={renameCombinedValue}
-                        onChange={e => setRenameCombinedValue(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === "Enter") confirmRenameCombinedPreset();
-                          if (e.key === "Escape") cancelRenameCombinedPreset();
-                        }}
-                        onBlur={confirmRenameCombinedPreset}
-                        maxLength={40}
-                        autoFocus
-                      />
-                      <button
-                        onClick={confirmRenameCombinedPreset}
-                        className="text-teal-400 hover:text-teal-100 transition-colors p-0.5"
-                        aria-label="Confirm rename"
-                        title="Save name"
-                      >
-                        <Check className="w-3 h-3" />
-                      </button>
-                      <button
-                        onMouseDown={e => { e.preventDefault(); cancelRenameCombinedPreset(); }}
-                        className="text-teal-400/50 hover:text-rose-400 transition-colors p-0.5"
-                        aria-label="Cancel rename"
-                        title="Cancel"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ) : (
-                    <span
-                      key={preset.id}
-                      className={`group inline-flex items-center gap-1 rounded-full border text-xs font-medium transition-colors ${
-                        isCombinedPresetActive(preset)
-                          ? "border-teal-500/60 bg-teal-500/15 text-teal-200"
-                          : "border-teal-500/30 bg-teal-500/8 text-teal-300 hover:border-teal-500/60"
-                      }`}
-                    >
-                      <button
-                        onClick={() => applyCombinedPreset(preset)}
-                        className="flex items-center gap-1 pl-2.5 py-1 hover:text-teal-100 transition-colors"
-                        title={buildCombinedPresetLabel(preset)}
-                      >
-                        <Layers className="w-3 h-3 shrink-0" />
-                        {preset.name}
-                        {preset.source === "transactions" && (
-                          <span className="text-[10px] opacity-50 font-normal">(Transactions)</span>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => moveCombinedPreset(preset.id, "left")}
-                        disabled={idx === 0}
-                        className="py-1 px-0.5 text-teal-400/50 hover:text-teal-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-                        aria-label={`Move "${preset.name}" left`}
-                        title="Move left"
-                      >
-                        <ChevronLeft className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => moveCombinedPreset(preset.id, "right")}
-                        disabled={idx === combinedPresets.length - 1}
-                        className="py-1 px-0.5 text-teal-400/50 hover:text-teal-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-                        aria-label={`Move "${preset.name}" right`}
-                        title="Move right"
-                      >
-                        <ChevronRight className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => startRenameCombinedPreset(preset)}
-                        className="py-1 px-0.5 text-teal-400/50 hover:text-teal-200 transition-colors opacity-0 group-hover:opacity-100"
-                        aria-label={`Rename "${preset.name}"`}
-                        title="Rename"
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => deleteCombinedPreset(preset.id)}
-                        className="pr-1.5 pl-0.5 text-teal-400/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-full transition-colors opacity-0 group-hover:opacity-100 py-1 flex items-center"
-                        aria-label={`Remove preset "${preset.name}"`}
-                        title="Remove this preset"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  )
-                )}
-              </div>
-            )}
-            <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  placeholder="Search by UTR or reference..."
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setPage(1); }}
-                />
-              </div>
-              <Select
-                value={smartFilter?.txStatus ?? status}
-                onValueChange={v => {
-                  if (smartFilter) clearSmartFilter();
-                  setStatus(v); setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search by UTR or reference..."
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1); }}
+              />
+            </div>
+            <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>
+              <SelectTrigger className="w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="success">Success</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
+            {activeConnections.length > 0 && (
+              <Select value={provider} onValueChange={v => { setProvider(v); setPage(1); }}>
+                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Provider" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="success">Success</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="all">All Providers</SelectItem>
+                  {activeConnections.map(c => (
+                    <SelectItem key={c.id} value={c.provider}>
+                      {c.provider.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {activeConnections.length > 0 && (
-                <Select value={provider} onValueChange={v => { setProvider(v); setPage(1); }}>
-                  <SelectTrigger className="w-[160px]"><SelectValue placeholder="Provider" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Providers</SelectItem>
-                    {activeConnections.map(c => (
-                      <SelectItem key={c.id} value={c.provider}>
-                        {c.provider.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {canSaveCombinedPreset && !showSaveCombinedPreset && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 text-xs border-teal-500/40 text-teal-300 hover:bg-teal-500/10 hover:text-teal-200 self-start"
-                  onClick={openSaveCombinedPreset}
-                  title="Save status + provider + date range as a reusable preset"
-                >
-                  <Layers className="w-3 h-3 mr-1.5" />
-                  Save as preset
-                </Button>
-              )}
-              {(hasStatusFilter || hasProviderFilter) && !!(dateFrom && dateTo) && isCombinedPresetAlreadySaved && (
-                <span className="inline-flex items-center gap-1 h-9 px-2.5 text-xs text-teal-400/60 border border-teal-500/20 rounded-md self-start">
-                  <Layers className="w-3 h-3" />
-                  Saved
-                </span>
-              )}
-            </div>
-            {showSaveCombinedPreset && (
-              <div className="flex items-start gap-2 pl-1">
-                <div className="flex-shrink-0 pt-1">
-                  <Layers className="w-3.5 h-3.5 text-teal-400" />
-                </div>
-                <div className="flex-1">
-                  <Input
-                    ref={saveCombinedPresetNameRef}
-                    className="h-8 text-sm max-w-[260px]"
-                    placeholder="Name this preset (e.g. Failed PhonePe Jan)"
-                    value={saveCombinedPresetName}
-                    onChange={e => { setSaveCombinedPresetName(e.target.value); setSaveCombinedPresetNameError(""); }}
-                    onKeyDown={e => {
-                      if (e.key === "Enter") confirmSaveCombinedPreset();
-                      if (e.key === "Escape") cancelSaveCombinedPreset();
-                    }}
-                    maxLength={40}
-                  />
-                  {saveCombinedPresetNameError && (
-                    <p className="mt-1 text-xs text-rose-400">{saveCombinedPresetNameError}</p>
-                  )}
-                </div>
-                <Button size="sm" onClick={confirmSaveCombinedPreset} className="h-8 shrink-0">
-                  Save
-                </Button>
-                <Button size="sm" variant="ghost" onClick={cancelSaveCombinedPreset} className="h-8 shrink-0 px-2">
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
             )}
           </div>
           <div className="space-y-2">
@@ -1492,7 +508,7 @@ export default function MerchantDeposits() {
                   {preset.label}
                 </Button>
               ))}
-              {customDatePresets.map((preset, idx) => (
+              {customDatePresets.map(preset => (
                 <span
                   key={preset.id}
                   className={`group inline-flex items-center gap-1 rounded-md border text-xs font-medium transition-colors ${
@@ -1508,24 +524,6 @@ export default function MerchantDeposits() {
                   >
                     <CalendarRange className="w-3 h-3 shrink-0" />
                     {preset.name}
-                  </button>
-                  <button
-                    onClick={() => moveCustomDatePreset(preset.id, "left")}
-                    disabled={idx === 0}
-                    className="p-0.5 text-sky-400/50 hover:text-sky-200 transition-colors opacity-0 group-hover:opacity-100 h-8 flex items-center disabled:pointer-events-none disabled:opacity-0"
-                    aria-label={`Move "${preset.name}" left`}
-                    title="Move left"
-                  >
-                    <ChevronLeft className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => moveCustomDatePreset(preset.id, "right")}
-                    disabled={idx === customDatePresets.length - 1}
-                    className="p-0.5 text-sky-400/50 hover:text-sky-200 transition-colors opacity-0 group-hover:opacity-100 h-8 flex items-center disabled:pointer-events-none disabled:opacity-0"
-                    aria-label={`Move "${preset.name}" right`}
-                    title="Move right"
-                  >
-                    <ChevronRight className="w-3 h-3" />
                   </button>
                   <button
                     onClick={() => deleteCustomDatePreset(preset.id)}
@@ -1642,22 +640,11 @@ export default function MerchantDeposits() {
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
                     <div className="flex flex-col items-center gap-3">
                       <ArrowDownLeft className="w-8 h-8 text-muted-foreground/40" />
-                      {anyFilterActive ? (
-                        <>
-                          <p>No deposits match the current filters</p>
-                          <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-violet-400 hover:text-violet-300">
-                            Clear all filters
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <p>No deposit transactions found</p>
-                          <Button size="sm" variant="outline" onClick={() => setShowSimulate(true)}>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Simulate your first payment
-                          </Button>
-                        </>
-                      )}
+                      <p>No deposit transactions found</p>
+                      <Button size="sm" variant="outline" onClick={() => setShowSimulate(true)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Simulate your first payment
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

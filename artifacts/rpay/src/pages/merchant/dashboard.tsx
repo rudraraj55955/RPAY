@@ -12,7 +12,6 @@ import { Link } from "wouter";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { SECRET_WARN_DAYS, SECRET_ROTATION_OVERDUE_DAYS } from "@/lib/webhook-constants";
-import { getApiErrorMessage } from "@/lib/utils";
 
 interface UsageRowProps { label: string; used: number; limit: number; }
 
@@ -144,9 +143,9 @@ export default function MerchantDashboard() {
         });
         return { previous };
       },
-      onError: (err, _vars, context) => {
+      onError: (_err, _vars, context) => {
         queryClient.setQueryData(getListMerchantConnectionsQueryKey(), (context as any)?.previous);
-        toast({ title: "Failed to update provider", description: getApiErrorMessage(err, "Please try again."), variant: "destructive" });
+        toast({ title: "Failed to update provider", description: "Please try again.", variant: "destructive" });
       },
       onSuccess: (_data, { data }) => {
         toast({ title: data.isActive ? "Provider enabled" : "Provider disabled" });

@@ -5,7 +5,6 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
-import type { AuditReportScheduleLogTriggerType } from './auditReportScheduleLogTriggerType';
 
 export interface AuditReportScheduleLog {
   id: number;
@@ -16,14 +15,4 @@ export interface AuditReportScheduleLog {
   /** @nullable */
   errorMessage?: string | null;
   isRetry: boolean;
-  /** Which attempt number this log entry represents (0 = initial, 1 = first retry, 2 = second retry, etc.). */
-  retryAttempt: number;
-  /** @nullable */
-  recipientEmail?: string | null;
-  triggerType: AuditReportScheduleLogTriggerType;
-  /**
-     * UUID shared by the initial attempt and all its retries within a single delivery cycle.
-     * @nullable
-     */
-  deliveryCycleId?: string | null;
 }

@@ -1,20 +1,14 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useSearch, useLocation } from "wouter";
+import { useState } from "react";
 import {
   useListAdminAuditLogs, useGetAdminAuditLogStats,
   useListAuditReportSchedules, useCreateAuditReportSchedule,
   useUpdateAuditReportSchedule, useDeleteAuditReportSchedule,
-  useSendAuditReportNow, useBulkToggleAuditReportSchedules,
+  useSendAuditReportNow,
   getListAuditReportSchedulesQueryKey,
   useListAuditReportScheduleLogs,
-  getListAuditReportScheduleLogsQueryKey,
-  useListAllAuditReportScheduleLogs,
-  getListAllAuditReportScheduleLogsQueryKey,
   previewAuditReportEmail,
-  type ListAuditReportScheduleLogsParams,
-  type ListAllAuditReportScheduleLogsParams,
 } from "@workspace/api-client-react";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,12 +23,11 @@ import {
   Package, PencilLine, Trash2, ArrowRightLeft, CreditCard,
   Users, Loader2, QrCode, Landmark,
   Clock, Mail, Plus, Ban, Send, History, ChevronDown, ChevronUp, AlertCircle, Settings,
-  MonitorPlay, GitMerge, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  MonitorPlay,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { format, parseISO, formatDistanceToNow } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
-import { getToken } from "@/lib/auth";
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   merchant_approved:        { label: "Merchant Approved",    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
@@ -67,10 +60,6 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   virtual_account_deleted:  { label: "VA Deleted",            color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
   test_email_sent:          { label: "Test Email Sent",       color: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
   setting_updated:          { label: "Setting Updated",       color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  reconciliation_run:       { label: "Reconciliation Run",    color: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" },
-  reconciliation_item_resolved: { label: "Item Resolved",    color: "bg-teal-500/10 text-teal-400 border-teal-500/20" },
-  reconciliation_unmatched_alert_resent: { label: "Unmatched Alert Resent", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  reconciliation_report_email_resent: { label: "Report Email Resent", color: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
 };
 
 const ALL_ACTIONS = Object.keys(ACTION_LABELS);
@@ -86,7 +75,6 @@ const TARGET_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: "provider",           label: "Provider" },
   { value: "merchant_features",  label: "Merchant Features" },
   { value: "settlements",        label: "Settlements" },
-  { value: "reconciliation_run",  label: "Reconciliation Run" },
   { value: "reconciliation_item",label: "Reconciliation Item" },
   { value: "system_config",      label: "System Config" },
   { value: "audit_logs",         label: "Audit Logs" },
@@ -826,88 +814,23 @@ function TestEmailSentDetails({ log }: { log: any }) {
   );
 }
 
-const SMTP_FIELD_LABELS: Record<string, string> = {
-  host: "Host",
-  port: "Port",
-  user: "Username",
-  from: "From Address",
-  password: "Password",
-};
-
-function SmtpSettingUpdatedDetails({ log }: { log: any }) {
-  let parsed: { settingType?: string; fieldsChanged?: string[] } = {};
-  try { if (log.details) parsed = JSON.parse(log.details); } catch { /* ignore */ }
-
-  const fields = parsed.fieldsChanged ?? [];
-
-  return (
-    <div className="space-y-3">
-      <SummaryCard
-        icon={<Mail className="w-5 h-5 text-amber-400" />}
-        title="SMTP configuration updated"
-        subtitle={fields.length > 0 ? `${fields.length} field${fields.length !== 1 ? "s" : ""} changed` : "No fields changed"}
-        colorClass="bg-amber-500/10 border-amber-500/20"
-      />
-      {fields.length > 0 && (
-        <div className="rounded-lg bg-muted/20 p-3 space-y-2">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Fields changed</p>
-          <div className="flex flex-wrap gap-1.5">
-            {fields.map((f: string) => (
-              <span key={f} className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300">
-                {SMTP_FIELD_LABELS[f] ?? f}
-              </span>
-            ))}
-          </div>
-          {fields.includes("password") && (
-            <p className="text-xs text-muted-foreground italic">Password value is not logged for security.</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const SETTING_KEY_LABELS: Record<string, string> = {
-  finance_report_email: "Finance Report Email",
-  reconciliation_schedule: "Reconciliation Schedule",
-};
-
-const SETTING_VALUE_LABELS: Record<string, Record<string, string>> = {
-  reconciliation_schedule: {
-    daily: "Daily",
-    weekly: "Weekly",
-    off: "Off",
-  },
-};
-
-function formatSettingValue(key: string | undefined, value: string | null | undefined): React.ReactNode {
-  if (value == null || value === "") {
-    return <span className="italic text-muted-foreground">Not set</span>;
-  }
-  const label = key ? (SETTING_VALUE_LABELS[key]?.[value] ?? null) : null;
-  if (label) {
-    return <span className="capitalize">{label}</span>;
-  }
-  return <span className="font-mono break-all">{value}</span>;
-}
-
 function SettingUpdatedDetails({ log }: { log: any }) {
-  let parsed: { settingType?: string; key?: string; oldValue?: string | null; newValue?: string | null } = {};
+  let parsed: { key?: string; oldValue?: string | null; newValue?: string | null } = {};
   try { if (log.details) parsed = JSON.parse(log.details); } catch { /* ignore */ }
 
-  if (parsed.settingType === "smtp") {
-    return <SmtpSettingUpdatedDetails log={log} />;
-  }
+  const keyLabels: Record<string, string> = {
+    finance_report_email: "Finance Report Email",
+    reconciliation_schedule: "Reconciliation Schedule",
+  };
 
-  const keyLabel = parsed.key ? (SETTING_KEY_LABELS[parsed.key] ?? humanizeKey(parsed.key)) : "System setting";
+  const keyLabel = parsed.key ? (keyLabels[parsed.key] ?? parsed.key) : "System setting";
+  const wasCleared = parsed.newValue === null || parsed.newValue === "";
+  const wasSet = parsed.oldValue === null || parsed.oldValue === "";
 
-  const oldEmpty = parsed.oldValue == null || parsed.oldValue === "";
-  const newEmpty = parsed.newValue == null || parsed.newValue === "";
-
-  const subtitle = newEmpty
-    ? "Setting cleared"
-    : oldEmpty
-    ? "Configured for the first time"
+  const subtitle = wasCleared
+    ? "Recipient list cleared"
+    : wasSet
+    ? "Value configured for the first time"
     : "Value changed";
 
   return (
@@ -918,131 +841,25 @@ function SettingUpdatedDetails({ log }: { log: any }) {
         subtitle={subtitle}
         colorClass="bg-amber-500/10 border-amber-500/20"
       />
-      <div className="rounded-lg bg-muted/20 overflow-hidden">
-        <div className="grid grid-cols-2 divide-x divide-border/40">
-          <div className="p-3 space-y-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Before</p>
-            <div className={`text-xs ${oldEmpty ? "" : "text-rose-300"}`}>
-              {formatSettingValue(parsed.key, parsed.oldValue)}
-            </div>
-          </div>
-          <div className="p-3 space-y-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">After</p>
-            <div className={`text-xs ${newEmpty ? "" : "text-emerald-300"}`}>
-              {formatSettingValue(parsed.key, parsed.newValue)}
-            </div>
-          </div>
-        </div>
-        <div className="border-t border-border/40 px-3 py-2">
-          <DetailRow label="Setting key" value={<span className="font-mono text-muted-foreground">{parsed.key ?? "—"}</span>} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ReconciliationRunDetails({ log }: { log: any }) {
-  let parsed: {
-    runId?: number;
-    dateFrom?: string;
-    dateTo?: string;
-    merchantId?: number | null;
-    triggeredBy?: string;
-    totalDeposits?: number;
-    totalSettlements?: number;
-    totalMatched?: number;
-    totalUnmatched?: number;
-    matchedAmount?: number;
-    unmatchedAmount?: number;
-    status?: string;
-    notes?: string | null;
-  } = {};
-  try { if (log.details) parsed = JSON.parse(log.details); } catch { /* ignore */ }
-
-  const isAuto = parsed.triggeredBy === "auto";
-  const matched = parsed.totalMatched ?? 0;
-  const unmatched = parsed.totalUnmatched ?? 0;
-  const total = matched + unmatched;
-  const matchRate = total > 0 ? Math.round((matched / total) * 100) : null;
-
-  const dateFrom = parsed.dateFrom;
-  const dateTo = parsed.dateTo;
-  const hasDateRange = dateFrom || dateTo;
-
-  return (
-    <div className="space-y-3">
-      <SummaryCard
-        icon={<GitMerge className="w-5 h-5 text-cyan-400" />}
-        title={
-          matched > 0 && unmatched === 0
-            ? `Reconciliation complete — ${matched} matched`
-            : matched > 0
-            ? `${matched} matched, ${unmatched} unmatched`
-            : unmatched > 0
-            ? `${unmatched} unmatched items`
-            : "Reconciliation run completed"
-        }
-        subtitle={matchRate != null ? `${matchRate}% match rate` : undefined}
-        colorClass="bg-cyan-500/10 border-cyan-500/20"
-      />
-
       <div className="rounded-lg bg-muted/20 p-3 space-y-1.5">
-        {hasDateRange && (
-          <div>
-            <span className="text-xs text-muted-foreground">Date range: </span>
-            <span className="text-xs font-medium">
-              {dateFrom ? formatDateLabel(dateFrom) : "—"}
-              {" – "}
-              {dateTo ? formatDateLabel(dateTo) : "—"}
-            </span>
-          </div>
-        )}
+        <DetailRow label="Setting" value={keyLabel} />
         <DetailRow
-          label="Scope"
-          value={parsed.merchantId != null ? `Merchant #${parsed.merchantId}` : "All merchants"}
-        />
-        <DetailRow label="Triggered by" value={<span className="capitalize">{isAuto ? "System (auto)" : "Admin (manual)"}</span>} />
-        {parsed.totalDeposits != null && (
-          <DetailRow label="Deposits processed" value={parsed.totalDeposits.toLocaleString()} />
-        )}
-        {parsed.totalSettlements != null && (
-          <DetailRow label="Settlements processed" value={parsed.totalSettlements.toLocaleString()} />
-        )}
-        <DetailRow
-          label="Matched"
-          value={<span className="text-emerald-400 font-medium">{matched.toLocaleString()}</span>}
-        />
-        <DetailRow
-          label="Unmatched"
+          label="Previous value"
           value={
-            unmatched > 0
-              ? <span className="text-rose-400 font-medium">{unmatched.toLocaleString()}</span>
-              : <span className="text-emerald-400 font-medium">0</span>
+            parsed.oldValue != null && parsed.oldValue !== ""
+              ? <span className="font-mono break-all">{parsed.oldValue}</span>
+              : <span className="text-muted-foreground italic">Not set</span>
           }
         />
-        {parsed.matchedAmount != null && (
-          <DetailRow
-            label="Matched amount"
-            value={<span className="font-mono">₹{Number(parsed.matchedAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>}
-          />
-        )}
-        {parsed.unmatchedAmount != null && parsed.unmatchedAmount > 0 && (
-          <DetailRow
-            label="Unmatched amount"
-            value={<span className="font-mono text-rose-400">₹{Number(parsed.unmatchedAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>}
-          />
-        )}
-        {parsed.runId != null && (
-          <DetailRow label="Run ID" value={<span className="font-mono">#{parsed.runId}</span>} />
-        )}
+        <DetailRow
+          label="New value"
+          value={
+            parsed.newValue != null && parsed.newValue !== ""
+              ? <span className="font-mono break-all">{parsed.newValue}</span>
+              : <span className="text-muted-foreground italic">Cleared</span>
+          }
+        />
       </div>
-
-      {parsed.notes && (
-        <div className="rounded-lg bg-muted/20 p-3">
-          <p className="text-xs text-muted-foreground mb-1">Notes</p>
-          <p className="text-xs">{parsed.notes}</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -1112,8 +929,6 @@ function ActionDetails({ log }: { log: any }) {
       return <TestEmailSentDetails log={log} />;
     case "setting_updated":
       return <SettingUpdatedDetails log={log} />;
-    case "reconciliation_run":
-      return <ReconciliationRunDetails log={log} />;
     default:
       return <RawJsonDetails log={log} />;
   }
@@ -1135,954 +950,65 @@ const FREQUENCY_LABELS: Record<string, string> = {
   monthly: "Monthly",
 };
 
-const PAGE_SIZE = 20;
-
-function ScheduleHistoryPanel({ scheduleId, maxRetryAttempts }: { scheduleId: number; maxRetryAttempts: number }) {
-  const [statusFilter, setStatusFilter] = useState<"all" | "success" | "failed">("all");
-  const [triggerFilter, setTriggerFilter] = useState<"all" | "manual" | "scheduled" | "auto_recovery">("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [retryingId, setRetryingId] = useState<number | null>(null);
-  const [retryingAll, setRetryingAll] = useState(false);
-  const [goToInput, setGoToInput] = useState("");
-  const [expandedCycles, setExpandedCycles] = useState<Set<string>>(new Set());
-
-  const search = useSearch();
-  const [location, navigate] = useLocation();
-
-  const paramKey = `hist_${scheduleId}`;
-
-  const page = (() => {
-    const sp = new URLSearchParams(search);
-    const v = parseInt(sp.get(paramKey) ?? "1", 10);
-    return isNaN(v) || v < 1 ? 1 : v;
-  })();
-
-  const setPage = useCallback((nextPage: number) => {
-    const sp = new URLSearchParams(search);
-    if (nextPage <= 1) {
-      sp.delete(paramKey);
-    } else {
-      sp.set(paramKey, String(nextPage));
-    }
-    const qs = sp.toString();
-    navigate(`${location}${qs ? `?${qs}` : ""}`, { replace: true });
-  }, [search, location, navigate, paramKey]);
-
-  // Reset to page 1 when filters change
-  const filterKey = `${statusFilter}|${triggerFilter}|${dateFrom}|${dateTo}`;
-  const prevFilterKey = useRef(filterKey);
-  if (prevFilterKey.current !== filterKey) {
-    prevFilterKey.current = filterKey;
-    setPage(1);
-  }
-
-  const params: ListAuditReportScheduleLogsParams = { limit: PAGE_SIZE, page };
-  if (statusFilter !== "all") params.status = statusFilter;
-  if (triggerFilter !== "all") params.triggerType = triggerFilter;
-  if (dateFrom) params.dateFrom = dateFrom;
-  if (dateTo) params.dateTo = dateTo;
-
-  const queryClient = useQueryClient();
-  const retrySend = useSendAuditReportNow();
-
-  const { data, isLoading, isFetching } = useListAuditReportScheduleLogs(scheduleId, params);
-
-  async function handleRetry(logId: number) {
-    setRetryingId(logId);
-    try {
-      await retrySend.mutateAsync({ id: scheduleId });
-      toast.success("Report queued for delivery.");
-      await queryClient.invalidateQueries({ queryKey: getListAuditReportScheduleLogsQueryKey(scheduleId) });
-    } catch {
-      toast.error("Retry failed. Check the mailer configuration.");
-    } finally {
-      setRetryingId(null);
-    }
-  }
-
-  async function handleRetryAll() {
-    setRetryingAll(true);
-    try {
-      await retrySend.mutateAsync({ id: scheduleId });
-      toast.success("All failed sends queued for re-delivery.");
-      await queryClient.invalidateQueries({ queryKey: getListAuditReportScheduleLogsQueryKey(scheduleId) });
-    } catch {
-      toast.error("Bulk retry failed. Check the mailer configuration.");
-    } finally {
-      setRetryingAll(false);
-    }
-  }
-  const total = data?.total ?? 0;
-  const failureCount = data?.failureCount ?? 0;
-  const failureBreakdown = data?.failureBreakdown ?? [];
-  const filteredTotal = data?.filteredTotal ?? 0;
-  const totalPages = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE));
+function ScheduleHistoryPanel({ scheduleId }: { scheduleId: number }) {
+  const { data, isLoading } = useListAuditReportScheduleLogs(scheduleId, { limit: 20 });
   const logs = data?.data ?? [];
 
-  type LogEntry = (typeof logs)[number];
-  interface CycleGroup {
-    cycleId: string | null;
-    attempts: LogEntry[];
-    mostRecentAttempt: LogEntry;
-    succeeded: boolean;
+  if (isLoading) {
+    return (
+      <div className="space-y-1.5 px-2 py-2">
+        {[1, 2, 3].map(i => <div key={i} className="h-8 bg-muted/20 rounded animate-pulse" />)}
+      </div>
+    );
   }
 
-  const cycleGroups = useMemo((): CycleGroup[] => {
-    const groups: CycleGroup[] = [];
-    const cycleIndex = new Map<string, number>();
-
-    for (const log of logs) {
-      if (!log.deliveryCycleId) {
-        groups.push({ cycleId: null, attempts: [log], mostRecentAttempt: log, succeeded: log.success });
-      } else {
-        const existingIdx = cycleIndex.get(log.deliveryCycleId);
-        if (existingIdx === undefined) {
-          const idx = groups.length;
-          cycleIndex.set(log.deliveryCycleId, idx);
-          groups.push({ cycleId: log.deliveryCycleId, attempts: [log], mostRecentAttempt: log, succeeded: log.success });
-        } else {
-          const group = groups[existingIdx]!;
-          group.attempts.push(log);
-          if (log.success) group.succeeded = true;
-          if (new Date(log.sentAt) > new Date(group.mostRecentAttempt.sentAt)) {
-            group.mostRecentAttempt = log;
-          }
-        }
-      }
-    }
-    for (const group of groups) {
-      group.attempts.sort((a, b) => a.retryAttempt - b.retryAttempt);
-    }
-    return groups;
-  }, [logs]);
-
-  const hasFilters = statusFilter !== "all" || triggerFilter !== "all" || dateFrom !== "" || dateTo !== "";
-
-  function handleGoTo(e: React.FormEvent) {
-    e.preventDefault();
-    const n = parseInt(goToInput, 10);
-    if (!isNaN(n) && n >= 1 && n <= totalPages) {
-      setPage(n);
-      setGoToInput("");
-    }
+  if (logs.length === 0) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-3 text-muted-foreground">
+        <History className="w-4 h-4 opacity-40" />
+        <span className="text-xs">No sends recorded yet — history will appear here after the first delivery.</span>
+      </div>
+    );
   }
 
   return (
-    <div>
-      {/* Filter bar */}
-      <div className="px-4 py-2.5 border-b border-border/30 flex flex-wrap items-center gap-2">
-        <div className="flex items-center rounded-md border border-border/40 bg-muted/10 overflow-hidden text-[11px]">
-          {(["all", "success", "failed"] as const).map(v => (
-            <button
-              key={v}
-              onClick={() => setStatusFilter(v)}
-              className={`px-2.5 py-1 transition-colors ${
-                statusFilter === v
-                  ? v === "failed"
-                    ? "bg-rose-500/20 text-rose-400 font-medium"
-                    : v === "success"
-                    ? "bg-emerald-500/20 text-emerald-400 font-medium"
-                    : "bg-muted/30 text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {v === "all" ? "All" : v === "success" ? "Delivered" : "Failed"}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center rounded-md border border-border/40 bg-muted/10 overflow-hidden text-[11px]">
-          {(["all", "manual", "scheduled", "auto_recovery"] as const).map(v => (
-            <button
-              key={v}
-              onClick={() => setTriggerFilter(v)}
-              className={`px-2.5 py-1 transition-colors ${
-                triggerFilter === v
-                  ? v === "manual"
-                    ? "bg-violet-500/20 text-violet-400 font-medium"
-                    : v === "scheduled"
-                    ? "bg-sky-500/20 text-sky-400 font-medium"
-                    : v === "auto_recovery"
-                    ? "bg-teal-500/20 text-teal-400 font-medium"
-                    : "bg-muted/30 text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {v === "all" ? "All" : v === "manual" ? "Manual" : v === "scheduled" ? "Scheduled" : "Auto-recovery"}
-            </button>
-          ))}
-        </div>
-        <input
-          type="date"
-          value={dateFrom}
-          onChange={e => setDateFrom(e.target.value)}
-          className="h-7 rounded-md border border-border/40 bg-muted/10 px-2 text-[11px] text-muted-foreground focus:outline-none focus:border-violet-500/50"
-          placeholder="From"
-          title="From date"
-        />
-        <span className="text-[10px] text-muted-foreground">–</span>
-        <input
-          type="date"
-          value={dateTo}
-          onChange={e => setDateTo(e.target.value)}
-          className="h-7 rounded-md border border-border/40 bg-muted/10 px-2 text-[11px] text-muted-foreground focus:outline-none focus:border-violet-500/50"
-          placeholder="To"
-          title="To date"
-        />
-        {hasFilters && (
-          <button
-            onClick={() => { setStatusFilter("all"); setTriggerFilter("all"); setDateFrom(""); setDateTo(""); }}
-            className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
-          >
-            <X className="w-3 h-3" /> Clear
-          </button>
-        )}
-        {failureCount > 0 && (
-          <button
-            onClick={handleRetryAll}
-            disabled={retryingAll}
-            className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11px] font-medium text-rose-400 hover:bg-rose-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Retry all failed sends"
-          >
-            {retryingAll
-              ? <Loader2 className="w-3 h-3 animate-spin" />
-              : <RefreshCw className="w-3 h-3" />
+    <div className="divide-y divide-border/30">
+      {logs.map((log: any) => (
+        <div key={log.id} className="flex items-start gap-3 px-4 py-2.5">
+          <div className="mt-0.5 shrink-0">
+            {log.success
+              ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              : <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
             }
-            {retryingAll ? "Retrying…" : `Retry all failed (${failureCount})`}
-          </button>
-        )}
-      </div>
-
-      {/* Failure summary */}
-      {!isLoading && total > 0 && (
-        <div className={`px-4 py-2 flex flex-wrap items-center gap-2 text-xs border-b border-border/30 ${
-          failureCount > 0 ? "bg-rose-500/5" : "bg-emerald-500/5"
-        }`}>
-          {failureCount > 0 ? (
-            <>
-              <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-              <span className="text-rose-400 font-medium">{failureCount} of {total} send{total !== 1 ? "s" : ""} failed</span>
-              {failureBreakdown.length > 0 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex flex-wrap items-center gap-1 cursor-help">
-                        {failureBreakdown.slice(0, 3).map((item, i) => (
-                          <span key={i} className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] text-rose-300 border border-rose-500/20">
-                            <span className="font-semibold">{item.count}×</span>
-                            <span className="truncate max-w-[140px]">{item.errorMessage ?? "unknown error"}</span>
-                          </span>
-                        ))}
-                        {failureBreakdown.length > 3 && (
-                          <span className="text-[10px] text-rose-400/70">+{failureBreakdown.length - 3} more</span>
-                        )}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm">
-                      <p className="font-semibold text-xs mb-1.5">Failure breakdown</p>
-                      <div className="space-y-1">
-                        {failureBreakdown.map((item, i) => (
-                          <div key={i} className="flex items-start gap-2 text-xs">
-                            <span className="shrink-0 font-semibold text-rose-400">{item.count}×</span>
-                            <span className="break-words">{item.errorMessage ?? "unknown error"}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="text-emerald-400 font-medium">All {total} send{total !== 1 ? "s" : ""} delivered successfully</span>
-            </>
-          )}
-        </div>
-      )}
-
-      {isLoading ? (
-        <div className="space-y-1.5 px-2 py-2">
-          {[1, 2, 3].map(i => <div key={i} className="h-8 bg-muted/20 rounded animate-pulse" />)}
-        </div>
-      ) : logs.length === 0 ? (
-        <div className="flex items-center gap-2 px-3 py-3 text-muted-foreground">
-          <History className="w-4 h-4 opacity-40" />
-          <span className="text-xs">
-            {hasFilters
-              ? "No sends match the current filters."
-              : "No sends recorded yet — history will appear here after the first delivery."}
-          </span>
-        </div>
-      ) : (
-        <div className="divide-y divide-border/30">
-          {cycleGroups.map((group, groupIdx) => {
-            const isSingle = group.attempts.length === 1;
-            const isExpanded = group.cycleId ? expandedCycles.has(group.cycleId) : false;
-            const toggleExpand = () => {
-              if (!group.cycleId) return;
-              setExpandedCycles(prev => {
-                const next = new Set(prev);
-                if (next.has(group.cycleId!)) next.delete(group.cycleId!);
-                else next.add(group.cycleId!);
-                return next;
-              });
-            };
-
-            function renderAttemptRow(log: LogEntry, isNested: boolean) {
-              return (
-                <div key={log.id} className={`flex items-start gap-3 ${isNested ? "pl-8 pr-4" : "px-4"} py-2.5 ${!log.success ? "bg-rose-500/5" : ""}`}>
-                  <div className="mt-0.5 shrink-0">
-                    {log.success
-                      ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      : <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-medium">
-                        {format(new Date(log.sentAt), "MMM d, yyyy 'at' HH:mm")}
-                      </span>
-                      {log.success
-                        ? (
-                          <span className="inline-flex items-center rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
-                            Delivered
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">
-                            Failed
-                          </span>
-                        )
-                      }
-                      {log.triggerType === "manual" ? (
-                        <span className="inline-flex items-center rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
-                          Manual
-                        </span>
-                      ) : log.triggerType === "auto_recovery" ? (
-                        <span className="inline-flex items-center rounded border border-teal-500/20 bg-teal-500/10 px-1.5 py-0.5 text-[10px] font-medium text-teal-400" title="Automatically retried after mailer outage cleared">
-                          ⟳ Auto-recovery
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded border border-zinc-500/20 bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
-                          Scheduled
-                        </span>
-                      )}
-                      {log.isRetry && log.triggerType !== "auto_recovery" && (
-                        <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
-                          ↩ Attempt {log.retryAttempt} of {maxRetryAttempts}
-                        </span>
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        {log.rowCount.toLocaleString()} row{log.rowCount !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                    {log.recipientEmail && (
-                      <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                        → {log.recipientEmail}
-                      </p>
-                    )}
-                    {!log.success && log.errorMessage && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <p className="text-xs text-rose-400/80 mt-0.5 truncate cursor-default">
-                              {log.errorMessage}
-                            </p>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="max-w-xs break-words">
-                            {log.errorMessage}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </div>
-                  {!log.success && (
-                    <button
-                      onClick={() => handleRetry(log.id)}
-                      disabled={retryingId === log.id}
-                      className="shrink-0 inline-flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-400 hover:bg-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Retry this send"
-                    >
-                      {retryingId === log.id
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : <Send className="w-3 h-3" />
-                      }
-                      {retryingId === log.id ? "Sending…" : "Retry"}
-                    </button>
-                  )}
-                </div>
-              );
-            }
-
-            if (isSingle) {
-              return <div key={group.cycleId ?? `solo-${groupIdx}`}>{renderAttemptRow(group.attempts[0]!, false)}</div>;
-            }
-
-            const cycleSucceeded = group.succeeded;
-            const cycleAttemptCount = group.attempts.length;
-            const latestAttempt = group.mostRecentAttempt;
-
-            return (
-              <div key={group.cycleId ?? `group-${groupIdx}`} className={`${!cycleSucceeded ? "bg-rose-500/5" : ""}`}>
-                <button
-                  onClick={toggleExpand}
-                  className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-muted/10 transition-colors"
-                >
-                  <div className="mt-0.5 shrink-0">
-                    {cycleSucceeded
-                      ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      : <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-medium">
-                        {format(new Date(latestAttempt.sentAt), "MMM d, yyyy 'at' HH:mm")}
-                      </span>
-                      {cycleSucceeded
-                        ? (
-                          <span className="inline-flex items-center rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
-                            Delivered
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">
-                            Failed
-                          </span>
-                        )
-                      }
-                      {latestAttempt.triggerType === "manual" ? (
-                        <span className="inline-flex items-center rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
-                          Manual
-                        </span>
-                      ) : latestAttempt.triggerType === "auto_recovery" ? (
-                        <span className="inline-flex items-center rounded border border-teal-500/20 bg-teal-500/10 px-1.5 py-0.5 text-[10px] font-medium text-teal-400" title="Automatically retried after mailer outage cleared">
-                          ⟳ Auto-recovery
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded border border-zinc-500/20 bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
-                          Scheduled
-                        </span>
-                      )}
-                      <span className="inline-flex items-center gap-0.5 rounded border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-400">
-                        {cycleAttemptCount} attempt{cycleAttemptCount !== 1 ? "s" : ""}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {latestAttempt.rowCount.toLocaleString()} row{latestAttempt.rowCount !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                    {latestAttempt.recipientEmail && (
-                      <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                        → {latestAttempt.recipientEmail}
-                      </p>
-                    )}
-                  </div>
-                  <div className="mt-0.5 shrink-0 text-muted-foreground">
-                    {isExpanded
-                      ? <ChevronUp className="w-3.5 h-3.5" />
-                      : <ChevronDown className="w-3.5 h-3.5" />
-                    }
-                  </div>
-                </button>
-                {isExpanded && (
-                  <div className="border-t border-border/20 divide-y divide-border/20">
-                    {group.attempts.map(log => renderAttemptRow(log, true))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Pagination controls */}
-          {filteredTotal > 0 && (
-            <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 border-t border-border/30 bg-muted/5">
-              {/* Left: record count + page info */}
-              <span className="text-[11px] text-muted-foreground">
-                {filteredTotal === 0
-                  ? "No results"
-                  : (() => {
-                      const from = (page - 1) * PAGE_SIZE + 1;
-                      const to = Math.min(page * PAGE_SIZE, filteredTotal);
-                      return `${from}–${to} of ${filteredTotal}`;
-                    })()
-                }
-              </span>
-
-              {/* Center: prev / page indicator / next */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage(1)}
-                  disabled={page <= 1 || isFetching}
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="First page"
-                >
-                  <ChevronsLeft className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setPage(page - 1)}
-                  disabled={page <= 1 || isFetching}
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="Previous page"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-
-                <span className="px-2 text-[11px] text-foreground font-medium tabular-nums select-none">
-                  {isFetching
-                    ? <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 border border-violet-400/50 border-t-violet-400 rounded-full animate-spin inline-block" /></span>
-                    : `${page} / ${totalPages}`
-                  }
-                </span>
-
-                <button
-                  onClick={() => setPage(page + 1)}
-                  disabled={page >= totalPages || isFetching}
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="Next page"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setPage(totalPages)}
-                  disabled={page >= totalPages || isFetching}
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="Last page"
-                >
-                  <ChevronsRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Right: go-to-page */}
-              {totalPages > 2 && (
-                <form onSubmit={handleGoTo} className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-muted-foreground">Go to</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={totalPages}
-                    value={goToInput}
-                    onChange={e => setGoToInput(e.target.value)}
-                    className="w-12 h-6 rounded border border-border/40 bg-muted/10 px-1.5 text-[11px] text-center focus:outline-none focus:border-violet-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    placeholder="—"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!goToInput || isFetching}
-                    className="text-[10px] text-violet-400 hover:text-violet-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Go
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const DELIVERY_PAGE_SIZE = 20;
-
-function DeliveryHistoryPanel({ schedules }: { schedules: any[] }) {
-  const [scheduleFilter, setScheduleFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "success" | "failed">("all");
-  const [triggerFilter, setTriggerFilter] = useState<"all" | "manual" | "scheduled">("all");
-  const [goToInput, setGoToInput] = useState("");
-  const queryClient = useQueryClient();
-  const retrySend = useSendAuditReportNow();
-  const [retryingId, setRetryingId] = useState<number | null>(null);
-
-  const search = useSearch();
-  const [location, navigate] = useLocation();
-
-  const paramKey = "deliveries";
-
-  const page = (() => {
-    const sp = new URLSearchParams(search);
-    const v = parseInt(sp.get(paramKey) ?? "1", 10);
-    return isNaN(v) || v < 1 ? 1 : v;
-  })();
-
-  const setPage = useCallback((nextPage: number) => {
-    const sp = new URLSearchParams(search);
-    if (nextPage <= 1) {
-      sp.delete(paramKey);
-    } else {
-      sp.set(paramKey, String(nextPage));
-    }
-    const qs = sp.toString();
-    navigate(`${location}${qs ? `?${qs}` : ""}`, { replace: true });
-  }, [search, location, navigate]);
-
-  const filterKey = `${scheduleFilter}|${statusFilter}|${triggerFilter}`;
-  const prevFilterKey = useRef(filterKey);
-  if (prevFilterKey.current !== filterKey) {
-    prevFilterKey.current = filterKey;
-    setPage(1);
-  }
-
-  const params: ListAllAuditReportScheduleLogsParams = { limit: DELIVERY_PAGE_SIZE, page };
-  if (scheduleFilter !== "all") params.scheduleId = parseInt(scheduleFilter);
-  if (statusFilter !== "all") params.status = statusFilter;
-  if (triggerFilter !== "all") params.triggerType = triggerFilter;
-
-  const { data, isLoading, isFetching } = useListAllAuditReportScheduleLogs(params);
-
-  async function handleRetry(scheduleId: number, logId: number) {
-    setRetryingId(logId);
-    try {
-      await retrySend.mutateAsync({ id: scheduleId });
-      toast.success("Report queued for delivery.");
-      await queryClient.invalidateQueries({ queryKey: getListAllAuditReportScheduleLogsQueryKey() });
-    } catch {
-      toast.error("Retry failed. Check the mailer configuration.");
-    } finally {
-      setRetryingId(null);
-    }
-  }
-
-  const total = data?.total ?? 0;
-  const failureCount = data?.failureCount ?? 0;
-  const failureBreakdown = data?.failureBreakdown ?? [];
-  const filteredTotal = data?.filteredTotal ?? 0;
-  const totalPages = Math.max(1, Math.ceil(filteredTotal / DELIVERY_PAGE_SIZE));
-  const logs = data?.data ?? [];
-
-  function handleGoTo(e: React.FormEvent) {
-    e.preventDefault();
-    const n = parseInt(goToInput, 10);
-    if (!isNaN(n) && n >= 1 && n <= totalPages) {
-      setPage(n);
-      setGoToInput("");
-    }
-  }
-
-  return (
-    <div>
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-border/30 bg-muted/5">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Schedule</span>
-          <select
-            value={scheduleFilter}
-            onChange={e => setScheduleFilter(e.target.value)}
-            className="h-7 rounded-md border border-border/40 bg-muted/10 px-2 text-[11px] text-foreground focus:outline-none focus:border-violet-500/50"
-          >
-            <option value="all">All schedules</option>
-            {schedules.map((s: any) => (
-              <option key={s.id} value={String(s.id)}>
-                {s.recipientEmail} ({FREQUENCY_LABELS[s.frequency] ?? s.frequency})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center rounded-md border border-border/40 bg-muted/10 overflow-hidden text-[11px]">
-          {(["all", "success", "failed"] as const).map(v => (
-            <button
-              key={v}
-              onClick={() => setStatusFilter(v)}
-              className={`px-2.5 py-1 transition-colors ${
-                statusFilter === v
-                  ? v === "failed"
-                    ? "bg-rose-500/20 text-rose-400 font-medium"
-                    : v === "success"
-                    ? "bg-emerald-500/20 text-emerald-400 font-medium"
-                    : "bg-muted/30 text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {v === "all" ? "All" : v === "success" ? "Delivered" : "Failed"}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center rounded-md border border-border/40 bg-muted/10 overflow-hidden text-[11px]">
-          {(["all", "manual", "scheduled"] as const).map(v => (
-            <button
-              key={v}
-              onClick={() => setTriggerFilter(v)}
-              className={`px-2.5 py-1 transition-colors ${
-                triggerFilter === v
-                  ? v === "manual"
-                    ? "bg-violet-500/20 text-violet-400 font-medium"
-                    : v === "scheduled"
-                    ? "bg-sky-500/20 text-sky-400 font-medium"
-                    : "bg-muted/30 text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {v === "all" ? "All" : v === "manual" ? "Manual" : "Scheduled"}
-            </button>
-          ))}
-        </div>
-        {(scheduleFilter !== "all" || statusFilter !== "all" || triggerFilter !== "all") && (
-          <button
-            onClick={() => { setScheduleFilter("all"); setStatusFilter("all"); setTriggerFilter("all"); }}
-            className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
-          >
-            <X className="w-3 h-3" /> Clear
-          </button>
-        )}
-      </div>
-
-      {/* Failure summary banner */}
-      {!isLoading && total > 0 && (
-        <div className={`px-4 py-2 flex flex-wrap items-center gap-2 text-xs border-b border-border/30 ${
-          failureCount > 0 ? "bg-rose-500/5" : "bg-emerald-500/5"
-        }`}>
-          {failureCount > 0 ? (
-            <>
-              <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-              <span className="text-rose-400 font-medium">{failureCount} of {total} send{total !== 1 ? "s" : ""} failed</span>
-              {failureBreakdown.length > 0 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex flex-wrap items-center gap-1 cursor-help">
-                        {failureBreakdown.slice(0, 3).map((item, i) => (
-                          <span key={i} className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] text-rose-300 border border-rose-500/20">
-                            <span className="font-semibold">{item.count}×</span>
-                            <span className="truncate max-w-[140px]">{item.errorMessage ?? "unknown error"}</span>
-                          </span>
-                        ))}
-                        {failureBreakdown.length > 3 && (
-                          <span className="text-[10px] text-rose-400/70">+{failureBreakdown.length - 3} more</span>
-                        )}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm">
-                      <p className="font-semibold text-xs mb-1.5">Failure breakdown</p>
-                      <div className="space-y-1">
-                        {failureBreakdown.map((item, i) => (
-                          <div key={i} className="flex items-start gap-2 text-xs">
-                            <span className="shrink-0 font-semibold text-rose-400">{item.count}×</span>
-                            <span className="break-words">{item.errorMessage ?? "unknown error"}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="text-emerald-400 font-medium">All {total} send{total !== 1 ? "s" : ""} delivered successfully</span>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Table */}
-      {isLoading ? (
-        <div className="space-y-1.5 px-2 py-2">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-10 bg-muted/20 rounded animate-pulse" />)}
-        </div>
-      ) : logs.length === 0 ? (
-        <div className="flex items-center gap-2 px-4 py-6 text-muted-foreground justify-center">
-          <History className="w-4 h-4 opacity-40" />
-          <span className="text-xs">
-            {scheduleFilter !== "all" || statusFilter !== "all"
-              ? "No runs match the current filters."
-              : "No delivery runs recorded yet."}
-          </span>
-        </div>
-      ) : (
-        <>
-          {/* Header row */}
-          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-4 py-1.5 border-b border-border/30 bg-muted/10 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <span>Schedule</span>
-            <span className="text-right">Sent</span>
-            <span className="text-right">Rows</span>
-            <span>Status</span>
-            <span></span>
           </div>
-          <div className="divide-y divide-border/20">
-            {logs.map((log: any) => (
-              <div
-                key={log.id}
-                className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-start gap-3 px-4 py-2.5 ${
-                  !log.success ? "bg-rose-500/5 border-l-2 border-l-rose-500/40" : ""
-                }`}
-              >
-                {/* Schedule info: recipient + frequency */}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-medium truncate">{log.scheduleRecipient}</span>
-                    <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium ${
-                      log.scheduleFrequency === "daily"
-                        ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
-                        : log.scheduleFrequency === "weekly"
-                        ? "bg-violet-500/10 text-violet-400 border-violet-500/20"
-                        : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                    }`}>
-                      {FREQUENCY_LABELS[log.scheduleFrequency] ?? log.scheduleFrequency}
-                    </span>
-                    {log.isRetry && (
-                      <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
-                        ↩ Retry
-                      </span>
-                    )}
-                    {log.triggerType === "manual" && (
-                      <span className="inline-flex items-center rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
-                        Manual
-                      </span>
-                    )}
-                  </div>
-                  {!log.success && log.errorMessage && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <p className="text-[10px] text-rose-400/80 mt-0.5 truncate cursor-default max-w-xs">
-                            {log.errorMessage}
-                          </p>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="max-w-xs break-words">
-                          {log.errorMessage}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </div>
-
-                {/* Sent at */}
-                <div className="text-right shrink-0">
-                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                    {format(new Date(log.sentAt), "MMM d, yyyy")}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-medium">
+                {format(new Date(log.sentAt), "MMM d, yyyy 'at' HH:mm")}
+              </span>
+              {log.success
+                ? (
+                  <span className="inline-flex items-center rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                    Delivered
                   </span>
-                  <p className="text-[10px] text-muted-foreground/60">
-                    {format(new Date(log.sentAt), "HH:mm")}
-                  </p>
-                </div>
-
-                {/* Row count */}
-                <div className="text-right shrink-0">
-                  <span className="text-xs font-medium tabular-nums">{log.rowCount.toLocaleString()}</span>
-                </div>
-
-                {/* Status badge */}
-                <div className="shrink-0">
-                  {log.success ? (
-                    <span className="inline-flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
-                      Delivered
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">
-                      <AlertCircle className="w-2.5 h-2.5" />
-                      Failed
-                    </span>
-                  )}
-                </div>
-
-                {/* Retry button */}
-                <div className="shrink-0">
-                  {!log.success ? (
-                    <button
-                      onClick={() => handleRetry(log.scheduleId, log.id)}
-                      disabled={retryingId === log.id}
-                      className="inline-flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-400 hover:bg-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Retry this send"
-                    >
-                      {retryingId === log.id
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : <Send className="w-3 h-3" />
-                      }
-                      {retryingId === log.id ? "…" : "Retry"}
-                    </button>
-                  ) : (
-                    <div className="w-16" />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Pagination controls */}
-          {filteredTotal > 0 && (
-            <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 border-t border-border/30 bg-muted/5">
-              {/* Left: record count + page info */}
-              <span className="text-[11px] text-muted-foreground">
-                {filteredTotal === 0
-                  ? "No results"
-                  : (() => {
-                      const from = (page - 1) * DELIVERY_PAGE_SIZE + 1;
-                      const to = Math.min(page * DELIVERY_PAGE_SIZE, filteredTotal);
-                      return `${from}–${to} of ${filteredTotal}`;
-                    })()
-                }
+                ) : (
+                  <span className="inline-flex items-center rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">
+                    Failed
+                  </span>
+                )
+              }
+              <span className="text-xs text-muted-foreground">
+                {log.rowCount.toLocaleString()} row{log.rowCount !== 1 ? "s" : ""}
               </span>
-
-              {/* Center: prev / page indicator / next */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage(1)}
-                  disabled={page <= 1 || isFetching}
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="First page"
-                >
-                  <ChevronsLeft className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setPage(page - 1)}
-                  disabled={page <= 1 || isFetching}
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="Previous page"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-
-                <span className="px-2 text-[11px] text-foreground font-medium tabular-nums select-none">
-                  {isFetching
-                    ? <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 border border-violet-400/50 border-t-violet-400 rounded-full animate-spin inline-block" /></span>
-                    : `${page} / ${totalPages}`
-                  }
-                </span>
-
-                <button
-                  onClick={() => setPage(page + 1)}
-                  disabled={page >= totalPages || isFetching}
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="Next page"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setPage(totalPages)}
-                  disabled={page >= totalPages || isFetching}
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="Last page"
-                >
-                  <ChevronsRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Right: go-to-page */}
-              {totalPages > 2 && (
-                <form onSubmit={handleGoTo} className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-muted-foreground">Go to</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={totalPages}
-                    value={goToInput}
-                    onChange={e => setGoToInput(e.target.value)}
-                    className="w-12 h-6 rounded border border-border/40 bg-muted/10 px-1.5 text-[11px] text-center focus:outline-none focus:border-violet-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    placeholder="—"
-                  />
-                  <button
-                    type="submit"
-                    className="h-6 px-2 rounded border border-border/40 bg-muted/10 text-[11px] text-muted-foreground hover:text-foreground hover:border-violet-500/50 transition-colors"
-                  >
-                    Go
-                  </button>
-                </form>
-              )}
             </div>
-          )}
-        </>
-      )}
+            {!log.success && log.errorMessage && (
+              <p className="text-xs text-rose-400/80 mt-0.5 truncate" title={log.errorMessage}>
+                {log.errorMessage}
+              </p>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -2092,46 +1018,22 @@ function ScheduleRow({
   onToggle,
   onDelete,
   onSendNow,
-  onAcknowledge,
-  onEdit,
   sendingId,
-  acknowledgingId,
-  highlighted,
-  initialOpen,
 }: {
   s: any;
   onToggle: (id: number, isActive: boolean) => void;
   onDelete: (id: number) => void;
   onSendNow?: (id: number) => void;
-  onAcknowledge?: (id: number) => void;
-  onEdit?: (s: any) => void;
   sendingId?: number | null;
-  acknowledgingId?: number | null;
-  highlighted?: boolean;
-  initialOpen?: boolean;
 }) {
-  const [historyOpen, setHistoryOpen] = useState(initialOpen ?? false);
-  const rowRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if ((highlighted || initialOpen) && rowRef.current) {
-      rowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [highlighted, initialOpen]);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   return (
-    <div
-      ref={rowRef}
-      className={`rounded-lg border transition-colors ${
-        highlighted
-          ? "border-amber-500/50 bg-amber-500/10 ring-1 ring-amber-500/30"
-          : s.isActive
-          ? "border-violet-500/20 bg-violet-500/5"
-          : s.autoPausedAt
-          ? "border-orange-500/30 bg-orange-500/5 opacity-80"
-          : "border-border/40 bg-muted/10 opacity-70"
-      }`}
-    >
+    <div className={`rounded-lg border transition-colors ${
+      s.isActive
+        ? "border-violet-500/20 bg-violet-500/5"
+        : "border-border/40 bg-muted/10 opacity-70"
+    }`}>
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="flex items-center justify-center w-8 h-8 rounded-md bg-violet-500/10 border border-violet-500/20 shrink-0">
           <Mail className="w-4 h-4 text-violet-400" />
@@ -2146,40 +1048,11 @@ function ScheduleRow({
             }`}>
               {FREQUENCY_LABELS[s.frequency] ?? s.frequency}
             </span>
-            {!s.isActive && s.autoPausedAt ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex items-center gap-1 rounded-md border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-xs font-medium text-orange-400 cursor-default">
-                      <AlertCircle className="w-2.5 h-2.5" />
-                      Auto-paused
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
-                    Automatically paused after {s.consecutiveFailures ?? 0} consecutive delivery failure{(s.consecutiveFailures ?? 0) !== 1 ? "s" : ""} on {format(new Date(s.autoPausedAt), "MMM d, yyyy 'at' HH:mm")}. Re-enable from the toggle button once the issue is resolved.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : !s.isActive ? (
+            {!s.isActive && (
               <span className="inline-flex items-center gap-1 rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-400">
                 <Ban className="w-2.5 h-2.5" />
                 Paused
               </span>
-            ) : null}
-            {s.isActive && (s.consecutiveFailures ?? 0) > 0 && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 cursor-default">
-                      <AlertCircle className="w-2.5 h-2.5" />
-                      {s.consecutiveFailures} failure{s.consecutiveFailures !== 1 ? "s" : ""}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
-                    {s.consecutiveFailures} consecutive delivery failure{s.consecutiveFailures !== 1 ? "s" : ""} — will auto-pause after {s.autoPauseAfterFailures > 0 ? s.autoPauseAfterFailures : "∞"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             )}
             {s.lastSendStatus === "failed" && (
               <TooltipProvider>
@@ -2196,144 +1069,12 @@ function ScheduleRow({
                 </Tooltip>
               </TooltipProvider>
             )}
-            {s.lastSendStatus === "failed" && onAcknowledge && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => onAcknowledge(s.id)}
-                      disabled={acknowledgingId === s.id}
-                      className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {acknowledgingId === s.id
-                        ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                        : <CheckCircle2 className="w-2.5 h-2.5" />
-                      }
-                      Dismiss
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
-                    Acknowledge this failure — the badge won't re-appear unless a new failure occurs
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            {s.lastSendStatus === "failed" && onSendNow && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => onSendNow(s.id)}
-                      disabled={sendingId === s.id}
-                      className="inline-flex items-center gap-1 rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-400 hover:bg-violet-500/20 hover:border-violet-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {sendingId === s.id
-                        ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                        : <Send className="w-2.5 h-2.5" />
-                      }
-                      Retry
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
-                    Re-send this report now — clears the failure badge on success
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
           </div>
-          {s.sendCount > 0 && (
-            <div className="mt-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1.5 cursor-default">
-                      <div className="flex h-1.5 w-32 overflow-hidden rounded-full bg-muted/30">
-                        <div
-                          className="h-full bg-emerald-500 transition-all"
-                          style={{ width: `${Math.round((s.successCount / s.sendCount) * 100)}%` }}
-                        />
-                        <div
-                          className="h-full bg-rose-500 transition-all"
-                          style={{ width: `${Math.round(((s.sendCount - s.successCount) / s.sendCount) * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground tabular-nums">
-                        {Math.round((s.successCount / s.sendCount) * 100)}%
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {s.successCount} delivered / {s.sendCount - s.successCount} failed
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          )}
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            {s.sendCount > 0 && (
-              <>
-                <span className="text-xs text-muted-foreground">
-                  {s.sendCount} {s.sendCount === 1 ? "send" : "sends"}
-                </span>
-                <span className="text-[10px] text-muted-foreground/40">·</span>
-              </>
-            )}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/70 cursor-default">
-                    <RefreshCw className="w-3 h-3 shrink-0" />
-                    {s.maxRetryAttempts ?? 3} {(s.maxRetryAttempts ?? 3) === 1 ? "retry" : "retries"} · {s.retryBackoffMinutes ?? 60} min delay
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  On failure: up to {s.maxRetryAttempts ?? 3} automatic {(s.maxRetryAttempts ?? 3) === 1 ? "retry" : "retries"}, waiting {s.retryBackoffMinutes ?? 60} minute{(s.retryBackoffMinutes ?? 60) !== 1 ? "s" : ""} between each attempt
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <span className="text-[10px] text-muted-foreground/40">·</span>
-            {s.lastSendStatus === "ok" && s.lastSentAt ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex items-center gap-1 text-xs text-emerald-400 cursor-default">
-                      <CheckCircle2 className="w-3 h-3 shrink-0" />
-                      Last sent {formatDistanceToNow(new Date(s.lastSentAt), { addSuffix: true })} — OK
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    {format(new Date(s.lastSentAt), "MMM d, yyyy 'at' HH:mm")}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : s.lastSendStatus === "failed" && s.lastSentAt ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex items-center gap-1 text-xs text-rose-400 cursor-default">
-                      <XCircle className="w-3 h-3 shrink-0" />
-                      Last delivery failed {formatDistanceToNow(new Date(s.lastSentAt), { addSuffix: true })}
-                      {s.lastErrorMessage ? " — " + s.lastErrorMessage : ""}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    {format(new Date(s.lastSentAt), "MMM d, yyyy 'at' HH:mm")}
-                    {s.lastErrorMessage && <div className="mt-1 text-rose-300">{s.lastErrorMessage}</div>}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/60">
-                <Clock className="w-3 h-3 shrink-0" />
-                Never sent
-              </span>
-            )}
-          </div>
-          {s.failureAcknowledgedAt && s.failureAcknowledgedByEmail && (
-            <p className="text-xs text-emerald-500/70 mt-0.5">
-              Acknowledged by {s.failureAcknowledgedByEmail} at {format(new Date(s.failureAcknowledgedAt), "MMM d, yyyy 'at' HH:mm")}
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {s.lastSentAt
+              ? `Last sent: ${format(new Date(s.lastSentAt), "MMM d, yyyy 'at' HH:mm")}`
+              : "Not yet sent"}
+          </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <Button
@@ -2369,24 +1110,6 @@ function ScheduleRow({
               </Tooltip>
             </TooltipProvider>
           )}
-          {onEdit && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEdit(s)}
-                    className="text-xs h-7 px-2 text-muted-foreground hover:text-sky-400"
-                    title="Edit retry settings"
-                  >
-                    <Settings className="w-3 h-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Edit retry settings</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
           <Button
             variant="ghost"
             size="sm"
@@ -2415,10 +1138,10 @@ function ScheduleRow({
         <div className="border-t border-border/30">
           <div className="px-2 py-1.5 bg-muted/10">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-2">
-              Send History
+              Send History (last 20)
             </span>
           </div>
-          <ScheduleHistoryPanel scheduleId={s.id} maxRetryAttempts={s.maxRetryAttempts ?? 3} />
+          <ScheduleHistoryPanel scheduleId={s.id} />
         </div>
       )}
     </div>
@@ -2428,153 +1151,42 @@ function ScheduleRow({
 function ScheduledReportsPanel() {
   const queryClient = useQueryClient();
   const { data: schedulesData, isLoading } = useListAuditReportSchedules();
-  const search = useSearch();
-  const openScheduleId = (() => {
-    const raw = new URLSearchParams(search).get("schedule");
-    const n = raw ? parseInt(raw, 10) : NaN;
-    return isNaN(n) ? null : n;
-  })();
-  const highlightId = (() => {
-    const raw = new URLSearchParams(search).get("scheduleId");
-    const n = raw ? parseInt(raw, 10) : NaN;
-    return isNaN(n) ? null : n;
-  })();
   const createSchedule = useCreateAuditReportSchedule();
   const updateSchedule = useUpdateAuditReportSchedule();
   const deleteSchedule = useDeleteAuditReportSchedule();
   const sendNow = useSendAuditReportNow();
 
-  const bulkToggle = useBulkToggleAuditReportSchedules();
-
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newFrequency, setNewFrequency] = useState("weekly");
-  const [newMaxRetryAttempts, setNewMaxRetryAttempts] = useState("3");
-  const [newRetryBackoffMinutes, setNewRetryBackoffMinutes] = useState("60");
   const [adding, setAdding] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [sendingId, setSendingId] = useState<number | null>(null);
-  const [acknowledgingId, setAcknowledgingId] = useState<number | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [bulkToggling, setBulkToggling] = useState(false);
-  const [preActivatedIds, setPreActivatedIds] = useState<number[] | null>(null);
-  const [healthFilter, setHealthFilter] = useState<"all" | "healthy" | "failing" | "never_sent">("all");
-  const [editSchedule, setEditSchedule] = useState<any | null>(null);
-  const [editRetryBackoff, setEditRetryBackoff] = useState("60");
-  const [editMaxRetry, setEditMaxRetry] = useState("3");
-  const [editSaving, setEditSaving] = useState(false);
 
   const schedules = schedulesData?.data ?? [];
-
-  const filteredSchedules = schedules.filter((s: any) => {
-    if (healthFilter === "healthy") return s.lastSendStatus === "ok";
-    if (healthFilter === "failing") return s.lastSendStatus === "failed";
-    if (healthFilter === "never_sent") return s.sendCount === 0;
-    return true;
-  });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListAuditReportSchedulesQueryKey() });
 
   async function handleAdd() {
     if (!newEmail.trim()) return;
-    const parsedMaxRetry = parseInt(newMaxRetryAttempts, 10);
-    const parsedBackoff = parseInt(newRetryBackoffMinutes, 10);
-    if (isNaN(parsedMaxRetry) || parsedMaxRetry < 0 || parsedMaxRetry > 10) return;
-    if (isNaN(parsedBackoff) || parsedBackoff < 1 || parsedBackoff > 1440) return;
     setAdding(true);
     try {
-      await createSchedule.mutateAsync({
-        data: {
-          frequency: newFrequency as "daily" | "weekly" | "monthly",
-          recipientEmail: newEmail.trim(),
-          maxRetryAttempts: parsedMaxRetry,
-          retryBackoffMinutes: parsedBackoff,
-        },
-      });
+      await createSchedule.mutateAsync({ data: { frequency: newFrequency as "daily" | "weekly" | "monthly", recipientEmail: newEmail.trim() } });
       invalidate();
       setShowAdd(false);
       setNewEmail("");
       setNewFrequency("weekly");
-      setNewMaxRetryAttempts("3");
-      setNewRetryBackoffMinutes("60");
     } finally {
       setAdding(false);
-    }
-  }
-
-  function openEditSchedule(s: any) {
-    setEditSchedule(s);
-    setEditMaxRetry(String(s.maxRetryAttempts ?? 3));
-    setEditRetryBackoff(String(s.retryBackoffMinutes ?? 60));
-  }
-
-  async function handleSaveEdit() {
-    if (!editSchedule) return;
-    const parsedMaxRetry = parseInt(editMaxRetry, 10);
-    const parsedBackoff = parseInt(editRetryBackoff, 10);
-    if (isNaN(parsedMaxRetry) || parsedMaxRetry < 0 || parsedMaxRetry > 10) return;
-    if (isNaN(parsedBackoff) || parsedBackoff < 1 || parsedBackoff > 1440) return;
-    setEditSaving(true);
-    try {
-      await updateSchedule.mutateAsync({
-        id: editSchedule.id,
-        data: { maxRetryAttempts: parsedMaxRetry, retryBackoffMinutes: parsedBackoff },
-      });
-      invalidate();
-      setEditSchedule(null);
-      toast.success("Retry settings updated");
-    } catch {
-      toast.error("Failed to save retry settings");
-    } finally {
-      setEditSaving(false);
     }
   }
 
   async function handleToggleActive(id: number, isActive: boolean) {
     await updateSchedule.mutateAsync({ id, data: { isActive: !isActive } });
     invalidate();
-  }
-
-  async function handleBulkToggle(targetActive: boolean) {
-    setBulkToggling(true);
-    // Capture active IDs before the call (used only on success when pausing)
-    const activeNow = schedules.filter((s: any) => s.isActive).map((s: any) => s.id);
-    try {
-      await bulkToggle.mutateAsync({ data: { isActive: targetActive } });
-      if (!targetActive) {
-        // Snapshot which schedules were active so admin can selectively restore them later
-        setPreActivatedIds(activeNow.length > 0 ? activeNow : null);
-      } else {
-        // Resuming all — clear the snapshot
-        setPreActivatedIds(null);
-      }
-      invalidate();
-      toast.success(targetActive ? "All schedules resumed" : "All schedules paused");
-    } catch {
-      toast.error("Failed to update schedules");
-      // Do not touch preActivatedIds on failure — preserve any existing restore snapshot
-    } finally {
-      setBulkToggling(false);
-    }
-  }
-
-  async function handleRestorePreviousState() {
-    if (!preActivatedIds || preActivatedIds.length === 0) return;
-    setBulkToggling(true);
-    try {
-      await bulkToggle.mutateAsync({ data: { isActive: true, ids: preActivatedIds } });
-      invalidate();
-      setPreActivatedIds(null);
-      toast.success(
-        `Restored ${preActivatedIds.length} previously active schedule${preActivatedIds.length !== 1 ? "s" : ""}`
-      );
-    } catch {
-      toast.error("Failed to restore schedules");
-    } finally {
-      setBulkToggling(false);
-    }
   }
 
   async function handleDelete(id: number) {
@@ -2601,19 +1213,6 @@ function ScheduledReportsPanel() {
     }
   }
 
-  async function handleAcknowledge(id: number) {
-    setAcknowledgingId(id);
-    try {
-      await updateSchedule.mutateAsync({ id, data: { acknowledgeFailure: true } });
-      invalidate();
-      toast.success("Delivery failure acknowledged");
-    } catch {
-      toast.error("Failed to acknowledge — please try again");
-    } finally {
-      setAcknowledgingId(null);
-    }
-  }
-
   async function handlePreview() {
     setLoadingPreview(true);
     try {
@@ -2634,112 +1233,21 @@ function ScheduledReportsPanel() {
             <Clock className="w-4 h-4 text-violet-400" />
             <CardTitle className="text-base font-semibold">Scheduled Email Reports</CardTitle>
           </div>
-          <div className="flex items-center gap-2">
-            {schedules.length > 0 && (() => {
-              const anyActive = schedules.some((s: any) => s.isActive);
-              const showRestore = !anyActive && preActivatedIds !== null && preActivatedIds.length > 0;
-              return (
-                <div className="flex items-center gap-2">
-                  {showRestore && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={bulkToggling}
-                            onClick={handleRestorePreviousState}
-                            className="border-violet-500/30 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 hover:border-violet-500/50"
-                          >
-                            {bulkToggling ? (
-                              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                            ) : (
-                              <GitMerge className="w-3.5 h-3.5 mr-1.5" />
-                            )}
-                            Restore Previous State
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="max-w-xs">
-                          Re-activate the {preActivatedIds.length} schedule{preActivatedIds.length !== 1 ? "s" : ""} that were active before the bulk pause — schedules that were already paused before will remain paused.
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={bulkToggling}
-                    onClick={() => handleBulkToggle(!anyActive)}
-                    className={anyActive
-                      ? "border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/50"
-                      : showRestore
-                      ? "border-border/40 text-muted-foreground hover:text-foreground"
-                      : "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/50"
-                    }
-                  >
-                    {bulkToggling ? (
-                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                    ) : anyActive ? (
-                      <Ban className="w-3.5 h-3.5 mr-1.5" />
-                    ) : (
-                      <MonitorPlay className="w-3.5 h-3.5 mr-1.5" />
-                    )}
-                    {anyActive ? "Pause All" : "Resume All"}
-                  </Button>
-                </div>
-              );
-            })()}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowAdd(true)}
-              className="border-violet-500/30 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 hover:border-violet-500/50"
-            >
-              <Plus className="w-3.5 h-3.5 mr-1.5" />
-              Add Schedule
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowAdd(true)}
+            className="border-violet-500/30 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 hover:border-violet-500/50"
+          >
+            <Plus className="w-3.5 h-3.5 mr-1.5" />
+            Add Schedule
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Automatically email audit log CSV reports on a recurring schedule. Expand the history icon on any schedule or use the Delivery History section below to investigate past deliveries and failures.
+          Automatically email audit log CSV reports on a recurring schedule. Click the history icon on any schedule to see past deliveries and failures.
         </p>
       </CardHeader>
       <CardContent className="pt-0">
-        {!isLoading && schedules.length > 0 && (
-          <div className="flex items-center gap-1 mb-3 flex-wrap">
-            {(["all", "healthy", "failing", "never_sent"] as const).map((f) => {
-              const labels: Record<typeof f, string> = {
-                all: "All",
-                healthy: "Healthy",
-                failing: "Failing",
-                never_sent: "Never sent",
-              };
-              const counts: Record<typeof f, number> = {
-                all: schedules.length,
-                healthy: schedules.filter((s: any) => s.lastSendStatus === "ok").length,
-                failing: schedules.filter((s: any) => s.lastSendStatus === "failed").length,
-                never_sent: schedules.filter((s: any) => s.sendCount === 0).length,
-              };
-              const active = healthFilter === f;
-              return (
-                <button
-                  key={f}
-                  onClick={() => setHealthFilter(f)}
-                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    active
-                      ? "bg-violet-500/20 text-violet-300 border border-violet-500/40"
-                      : "bg-muted/30 text-muted-foreground border border-border/40 hover:bg-muted/50 hover:text-foreground"
-                  }`}
-                >
-                  {labels[f]}
-                  <span className={`rounded-full px-1.5 py-px text-[10px] font-semibold ${active ? "bg-violet-500/30 text-violet-200" : "bg-muted/50 text-muted-foreground"}`}>
-                    {counts[f]}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2].map(i => <div key={i} className="h-14 bg-muted/30 rounded-lg animate-pulse" />)}
@@ -2750,47 +1258,23 @@ function ScheduledReportsPanel() {
             <p className="text-sm">No scheduled reports configured</p>
             <p className="text-xs opacity-60">Add a schedule to receive automatic audit log emails</p>
           </div>
-        ) : filteredSchedules.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground">
-            <Mail className="w-6 h-6 opacity-30" />
-            <p className="text-sm">No schedules match this filter</p>
-          </div>
         ) : (
           <div className="space-y-2">
-            {filteredSchedules.map((s: any) => (
+            {schedules.map((s: any) => (
               <ScheduleRow
                 key={s.id}
                 s={s}
                 onToggle={handleToggleActive}
                 onDelete={(id) => setConfirmDeleteId(id)}
                 onSendNow={handleSendNow}
-                onAcknowledge={handleAcknowledge}
-                onEdit={openEditSchedule}
                 sendingId={sendingId}
-                acknowledgingId={acknowledgingId}
-                highlighted={highlightId === s.id || openScheduleId === s.id}
-                initialOpen={openScheduleId === s.id}
               />
             ))}
           </div>
         )}
       </CardContent>
 
-      {/* Delivery History section — consolidated cross-schedule run log */}
-      {!isLoading && (
-        <div className="border-t border-border/40">
-          <div className="px-4 pt-4 pb-2 flex items-center gap-2">
-            <History className="w-4 h-4 text-violet-400 shrink-0" />
-            <span className="text-sm font-semibold">Delivery History</span>
-          </div>
-          <p className="px-4 pb-2 text-xs text-muted-foreground">
-            All scheduled report delivery runs across every schedule. Filter by schedule or failure status to investigate issues.
-          </p>
-          <DeliveryHistoryPanel schedules={schedules} />
-        </div>
-      )}
-
-      <Dialog open={showAdd} onOpenChange={open => { if (!open) { setShowAdd(false); setNewEmail(""); setNewFrequency("weekly"); setNewMaxRetryAttempts("3"); setNewRetryBackoffMinutes("60"); } }}>
+      <Dialog open={showAdd} onOpenChange={open => { if (!open) { setShowAdd(false); setNewEmail(""); setNewFrequency("weekly"); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add Scheduled Report</DialogTitle>
@@ -2822,39 +1306,6 @@ function ScheduledReportsPanel() {
             <p className="text-xs text-muted-foreground">
               The CSV attachment will contain all audit log entries from the previous {newFrequency === "daily" ? "24 hours" : newFrequency === "weekly" ? "7 days" : "30 days"}.
             </p>
-            <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-3">
-              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <RefreshCw className="w-3 h-3" />
-                Retry settings
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Max retries <span className="text-muted-foreground font-normal">(0–10)</span></Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={10}
-                    value={newMaxRetryAttempts}
-                    onChange={e => setNewMaxRetryAttempts(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Delay between retries <span className="text-muted-foreground font-normal">(minutes)</span></Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={1440}
-                    value={newRetryBackoffMinutes}
-                    onChange={e => setNewRetryBackoffMinutes(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground/70">
-                On delivery failure, the scheduler will retry up to {newMaxRetryAttempts || "3"} time{(parseInt(newMaxRetryAttempts, 10) || 3) !== 1 ? "s" : ""}, waiting {newRetryBackoffMinutes || "60"} minute{(parseInt(newRetryBackoffMinutes, 10) || 60) !== 1 ? "s" : ""} between each attempt.
-              </p>
-            </div>
             <Button
               type="button"
               variant="outline"
@@ -2878,70 +1329,6 @@ function ScheduledReportsPanel() {
               className="bg-violet-600 hover:bg-violet-500 text-white"
             >
               {adding ? "Adding…" : "Add Schedule"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={editSchedule !== null} onOpenChange={open => { if (!open) setEditSchedule(null); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-4 h-4 text-sky-400" />
-              Edit Retry Settings
-            </DialogTitle>
-          </DialogHeader>
-          {editSchedule && (
-            <div className="space-y-4 py-1">
-              <p className="text-xs text-muted-foreground">
-                Schedule: <span className="font-medium text-foreground">{editSchedule.recipientEmail}</span> — <span className="capitalize">{editSchedule.frequency}</span>
-              </p>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Max retry attempts <span className="text-muted-foreground font-normal text-xs">(0–10)</span></Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={10}
-                    value={editMaxRetry}
-                    onChange={e => setEditMaxRetry(e.target.value)}
-                    className="h-9"
-                  />
-                  <p className="text-[11px] text-muted-foreground">Set to 0 to disable automatic retries.</p>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Delay between retries <span className="text-muted-foreground font-normal text-xs">(minutes, 1–1440)</span></Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={1440}
-                    value={editRetryBackoff}
-                    onChange={e => setEditRetryBackoff(e.target.value)}
-                    className="h-9"
-                  />
-                  <p className="text-[11px] text-muted-foreground">How long to wait before each subsequent retry attempt.</p>
-                </div>
-              </div>
-              {parseInt(editMaxRetry, 10) > 0 && (
-                <p className="text-[11px] text-sky-400/80 bg-sky-500/5 border border-sky-500/20 rounded px-2.5 py-1.5">
-                  On failure: up to {editMaxRetry} {parseInt(editMaxRetry, 10) === 1 ? "retry" : "retries"}, {editRetryBackoff} minute{parseInt(editRetryBackoff, 10) !== 1 ? "s" : ""} apart.
-                </p>
-              )}
-              {parseInt(editMaxRetry, 10) === 0 && (
-                <p className="text-[11px] text-amber-400/80 bg-amber-500/5 border border-amber-500/20 rounded px-2.5 py-1.5">
-                  Automatic retries disabled — failed deliveries will not be reattempted.
-                </p>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditSchedule(null)} disabled={editSaving}>Cancel</Button>
-            <Button
-              onClick={handleSaveEdit}
-              disabled={editSaving}
-              className="bg-sky-600 hover:bg-sky-500 text-white"
-            >
-              {editSaving ? "Saving…" : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3001,7 +1388,6 @@ function ScheduledReportsPanel() {
 export default function AdminAuditLogs() {
   const [search, setSearch] = useState("");
   const [action, setAction] = useState("all");
-  const [settingKey, setSettingKey] = useState("all");
   const [targetType, setTargetType] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -3011,18 +1397,6 @@ export default function AdminAuditLogs() {
   const [selected, setSelected] = useState<any | null>(null);
   const [exporting, setExporting] = useState(false);
   const [lastExportCount, setLastExportCount] = useState<number | null>(null);
-
-  const { data: settingKeyOptions = [] } = useQuery<{ value: string; label: string; type: "setting" | "system_config" }[]>({
-    queryKey: ["settings-known-keys"],
-    queryFn: async () => {
-      const res = await fetch("/api/settings/known-keys", {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    staleTime: Infinity,
-  });
 
   async function handleExportCsv() {
     setExporting(true);
@@ -3065,12 +1439,10 @@ export default function AdminAuditLogs() {
   const hasDateFilter = dateFrom !== "" || dateTo !== "";
   const hasTargetType = targetType !== "all";
   const hasMerchantId = merchantId != null;
-  const hasSettingKey = (action === "setting_updated" || action === "system_config_updated") && settingKey !== "all";
 
   function resetFilters() {
     setSearch("");
     setAction("all");
-    setSettingKey("all");
     setTargetType("all");
     setDateFrom("");
     setDateTo("");
@@ -3097,23 +1469,11 @@ export default function AdminAuditLogs() {
     limit: 20,
   } as any);
 
-  const rawLogs = data?.data ?? [];
-  const logs = hasSettingKey
-    ? rawLogs.filter((log: any) => {
-        try {
-          const parsed = JSON.parse(log.details ?? "{}");
-          if (action === "system_config_updated") return parsed.section === settingKey;
-          return parsed.key === settingKey;
-        } catch {
-          return false;
-        }
-      })
-    : rawLogs;
+  const logs = data?.data ?? [];
   const total = data?.total ?? 0;
 
   function handleExportStatClick() {
     setAction("csv_export");
-    setSettingKey("all");
     setPage(1);
     setSearch("");
   }
@@ -3166,7 +1526,7 @@ export default function AdminAuditLogs() {
                   onChange={e => { setSearch(e.target.value); setPage(1); }}
                 />
               </div>
-              <Select value={action} onValueChange={v => { setAction(v); if (v !== "setting_updated" && v !== "system_config_updated") setSettingKey("all"); setPage(1); }}>
+              <Select value={action} onValueChange={v => { setAction(v); setPage(1); }}>
                 <SelectTrigger className="w-[200px]"><SelectValue placeholder="Action type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Actions</SelectItem>
@@ -3175,24 +1535,6 @@ export default function AdminAuditLogs() {
                   ))}
                 </SelectContent>
               </Select>
-              {(action === "setting_updated" || action === "system_config_updated") && (
-                <Select value={settingKey} onValueChange={v => { setSettingKey(v); setPage(1); }}>
-                  <SelectTrigger className="w-[220px]">
-                    <div className="flex items-center gap-1.5">
-                      <Settings className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                      <SelectValue placeholder={action === "system_config_updated" ? "All sections" : "All setting keys"} />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{action === "system_config_updated" ? "All sections" : "All setting keys"}</SelectItem>
-                    {settingKeyOptions
-                      .filter(opt => action === "system_config_updated" ? opt.type === "system_config" : opt.type === "setting")
-                      .map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              )}
               <Select value={targetType} onValueChange={v => { setTargetType(v); setPage(1); }}>
                 <SelectTrigger className="w-[200px]"><SelectValue placeholder="Target type" /></SelectTrigger>
                 <SelectContent>
@@ -3274,7 +1616,7 @@ export default function AdminAuditLogs() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {(hasDateFilter || search !== "" || action !== "all" || hasTargetType || hasMerchantId || hasSettingKey) && (
+                {(hasDateFilter || search !== "" || action !== "all" || hasTargetType || hasMerchantId) && (
                   <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground hover:text-foreground">
                     <X className="w-3.5 h-3.5 mr-1.5" />
                     Clear filters
@@ -3309,21 +1651,8 @@ export default function AdminAuditLogs() {
           </div>
         </CardHeader>
 
-        {(hasTargetType || hasDateFilter || hasMerchantId || hasSettingKey) && (
+        {(hasTargetType || hasDateFilter || hasMerchantId) && (
           <div className="flex items-center gap-2 px-6 py-2 border-t border-border/40 bg-muted/10 flex-wrap">
-            {hasSettingKey && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-0.5 text-xs font-medium text-amber-400">
-                <Settings className="w-3 h-3" />
-                {action === "system_config_updated" ? "Section" : "Key"}: {settingKeyOptions.find(o => o.value === settingKey)?.label ?? settingKey}
-                <button
-                  onClick={() => { setSettingKey("all"); setPage(1); }}
-                  className="ml-0.5 hover:text-amber-300 transition-colors"
-                  aria-label="Clear setting key filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
             {hasMerchantId && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-0.5 text-xs font-medium text-orange-400">
                 <Landmark className="w-3 h-3" />

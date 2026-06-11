@@ -1,10 +1,9 @@
 import { Router } from "express";
-import { db, systemSettingsTable, auditLogsTable, reconciliationRunsTable, reconciliationEmailLogsTable } from "@workspace/db";
-import { eq, inArray, desc } from "drizzle-orm";
+import { db, systemSettingsTable, auditLogsTable, reconciliationRunsTable } from "@workspace/db";
+import { eq, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { sendMail, getSmtpConfig } from "../helpers/mailer";
-import { buildEmailHtml, buildUnmatchedAlertHtml, buildSampleCsv, buildRunCsv } from "../helpers/reconcileEmail";
-import { SYSTEM_CONFIG_AUDIT_SECTIONS } from "./systemConfig";
+import { buildEmailHtml, buildUnmatchedAlertHtml, buildSampleCsv } from "../helpers/reconcileEmail";
 
 const router = Router();
 router.use(requireAuth);
@@ -17,13 +16,6 @@ const RECONCILIATION_SCHEDULE_VALUES = ["daily", "weekly", "off"] as const;
 type ReconciliationSchedule = (typeof RECONCILIATION_SCHEDULE_VALUES)[number];
 
 const SMTP_KEYS = ["smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_from"] as const;
-
-export const KNOWN_SETTING_KEYS: { value: string; label: string; type: "setting" | "system_config" }[] = [
-  { value: "finance_report_email", label: "Finance Report Email", type: "setting" },
-  { value: "reconciliation_schedule", label: "Reconciliation Schedule", type: "setting" },
-  { value: "smtp", label: "SMTP Configuration", type: "setting" },
-  ...SYSTEM_CONFIG_AUDIT_SECTIONS.map(s => ({ ...s, type: "system_config" as const })),
-];
 
 // GET /api/settings
 router.get("/", async (req, res, next) => {
@@ -100,25 +92,13 @@ router.put("/smtp", async (req, res, next) => {
       }
     }
 
-    // Fetch current SMTP values before saving so we can detect which fields changed
-    const existingRows = await db
-      .select()
-      .from(systemSettingsTable)
-      .where(inArray(systemSettingsTable.key, [...SMTP_KEYS]));
-    const existingMap = Object.fromEntries(existingRows.map(r => [r.key, r.value ?? null]));
-
     const now = new Date();
     const upserts: Array<{ key: string; value: string | null }> = [];
 
-    const normalizedHost = host?.trim() || null;
-    const normalizedPort = port !== undefined && port !== null && port !== "" ? String(port) : null;
-    const normalizedUser = (smtpUser as string)?.trim() || null;
-    const normalizedFrom = (from as string)?.trim() || null;
-
-    upserts.push({ key: "smtp_host", value: normalizedHost });
-    upserts.push({ key: "smtp_port", value: normalizedPort });
-    upserts.push({ key: "smtp_user", value: normalizedUser });
-    upserts.push({ key: "smtp_from", value: normalizedFrom });
+    upserts.push({ key: "smtp_host", value: host?.trim() || null });
+    upserts.push({ key: "smtp_port", value: port !== undefined && port !== null && port !== "" ? String(port) : null });
+    upserts.push({ key: "smtp_user", value: (smtpUser as string)?.trim() || null });
+    upserts.push({ key: "smtp_from", value: (from as string)?.trim() || null });
 
     if (pass !== undefined && pass !== null && (pass as string).trim() !== "") {
       upserts.push({ key: "smtp_pass", value: (pass as string).trim() });
@@ -132,30 +112,6 @@ router.put("/smtp", async (req, res, next) => {
           target: systemSettingsTable.key,
           set: { value, updatedBy: user.id, updatedAt: now },
         });
-    }
-
-    // Determine which fields actually changed (never log the password value itself)
-    const changedFields: string[] = [];
-    if (normalizedHost !== (existingMap["smtp_host"] ?? null)) changedFields.push("host");
-    if (normalizedPort !== (existingMap["smtp_port"] ?? null)) changedFields.push("port");
-    if (normalizedUser !== (existingMap["smtp_user"] ?? null)) changedFields.push("user");
-    if (normalizedFrom !== (existingMap["smtp_from"] ?? null)) changedFields.push("from");
-    if (pass !== undefined && pass !== null && (pass as string).trim() !== "") changedFields.push("password");
-
-    if (changedFields.length > 0) {
-      try {
-        await db.insert(auditLogsTable).values({
-          adminId: user.id,
-          adminEmail: user.email,
-          action: "setting_updated",
-          targetType: "system_config",
-          targetId: null,
-          details: JSON.stringify({ key: "smtp", settingType: "smtp", fieldsChanged: changedFields }),
-          ipAddress: req.ip ?? null,
-        });
-      } catch (auditErr) {
-        req.log.error({ err: auditErr }, "Failed to write audit log for smtp setting_updated");
-      }
     }
 
     res.json({ ok: true });
@@ -175,228 +131,69 @@ router.get("/smtp-status", async (_req, res, next) => {
 });
 
 // GET /api/settings/finance_report_email/preview
-// Optional query param: runId — if provided, uses real run data; otherwise falls back to sample data
-router.get("/finance_report_email/preview", async (req, res, next) => {
-  try {
-    let runData: typeof reconciliationRunsTable.$inferSelect | null = null;
+router.get("/finance_report_email/preview", (_req, res) => {
+  const today = new Date();
+  const dateFrom = new Date(today);
+  dateFrom.setDate(today.getDate() - 7);
 
-    const rawRunId = req.query['runId'];
-    if (rawRunId !== undefined) {
-      const runId = parseInt(rawRunId as string, 10);
-      if (!isNaN(runId)) {
-        const rows = await db
-          .select()
-          .from(reconciliationRunsTable)
-          .where(eq(reconciliationRunsTable.id, runId))
-          .limit(1);
-        if (rows.length > 0) {
-          runData = rows[0]!;
-        }
-      }
-    }
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
-    if (runData === null) {
-      const today = new Date();
-      const dateFrom = new Date(today);
-      dateFrom.setDate(today.getDate() - 7);
+  const sampleRun: typeof reconciliationRunsTable.$inferSelect = {
+    id: 42,
+    merchantId: null,
+    dateFrom: fmt(dateFrom),
+    dateTo: fmt(today),
+    runAt: today,
+    totalDeposits: 18,
+    totalMatched: 15,
+    totalUnmatched: 3,
+    totalSettlements: 16,
+    matchedAmount: "245820.00",
+    unmatchedAmount: "18500.00",
+    status: "completed",
+    completedAt: today,
+    createdBy: null,
+    triggeredBy: "auto",
+    notes: null,
+    createdAt: today,
+  };
 
-      const fmt = (d: Date) => d.toISOString().slice(0, 10);
-
-      runData = {
-        id: 42,
-        merchantId: null,
-        dateFrom: fmt(dateFrom),
-        dateTo: fmt(today),
-        runAt: today,
-        totalDeposits: 18,
-        totalMatched: 15,
-        totalUnmatched: 3,
-        totalSettlements: 16,
-        matchedAmount: "245820.00",
-        unmatchedAmount: "18500.00",
-        status: "completed",
-        completedAt: today,
-        createdBy: null,
-        triggeredBy: "auto",
-        notes: null,
-        createdAt: today,
-      };
-    }
-
-    const html = buildEmailHtml(runData);
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(html);
-  } catch (err) {
-    next(err);
-  }
+  const html = buildEmailHtml(sampleRun);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(html);
 });
 
 // GET /api/settings/reconciliation_alert_email/preview
-// Optional query param: runId — if provided, uses real run data; otherwise falls back to sample data
-router.get("/reconciliation_alert_email/preview", async (req, res, next) => {
-  try {
-    let runData: typeof reconciliationRunsTable.$inferSelect | null = null;
+router.get("/reconciliation_alert_email/preview", (_req, res) => {
+  const today = new Date();
+  const dateFrom = new Date(today);
+  dateFrom.setDate(today.getDate() - 1);
 
-    const rawRunId = req.query['runId'];
-    if (rawRunId !== undefined) {
-      const runId = parseInt(rawRunId as string, 10);
-      if (!isNaN(runId)) {
-        const rows = await db
-          .select()
-          .from(reconciliationRunsTable)
-          .where(eq(reconciliationRunsTable.id, runId))
-          .limit(1);
-        if (rows.length > 0) {
-          runData = rows[0]!;
-        }
-      }
-    }
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
-    if (runData === null) {
-      const today = new Date();
-      const dateFrom = new Date(today);
-      dateFrom.setDate(today.getDate() - 1);
+  const sampleRun: typeof reconciliationRunsTable.$inferSelect = {
+    id: 7,
+    merchantId: null,
+    dateFrom: fmt(dateFrom),
+    dateTo: fmt(today),
+    runAt: today,
+    totalDeposits: 24,
+    totalMatched: 19,
+    totalUnmatched: 5,
+    totalSettlements: 22,
+    matchedAmount: "312400.00",
+    unmatchedAmount: "47250.00",
+    status: "completed",
+    completedAt: today,
+    createdBy: null,
+    triggeredBy: "auto",
+    notes: null,
+    createdAt: today,
+  };
 
-      const fmt = (d: Date) => d.toISOString().slice(0, 10);
-
-      runData = {
-        id: 7,
-        merchantId: null,
-        dateFrom: fmt(dateFrom),
-        dateTo: fmt(today),
-        runAt: today,
-        totalDeposits: 24,
-        totalMatched: 19,
-        totalUnmatched: 5,
-        totalSettlements: 22,
-        matchedAmount: "312400.00",
-        unmatchedAmount: "47250.00",
-        status: "completed",
-        completedAt: today,
-        createdBy: null,
-        triggeredBy: "auto",
-        notes: null,
-        createdAt: today,
-      };
-    }
-
-    const html = buildUnmatchedAlertHtml(runData);
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(html);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/settings/reconciliation_alert_email/send-sample
-router.post("/reconciliation_alert_email/send-sample", async (req, res, next) => {
-  const user = (req as any).user;
-  try {
-    const overrideTo: string | undefined =
-      typeof req.body?.to === "string" && req.body.to.trim() ? req.body.to.trim() : undefined;
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (overrideTo && !emailRegex.test(overrideTo)) {
-      res.status(400).json({ error: "Invalid email address" });
-      return;
-    }
-
-    const recipientRaw: string = overrideTo ?? user.email;
-
-    if (!recipientRaw) {
-      res.status(400).json({ error: "No recipient address — enter one or ensure your account has an email address" });
-      return;
-    }
-
-    const recipients = recipientRaw.split(",").map((e: string) => e.trim()).filter((e: string) => e.length > 0);
-    if (recipients.length === 0) {
-      res.status(400).json({ error: "No valid recipient addresses" });
-      return;
-    }
-
-    const today = new Date();
-    const dateFrom = new Date(today);
-    dateFrom.setDate(today.getDate() - 1);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-
-    const sampleRun: typeof reconciliationRunsTable.$inferSelect = {
-      id: 7,
-      merchantId: null,
-      dateFrom: fmt(dateFrom),
-      dateTo: fmt(today),
-      runAt: today,
-      totalDeposits: 24,
-      totalMatched: 19,
-      totalUnmatched: 5,
-      totalSettlements: 22,
-      matchedAmount: "312400.00",
-      unmatchedAmount: "47250.00",
-      status: "completed",
-      completedAt: today,
-      createdBy: null,
-      triggeredBy: "auto",
-      notes: null,
-      createdAt: today,
-    };
-
-    const html = buildUnmatchedAlertHtml(sampleRun);
-    const subject = `[RasoKart] ⚠️ Sample Unmatched-Items Alert — ${fmt(dateFrom)} to ${fmt(today)} (test)`;
-
-    const [primaryRecipient, ...ccRecipients] = recipients;
-
-    const sent = await sendMail({
-      to: primaryRecipient,
-      ...(ccRecipients.length > 0 ? { cc: ccRecipients.join(", ") } : {}),
-      subject,
-      html,
-    });
-
-    if (!sent) {
-      try {
-        await db.insert(reconciliationEmailLogsTable).values({
-          runId: 0,
-          emailType: "sample_alert",
-          recipients: recipients.join(", "),
-          status: "failed",
-          errorMessage: "SMTP not configured or send failed",
-        });
-      } catch (logErr) {
-        req.log.error({ err: logErr }, "Failed to write email log for sample_alert send failure");
-      }
-      res.status(502).json({ error: "SMTP is not configured or failed to send — check your SMTP settings" });
-      return;
-    }
-
-    try {
-      await db.insert(reconciliationEmailLogsTable).values({
-        runId: 0,
-        emailType: "sample_alert",
-        recipients: recipients.join(", "),
-        status: "sent",
-        errorMessage: null,
-      });
-    } catch (logErr) {
-      req.log.error({ err: logErr }, "Failed to write email log for sample_alert");
-    }
-
-    try {
-      await db.insert(auditLogsTable).values({
-        adminId: user.id,
-        adminEmail: user.email,
-        action: "sample_alert_email_sent",
-        targetType: "system_config",
-        targetId: null,
-        details: JSON.stringify({ recipients, overrideUsed: Boolean(overrideTo) }),
-        ipAddress: req.ip ?? null,
-      });
-    } catch (auditErr) {
-      req.log.error({ err: auditErr }, "Failed to write audit log for sample_alert_email_sent");
-    }
-
-    res.json({ ok: true, to: recipients.join(", ") });
-  } catch (err) {
-    next(err);
-  }
+  const html = buildUnmatchedAlertHtml(sampleRun);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(html);
 });
 
 // POST /api/settings/finance_report_email/send-sample
@@ -474,31 +271,8 @@ router.post("/finance_report_email/send-sample", async (req, res, next) => {
     });
 
     if (!sent) {
-      try {
-        await db.insert(reconciliationEmailLogsTable).values({
-          runId: 0,
-          emailType: "sample_report",
-          recipients: recipients.join(", "),
-          status: "failed",
-          errorMessage: "SMTP not configured or send failed",
-        });
-      } catch (logErr) {
-        req.log.error({ err: logErr }, "Failed to write email log for sample_report send failure");
-      }
       res.status(502).json({ error: "SMTP is not configured or failed to send — check your SMTP settings" });
       return;
-    }
-
-    try {
-      await db.insert(reconciliationEmailLogsTable).values({
-        runId: 0,
-        emailType: "sample_report",
-        recipients: recipients.join(", "),
-        status: "sent",
-        errorMessage: null,
-      });
-    } catch (logErr) {
-      req.log.error({ err: logErr }, "Failed to write email log for sample_report");
     }
 
     try {
@@ -597,185 +371,6 @@ router.post("/test-email", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
-
-// GET /api/settings/finance_report_email/logs — last 10 finance report email sends
-router.get("/finance_report_email/logs", async (_req, res, next) => {
-  try {
-    const rows = await db
-      .select({
-        id: reconciliationEmailLogsTable.id,
-        runId: reconciliationEmailLogsTable.runId,
-        emailType: reconciliationEmailLogsTable.emailType,
-        recipients: reconciliationEmailLogsTable.recipients,
-        status: reconciliationEmailLogsTable.status,
-        errorMessage: reconciliationEmailLogsTable.errorMessage,
-        sentAt: reconciliationEmailLogsTable.sentAt,
-        runExists: reconciliationRunsTable.id,
-      })
-      .from(reconciliationEmailLogsTable)
-      .leftJoin(
-        reconciliationRunsTable,
-        eq(reconciliationEmailLogsTable.runId, reconciliationRunsTable.id),
-      )
-      .where(inArray(reconciliationEmailLogsTable.emailType, ["report", "sample_report"]))
-      .orderBy(desc(reconciliationEmailLogsTable.sentAt))
-      .limit(10);
-
-    const data = rows.map(r => ({ ...r, runExists: r.runExists != null }));
-    res.json({ data });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/settings/finance_report_email/logs/:id/resend — re-sends a failed finance report email
-router.post("/finance_report_email/logs/:id/resend", async (req, res, next) => {
-  const user = (req as any).user;
-  try {
-    const logId = parseInt(req.params['id'] as string, 10);
-    if (isNaN(logId)) {
-      res.status(400).json({ error: "Invalid log ID" });
-      return;
-    }
-
-    const [logEntry] = await db
-      .select()
-      .from(reconciliationEmailLogsTable)
-      .where(eq(reconciliationEmailLogsTable.id, logId))
-      .limit(1);
-
-    if (!logEntry) {
-      res.status(404).json({ error: "Log entry not found" });
-      return;
-    }
-
-    if (logEntry.status !== "failed") {
-      res.status(400).json({ error: "Only failed log entries can be retried" });
-      return;
-    }
-
-    const recipients = logEntry.recipients
-      .split(",")
-      .map(e => e.trim())
-      .filter(e => e.length > 0);
-
-    if (recipients.length === 0) {
-      res.status(400).json({ error: "No recipients found in the original log entry" });
-      return;
-    }
-
-    const [primaryRecipient, ...ccRecipients] = recipients;
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-
-    let html: string;
-    let csv: string;
-    let filename: string;
-    let subject: string;
-    let emailType: string;
-
-    if (logEntry.emailType === "sample_report" || logEntry.runId === 0) {
-      const today = new Date();
-      const dateFrom = new Date(today);
-      dateFrom.setDate(today.getDate() - 7);
-
-      const sampleRun: typeof reconciliationRunsTable.$inferSelect = {
-        id: 42,
-        merchantId: null,
-        dateFrom: fmt(dateFrom),
-        dateTo: fmt(today),
-        runAt: today,
-        totalDeposits: 18,
-        totalMatched: 15,
-        totalUnmatched: 3,
-        totalSettlements: 16,
-        matchedAmount: "258320.00",
-        unmatchedAmount: "23750.00",
-        status: "completed",
-        completedAt: today,
-        createdBy: null,
-        triggeredBy: "auto",
-        notes: null,
-        createdAt: today,
-      };
-
-      html = buildEmailHtml(sampleRun);
-      csv = buildSampleCsv();
-      filename = `sample-reconciliation-report-${fmt(today)}.csv`;
-      subject = `[RasoKart] Sample Finance Report — ${fmt(dateFrom)} to ${fmt(today)} (preview)`;
-      emailType = "sample_report";
-    } else {
-      const [run] = await db
-        .select()
-        .from(reconciliationRunsTable)
-        .where(eq(reconciliationRunsTable.id, logEntry.runId))
-        .limit(1);
-
-      if (!run) {
-        res.status(404).json({ error: `Reconciliation run #${logEntry.runId} not found` });
-        return;
-      }
-
-      html = buildEmailHtml(run);
-      csv = await buildRunCsv(logEntry.runId);
-      filename = `reconciliation-run-${logEntry.runId}-${run.dateFrom}-to-${run.dateTo}.csv`;
-      subject = `[RasoKart] Reconciliation Report — Run #${logEntry.runId} (${run.dateFrom} to ${run.dateTo})`;
-      emailType = "report";
-    }
-
-    const sent = await sendMail({
-      to: primaryRecipient,
-      ...(ccRecipients.length > 0 ? { cc: ccRecipients.join(", ") } : {}),
-      subject,
-      html,
-      attachments: [{ filename, content: csv, contentType: "text/csv" }],
-    });
-
-    if (!sent) {
-      await db.insert(reconciliationEmailLogsTable).values({
-        runId: logEntry.runId,
-        emailType,
-        recipients: recipients.join(", "),
-        status: "failed",
-        errorMessage: "SMTP not configured or send failed",
-      });
-      res.status(502).json({ error: "SMTP is not configured or failed to send — check your SMTP settings" });
-      return;
-    }
-
-    await db.insert(reconciliationEmailLogsTable).values({
-      runId: logEntry.runId,
-      emailType,
-      recipients: recipients.join(", "),
-      status: "sent",
-      errorMessage: null,
-    });
-
-    try {
-      await db.insert(auditLogsTable).values({
-        adminId: user.id,
-        adminEmail: user.email,
-        action: "finance_report_email_resent",
-        targetType: "system_config",
-        targetId: null,
-        details: JSON.stringify({ originalLogId: logId, emailType, recipients }),
-        ipAddress: req.ip ?? null,
-      });
-    } catch (auditErr) {
-      req.log.error({ err: auditErr }, "Failed to write audit log for finance_report_email_resent");
-    }
-
-    res.json({ ok: true, to: recipients.join(", ") });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// GET /api/settings/known-keys — returns all known setting keys with human-readable labels
-// Used by the audit log filter UI to populate the sub-filter dropdown dynamically
-// NOTE: registered before the generic PUT /:key to avoid wildcard collision
-router.get("/known-keys", (_req, res) => {
-  res.json(KNOWN_SETTING_KEYS);
 });
 
 // PUT /api/settings/:key — generic key/value upsert for non-SMTP settings

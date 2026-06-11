@@ -13,6 +13,5 @@ export interface SavedFilter {
   rawInput: string;
   /** SmartFilter JSON object */
   filterData: SavedFilterFilterData;
-  sortOrder?: number | null;
   createdAt: Date;
 }

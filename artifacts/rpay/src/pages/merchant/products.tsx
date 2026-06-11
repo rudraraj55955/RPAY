@@ -1,5 +1,4 @@
 import { useListMerchantProducts, useToggleMerchantProduct, getListMerchantProductsQueryKey } from "@workspace/api-client-react";
-import { getApiErrorMessage } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -26,7 +25,7 @@ export default function MerchantProducts() {
         toast.success(`${PRODUCT_META[productType]?.label} ${enabled ? "enabled" : "disabled"}`);
         qc.invalidateQueries({ queryKey: getListMerchantProductsQueryKey() });
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to update product")),
+      onError: () => toast.error("Failed to update product"),
     });
   };
 

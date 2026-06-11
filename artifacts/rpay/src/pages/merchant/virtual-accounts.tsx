@@ -26,11 +26,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Search, Plus, XCircle, CheckCircle2, Trash2, Eye, Download, Building2, TrendingUp, ArrowUpDown, AlertCircle, Pencil, Copy, QrCode, History, X } from "lucide-react";
+import { Search, Plus, XCircle, CheckCircle2, Trash2, Eye, Download, Building2, TrendingUp, ArrowUpDown, AlertCircle, Pencil, Copy, QrCode, History } from "lucide-react";
 import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { getApiErrorMessage } from "@/lib/utils";
 import { QRCodeCanvas } from "qrcode.react";
 import { buildUpiId, buildUpiUrl } from "@/lib/upi";
 
@@ -100,8 +99,10 @@ export default function MerchantVirtualAccounts() {
           setForm({ accountNumber: "", ifsc: "", bankName: "", accountHolder: "" });
           invalidate();
         },
-        onError: (err: unknown) => {
-          setCreateError(getApiErrorMessage(err, "Failed to create virtual account."));
+        onError: (err: any) => {
+          const msg = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
+          if (msg) setCreateError(msg);
+          else setCreateError("Failed to create virtual account.");
         },
       }
     );
@@ -111,7 +112,7 @@ export default function MerchantVirtualAccounts() {
     const newStatus = currentStatus === "active" ? "closed" : "active";
     updateMutation.mutate({ id, data: { status: newStatus as any } }, {
       onSuccess: () => { toast.success(newStatus === "active" ? "Account re-activated" : "Account closed"); invalidate(); },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to update account status")),
+      onError: () => toast.error("Failed to update account status"),
     });
   };
 
@@ -119,7 +120,7 @@ export default function MerchantVirtualAccounts() {
     if (!confirm("Delete this virtual account?")) return;
     deleteMutation.mutate({ id }, {
       onSuccess: () => { toast.success("Virtual account deleted"); invalidate(); },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to delete")),
+      onError: () => toast.error("Failed to delete"),
     });
   };
 
@@ -170,8 +171,9 @@ export default function MerchantVirtualAccounts() {
           invalidate();
           qc.invalidateQueries({ queryKey: [`/api/virtual-accounts/${vaId}/balance-history`] });
         },
-        onError: (err: unknown) => {
-          setEditError(getApiErrorMessage(err, "Failed to update."));
+        onError: (err: any) => {
+          const msg = err?.response?.data?.error ?? err?.response?.data?.message ?? null;
+          setEditError(msg ?? "Failed to update.");
         },
       }
     );
@@ -194,14 +196,6 @@ export default function MerchantVirtualAccounts() {
   const totalBalance = data?.data?.reduce((s, v) => s + parseFloat(v.balance || "0"), 0) ?? 0;
   const totalCollectionSum = data?.data?.reduce((s, v) => s + parseFloat((v as any).totalCollection || "0"), 0) ?? 0;
   const activeCount = data?.data?.filter(v => v.status === "active").length ?? 0;
-
-  const anyFilterActive = !!(search || status !== "all");
-
-  const clearFilters = () => {
-    setSearch("");
-    setStatus("all");
-    setPage(1);
-  };
 
   const txList = historyData?.data ?? [];
   const txTotalIn = txList.filter(t => t.status === "success").reduce((s, t) => s + parseFloat(t.amount), 0);
@@ -290,48 +284,6 @@ export default function MerchantVirtualAccounts() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Filter summary bar */}
-      {anyFilterActive && (
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Active filters</span>
-            {status !== "all" && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Status: {status.charAt(0).toUpperCase() + status.slice(1)}
-                <button
-                  onClick={() => { setStatus("all"); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove status filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {search && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Search: <span className="font-mono">{search}</span>
-                <button
-                  onClick={() => { setSearch(""); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove search filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="ml-auto h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 gap-1.5"
-            >
-              <X className="w-3 h-3" />
-              Clear all
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Table */}
       <Card>

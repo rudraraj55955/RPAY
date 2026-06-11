@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
-import { useListTransactions, useSearchByUtr, useGetTransaction, useAdminCreateTransaction, useAdminUpdateTransaction, useListPaymentLinks, useListMerchants, useGetPaymentLink, useListSavedFilters, useCreateSavedFilter, useDeleteSavedFilter, useReorderSavedFilters, useRenameSavedFilter } from "@workspace/api-client-react";
+import { useListTransactions, useSearchByUtr, useGetTransaction, useAdminCreateTransaction, useAdminUpdateTransaction, useListPaymentLinks, useListMerchants, useGetPaymentLink, useListSavedFilters, useCreateSavedFilter, useDeleteSavedFilter } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -15,33 +15,125 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Separator } from "@/components/ui/separator";
 import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
 import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
-import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash, RefreshCw, Loader2, Building2, CreditCard, FileText, Info, Plus, Link2, Zap, Pencil, AlertTriangle, Sparkles, Bookmark, BookmarkCheck, Trash2, TrendingUp, CheckCircle2, Clock, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash, RefreshCw, Loader2, Building2, CreditCard, FileText, Info, Plus, Link2, Zap, Pencil, AlertTriangle, Sparkles, Bookmark, BookmarkCheck, Trash2, TrendingUp, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
-import { format } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
-import { SmartFilterBase, parseSmartQuery } from "@/lib/smart-search";
 
-interface SmartFilter extends SmartFilterBase {
+interface SmartFilter {
+  amountMin?: number;
+  amountMax?: number;
+  dateFrom?: string;
+  dateTo?: string;
   txType?: "deposit" | "withdrawal";
   txStatus?: "pending" | "success" | "failed";
 }
 
-const TYPE_KEYWORDS: Record<string, Partial<SmartFilter>> = {
-  deposit: { txType: "deposit" },
-  deposits: { txType: "deposit" },
-  withdrawal: { txType: "withdrawal" },
-  withdrawals: { txType: "withdrawal" },
+const TYPE_KEYWORDS: Record<string, "deposit" | "withdrawal"> = {
+  deposit: "deposit",
+  deposits: "deposit",
+  withdrawal: "withdrawal",
+  withdrawals: "withdrawal",
 };
 
-const STATUS_KEYWORDS: Record<string, Partial<SmartFilter>> = {
-  pending: { txStatus: "pending" },
-  success: { txStatus: "success" },
-  successful: { txStatus: "success" },
-  failed: { txStatus: "failed" },
-  failure: { txStatus: "failed" },
+const STATUS_KEYWORDS: Record<string, "pending" | "success" | "failed"> = {
+  pending: "pending",
+  success: "success",
+  successful: "success",
+  failed: "failed",
+  failure: "failed",
 };
+
+function parseDateToken(token: string, now: Date): Pick<SmartFilter, "dateFrom" | "dateTo"> | null {
+  if (token === "today") {
+    return { dateFrom: format(startOfDay(now), "yyyy-MM-dd"), dateTo: format(endOfDay(now), "yyyy-MM-dd") };
+  }
+  if (token === "this week") {
+    return {
+      dateFrom: format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+      dateTo: format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+    };
+  }
+  if (token === "this month") {
+    return { dateFrom: format(startOfMonth(now), "yyyy-MM-dd"), dateTo: format(endOfMonth(now), "yyyy-MM-dd") };
+  }
+  if (token === "last month") {
+    const prev = subMonths(now, 1);
+    return { dateFrom: format(startOfMonth(prev), "yyyy-MM-dd"), dateTo: format(endOfMonth(prev), "yyyy-MM-dd") };
+  }
+  if (token === "last week") {
+    const prevWeekStart = startOfWeek(subDays(now, 7), { weekStartsOn: 1 });
+    const prevWeekEnd = endOfWeek(subDays(now, 7), { weekStartsOn: 1 });
+    return { dateFrom: format(prevWeekStart, "yyyy-MM-dd"), dateTo: format(prevWeekEnd, "yyyy-MM-dd") };
+  }
+  return null;
+}
+
+function parseAmountToken(token: string): Pick<SmartFilter, "amountMin" | "amountMax"> | null {
+  const gtMatch = token.match(/^(>=?)(\d+(?:\.\d+)?)$/);
+  if (gtMatch) {
+    const inclusive = gtMatch[1] === ">=";
+    const val = parseFloat(gtMatch[2]!);
+    return { amountMin: inclusive ? val : val + 0.01 };
+  }
+  const ltMatch = token.match(/^(<=?)(\d+(?:\.\d+)?)$/);
+  if (ltMatch) {
+    const inclusive = ltMatch[1] === "<=";
+    const val = parseFloat(ltMatch[2]!);
+    return { amountMax: inclusive ? val : val - 0.01 };
+  }
+  const rangeMatch = token.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+  if (rangeMatch) {
+    const min = parseFloat(rangeMatch[1]!);
+    const max = parseFloat(rangeMatch[2]!);
+    if (min <= max) return { amountMin: min, amountMax: max };
+  }
+  return null;
+}
+
+function parseSmartQuery(raw: string): SmartFilter | null {
+  const q = raw.trim().toLowerCase();
+  if (!q) return null;
+
+  const filter: SmartFilter = {};
+  const now = new Date();
+
+  for (const phrase of ["this week", "this month", "last month", "last week"]) {
+    if (q.includes(phrase)) {
+      const dateResult = parseDateToken(phrase, now);
+      if (dateResult) { Object.assign(filter, dateResult); break; }
+    }
+  }
+
+  let remaining = q;
+  if (filter.dateFrom) {
+    for (const phrase of ["this week", "this month", "last month", "last week"]) {
+      remaining = remaining.replace(phrase, "").trim();
+    }
+  }
+
+  const tokens = remaining.split(/\s+/).filter(Boolean);
+
+  for (const token of tokens) {
+    if (token in TYPE_KEYWORDS) { filter.txType = TYPE_KEYWORDS[token]!; continue; }
+    if (token in STATUS_KEYWORDS) { filter.txStatus = STATUS_KEYWORDS[token]!; continue; }
+    if (!filter.dateFrom) {
+      const dateResult = parseDateToken(token, now);
+      if (dateResult) { Object.assign(filter, dateResult); continue; }
+    }
+    if (filter.amountMin == null && filter.amountMax == null) {
+      const amtResult = parseAmountToken(token);
+      if (amtResult) { Object.assign(filter, amtResult); continue; }
+    }
+  }
+
+  const hasContent =
+    filter.txType != null || filter.txStatus != null ||
+    filter.dateFrom != null || filter.amountMin != null || filter.amountMax != null;
+
+  return hasContent ? filter : null;
+}
 
 interface SmartFilterShape {
   amountMin?: number;
@@ -58,32 +150,6 @@ interface SavedFilterItem {
   rawInput: string;
   filterData: SmartFilterShape;
   createdAt: string;
-}
-
-function formatFilterCriteria(f: SmartFilterShape): string[] {
-  const parts: string[] = [];
-  if (f.txType) parts.push(f.txType === "deposit" ? "Deposits" : "Withdrawals");
-  if (f.txStatus) {
-    const labels: Record<string, string> = { pending: "Pending", success: "Successful", failed: "Failed" };
-    parts.push(labels[f.txStatus] ?? f.txStatus);
-  }
-  if (f.amountMin != null && f.amountMax != null) {
-    parts.push(`₹${f.amountMin.toLocaleString("en-IN")} – ₹${f.amountMax.toLocaleString("en-IN")}`);
-  } else if (f.amountMin != null) {
-    parts.push(`≥ ₹${f.amountMin.toLocaleString("en-IN")}`);
-  } else if (f.amountMax != null) {
-    parts.push(`≤ ₹${f.amountMax.toLocaleString("en-IN")}`);
-  }
-  if (f.dateFrom && f.dateTo) {
-    const from = format(new Date(f.dateFrom), "dd MMM yyyy");
-    const to = format(new Date(f.dateTo), "dd MMM yyyy");
-    parts.push(from === to ? from : `${from} – ${to}`);
-  } else if (f.dateFrom) {
-    parts.push(`From ${format(new Date(f.dateFrom), "dd MMM yyyy")}`);
-  } else if (f.dateTo) {
-    parts.push(`Until ${format(new Date(f.dateTo), "dd MMM yyyy")}`);
-  }
-  return parts.length > 0 ? parts : ["No criteria set"];
 }
 
 function TransactionDetailPanel({ id, open, onClose }: { id: number | null; open: boolean; onClose: () => void }) {
@@ -380,41 +446,28 @@ function TransactionDetailPanel({ id, open, onClose }: { id: number | null; open
                 <Building2 className="w-3.5 h-3.5" /> Merchant
               </p>
               <div className="space-y-0 rounded-lg border divide-y divide-border bg-card/40">
-                <div className="flex items-start justify-between gap-4 px-4 py-3">
-                  <span className="text-sm text-muted-foreground shrink-0">Business Name</span>
-                  <Link
-                    href={`/admin/merchants?open=${tx.merchantId}`}
-                    className="text-sm font-medium text-right hover:text-primary hover:underline underline-offset-2 transition-colors"
-                  >
-                    {tx.merchantName ?? "—"}
-                  </Link>
-                </div>
+                <DetailRow label="Business Name" value={tx.merchantName ?? "—"} />
                 <DetailRow label="Merchant ID" value={`#${tx.merchantId}`} mono />
               </div>
             </div>
 
-            {/* Provider Connection — always shown */}
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5" /> Provider Connection
-              </p>
-              <div className="space-y-0 rounded-lg border divide-y divide-border bg-card/40">
-                {(tx as any).connectionId != null ? (
-                  <>
-                    <div className="flex items-start justify-between gap-4 px-4 py-3">
-                      <span className="text-sm text-muted-foreground shrink-0">Provider</span>
-                      <ProviderBadge provider={tx.connectionProvider} />
-                    </div>
-                    <DetailRow label="Connection ID" value={`#${(tx as any).connectionId}`} mono />
-                  </>
-                ) : (
-                  <div className="flex items-center justify-between gap-4 px-4 py-3">
-                    <span className="text-sm text-muted-foreground shrink-0">Connection</span>
-                    <span className="text-sm text-muted-foreground italic">No connection assigned</span>
+            {/* Provider Connection — only shown when a provider is linked */}
+            {tx.connectionProvider != null && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5" /> Provider Connection
+                </p>
+                <div className="space-y-0 rounded-lg border divide-y divide-border bg-card/40">
+                  <div className="flex items-start justify-between gap-4 px-4 py-3">
+                    <span className="text-sm text-muted-foreground shrink-0">Provider</span>
+                    <ProviderBadge provider={tx.connectionProvider} />
                   </div>
-                )}
+                  {(tx as any).connectionId != null && (
+                    <DetailRow label="Connection ID" value={`#${(tx as any).connectionId}`} mono />
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Timestamps */}
             <div>
@@ -460,7 +513,7 @@ function formatProvider(p: string | null | undefined): string {
 }
 
 function ProviderBadge({ provider }: { provider: string | null | undefined }) {
-  if (!provider) return null;
+  if (!provider) return <span className="text-muted-foreground text-xs">—</span>;
   return (
     <Badge variant="outline" className="text-xs gap-1 border-violet-500/30 text-violet-300 bg-violet-500/10">
       <Zap className="w-3 h-3" />
@@ -798,89 +851,13 @@ export default function AdminTransactions() {
 
   // Saved filters state
   const { data: savedFiltersData } = useListSavedFilters();
-  const [orderedFilters, setOrderedFilters] = useState<SavedFilterItem[]>([]);
   const savedFilters: SavedFilterItem[] = (savedFiltersData?.data ?? []) as SavedFilterItem[];
-
-  useEffect(() => {
-    setOrderedFilters((savedFiltersData?.data ?? []) as SavedFilterItem[]);
-  }, [savedFiltersData]);
-
   const { mutateAsync: createSavedFilterMutation, isPending: isSavingFilter } = useCreateSavedFilter();
   const { mutateAsync: deleteSavedFilterMutation } = useDeleteSavedFilter();
-  const { mutateAsync: reorderSavedFiltersMutation } = useReorderSavedFilters();
-  const { mutateAsync: renameSavedFilterMutation } = useRenameSavedFilter();
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveFilterName, setSaveFilterName] = useState("");
   const [saveFilterNameError, setSaveFilterNameError] = useState("");
   const saveNameInputRef = useRef<HTMLInputElement>(null);
-
-  // Drag-and-drop state for preset reordering
-  const [draggingId, setDraggingId] = useState<number | null>(null);
-  const [dragOverId, setDragOverId] = useState<number | null>(null);
-
-  const handleDragStart = (id: number) => {
-    setDraggingId(id);
-  };
-
-  const handleDragOver = (e: React.DragEvent, id: number) => {
-    e.preventDefault();
-    if (id !== draggingId) setDragOverId(id);
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetId: number) => {
-    e.preventDefault();
-    if (draggingId == null || draggingId === targetId) {
-      setDraggingId(null);
-      setDragOverId(null);
-      return;
-    }
-    const from = orderedFilters.findIndex(f => f.id === draggingId);
-    const to = orderedFilters.findIndex(f => f.id === targetId);
-    if (from === -1 || to === -1) return;
-    const reordered = [...orderedFilters];
-    const [moved] = reordered.splice(from, 1);
-    reordered.splice(to, 0, moved!);
-    setOrderedFilters(reordered);
-    setDraggingId(null);
-    setDragOverId(null);
-    try {
-      await reorderSavedFiltersMutation({ data: { ids: reordered.map(f => f.id) } });
-      await qc.invalidateQueries({ queryKey: ["/api/saved-filters"] });
-    } catch {
-      setOrderedFilters(orderedFilters);
-      toast.error("Failed to save filter order");
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDraggingId(null);
-    setDragOverId(null);
-  };
-
-  const moveFilter = async (id: number, direction: "up" | "down") => {
-    const idx = orderedFilters.findIndex(f => f.id === id);
-    if (idx === -1) return;
-    const newIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= orderedFilters.length) return;
-    const reordered = [...orderedFilters];
-    const [moved] = reordered.splice(idx, 1);
-    reordered.splice(newIdx, 0, moved!);
-    setOrderedFilters(reordered);
-    try {
-      await reorderSavedFiltersMutation({ data: { ids: reordered.map(f => f.id) } });
-      await qc.invalidateQueries({ queryKey: ["/api/saved-filters"] });
-    } catch {
-      setOrderedFilters(orderedFilters);
-      toast.error("Failed to save filter order");
-    }
-  };
-
-  // Inline rename state
-  const [renamingId, setRenamingId] = useState<number | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [renameError, setRenameError] = useState("");
-  const [isRenaming, setIsRenaming] = useState(false);
-  const renameInputRef = useRef<HTMLInputElement>(null);
 
   // Read ?provider= URL query param on mount and pre-fill the provider filter
   useEffect(() => {
@@ -895,10 +872,6 @@ export default function AdminTransactions() {
   useEffect(() => {
     if (showSaveInput) setTimeout(() => saveNameInputRef.current?.focus(), 50);
   }, [showSaveInput]);
-
-  useEffect(() => {
-    if (renamingId != null) setTimeout(() => renameInputRef.current?.focus(), 50);
-  }, [renamingId]);
 
   // Smart filter derived values
   const amountMin = smartFilter?.amountMin;
@@ -945,7 +918,7 @@ export default function AdminTransactions() {
   // Smart search handlers
   const applySmartSearch = () => {
     setSmartError("");
-    const filter = parseSmartQuery<SmartFilter>(smartInput, [TYPE_KEYWORDS, STATUS_KEYWORDS]);
+    const filter = parseSmartQuery(smartInput);
     if (!filter) {
       setSmartError("Try: failed deposits, pending >500, deposits this week, >500, today");
       return;
@@ -1011,40 +984,6 @@ export default function AdminTransactions() {
       await qc.invalidateQueries({ queryKey: ["/api/saved-filters"] });
     } catch {
       toast.error("Failed to delete filter");
-    }
-  };
-
-  const startRename = (saved: SavedFilterItem) => {
-    setRenamingId(saved.id);
-    setRenameValue(saved.name);
-    setRenameError("");
-  };
-
-  const cancelRename = () => {
-    setRenamingId(null);
-    setRenameValue("");
-    setRenameError("");
-  };
-
-  const confirmRename = async () => {
-    const trimmed = renameValue.trim();
-    if (!trimmed) { setRenameError("Please enter a name."); renameInputRef.current?.focus(); return; }
-    const isDuplicate = savedFilters.some(f => f.id !== renamingId && f.name.toLowerCase() === trimmed.toLowerCase());
-    if (isDuplicate) { setRenameError("A filter with this name already exists."); renameInputRef.current?.focus(); return; }
-    setIsRenaming(true);
-    try {
-      await renameSavedFilterMutation({ id: renamingId!, data: { name: trimmed } });
-      await qc.invalidateQueries({ queryKey: ["/api/saved-filters"] });
-      cancelRename();
-    } catch (err: any) {
-      if (err?.status === 409 || err?.message?.includes("already exists")) {
-        setRenameError("A filter with this name already exists.");
-        renameInputRef.current?.focus();
-      } else {
-        toast.error("Failed to rename filter");
-      }
-    } finally {
-      setIsRenaming(false);
     }
   };
 
@@ -1160,106 +1099,30 @@ export default function AdminTransactions() {
         <CardContent className="pt-4 pb-4">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Smart Search</p>
 
-          {orderedFilters.length > 0 && (
+          {savedFilters.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <span className="text-xs text-muted-foreground font-medium">Saved:</span>
-              {orderedFilters.map(saved => (
-                renamingId === saved.id ? (
-                  <span key={saved.id} className="inline-flex flex-col gap-1">
-                    <span className="inline-flex items-center gap-1">
-                      <Input
-                        ref={renameInputRef}
-                        className="h-6 text-xs px-2 w-36 rounded-full border-violet-500/50 bg-violet-500/10 text-violet-200"
-                        value={renameValue}
-                        onChange={e => { setRenameValue(e.target.value); setRenameError(""); }}
-                        onKeyDown={e => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") cancelRename(); }}
-                        maxLength={40}
-                        disabled={isRenaming}
-                      />
-                      <button
-                        onClick={confirmRename}
-                        disabled={isRenaming}
-                        className="rounded-full p-0.5 text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
-                        aria-label="Confirm rename"
-                      >
-                        {isRenaming ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                      </button>
-                      <button
-                        onClick={cancelRename}
-                        disabled={isRenaming}
-                        className="rounded-full p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-50"
-                        aria-label="Cancel rename"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                    {renameError && <p className="text-xs text-rose-400 pl-1">{renameError}</p>}
-                  </span>
-                ) : (
-                  <Tooltip key={saved.id}>
-                    <TooltipTrigger asChild>
-                      <span
-                        draggable
-                        onDragStart={() => handleDragStart(saved.id)}
-                        onDragOver={(e) => handleDragOver(e, saved.id)}
-                        onDrop={(e) => handleDrop(e, saved.id)}
-                        onDragEnd={handleDragEnd}
-                        className={`group inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium text-violet-300 transition-colors cursor-grab active:cursor-grabbing select-none
-                          ${draggingId === saved.id
-                            ? "opacity-40 border-violet-500/30 bg-violet-500/8"
-                            : dragOverId === saved.id
-                              ? "border-violet-400/80 bg-violet-500/20 scale-105"
-                              : "border-violet-500/30 bg-violet-500/8 hover:border-violet-500/60"
-                          }`}
-                      >
-                        <button
-                          onClick={() => applySavedFilter(saved)}
-                          className="flex items-center gap-1 hover:text-violet-100 transition-colors"
-                        >
-                          <BookmarkCheck className="w-3 h-3 shrink-0" />
-                          {saved.name}
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); moveFilter(saved.id, "up"); }}
-                          disabled={orderedFilters.indexOf(saved) === 0}
-                          className="rounded-full p-0.5 text-violet-400/50 hover:text-violet-200 hover:bg-violet-500/10 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed"
-                          aria-label={`Move "${saved.name}" left`}
-                        >
-                          <ChevronUp className="w-2.5 h-2.5" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); moveFilter(saved.id, "down"); }}
-                          disabled={orderedFilters.indexOf(saved) === orderedFilters.length - 1}
-                          className="rounded-full p-0.5 text-violet-400/50 hover:text-violet-200 hover:bg-violet-500/10 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed"
-                          aria-label={`Move "${saved.name}" right`}
-                        >
-                          <ChevronDown className="w-2.5 h-2.5" />
-                        </button>
-                        <button
-                          onClick={() => startRename(saved)}
-                          className="ml-0.5 rounded-full p-0.5 text-violet-400/50 hover:text-violet-200 hover:bg-violet-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                          aria-label={`Rename saved filter "${saved.name}"`}
-                        >
-                          <Pencil className="w-2.5 h-2.5" />
-                        </button>
-                        <button
-                          onClick={() => deleteSavedFilter(saved.id)}
-                          className="rounded-full p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                          aria-label={`Delete saved filter "${saved.name}"`}
-                        >
-                          <Trash2 className="w-2.5 h-2.5" />
-                        </button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="bottom"
-                      className="bg-zinc-900 border border-zinc-700 text-zinc-100 px-3 py-2 max-w-[280px]"
-                    >
-                      <p className="text-[11px] font-semibold text-zinc-400 mb-1 uppercase tracking-wide">Query</p>
-                      <p className="text-xs leading-relaxed font-mono break-words">{saved.rawInput}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )
+              {savedFilters.map(saved => (
+                <span
+                  key={saved.id}
+                  className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2.5 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
+                >
+                  <button
+                    onClick={() => applySavedFilter(saved)}
+                    className="flex items-center gap-1 hover:text-violet-100 transition-colors"
+                    title={`Apply: ${saved.rawInput}`}
+                  >
+                    <BookmarkCheck className="w-3 h-3 shrink-0" />
+                    {saved.name}
+                  </button>
+                  <button
+                    onClick={() => deleteSavedFilter(saved.id)}
+                    className="ml-0.5 rounded-full p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                    aria-label={`Delete saved filter "${saved.name}"`}
+                  >
+                    <Trash2 className="w-2.5 h-2.5" />
+                  </button>
+                </span>
               ))}
             </div>
           )}
@@ -1389,13 +1252,6 @@ export default function AdminTransactions() {
                 {isLoading ? <span className="inline-block w-6 h-3.5 bg-muted/60 rounded animate-pulse" /> : (data?.stats?.successCount ?? 0).toLocaleString()}
               </span>
               <span className="text-muted-foreground">success</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-sm">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
-              <span className="font-semibold text-amber-400">
-                {isLoading ? <span className="inline-block w-6 h-3.5 bg-muted/60 rounded animate-pulse" /> : (data?.stats?.pendingCount ?? 0).toLocaleString()}
-              </span>
-              <span className="text-muted-foreground">pending</span>
             </div>
             <div className="flex items-center gap-1.5 text-sm">
               <XCircle className="w-3.5 h-3.5 text-rose-400" />

@@ -1,14 +1,13 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import { db, usersTable, merchantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { generateToken, requireAuth } from "../middlewares/auth";
-import { makeRateLimiter } from "../helpers/makeRateLimiter";
 
 const router = Router();
 
-const loginLimiter = makeRateLimiter({
-  limiterId: "login",
+const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   standardHeaders: "draft-8",
@@ -114,8 +113,6 @@ router.get("/me", requireAuth, async (req, res, next) => {
         reconciliationAlertEmails: usersTable.reconciliationAlertEmails,
         planExpiryAlertEmails: usersTable.planExpiryAlertEmails,
         settlementStateEmails: usersTable.settlementStateEmails,
-        signatureFailureAlertEmails: usersTable.signatureFailureAlertEmails,
-        passwordUpdatedAt: usersTable.passwordUpdatedAt,
       })
       .from(usersTable)
       .where(eq(usersTable.id, user.id))
@@ -131,8 +128,6 @@ router.get("/me", requireAuth, async (req, res, next) => {
       reconciliationAlertEmails: row?.reconciliationAlertEmails ?? true,
       planExpiryAlertEmails: row?.planExpiryAlertEmails ?? true,
       settlementStateEmails: row?.settlementStateEmails ?? true,
-      signatureFailureAlertEmails: row?.signatureFailureAlertEmails ?? true,
-      passwordUpdatedAt: row?.passwordUpdatedAt ?? null,
       createdAt: user.createdAt,
     });
   } catch (err) {
@@ -144,7 +139,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
 router.put("/preferences", requireAuth, async (req, res, next) => {
   try {
     const user = (req as any).user;
-    const { reconciliationAlertEmails, planExpiryAlertEmails, settlementStateEmails, signatureFailureAlertEmails } = req.body;
+    const { reconciliationAlertEmails, planExpiryAlertEmails, settlementStateEmails } = req.body;
 
     const patch: Record<string, boolean> = {};
 
@@ -172,14 +167,6 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
       patch["settlementStateEmails"] = settlementStateEmails;
     }
 
-    if (signatureFailureAlertEmails !== undefined) {
-      if (typeof signatureFailureAlertEmails !== "boolean") {
-        res.status(400).json({ error: "signatureFailureAlertEmails must be a boolean" });
-        return;
-      }
-      patch["signatureFailureAlertEmails"] = signatureFailureAlertEmails;
-    }
-
     if (Object.keys(patch).length === 0) {
       res.status(400).json({ error: "No valid preference fields provided" });
       return;
@@ -202,7 +189,6 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
       reconciliationAlertEmails: updated.reconciliationAlertEmails,
       planExpiryAlertEmails: updated.planExpiryAlertEmails,
       settlementStateEmails: updated.settlementStateEmails,
-      signatureFailureAlertEmails: updated.signatureFailureAlertEmails,
       createdAt: updated.createdAt,
     });
   } catch (err) {

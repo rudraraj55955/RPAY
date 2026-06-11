@@ -1,17 +1,14 @@
 import { useState } from "react";
-import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff, History, XCircle, HardDrive, RotateCcw, ShieldAlert, KeyRound, RefreshCw, Wrench } from "lucide-react";
-import { TestEmailHistoryPanel } from "@/components/test-email-history-panel";
+import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff, History, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
-import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useClearTestEmailHistory, useBackfillWebhookEventTypes, useGetSignatureFailureAlertHistory, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, type AdminAuditLog } from "@workspace/api-client-react";
 
 async function apiGet(path: string) {
   const res = await fetch(`/api${path}`, {
@@ -99,8 +96,6 @@ export default function AdminSettings() {
   const [initialized, setInitialized] = useState(false);
   const [retentionDays, setRetentionDays] = useState<number>(30);
   const [retentionInitialized, setRetentionInitialized] = useState(false);
-  const [testEmailRetentionDays, setTestEmailRetentionDays] = useState<number>(90);
-  const [testEmailRetentionInitialized, setTestEmailRetentionInitialized] = useState(false);
 
   // SMTP config form state
   const [smtpHost, setSmtpHost] = useState("");
@@ -118,7 +113,6 @@ export default function AdminSettings() {
   const alertEnabled = me?.reconciliationAlertEmails ?? true;
   const planExpiryEnabled = me?.planExpiryAlertEmails ?? true;
   const settlementStateEnabled = me?.settlementStateEmails ?? true;
-  const signatureFailureEnabled = me?.signatureFailureAlertEmails ?? true;
 
   const { mutate: updatePrefs, isPending: savingPrefs } = useUpdateMyPreferences({
     mutation: {
@@ -126,7 +120,7 @@ export default function AdminSettings() {
         toast.success("Notification preferences saved");
         qc.setQueryData(getGetMeQueryKey(), updated);
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save notification preferences")),
+      onError: (err: Error) => toast.error(err.message),
     },
   });
 
@@ -175,7 +169,7 @@ export default function AdminSettings() {
       qc.invalidateQueries({ queryKey: ["/api/settings/smtp"] });
       qc.invalidateQueries({ queryKey: ["/api/settings/smtp-status"] });
     },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save SMTP settings")),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const { mutate: sendSmtpTest, isPending: sendingSmtpTest } = useMutation({
@@ -190,10 +184,6 @@ export default function AdminSettings() {
     onError: (err: Error) => {
       setSmtpTestResult("error");
       setSmtpTestMessage(err.message);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["test-email-history"] });
-      qc.invalidateQueries({ queryKey: ["test-email-history-count"] });
     },
   });
 
@@ -220,72 +210,17 @@ export default function AdminSettings() {
       toast.success("Finance report email saved");
       qc.invalidateQueries({ queryKey: ["/api/settings"] });
     },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save email settings")),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const [testHistoryFilter, setTestHistoryFilter] = useState<"all" | "success" | "failed">("all");
-  const [smtpHistoryFilter, setSmtpHistoryFilter] = useState<"all" | "success" | "failed">("all");
-  const [testHistoryLimit, setTestHistoryLimit] = useState(10);
 
-  const testHistoryQueryUrl = testHistoryFilter === "all"
-    ? `/audit-logs?action=test_email_sent&limit=${testHistoryLimit}`
-    : `/audit-logs?action=test_email_sent&detailsSuccess=${testHistoryFilter === "success"}&limit=${testHistoryLimit}`;
+  const TEST_EMAIL_HISTORY_PARAMS = { action: "test_email_sent", limit: 20 } as const;
 
   const { data: testEmailHistory, isLoading: historyLoading } = useQuery({
-    queryKey: ["test-email-history", testHistoryFilter, testHistoryLimit],
-    queryFn: () => apiGet(testHistoryQueryUrl),
+    queryKey: getListAdminAuditLogsQueryKey(TEST_EMAIL_HISTORY_PARAMS),
+    queryFn: () => apiGet(`/audit-logs?action=test_email_sent&limit=20`),
     staleTime: 0,
-  });
-
-  interface FinanceEmailLogEntry {
-    id: number;
-    runId: number;
-    runExists: boolean;
-    emailType: string;
-    recipients: string;
-    status: string;
-    errorMessage: string | null;
-    sentAt: string;
-  }
-
-  const { data: financeEmailLogs, isLoading: financeLogsLoading } = useQuery<{ data: FinanceEmailLogEntry[] }>({
-    queryKey: ["/api/settings/finance_report_email/logs"],
-    queryFn: () => apiGet("/settings/finance_report_email/logs"),
-    staleTime: 30_000,
-  });
-
-  const { data: testEmailSuccessCount } = useQuery({
-    queryKey: ["test-email-history-count", "success"],
-    queryFn: () => apiGet(`/audit-logs?action=test_email_sent&detailsSuccess=true&limit=1`),
-    staleTime: 30_000,
-  });
-
-  const { data: testEmailFailedCount } = useQuery({
-    queryKey: ["test-email-history-count", "failed"],
-    queryFn: () => apiGet(`/audit-logs?action=test_email_sent&detailsSuccess=false&limit=1`),
-    staleTime: 30_000,
-  });
-
-  const testHistorySuccessTotal: number = testEmailSuccessCount?.total ?? 0;
-  const testHistoryFailedTotal: number = testEmailFailedCount?.total ?? 0;
-
-  function handleTestHistoryFilter(f: "all" | "success" | "failed") {
-    setTestHistoryFilter(f);
-    setTestHistoryLimit(10);
-  }
-
-  const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false);
-
-  const { mutate: clearTestEmailHistory, isPending: clearingHistory } = useClearTestEmailHistory({
-    mutation: {
-      onSuccess: (res) => {
-        toast.success(`Cleared ${res.deleted} test email ${res.deleted === 1 ? "entry" : "entries"}`);
-        setClearHistoryConfirm(false);
-        qc.invalidateQueries({ queryKey: ["test-email-history"] });
-        qc.invalidateQueries({ queryKey: ["test-email-history-count"] });
-      },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to clear history")),
-    },
   });
 
   const [previewingEmail, setPreviewingEmail] = useState(false);
@@ -336,15 +271,14 @@ export default function AdminSettings() {
   }
 
   const { mutate: sendTestEmail, isPending: sendingTest } = useMutation({
-    mutationFn: (recipientOverride?: string) => {
-      const to = recipientOverride ?? testEmailTo.trim();
-      return apiPost("/settings/test-email", to ? { to } : undefined);
+    mutationFn: () => {
+      const overrideTrimmed = testEmailTo.trim();
+      return apiPost("/settings/test-email", overrideTrimmed ? { to: overrideTrimmed } : undefined);
     },
     onSuccess: (res: { to: string }) => toast.success(`Test email sent to ${res.to} — check your inbox`),
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Test email failed")),
+    onError: (err: Error) => toast.error(`Test email failed: ${err.message}`),
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["test-email-history"] });
-      qc.invalidateQueries({ queryKey: ["test-email-history-count"] });
+      qc.invalidateQueries({ queryKey: getListAdminAuditLogsQueryKey(TEST_EMAIL_HISTORY_PARAMS) });
     },
   });
 
@@ -353,10 +287,6 @@ export default function AdminSettings() {
   const [sampleReportTo, setSampleReportTo] = useState<string>("");
   const [sampleReportResult, setSampleReportResult] = useState<"success" | "error" | null>(null);
   const [sampleReportMessage, setSampleReportMessage] = useState("");
-
-  const [sampleAlertTo, setSampleAlertTo] = useState<string>("");
-  const [sampleAlertResult, setSampleAlertResult] = useState<"success" | "error" | null>(null);
-  const [sampleAlertMessage, setSampleAlertMessage] = useState("");
 
   const { mutate: sendSampleReport, isPending: sendingSample } = useMutation({
     mutationFn: () => {
@@ -376,46 +306,13 @@ export default function AdminSettings() {
   const sampleReportToTrimmed = sampleReportTo.trim();
   const sampleReportToInvalid = sampleReportToTrimmed.length > 0 && !EMAIL_REGEX.test(sampleReportToTrimmed);
 
-  const { mutate: sendSampleAlert, isPending: sendingAlert } = useMutation({
-    mutationFn: () => {
-      const overrideTrimmed = sampleAlertTo.trim();
-      return apiPost("/settings/reconciliation_alert_email/send-sample", overrideTrimmed ? { to: overrideTrimmed } : {});
-    },
-    onSuccess: (res: { to: string }) => {
-      setSampleAlertResult("success");
-      setSampleAlertMessage(`Test alert sent to ${res.to} — check your inbox`);
-    },
-    onError: (err: Error) => {
-      setSampleAlertResult("error");
-      setSampleAlertMessage(err.message);
-    },
-  });
-
-  const sampleAlertToTrimmed = sampleAlertTo.trim();
-  const sampleAlertToInvalid = sampleAlertToTrimmed.length > 0 && !EMAIL_REGEX.test(sampleAlertToTrimmed);
-
-  const [retryingLogId, setRetryingLogId] = useState<number | null>(null);
-
-  const { mutate: retryFinanceEmail } = useMutation({
-    mutationFn: (logId: number) => {
-      setRetryingLogId(logId);
-      return apiPost(`/settings/finance_report_email/logs/${logId}/resend`);
-    },
-    onSuccess: (res: { to: string }) => toast.success(`Email re-sent to ${res.to}`),
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to resend email")),
-    onSettled: () => {
-      setRetryingLogId(null);
-      qc.invalidateQueries({ queryKey: ["/api/settings/finance_report_email/logs"] });
-    },
-  });
-
   const { mutate: saveSchedule, isPending: savingSchedule } = useMutation({
     mutationFn: () => apiPut("/settings/reconciliation_schedule", { value: scheduleMode }),
     onSuccess: () => {
       toast.success("Reconciliation schedule saved");
       qc.invalidateQueries({ queryKey: ["/api/settings"] });
     },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save reconciliation schedule")),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const { data: qrCleanupData, isLoading: qrCleanupLoading } = useQuery<{ retentionDays: number }>({
@@ -438,232 +335,7 @@ export default function AdminSettings() {
       toast.success("QR cleanup retention saved");
       qc.invalidateQueries({ queryKey: ["/api/system-config/qr-cleanup"] });
     },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save QR cleanup retention")),
-  });
-
-  const { data: testEmailRetentionData, isLoading: testEmailRetentionLoading } = useQuery<{ retentionDays: number }>({
-    queryKey: ["/api/system-config/test-email-retention"],
-    queryFn: () => apiGet("/system-config/test-email-retention"),
-    onSuccess: (d: { retentionDays: number }) => {
-      if (!testEmailRetentionInitialized) {
-        setTestEmailRetentionDays(d.retentionDays);
-        setTestEmailRetentionInitialized(true);
-      }
-    },
-  } as any);
-
-  const currentTestEmailRetentionDays = testEmailRetentionData?.retentionDays ?? 90;
-  const testEmailRetentionUnchanged = testEmailRetentionDays === currentTestEmailRetentionDays;
-
-  const { mutate: saveTestEmailRetention, isPending: savingTestEmailRetention } = useMutation({
-    mutationFn: () => apiPut("/system-config/test-email-retention", { retentionDays: testEmailRetentionDays }),
-    onSuccess: () => {
-      toast.success("Test email retention setting saved");
-      qc.invalidateQueries({ queryKey: ["/api/system-config/test-email-retention"] });
-    },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save test email retention")),
-  });
-
-  const [sigAlertThreshold, setSigAlertThreshold] = useState<number>(10);
-  const [sigAlertWindowHours, setSigAlertWindowHours] = useState<number>(1);
-  const [sigAlertRateLimitHours, setSigAlertRateLimitHours] = useState<number>(1);
-  const [sigAlertInitialized, setSigAlertInitialized] = useState(false);
-
-  const [storageScheduleEnabled, setStorageScheduleEnabled] = useState<boolean>(true);
-  const [storageScheduleHour, setStorageScheduleHour] = useState<number>(3);
-  const [storageScheduleInitialized, setStorageScheduleInitialized] = useState(false);
-
-  const [webhookSecretHour, setWebhookSecretHour] = useState<number>(9);
-  const [webhookSecretMinute, setWebhookSecretMinute] = useState<number>(0);
-  const [webhookSecretInitialized, setWebhookSecretInitialized] = useState(false);
-
-  const [webhookMaxAttempts, setWebhookMaxAttempts] = useState<number>(4);
-  const [webhookDelay1, setWebhookDelay1] = useState<number>(30);
-  const [webhookDelay2, setWebhookDelay2] = useState<number>(300);
-  const [webhookDelay3, setWebhookDelay3] = useState<number>(1800);
-  const [webhookTestMaxRetries, setWebhookTestMaxRetries] = useState<number>(1);
-  const [webhookTestDelay, setWebhookTestDelay] = useState<number>(60);
-  const [webhookRetryInitialized, setWebhookRetryInitialized] = useState(false);
-
-  const { data: sigAlertData, isLoading: sigAlertLoading } = useQuery<{ threshold: number; windowHours: number; rateLimitHours: number }>({
-    queryKey: ["/api/system-config/signature-failure-alert"],
-    queryFn: () => apiGet("/system-config/signature-failure-alert"),
-    onSuccess: (d: { threshold: number; windowHours: number; rateLimitHours: number }) => {
-      if (!sigAlertInitialized) {
-        setSigAlertThreshold(d.threshold);
-        setSigAlertWindowHours(d.windowHours);
-        setSigAlertRateLimitHours(d.rateLimitHours);
-        setSigAlertInitialized(true);
-      }
-    },
-  } as any);
-
-  interface WebhookRetryData {
-    maxAttempts: number;
-    delay1Seconds: number;
-    delay2Seconds: number;
-    delay3Seconds: number;
-    testMaxAutoRetries: number;
-    testRetryDelaySeconds: number;
-  }
-
-  const { data: webhookRetryData, isLoading: webhookRetryLoading } = useQuery<WebhookRetryData>({
-    queryKey: ["/api/system-config/webhook-retries"],
-    queryFn: () => apiGet("/system-config/webhook-retries"),
-    onSuccess: (d: WebhookRetryData) => {
-      if (!webhookRetryInitialized) {
-        setWebhookMaxAttempts(d.maxAttempts);
-        setWebhookDelay1(d.delay1Seconds);
-        setWebhookDelay2(d.delay2Seconds);
-        setWebhookDelay3(d.delay3Seconds);
-        setWebhookTestMaxRetries(d.testMaxAutoRetries);
-        setWebhookTestDelay(d.testRetryDelaySeconds);
-        setWebhookRetryInitialized(true);
-      }
-    },
-  } as any);
-
-  const currentWebhookMaxAttempts = webhookRetryData?.maxAttempts ?? 4;
-  const currentWebhookDelay1 = webhookRetryData?.delay1Seconds ?? 30;
-  const currentWebhookDelay2 = webhookRetryData?.delay2Seconds ?? 300;
-  const currentWebhookDelay3 = webhookRetryData?.delay3Seconds ?? 1800;
-  const currentWebhookTestMaxRetries = webhookRetryData?.testMaxAutoRetries ?? 1;
-  const currentWebhookTestDelay = webhookRetryData?.testRetryDelaySeconds ?? 60;
-
-  const webhookRetryUnchanged =
-    webhookMaxAttempts === currentWebhookMaxAttempts &&
-    webhookDelay1 === currentWebhookDelay1 &&
-    webhookDelay2 === currentWebhookDelay2 &&
-    webhookDelay3 === currentWebhookDelay3 &&
-    webhookTestMaxRetries === currentWebhookTestMaxRetries &&
-    webhookTestDelay === currentWebhookTestDelay;
-
-  const { mutate: saveWebhookRetry, isPending: savingWebhookRetry } = useMutation({
-    mutationFn: () => apiPut("/system-config/webhook-retries", {
-      maxAttempts: webhookMaxAttempts,
-      delay1Seconds: webhookDelay1,
-      delay2Seconds: webhookDelay2,
-      delay3Seconds: webhookDelay3,
-      testMaxAutoRetries: webhookTestMaxRetries,
-      testRetryDelaySeconds: webhookTestDelay,
-    }),
-    onSuccess: () => {
-      toast.success("Webhook retry settings saved");
-      qc.invalidateQueries({ queryKey: ["/api/system-config/webhook-retries"] });
-    },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save webhook retry settings")),
-  });
-
-  const SIG_ALERT_HISTORY_PARAMS = { limit: 20 } as const;
-  const { data: sigAlertHistoryData, isLoading: sigAlertHistoryLoading } = useGetSignatureFailureAlertHistory(SIG_ALERT_HISTORY_PARAMS);
-  const sigAlertHistory: SignatureFailureAlertLogEntry[] = sigAlertHistoryData?.data ?? [];
-
-  const currentSigAlertThreshold = sigAlertData?.threshold ?? 10;
-  const currentSigAlertWindowHours = sigAlertData?.windowHours ?? 1;
-  const currentSigAlertRateLimitHours = sigAlertData?.rateLimitHours ?? 1;
-  const sigAlertUnchanged =
-    sigAlertThreshold === currentSigAlertThreshold &&
-    sigAlertWindowHours === currentSigAlertWindowHours &&
-    sigAlertRateLimitHours === currentSigAlertRateLimitHours;
-
-  const { mutate: saveSigAlert, isPending: savingSigAlert } = useMutation({
-    mutationFn: () => apiPut("/system-config/signature-failure-alert", {
-      threshold: sigAlertThreshold,
-      windowHours: sigAlertWindowHours,
-      rateLimitHours: sigAlertRateLimitHours,
-    }),
-    onSuccess: () => {
-      toast.success("Signature failure alert settings saved");
-      qc.invalidateQueries({ queryKey: ["/api/system-config/signature-failure-alert"] });
-    },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save signature failure alert settings")),
-  });
-
-  const { data: webhookSecretScheduleData, isLoading: webhookSecretScheduleLoading } = useQuery<{ hour: number; minute: number }>({
-    queryKey: ["/api/system-config/webhook-secret-schedule"],
-    queryFn: () => apiGet("/system-config/webhook-secret-schedule"),
-    onSuccess: (d: { hour: number; minute: number }) => {
-      if (!webhookSecretInitialized) {
-        setWebhookSecretHour(d.hour);
-        setWebhookSecretMinute(d.minute);
-        setWebhookSecretInitialized(true);
-      }
-    },
-  } as any);
-
-  const currentWebhookSecretHour = webhookSecretScheduleData?.hour ?? 9;
-  const currentWebhookSecretMinute = webhookSecretScheduleData?.minute ?? 0;
-  const webhookSecretScheduleUnchanged =
-    webhookSecretHour === currentWebhookSecretHour && webhookSecretMinute === currentWebhookSecretMinute;
-
-  const { mutate: saveWebhookSecretSchedule, isPending: savingWebhookSecretSchedule } = useMutation({
-    mutationFn: () => apiPut("/system-config/webhook-secret-schedule", { hour: webhookSecretHour, minute: webhookSecretMinute }),
-    onSuccess: () => {
-      toast.success("Webhook secret check schedule saved");
-      qc.invalidateQueries({ queryKey: ["/api/system-config/webhook-secret-schedule"] });
-    },
     onError: (err: Error) => toast.error(err.message),
-  });
-
-  const { data: storageCleanupConfig, isLoading: storageConfigLoading } = useQuery<{ enabled: boolean; hour: number }>({
-    queryKey: ["/api/system-config/storage-cleanup"],
-    queryFn: () => apiGet("/system-config/storage-cleanup"),
-    onSuccess: (d: { enabled: boolean; hour: number }) => {
-      if (!storageScheduleInitialized) {
-        setStorageScheduleEnabled(d.enabled);
-        setStorageScheduleHour(d.hour);
-        setStorageScheduleInitialized(true);
-      }
-    },
-  } as any);
-
-  const currentStorageEnabled = storageCleanupConfig?.enabled ?? true;
-  const currentStorageHour = storageCleanupConfig?.hour ?? 3;
-  const storageScheduleUnchanged =
-    storageScheduleEnabled === currentStorageEnabled && storageScheduleHour === currentStorageHour;
-
-  const { mutate: saveStorageSchedule, isPending: savingStorageSchedule } = useMutation({
-    mutationFn: () => apiPut("/system-config/storage-cleanup", { enabled: storageScheduleEnabled, hour: storageScheduleHour }),
-    onSuccess: () => {
-      toast.success("Storage cleanup schedule saved");
-      qc.invalidateQueries({ queryKey: ["/api/system-config/storage-cleanup"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const [cleanupResult, setCleanupResult] = useState<{ totalScanned: number; deleted: number; errors: number } | null>(null);
-
-  const CLEANUP_RUNS_PARAMS = { limit: 20 } as const;
-  const { data: cleanupRunsData, refetch: refetchCleanupRuns } = useListStorageCleanupRuns(CLEANUP_RUNS_PARAMS);
-  const cleanupRuns: StorageCleanupRun[] = cleanupRunsData?.data ?? [];
-
-  const { mutate: runCleanup, isPending: runningCleanup } = useRunStorageCleanup({
-    mutation: {
-      onSuccess: (result) => {
-        setCleanupResult(result);
-        void refetchCleanupRuns();
-        qc.invalidateQueries({ queryKey: getListStorageCleanupRunsQueryKey(CLEANUP_RUNS_PARAMS) });
-        if (result.deleted === 0) {
-          toast.success("No orphaned files found — storage is already clean");
-        } else {
-          toast.success(`Deleted ${result.deleted} orphaned file${result.deleted !== 1 ? "s" : ""}`);
-        }
-      },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Cleanup failed")),
-    },
-  });
-
-  const { mutate: runBackfill, isPending: runningBackfill } = useBackfillWebhookEventTypes({
-    mutation: {
-      onSuccess: (result) => {
-        if (result.rowsUpdated === 0) {
-          toast.success("Nothing to back-fill — all webhook logs already have an event type");
-        } else {
-          toast.success(`Back-filled ${result.rowsUpdated} webhook log${result.rowsUpdated !== 1 ? "s" : ""} with event type`);
-        }
-      },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Back-fill failed")),
-    },
   });
 
   const testEmailTrimmed = testEmailTo.trim();
@@ -896,65 +568,6 @@ export default function AdminSettings() {
                 Fill in host, port, username, and password above, then save before sending a test.
               </p>
             )}
-
-            {/* Test email history retention control */}
-            <div className="border-t border-border/50 pt-4 space-y-2">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="space-y-0.5">
-                  <Label className="text-sm">History auto-delete</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Automatically remove old test email history entries.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={testEmailRetentionDays}
-                    onChange={e => setTestEmailRetentionDays(Number(e.target.value))}
-                    disabled={testEmailRetentionLoading || savingTestEmailRetention}
-                    className="rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                  >
-                    <option value={0}>Never auto-clear</option>
-                    <option value={30}>30 days</option>
-                    <option value={60}>60 days</option>
-                    <option value={90}>90 days</option>
-                    <option value={180}>180 days</option>
-                  </select>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => saveTestEmailRetention()}
-                    disabled={savingTestEmailRetention || testEmailRetentionLoading || testEmailRetentionUnchanged}
-                  >
-                    <Save className="w-3.5 h-3.5 mr-1.5" />
-                    {savingTestEmailRetention ? "Saving…" : "Save"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Test-email send history */}
-            <TestEmailHistoryPanel
-              data={(() => {
-                const all: AdminAuditLog[] = testEmailHistory?.data ?? [];
-                return all.filter((row: AdminAuditLog) => {
-                  if (smtpHistoryFilter === "all") return true;
-                  let parsed: { success?: boolean } = {};
-                  try { parsed = JSON.parse(row.details ?? "{}"); } catch {}
-                  return smtpHistoryFilter === "success"
-                    ? parsed.success === true
-                    : parsed.success === false;
-                });
-              })()}
-              isLoading={historyLoading}
-              filter={smtpHistoryFilter}
-              onFilterChange={setSmtpHistoryFilter}
-              onClear={() => clearTestEmailHistory()}
-              clearing={clearingHistory}
-              clearConfirm={clearHistoryConfirm}
-              onClearConfirmChange={setClearHistoryConfirm}
-              clearCount={testHistorySuccessTotal + testHistoryFailedTotal}
-              retentionDays={currentTestEmailRetentionDays}
-            />
           </div>
         </CardContent>
       </Card>
@@ -1136,7 +749,7 @@ export default function AdminSettings() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => sendTestEmail(undefined)}
+                onClick={() => sendTestEmail()}
                 disabled={sendingTest || isLoading || smtpConfigured === false || (!testEmailTrimmed && !currentEmail) || testEmailInvalid}
                 title={
                   smtpConfigured === false
@@ -1266,71 +879,71 @@ export default function AdminSettings() {
           </div>
 
           {/* Test-email send history */}
-          <TestEmailHistoryPanel
-            data={testEmailHistory?.data ?? []}
-            isLoading={historyLoading}
-            filter={testHistoryFilter}
-            onFilterChange={handleTestHistoryFilter}
-            total={testEmailHistory?.total}
-            onLoadMore={() => setTestHistoryLimit(l => l + 10)}
-            successCount={testHistorySuccessTotal}
-            failedCount={testHistoryFailedTotal}
-            onRetry={(recipient) => {
-              setTestEmailTo(recipient);
-              sendTestEmail(recipient);
-            }}
-            retrying={sendingTest}
-            onClear={() => clearTestEmailHistory()}
-            clearing={clearingHistory}
-            clearConfirm={clearHistoryConfirm}
-            onClearConfirmChange={setClearHistoryConfirm}
-            clearCount={testHistorySuccessTotal + testHistoryFailedTotal}
-            retentionDays={currentTestEmailRetentionDays}
-          />
-
-          {/* Finance Report Email Log */}
           <div className="border-t border-border/50 pt-4 space-y-3">
-            <div className="flex items-center gap-1.5">
-              <History className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-sm font-medium text-foreground">Finance Report Email Log</p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <History className="w-3.5 h-3.5 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">Test email history</p>
+              </div>
+              <div className="flex items-center gap-1">
+                {(["all", "success", "failed"] as const).map(f => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setTestHistoryFilter(f)}
+                    className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                      testHistoryFilter === f
+                        ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                        : "text-muted-foreground hover:text-foreground border border-transparent"
+                    }`}
+                  >
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Last 10 finance report emails sent — real reconciliation runs and sample sends.
-            </p>
 
-            {financeLogsLoading && (
-              <p className="text-xs text-muted-foreground">Loading…</p>
+            {historyLoading && (
+              <p className="text-xs text-muted-foreground">Loading history…</p>
             )}
 
-            {!financeLogsLoading && (() => {
-              const logs = financeEmailLogs?.data ?? [];
+            {!historyLoading && (() => {
+              const allRows: AdminAuditLog[] = testEmailHistory?.data ?? [];
+              const filteredRows = allRows.filter((row: AdminAuditLog) => {
+                let parsed: { success?: boolean } = {};
+                try { parsed = JSON.parse(row.details ?? "{}"); } catch {}
+                if (testHistoryFilter === "success") return parsed.success === true;
+                if (testHistoryFilter === "failed") return parsed.success === false;
+                return true;
+              });
 
-              if (logs.length === 0) {
+              if (filteredRows.length === 0) {
                 return (
                   <p className="text-xs text-muted-foreground italic">
-                    No finance report emails have been sent yet.
+                    {testHistoryFilter === "all"
+                      ? "No test emails have been sent yet."
+                      : `No ${testHistoryFilter} entries found.`}
                   </p>
                 );
               }
 
               return (
                 <div className="space-y-1.5">
-                  {logs.map((entry: FinanceEmailLogEntry) => {
-                    const success = entry.status === "sent";
-                    const typeLabel = entry.emailType
-                      .replace(/_/g, " ")
-                      .replace(/\b\w/g, c => c.toUpperCase());
-                    const recipientList = entry.recipients
-                      .split(",")
-                      .map((r: string) => r.trim())
-                      .filter(Boolean);
-                    const recipientLabel = recipientList.length > 1
-                      ? `${recipientList[0]} +${recipientList.length - 1} more`
-                      : recipientList[0] ?? entry.recipients;
+                  {filteredRows.map((row: AdminAuditLog) => {
+                    let details: { recipients?: string[]; success?: boolean; error?: string } = {};
+                    try { details = JSON.parse(row.details ?? "{}"); } catch {}
+                    const success = details.success === true;
+                    const recipients = details.recipients ?? [];
+                    const recipientLabel = recipients.length > 0
+                      ? recipients.join(", ")
+                      : "unknown recipient";
+                    const errorLabel = details.error
+                      ? details.error.replace(/_/g, " ")
+                      : null;
 
                     return (
                       <div
-                        key={entry.id}
+                        key={row.id}
                         className={`flex items-start gap-2.5 rounded-md border px-3 py-2 text-xs ${
                           success
                             ? "border-emerald-500/20 bg-emerald-500/5"
@@ -1343,65 +956,25 @@ export default function AdminSettings() {
                           <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-400" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`font-medium ${success ? "text-emerald-400" : "text-red-400"}`}>
-                              {success ? "Sent" : "Failed"}
-                            </span>
-                            <span className="text-muted-foreground">·</span>
-                            <span className="text-foreground/80">{typeLabel}</span>
-                            {entry.runId > 0 && (
-                              <>
-                                <span className="text-muted-foreground">·</span>
-                                {entry.runExists ? (
-                                  <Link
-                                    to={`/admin/reconciliation?run=${entry.runId}`}
-                                    className="text-violet-400 hover:text-violet-300 hover:underline transition-colors"
-                                    title={`View reconciliation run #${entry.runId}`}
-                                  >
-                                    Run #{entry.runId}
-                                  </Link>
-                                ) : (
-                                  <span className="text-muted-foreground">Run #{entry.runId}</span>
-                                )}
-                              </>
-                            )}
-                            <span className="text-muted-foreground">·</span>
-                            <span className="text-muted-foreground truncate max-w-[200px]" title={entry.recipients}>
-                              {recipientLabel}
-                            </span>
-                          </div>
-                          {!success && entry.errorMessage && (
-                            <p className="text-muted-foreground mt-0.5 truncate max-w-xs" title={entry.errorMessage}>
-                              {entry.errorMessage}
-                            </p>
+                          <p className={`font-medium truncate ${success ? "text-emerald-400" : "text-red-400"}`}>
+                            {recipientLabel}
+                          </p>
+                          {!success && errorLabel && (
+                            <p className="text-muted-foreground mt-0.5">{errorLabel}</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {!success && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs border-red-500/30 hover:border-red-400/60 hover:bg-red-500/10 text-red-400 hover:text-red-300"
-                              disabled={retryingLogId === entry.id}
-                              onClick={() => retryFinanceEmail(entry.id)}
-                            >
-                              <RotateCcw className={`w-3 h-3 mr-1 ${retryingLogId === entry.id ? "animate-spin" : ""}`} />
-                              {retryingLogId === entry.id ? "Sending…" : "Retry"}
-                            </Button>
-                          )}
-                          <time
-                            dateTime={entry.sentAt}
-                            className="text-muted-foreground tabular-nums"
-                            title={new Date(entry.sentAt).toLocaleString()}
-                          >
-                            {new Date(entry.sentAt).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </time>
-                        </div>
+                        <time
+                          dateTime={row.createdAt}
+                          className="shrink-0 text-muted-foreground tabular-nums"
+                          title={new Date(row.createdAt).toLocaleString()}
+                        >
+                          {new Date(row.createdAt).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </time>
                       </div>
                     );
                   })}
@@ -1488,681 +1061,6 @@ export default function AdminSettings() {
         </CardContent>
       </Card>
 
-      {/* Storage Cleanup */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <HardDrive className="w-4 h-4 text-muted-foreground" />
-            <CardTitle className="text-base">Storage Cleanup</CardTitle>
-          </div>
-          <CardDescription className="text-sm">
-            Remove orphaned uploaded files that were never linked to any merchant or provider logo.
-            These accumulate when upload sessions are abandoned before the file is confirmed.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">
-            The cleanup job scans all tracked upload records, identifies any whose storage path
-            is not in active use, deletes them from object storage, and removes the corresponding
-            database rows. It is safe to run at any time.
-          </p>
-
-          {/* Auto-schedule */}
-          <div className="border border-border/50 rounded-lg p-4 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium text-foreground">Automatic nightly cleanup</p>
-                <p className="text-xs text-muted-foreground">
-                  Run the orphan cleanup job automatically every night at the configured hour.
-                </p>
-              </div>
-              <Switch
-                checked={storageScheduleEnabled}
-                onCheckedChange={setStorageScheduleEnabled}
-                disabled={storageConfigLoading}
-              />
-            </div>
-
-            {!storageConfigLoading && currentStorageEnabled && (
-              <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2">
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                <span>Auto-cleanup runs nightly at <strong>{String(currentStorageHour).padStart(2, "0")}:00</strong> server time.</span>
-              </div>
-            )}
-            {!storageConfigLoading && !currentStorageEnabled && (
-              <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>Auto-cleanup is <strong>disabled</strong>. Orphaned files will only be removed by running cleanup manually.</span>
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label htmlFor="storage-cleanup-hour" className="text-sm">Run at hour (0–23, server time)</Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  id="storage-cleanup-hour"
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={storageScheduleHour}
-                  onChange={e => {
-                    const v = parseInt(e.target.value);
-                    if (!isNaN(v)) setStorageScheduleHour(Math.max(0, Math.min(23, v)));
-                  }}
-                  disabled={storageConfigLoading}
-                  className="w-24"
-                />
-                <span className="text-sm text-muted-foreground">
-                  {String(storageScheduleHour).padStart(2, "0")}:00 server time
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                onClick={() => saveStorageSchedule()}
-                disabled={savingStorageSchedule || storageConfigLoading || storageScheduleUnchanged}
-              >
-                <Save className="w-3.5 h-3.5 mr-1.5" />
-                {savingStorageSchedule ? "Saving…" : "Save schedule"}
-              </Button>
-              {!storageScheduleUnchanged && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setStorageScheduleEnabled(currentStorageEnabled);
-                    setStorageScheduleHour(currentStorageHour);
-                  }}
-                  disabled={savingStorageSchedule}
-                >
-                  Cancel
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Manual run */}
-          <div className="border-t border-border/50 pt-4 space-y-3">
-            <div>
-              <p className="text-sm font-medium text-foreground mb-0.5">Run immediately</p>
-              <p className="text-xs text-muted-foreground">Trigger a cleanup run right now without waiting for the next scheduled time.</p>
-            </div>
-
-            {cleanupResult && (
-              <div className={`flex items-start gap-2 text-xs rounded-md px-3 py-2 border ${
-                cleanupResult.errors > 0
-                  ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
-                  : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-              }`}>
-                {cleanupResult.errors > 0
-                  ? <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  : <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-                <span>
-                  Scanned <strong>{cleanupResult.totalScanned}</strong> record{cleanupResult.totalScanned !== 1 ? "s" : ""} —{" "}
-                  deleted <strong>{cleanupResult.deleted}</strong>{cleanupResult.deleted !== 1 ? "" : " file"}
-                  {cleanupResult.errors > 0 && (
-                    <>, <span className="text-red-400">{cleanupResult.errors} failed</span></>
-                  )}
-                  {cleanupResult.deleted === 0 && cleanupResult.errors === 0 && " — storage is clean"}
-                  .
-                </span>
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setCleanupResult(null); runCleanup(); }}
-                disabled={runningCleanup}
-              >
-                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                {runningCleanup ? "Running…" : "Run cleanup now"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Run history */}
-          {cleanupRuns.length > 0 && (
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <History className="w-3.5 h-3.5" />
-                <span>Past runs</span>
-              </div>
-              <div className="rounded-md border border-border/50 overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border/50 bg-muted/20">
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Run at</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Scanned</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Deleted</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Errors</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">By</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cleanupRuns.map((run, idx) => (
-                      <tr
-                        key={run.id}
-                        className={`border-b border-border/30 last:border-0 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
-                      >
-                        <td className="px-3 py-2 tabular-nums text-muted-foreground whitespace-nowrap">
-                          {new Date(run.runAt).toLocaleString(undefined, {
-                            month: "short", day: "numeric", year: "numeric",
-                            hour: "2-digit", minute: "2-digit",
-                          })}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums">{run.totalScanned}</td>
-                        <td className={`px-3 py-2 text-right tabular-nums font-medium ${run.deleted > 0 ? "text-emerald-400" : "text-muted-foreground"}`}>
-                          {run.deleted}
-                        </td>
-                        <td className={`px-3 py-2 text-right tabular-nums ${run.errors > 0 ? "text-red-400 font-medium" : "text-muted-foreground"}`}>
-                          {run.errors}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground truncate max-w-[140px]" title={run.triggeredBy}>
-                          {run.triggeredBy}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Signature Failure Alert */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-muted-foreground" />
-            <CardTitle className="text-base">Signature Failure Alert</CardTitle>
-          </div>
-          <CardDescription className="text-sm">
-            Configure when admins receive email alerts for signature verification failures.
-            Failures above the threshold within the detection window trigger an alert, rate-limited to avoid flooding.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="sig-alert-threshold" className="text-sm">Alert threshold</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="sig-alert-threshold"
-                  type="number"
-                  min={1}
-                  max={10000}
-                  value={sigAlertThreshold}
-                  onChange={e => {
-                    const v = parseInt(e.target.value);
-                    if (!isNaN(v)) setSigAlertThreshold(Math.max(1, Math.min(10000, v)));
-                  }}
-                  disabled={sigAlertLoading}
-                  className="w-28"
-                />
-                <span className="text-sm text-muted-foreground">failures</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Alert fires when failures exceed this number.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="sig-alert-window" className="text-sm">Detection window</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="sig-alert-window"
-                  type="number"
-                  min={0.25}
-                  max={72}
-                  step={0.25}
-                  value={sigAlertWindowHours}
-                  onChange={e => {
-                    const v = parseFloat(e.target.value);
-                    if (!isNaN(v)) setSigAlertWindowHours(Math.max(0.25, Math.min(72, v)));
-                  }}
-                  disabled={sigAlertLoading}
-                  className="w-24"
-                />
-                <span className="text-sm text-muted-foreground">hours</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Rolling window over which failures are counted.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="sig-alert-rate-limit" className="text-sm">Alert cooldown</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="sig-alert-rate-limit"
-                  type="number"
-                  min={0.25}
-                  max={72}
-                  step={0.25}
-                  value={sigAlertRateLimitHours}
-                  onChange={e => {
-                    const v = parseFloat(e.target.value);
-                    if (!isNaN(v)) setSigAlertRateLimitHours(Math.max(0.25, Math.min(72, v)));
-                  }}
-                  disabled={sigAlertLoading}
-                  className="w-24"
-                />
-                <span className="text-sm text-muted-foreground">hours</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Minimum time between consecutive alert emails. Changes take effect immediately on save.
-              </p>
-            </div>
-          </div>
-
-          {!sigAlertLoading && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 border border-border/50 rounded-md px-3 py-2">
-              <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-              <span>
-                An alert fires when more than <strong>{currentSigAlertThreshold}</strong> signature failure{currentSigAlertThreshold !== 1 ? "s" : ""} occur within{" "}
-                <strong>{currentSigAlertWindowHours === 1 ? "1 hour" : `${currentSigAlertWindowHours} hours`}</strong>,
-                at most once every <strong>{currentSigAlertRateLimitHours === 1 ? "hour" : `${currentSigAlertRateLimitHours} hours`}</strong>.
-              </span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => saveSigAlert()}
-              disabled={savingSigAlert || sigAlertLoading || sigAlertUnchanged}
-            >
-              <Save className="w-3.5 h-3.5 mr-1.5" />
-              {savingSigAlert ? "Saving…" : "Save"}
-            </Button>
-            {!sigAlertUnchanged && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setSigAlertThreshold(currentSigAlertThreshold);
-                  setSigAlertWindowHours(currentSigAlertWindowHours);
-                  setSigAlertRateLimitHours(currentSigAlertRateLimitHours);
-                }}
-                disabled={savingSigAlert}
-              >
-                Cancel
-              </Button>
-            )}
-          </div>
-
-          {/* Alert dispatch history */}
-          <div className="border-t border-border/50 pt-4 space-y-3">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <History className="w-3.5 h-3.5" />
-              <span className="font-medium text-foreground text-sm">Alert dispatch history</span>
-            </div>
-
-            {sigAlertHistoryLoading && (
-              <p className="text-xs text-muted-foreground py-2">Loading history…</p>
-            )}
-
-            {!sigAlertHistoryLoading && sigAlertHistory.length === 0 && (
-              <p className="text-xs text-muted-foreground py-2">
-                No alerts have been sent yet. Alerts appear here once the threshold is exceeded.
-              </p>
-            )}
-
-            {!sigAlertHistoryLoading && sigAlertHistory.length > 0 && (
-              <div className="rounded-md border border-border/50 overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border/50 bg-muted/20">
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Sent at</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Failures</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Threshold</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Window</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Merchants</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Sent / Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sigAlertHistory.map((entry, idx) => (
-                      <tr
-                        key={entry.id}
-                        className={`border-b border-border/30 last:border-0 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
-                      >
-                        <td className="px-3 py-2 tabular-nums text-muted-foreground whitespace-nowrap">
-                          {new Date(entry.sentAt).toLocaleString(undefined, {
-                            month: "short", day: "numeric", year: "numeric",
-                            hour: "2-digit", minute: "2-digit",
-                          })}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums font-medium text-red-400">
-                          {entry.failureCount}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                          {entry.threshold}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">
-                          {entry.windowHours === 1 ? "1 hr" : `${entry.windowHours} hrs`}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                          {entry.affectedMerchantCount}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
-                          <span className={entry.recipientCount > 0 ? "text-emerald-400" : "text-amber-400"}>
-                            {entry.recipientCount}
-                          </span>
-                          <span className="text-muted-foreground"> / {entry.recipientEmails.length}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {!sigAlertHistoryLoading && sigAlertHistoryData != null && sigAlertHistoryData.total > sigAlertHistory.length && (
-              <p className="text-xs text-muted-foreground">
-                Showing {sigAlertHistory.length} of {sigAlertHistoryData.total} alerts.
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Webhook Secret Check Schedule */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <KeyRound className="w-4 h-4 text-muted-foreground" />
-            <CardTitle className="text-base">Webhook Secret Check Schedule</CardTitle>
-          </div>
-          <CardDescription className="text-sm">
-            Configure the daily time at which the platform checks for overdue webhook secret rotations
-            and sends reminder notifications to merchants. Changes take effect immediately without a restart.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!webhookSecretScheduleLoading && (
-            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                Secret rotation check runs daily at{" "}
-                <strong>
-                  {String(currentWebhookSecretHour).padStart(2, "0")}:{String(currentWebhookSecretMinute).padStart(2, "0")}
-                </strong>{" "}
-                server time.
-              </span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="webhook-secret-hour" className="text-sm">Hour (0–23, server time)</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="webhook-secret-hour"
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={webhookSecretHour}
-                  onChange={e => {
-                    const v = parseInt(e.target.value);
-                    if (!isNaN(v)) setWebhookSecretHour(Math.max(0, Math.min(23, v)));
-                  }}
-                  disabled={webhookSecretScheduleLoading}
-                  className="w-24"
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="webhook-secret-minute" className="text-sm">Minute (0–59)</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="webhook-secret-minute"
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={webhookSecretMinute}
-                  onChange={e => {
-                    const v = parseInt(e.target.value);
-                    if (!isNaN(v)) setWebhookSecretMinute(Math.max(0, Math.min(59, v)));
-                  }}
-                  disabled={webhookSecretScheduleLoading}
-                  className="w-24"
-                />
-              </div>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Preview:{" "}
-            <strong className="text-foreground">
-              {String(webhookSecretHour).padStart(2, "0")}:{String(webhookSecretMinute).padStart(2, "0")}
-            </strong>{" "}
-            server time — the server runs a startup sweep on every boot regardless of this schedule.
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => saveWebhookSecretSchedule()}
-              disabled={savingWebhookSecretSchedule || webhookSecretScheduleLoading || webhookSecretScheduleUnchanged}
-            >
-              <Save className="w-3.5 h-3.5 mr-1.5" />
-              {savingWebhookSecretSchedule ? "Saving…" : "Save schedule"}
-            </Button>
-            {!webhookSecretScheduleUnchanged && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setWebhookSecretHour(currentWebhookSecretHour);
-                  setWebhookSecretMinute(currentWebhookSecretMinute);
-                }}
-                disabled={savingWebhookSecretSchedule}
-              >
-                Cancel
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Webhook Retries */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <RefreshCw className="w-4 h-4 text-muted-foreground" />
-            <CardTitle className="text-base">Webhook Retries</CardTitle>
-          </div>
-          <CardDescription className="text-sm">
-            Configure how many times failed webhook deliveries are retried and the delay between each attempt.
-            Changes take effect immediately for the next retry poll without requiring a server restart.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          {/* Live deliveries */}
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-foreground">Live deliveries</p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="webhook-max-attempts" className="text-sm">Max total attempts</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="webhook-max-attempts"
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={webhookMaxAttempts}
-                    onChange={e => {
-                      const v = parseInt(e.target.value);
-                      if (!isNaN(v)) setWebhookMaxAttempts(Math.max(1, Math.min(10, v)));
-                    }}
-                    disabled={webhookRetryLoading}
-                    className="w-24"
-                  />
-                  <span className="text-sm text-muted-foreground">attempts</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Includes the first attempt. Maximum 10.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Backoff delays</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="webhook-delay-1" className="text-sm">After 1st failure</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="webhook-delay-1"
-                      type="number"
-                      min={1}
-                      max={86400}
-                      value={webhookDelay1}
-                      onChange={e => {
-                        const v = parseInt(e.target.value);
-                        if (!isNaN(v)) setWebhookDelay1(Math.max(1, Math.min(86400, v)));
-                      }}
-                      disabled={webhookRetryLoading}
-                      className="w-24"
-                    />
-                    <span className="text-xs text-muted-foreground">sec</span>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="webhook-delay-2" className="text-sm">After 2nd failure</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="webhook-delay-2"
-                      type="number"
-                      min={1}
-                      max={86400}
-                      value={webhookDelay2}
-                      onChange={e => {
-                        const v = parseInt(e.target.value);
-                        if (!isNaN(v)) setWebhookDelay2(Math.max(1, Math.min(86400, v)));
-                      }}
-                      disabled={webhookRetryLoading}
-                      className="w-24"
-                    />
-                    <span className="text-xs text-muted-foreground">sec</span>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="webhook-delay-3" className="text-sm">After 3rd failure</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="webhook-delay-3"
-                      type="number"
-                      min={1}
-                      max={86400}
-                      value={webhookDelay3}
-                      onChange={e => {
-                        const v = parseInt(e.target.value);
-                        if (!isNaN(v)) setWebhookDelay3(Math.max(1, Math.min(86400, v)));
-                      }}
-                      disabled={webhookRetryLoading}
-                      className="w-24"
-                    />
-                    <span className="text-xs text-muted-foreground">sec</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {!webhookRetryLoading && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 border border-border/50 rounded-md px-3 py-2">
-                <RefreshCw className="w-3.5 h-3.5 shrink-0 text-violet-400" />
-                <span>
-                  Live webhooks: up to <strong>{currentWebhookMaxAttempts}</strong> total attempt{currentWebhookMaxAttempts !== 1 ? "s" : ""} with delays of{" "}
-                  <strong>{currentWebhookDelay1}s</strong>, <strong>{currentWebhookDelay2}s</strong>, <strong>{currentWebhookDelay3}s</strong> between retries.
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Test deliveries */}
-          <div className="border-t border-border/50 pt-4 space-y-3">
-            <p className="text-sm font-medium text-foreground">Test deliveries</p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="webhook-test-max-retries" className="text-sm">Max auto-retries</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="webhook-test-max-retries"
-                    type="number"
-                    min={0}
-                    max={5}
-                    value={webhookTestMaxRetries}
-                    onChange={e => {
-                      const v = parseInt(e.target.value);
-                      if (!isNaN(v)) setWebhookTestMaxRetries(Math.max(0, Math.min(5, v)));
-                    }}
-                    disabled={webhookRetryLoading}
-                    className="w-24"
-                  />
-                  <span className="text-sm text-muted-foreground">retries</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Set to 0 to disable auto-retry for test deliveries.
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="webhook-test-delay" className="text-sm">Retry delay</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="webhook-test-delay"
-                    type="number"
-                    min={1}
-                    max={86400}
-                    value={webhookTestDelay}
-                    onChange={e => {
-                      const v = parseInt(e.target.value);
-                      if (!isNaN(v)) setWebhookTestDelay(Math.max(1, Math.min(86400, v)));
-                    }}
-                    disabled={webhookRetryLoading}
-                    className="w-24"
-                  />
-                  <span className="text-sm text-muted-foreground">sec</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => saveWebhookRetry()}
-              disabled={savingWebhookRetry || webhookRetryLoading || webhookRetryUnchanged}
-            >
-              <Save className="w-3.5 h-3.5 mr-1.5" />
-              {savingWebhookRetry ? "Saving…" : "Save"}
-            </Button>
-            {!webhookRetryUnchanged && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setWebhookMaxAttempts(currentWebhookMaxAttempts);
-                  setWebhookDelay1(currentWebhookDelay1);
-                  setWebhookDelay2(currentWebhookDelay2);
-                  setWebhookDelay3(currentWebhookDelay3);
-                  setWebhookTestMaxRetries(currentWebhookTestMaxRetries);
-                  setWebhookTestDelay(currentWebhookTestDelay);
-                }}
-                disabled={savingWebhookRetry}
-              >
-                Cancel
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* My Notification Preferences */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
@@ -2175,92 +1073,31 @@ export default function AdminSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="rounded-lg border border-border/50 bg-muted/5 px-4 py-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium">Reconciliation alert emails</p>
-                <p className="text-xs text-muted-foreground">
-                  Receive an email when an auto-reconciliation run finds unmatched items that require review.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handlePreviewAlertEmail}
-                  disabled={previewingAlertEmail}
-                  title="Preview the unmatched-items alert email with sample data"
-                >
-                  <Eye className="w-3.5 h-3.5 mr-1.5" />
-                  {previewingAlertEmail ? "Loading…" : "Preview alert email"}
-                </Button>
-                <Switch
-                  checked={alertEnabled}
-                  onCheckedChange={val =>
-                    updatePrefs({ data: { reconciliationAlertEmails: val } })
-                  }
-                  disabled={savingPrefs || me === undefined}
-                />
-              </div>
+          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Reconciliation alert emails</p>
+              <p className="text-xs text-muted-foreground">
+                Receive an email when an auto-reconciliation run finds unmatched items that require review.
+              </p>
             </div>
-            <div className="space-y-2 pt-1 border-t border-border/30">
-              <div className="flex items-center gap-2">
-                <Input
-                  type="email"
-                  placeholder="Leave blank to send to your account email"
-                  value={sampleAlertTo}
-                  onChange={e => {
-                    setSampleAlertTo(e.target.value);
-                    setSampleAlertResult(null);
-                  }}
-                  disabled={sendingAlert}
-                  className={`max-w-sm ${sampleAlertToInvalid ? "border-red-500/70 focus-visible:ring-red-500/30" : ""}`}
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setSampleAlertResult(null);
-                    sendSampleAlert();
-                  }}
-                  disabled={sendingAlert || smtpConfigured === false || sampleAlertToInvalid}
-                  title={
-                    smtpConfigured === false
-                      ? "SMTP is not configured — configure it in the Email / SMTP section above"
-                      : sampleAlertToInvalid
-                      ? "Enter a valid email address"
-                      : sampleAlertToTrimmed
-                      ? `Send test alert to ${sampleAlertToTrimmed}`
-                      : "Send test alert to your account email"
-                  }
-                >
-                  <Send className="w-3.5 h-3.5 mr-1.5" />
-                  {sendingAlert ? "Sending…" : "Send test alert"}
-                </Button>
-              </div>
-              {sampleAlertToInvalid && (
-                <p className="text-xs text-red-400 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3 shrink-0" />
-                  Invalid email address
-                </p>
-              )}
-              {!sampleAlertToInvalid && (
-                <p className="text-xs text-muted-foreground">
-                  Optional override address — if blank, the test alert goes to your account email.
-                </p>
-              )}
-              {sampleAlertResult === "success" && (
-                <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>{sampleAlertMessage}</span>
-                </div>
-              )}
-              {sampleAlertResult === "error" && (
-                <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{sampleAlertMessage}</span>
-                </div>
-              )}
+            <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handlePreviewAlertEmail}
+                disabled={previewingAlertEmail}
+                title="Preview the unmatched-items alert email with sample data"
+              >
+                <Eye className="w-3.5 h-3.5 mr-1.5" />
+                {previewingAlertEmail ? "Loading…" : "Preview alert email"}
+              </Button>
+              <Switch
+                checked={alertEnabled}
+                onCheckedChange={val =>
+                  updatePrefs({ data: { reconciliationAlertEmails: val } })
+                }
+                disabled={savingPrefs || me === undefined}
+              />
             </div>
           </div>
           {!alertEnabled && (
@@ -2313,64 +1150,6 @@ export default function AdminSettings() {
               You will not receive emails when settlement statuses change.
             </p>
           )}
-
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium">Signature failure alert emails</p>
-              <p className="text-xs text-muted-foreground">
-                Receive an email when signature verification failures spike above the configured alert threshold. Use the Signature Failure Alert card above to adjust the threshold, window, and cooldown.
-              </p>
-            </div>
-            <Switch
-              checked={signatureFailureEnabled}
-              onCheckedChange={val =>
-                updatePrefs({ data: { signatureFailureAlertEmails: val } })
-              }
-              disabled={savingPrefs || me === undefined}
-            />
-          </div>
-          {!signatureFailureEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              You will not receive alerts when signature failures cross the alert threshold.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Maintenance / Developer Tools */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Wrench className="w-4 h-4 text-muted-foreground" />
-            <CardTitle className="text-base">Maintenance</CardTitle>
-          </div>
-          <CardDescription className="text-sm">
-            One-off data repair actions. These are safe to run multiple times — only missing data is updated.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3 gap-4">
-            <div className="space-y-0.5 min-w-0">
-              <p className="text-sm font-medium">Back-fill webhook event types</p>
-              <p className="text-xs text-muted-foreground">
-                Populates the <span className="font-mono">event_type</span> column on historical webhook logs that were recorded before event tracking was added. Only rows with a missing event type are updated.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0"
-              disabled={runningBackfill}
-              onClick={() => runBackfill()}
-            >
-              {runningBackfill ? (
-                <><RotateCcw className="w-3.5 h-3.5 mr-1.5 animate-spin" />Running…</>
-              ) : (
-                <><RotateCcw className="w-3.5 h-3.5 mr-1.5" />Run back-fill</>
-              )}
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>

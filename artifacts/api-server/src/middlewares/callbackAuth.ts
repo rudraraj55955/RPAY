@@ -3,7 +3,6 @@ import { Request, Response, NextFunction } from "express";
 import { db, apiKeysTable, merchantsTable, callbackLogsTable, callbackNoncesTable } from "@workspace/db";
 import { eq, lt, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
-import { checkAndAlertSignatureFailures } from "../helpers/signatureFailureAlert";
 
 /**
  * How far in the past (or future) an X-Timestamp may be, in seconds.
@@ -99,47 +98,24 @@ async function isNonceSeen(nonceKey: string): Promise<boolean> {
  * The nonce is only written AFTER HMAC verification succeeds so unauthenticated
  * callers cannot poison the store.
  *
- * Returns true  → nonce was freshly inserted or an expired row was atomically
- *                 replaced (request is unique, allow it).
- * Returns false → a non-expired row already exists (active duplicate — treat as
- *                 replay and reject), OR the DB write failed entirely (request
- *                 is rejected as a precaution; the caller should not allow
- *                 through when persistence cannot be confirmed).
- *
- * Race safety: the unique constraint on `key` is the real atomic gate.  Even
- * if two concurrent requests both pass `isNonceSeen` before either write
- * completes, only one INSERT can win — the loser gets rowCount 0.
- *
- * Expired-nonce reuse: uses ON CONFLICT DO UPDATE ... WHERE expires_at <=
- * now() so that a legitimately reused nonce (after expiry) atomically replaces
- * the stale row (rowCount 1 → allow).  A still-active conflicting row does NOT
- * match the WHERE, so no UPDATE occurs and rowCount stays 0 → reject.
+ * Failures are logged but do not block the request — the timestamp window
+ * still limits the replay opportunity if the DB write fails.
  */
-async function recordNonce(nonceKey: string, expiresAt: Date): Promise<boolean> {
+async function recordNonce(nonceKey: string, expiresAt: Date): Promise<void> {
   try {
-    const result = await db
+    await db
       .insert(callbackNoncesTable)
       .values({ key: nonceKey, expiresAt })
-      .onConflictDoUpdate({
-        target: callbackNoncesTable.key,
-        set: { expiresAt },
-        where: lt(callbackNoncesTable.expiresAt, new Date()),
-      });
+      .onConflictDoNothing();
 
-    const succeeded = (result.rowCount ?? 0) === 1;
-
-    // Lazy prune of OTHER expired nonces (fire-and-forget, independent of
-    // whether this insert succeeded so pruning is never blocked by conflicts).
+    // Lazy pruning: delete expired rows in the background (fire-and-forget).
     db.delete(callbackNoncesTable)
       .where(lt(callbackNoncesTable.expiresAt, new Date()))
       .catch((err: unknown) => {
         logger.warn({ err }, "Failed to prune expired nonces");
       });
-
-    return succeeded;
   } catch (err) {
-    logger.warn({ err, nonceKey }, "Failed to persist nonce; request rejected as precaution");
-    return false;
+    logger.warn({ err, nonceKey }, "Failed to persist nonce; replay window may be open until next restart");
   }
 }
 
@@ -249,18 +225,10 @@ export async function verifyCallbackSignature(req: Request, res: Response, next:
   // ── 4. Record nonce AFTER successful HMAC verification ──────────────────────
   // Only authenticated requests reach this point, so the store cannot be
   // poisoned by unauthenticated callers.
-  //
-  // recordNonce returns:
-  //   true  → insert succeeded (fresh nonce or expired-row replacement) — allow.
-  //   false → active duplicate exists OR DB write failed — reject as replay.
   if (nonceKey) {
     // Expire slightly after the window ends to cover boundary-edge timestamps.
     const expiresAt = new Date((timestampSec + windowSeconds + 60) * 1000);
-    const recorded = await recordNonce(nonceKey, expiresAt);
-    if (!recorded) {
-      logAndReject(res, merchantId, req.originalUrl, "X-Nonce has already been used (replay detected)");
-      return;
-    }
+    await recordNonce(nonceKey, expiresAt);
   }
 
   (req as any).signatureVerified = true;
@@ -276,14 +244,6 @@ function logAndReject(
   url: string,
   message: string,
 ): void {
-  // eventType is null here because these are inbound payment-provider callback
-  // requests (body contains orderId/merchantReference, not an event field).
-  // Signature/timestamp/nonce rejections happen before the business payload is
-  // processed, so there is no event type to extract.
-  // Insert the failure log first, then — only after it is committed — run the
-  // threshold check. Chaining inside .then() guarantees the new row exists in
-  // the DB before checkAndAlertSignatureFailures() queries callback_logs, so
-  // the threshold count always includes the just-recorded failure.
   db.insert(callbackLogsTable)
     .values({
       merchantId,
@@ -293,12 +253,6 @@ function logAndReject(
       lastAttemptAt: new Date(),
       signatureVerified: false,
       responseBody: message,
-      eventType: null,
-    })
-    .then(() => {
-      checkAndAlertSignatureFailures().catch((err: unknown) => {
-        logger.warn({ err }, "Signature failure alert check failed");
-      });
     })
     .catch((err: unknown) => {
       logger.warn({ err }, "Failed to write callback rejection log");

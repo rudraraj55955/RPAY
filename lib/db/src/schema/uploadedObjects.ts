@@ -7,7 +7,7 @@ export const uploadedObjectsTable = pgTable(
   {
     id: serial("id").primaryKey(),
     merchantId: integer("merchant_id").notNull(),
-    contentHash: text("content_hash"),
+    contentHash: text("content_hash").notNull(),
     objectPath: text("object_path").notNull(),
     contentType: text("content_type").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

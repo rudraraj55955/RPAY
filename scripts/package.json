@@ -5,14 +5,7 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "backfill-webhook-event-types": "tsx ./src/backfill-webhook-event-types.ts",
-    "github-sync": "tsx ./src/github-sync.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
-  },
-  "dependencies": {
-    "@replit/connectors-sdk": "^0.4.1",
-    "@workspace/db": "workspace:*",
-    "drizzle-orm": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

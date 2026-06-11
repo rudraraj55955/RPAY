@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useListTransactions } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -7,22 +7,112 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowDownLeft, Search, TrendingUp, Clock, CheckCircle, XCircle, Sparkles, X, Hash, CheckCircle2, Bookmark, BookmarkCheck, Trash2, CalendarIcon, Link2 } from "lucide-react";
-import { format } from "date-fns";
-import { toast } from "sonner";
-import { SmartFilterBase, parseSmartQuery } from "@/lib/smart-search";
+import { ArrowDownLeft, Search, TrendingUp, Clock, CheckCircle, XCircle, Sparkles, X, Hash, CheckCircle2, Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
+import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 
-interface SmartFilter extends SmartFilterBase {
+interface SmartFilter {
+  amountMin?: number;
+  amountMax?: number;
+  dateFrom?: string;
+  dateTo?: string;
   txStatus?: "pending" | "success" | "failed";
 }
 
-const STATUS_KEYWORDS: Record<string, Partial<SmartFilter>> = {
-  pending: { txStatus: "pending" },
-  success: { txStatus: "success" },
-  successful: { txStatus: "success" },
-  failed: { txStatus: "failed" },
-  failure: { txStatus: "failed" },
+const STATUS_KEYWORDS: Record<string, "pending" | "success" | "failed"> = {
+  pending: "pending",
+  success: "success",
+  successful: "success",
+  failed: "failed",
+  failure: "failed",
 };
+
+function parseDateToken(token: string, now: Date): Pick<SmartFilter, "dateFrom" | "dateTo"> | null {
+  if (token === "today") {
+    return { dateFrom: format(startOfDay(now), "yyyy-MM-dd"), dateTo: format(endOfDay(now), "yyyy-MM-dd") };
+  }
+  if (token === "this week") {
+    return {
+      dateFrom: format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+      dateTo: format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+    };
+  }
+  if (token === "this month") {
+    return { dateFrom: format(startOfMonth(now), "yyyy-MM-dd"), dateTo: format(endOfMonth(now), "yyyy-MM-dd") };
+  }
+  if (token === "last month") {
+    const prev = subMonths(now, 1);
+    return { dateFrom: format(startOfMonth(prev), "yyyy-MM-dd"), dateTo: format(endOfMonth(prev), "yyyy-MM-dd") };
+  }
+  if (token === "last week") {
+    const prevWeekStart = startOfWeek(subDays(now, 7), { weekStartsOn: 1 });
+    const prevWeekEnd = endOfWeek(subDays(now, 7), { weekStartsOn: 1 });
+    return { dateFrom: format(prevWeekStart, "yyyy-MM-dd"), dateTo: format(prevWeekEnd, "yyyy-MM-dd") };
+  }
+  return null;
+}
+
+function parseAmountToken(token: string): Pick<SmartFilter, "amountMin" | "amountMax"> | null {
+  const gtMatch = token.match(/^(>=?)(\d+(?:\.\d+)?)$/);
+  if (gtMatch) {
+    const inclusive = gtMatch[1] === ">=";
+    const val = parseFloat(gtMatch[2]!);
+    return { amountMin: inclusive ? val : val + 0.01 };
+  }
+  const ltMatch = token.match(/^(<=?)(\d+(?:\.\d+)?)$/);
+  if (ltMatch) {
+    const inclusive = ltMatch[1] === "<=";
+    const val = parseFloat(ltMatch[2]!);
+    return { amountMax: inclusive ? val : val - 0.01 };
+  }
+  const rangeMatch = token.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+  if (rangeMatch) {
+    const min = parseFloat(rangeMatch[1]!);
+    const max = parseFloat(rangeMatch[2]!);
+    if (min <= max) return { amountMin: min, amountMax: max };
+  }
+  return null;
+}
+
+function parseSmartQuery(raw: string): SmartFilter | null {
+  const q = raw.trim().toLowerCase();
+  if (!q) return null;
+
+  const filter: SmartFilter = {};
+  const now = new Date();
+
+  for (const phrase of ["this week", "this month", "last month", "last week"]) {
+    if (q.includes(phrase)) {
+      const dateResult = parseDateToken(phrase, now);
+      if (dateResult) { Object.assign(filter, dateResult); break; }
+    }
+  }
+
+  let remaining = q;
+  if (filter.dateFrom) {
+    for (const phrase of ["this week", "this month", "last month", "last week"]) {
+      remaining = remaining.replace(phrase, "").trim();
+    }
+  }
+
+  const tokens = remaining.split(/\s+/).filter(Boolean);
+  for (const token of tokens) {
+    if (token in STATUS_KEYWORDS) { filter.txStatus = STATUS_KEYWORDS[token]!; continue; }
+    if (!filter.dateFrom) {
+      const dateResult = parseDateToken(token, now);
+      if (dateResult) { Object.assign(filter, dateResult); continue; }
+    }
+    if (filter.amountMin == null && filter.amountMax == null) {
+      const amtResult = parseAmountToken(token);
+      if (amtResult) { Object.assign(filter, amtResult); continue; }
+    }
+  }
+
+  const hasContent =
+    filter.txStatus != null || filter.dateFrom != null ||
+    filter.amountMin != null || filter.amountMax != null;
+
+  return hasContent ? filter : null;
+}
 
 interface SavedFilter {
   id: string;
@@ -45,19 +135,6 @@ function storeSavedFilters(filters: SavedFilter[]): void {
   localStorage.setItem(DEPOSITS_SAVED_FILTERS_KEY, JSON.stringify(filters));
 }
 
-// ── URL search param sync ─────────────────────────────────────────────────────
-
-function pushSmartQuery(q: string): void {
-  const params = new URLSearchParams(window.location.search);
-  if (q) {
-    params.set("q", q);
-  } else {
-    params.delete("q");
-  }
-  const search = params.toString();
-  window.history.pushState(null, "", window.location.pathname + (search ? "?" + search : ""));
-}
-
 function exportCsv(data: any[]) {
   if (!data.length) return;
   const rows = [["ID", "Merchant", "Amount", "Currency", "UTR", "Reference", "Status", "Description", "Date"]];
@@ -74,27 +151,12 @@ function exportCsv(data: any[]) {
 
 export default function AdminDeposits() {
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState(() => {
-    return new URLSearchParams(window.location.search).get("status") ?? "all";
-  });
-  const [merchantId, setMerchantId] = useState(() => {
-    return new URLSearchParams(window.location.search).get("merchant") ?? "";
-  });
-  const [dateFrom, setDateFrom] = useState(() => {
-    return new URLSearchParams(window.location.search).get("from") ?? "";
-  });
-  const [dateTo, setDateTo] = useState(() => {
-    return new URLSearchParams(window.location.search).get("to") ?? "";
-  });
+  const [status, setStatus] = useState("all");
+  const [merchantId, setMerchantId] = useState("");
   const [page, setPage] = useState(1);
 
-  const [smartInput, setSmartInput] = useState<string>(() => {
-    return new URLSearchParams(window.location.search).get("q") ?? "";
-  });
-  const [smartFilter, setSmartFilter] = useState<SmartFilter | null>(() => {
-    const q = new URLSearchParams(window.location.search).get("q") ?? "";
-    return q ? parseSmartQuery<SmartFilter>(q, [STATUS_KEYWORDS]) : null;
-  });
+  const [smartInput, setSmartInput] = useState("");
+  const [smartFilter, setSmartFilter] = useState<SmartFilter | null>(null);
   const [smartError, setSmartError] = useState("");
   const smartInputRef = useRef<HTMLInputElement>(null);
 
@@ -105,8 +167,8 @@ export default function AdminDeposits() {
   const saveNameInputRef = useRef<HTMLInputElement>(null);
 
   const activeStatus = smartFilter?.txStatus ?? (status !== "all" ? status : undefined);
-  const activeDateFrom = smartFilter?.dateFrom ?? (dateFrom || undefined);
-  const activeDateTo = smartFilter?.dateTo ?? (dateTo || undefined);
+  const activeDateFrom = smartFilter?.dateFrom ?? undefined;
+  const activeDateTo = smartFilter?.dateTo ?? undefined;
   const amountMin = smartFilter?.amountMin;
   const amountMax = smartFilter?.amountMax;
 
@@ -135,59 +197,16 @@ export default function AdminDeposits() {
   const isCurrentFilterSaved = hasSmartFilter && savedFilters.some(
     f => f.rawInput === smartInput && JSON.stringify(f.filter) === JSON.stringify(smartFilter)
   );
-  const anyFilterActive = hasSmartFilter || !!search || !!merchantId || status !== "all" || !!dateFrom || !!dateTo;
-
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === DEPOSITS_SAVED_FILTERS_KEY) {
-        setSavedFilters(loadSavedFilters());
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
-  useEffect(() => {
-    const onPop = () => {
-      const params = new URLSearchParams(window.location.search);
-      const q = params.get("q") ?? "";
-      setSmartInput(q);
-      setSmartFilter(q ? parseSmartQuery<SmartFilter>(q, [STATUS_KEYWORDS]) : null);
-      setSmartError("");
-      setStatus(params.get("status") ?? "all");
-      setMerchantId(params.get("merchant") ?? "");
-      setDateFrom(params.get("from") ?? "");
-      setDateTo(params.get("to") ?? "");
-      setPage(1);
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  // ── Sync filter dropdowns to URL ─────────────────────────────────────────
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (status !== "all") params.set("status", status);
-    else params.delete("status");
-    if (merchantId) params.set("merchant", merchantId);
-    else params.delete("merchant");
-    if (dateFrom) params.set("from", dateFrom);
-    else params.delete("from");
-    if (dateTo) params.set("to", dateTo);
-    else params.delete("to");
-    const search = params.toString();
-    window.history.replaceState(null, "", window.location.pathname + (search ? "?" + search : ""));
-  }, [status, merchantId, dateFrom, dateTo]);
+  const anyFilterActive = hasSmartFilter || !!search || !!merchantId || status !== "all";
 
   const applySmartSearch = () => {
     setSmartError("");
-    const filter = parseSmartQuery<SmartFilter>(smartInput, [STATUS_KEYWORDS]);
+    const filter = parseSmartQuery(smartInput);
     if (!filter) {
       setSmartError("Try: pending, success >500, failed this week, >500, today");
       return;
     }
     setSmartFilter(filter);
-    pushSmartQuery(smartInput);
     if (filter.txStatus) setStatus("all");
     setPage(1);
     setShowSaveInput(false);
@@ -198,7 +217,6 @@ export default function AdminDeposits() {
     setSmartFilter(null);
     setSmartInput("");
     setSmartError("");
-    pushSmartQuery("");
     setShowSaveInput(false);
     setSaveFilterName("");
     setSaveFilterNameError("");
@@ -209,7 +227,6 @@ export default function AdminDeposits() {
   const applySavedFilter = (saved: SavedFilter) => {
     setSmartFilter(saved.filter);
     setSmartInput(saved.rawInput);
-    pushSmartQuery(saved.rawInput);
     setSmartError("");
     setShowSaveInput(false);
     setSaveFilterName("");
@@ -447,21 +464,6 @@ export default function AdminDeposits() {
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Filter results</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href).then(() => {
-                  toast.success("Link copied");
-                }).catch(() => {
-                  toast.error("Could not copy link");
-                });
-              }}
-              className="ml-auto h-7 px-2.5 text-xs text-violet-400 hover:text-violet-200 hover:bg-violet-500/10 gap-1.5"
-            >
-              <Link2 className="w-3 h-3" />
-              Copy link
-            </Button>
             <div className="flex items-center gap-1.5 text-sm">
               <Hash className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="font-semibold text-foreground">
@@ -519,48 +521,6 @@ export default function AdminDeposits() {
               value={merchantId}
               onChange={e => { setMerchantId(e.target.value); setPage(1); }}
             />
-            <div className="relative flex items-center">
-              <CalendarIcon className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <input
-                type="date"
-                className="h-9 w-[150px] rounded-md border border-input bg-background pl-9 pr-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="From"
-                value={dateFrom}
-                max={dateTo || undefined}
-                onChange={e => { setDateFrom(e.target.value); setPage(1); }}
-                title="Date from"
-              />
-              {dateFrom && (
-                <button
-                  className="absolute right-2 rounded-full p-0.5 text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => { setDateFrom(""); setPage(1); }}
-                  aria-label="Clear from date"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-            <div className="relative flex items-center">
-              <CalendarIcon className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <input
-                type="date"
-                className="h-9 w-[150px] rounded-md border border-input bg-background pl-9 pr-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="To"
-                value={dateTo}
-                min={dateFrom || undefined}
-                onChange={e => { setDateTo(e.target.value); setPage(1); }}
-                title="Date to"
-              />
-              {dateTo && (
-                <button
-                  className="absolute right-2 rounded-full p-0.5 text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => { setDateTo(""); setPage(1); }}
-                  aria-label="Clear to date"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
             <Select
               value={smartFilter?.txStatus ?? status}
               onValueChange={v => {

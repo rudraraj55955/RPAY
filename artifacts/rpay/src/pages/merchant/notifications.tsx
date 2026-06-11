@@ -9,16 +9,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { getApiErrorMessage } from "@/lib/utils";
-
-const WEBHOOK_SECRET_TYPES = new Set(["webhook_secret_rotation_reminder", "webhook_secret_rotation_overdue"]);
 
 function notifIcon(type: string) {
   if (type.startsWith("settlement")) return <CreditCard className="w-4 h-4" />;
   if (type.startsWith("plan")) return <Zap className="w-4 h-4" />;
   if (type === "provider_limit_reset") return <RefreshCw className="w-4 h-4" />;
   if (type === "limit_exceeded" || type === "provider_limit_warning" || type === "provider_limit_reached") return <AlertCircle className="w-4 h-4" />;
-  if (WEBHOOK_SECRET_TYPES.has(type)) return <AlertCircle className="w-4 h-4" />;
   return <Megaphone className="w-4 h-4" />;
 }
 
@@ -28,8 +24,6 @@ function notifColor(type: string): string {
   if (type === "plan_expiring" || type === "limit_exceeded" || type === "provider_limit_warning") return "text-amber-400";
   if (type === "plan_expired" || type === "provider_limit_reached") return "text-red-400";
   if (type === "provider_limit_reset") return "text-emerald-400";
-  if (type === "webhook_secret_rotation_reminder") return "text-amber-400";
-  if (type === "webhook_secret_rotation_overdue") return "text-red-400";
   return "text-blue-400";
 }
 
@@ -44,8 +38,6 @@ const TYPE_LABELS: Record<string, string> = {
   provider_limit_reached: "Limit Reached",
   provider_limit_reset: "Limit Reset",
   system_notice: "Notice",
-  webhook_secret_rotation_reminder: "Secret Reminder",
-  webhook_secret_rotation_overdue: "Secret Overdue",
 };
 
 type TypeFilter =
@@ -59,9 +51,7 @@ type TypeFilter =
   | "provider_limit_warning"
   | "provider_limit_reached"
   | "provider_limit_reset"
-  | "system_notice"
-  | "webhook_secret_rotation_reminder"
-  | "webhook_secret_rotation_overdue";
+  | "system_notice";
 
 const TYPE_CHIPS: { value: TypeFilter; label: string; icon: React.ReactNode }[] = [
   { value: "all", label: "All Types", icon: <Bell className="w-3 h-3" /> },
@@ -75,8 +65,6 @@ const TYPE_CHIPS: { value: TypeFilter; label: string; icon: React.ReactNode }[] 
   { value: "provider_limit_reached", label: "Limit Reached", icon: <AlertCircle className="w-3 h-3" /> },
   { value: "provider_limit_reset", label: "Limit Reset", icon: <RefreshCw className="w-3 h-3" /> },
   { value: "system_notice", label: "Notice", icon: <Megaphone className="w-3 h-3" /> },
-  { value: "webhook_secret_rotation_reminder", label: "Secret Reminder", icon: <AlertCircle className="w-3 h-3" /> },
-  { value: "webhook_secret_rotation_overdue", label: "Secret Overdue", icon: <AlertCircle className="w-3 h-3" /> },
 ];
 
 const PROVIDER_LIMIT_TYPES = new Set(["provider_limit_warning", "provider_limit_reached", "provider_limit_reset"]);
@@ -115,7 +103,6 @@ export default function NotificationsPage() {
         qc.invalidateQueries({ queryKey: ["/api/notifications"] });
         refetch();
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to mark notifications as read")),
     });
   }
 
@@ -125,14 +112,12 @@ export default function NotificationsPage() {
         qc.invalidateQueries({ queryKey: ["/api/notifications"] });
         refetch();
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to mark notification as read")),
     });
   }
 
   function handleNotifClick(id: number, type: string, isRead: boolean) {
     if (!isRead) handleMarkOne(id);
     if (PROVIDER_LIMIT_TYPES.has(type)) navigate("/merchant/connect");
-    if (WEBHOOK_SECRET_TYPES.has(type)) navigate("/merchant/webhook");
   }
 
   const notifications = data?.data ?? [];
@@ -204,8 +189,7 @@ export default function NotificationsPage() {
             <ul className="divide-y divide-border/50">
               {notifications.map((n) => {
                 const isProviderLimit = PROVIDER_LIMIT_TYPES.has(n.type);
-                const isWebhookSecret = WEBHOOK_SECRET_TYPES.has(n.type);
-                const isClickable = !n.isRead || isProviderLimit || isWebhookSecret;
+                const isClickable = !n.isRead || isProviderLimit;
                 return (
                   <li
                     key={n.id}
@@ -230,12 +214,6 @@ export default function NotificationsPage() {
                           <span className="inline-flex items-center gap-1 text-[10px] text-primary/70">
                             <ExternalLink className="w-3 h-3" />
                             View providers
-                          </span>
-                        )}
-                        {isWebhookSecret && (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-primary/70">
-                            <ExternalLink className="w-3 h-3" />
-                            Rotate secret
                           </span>
                         )}
                         {!n.isRead && (

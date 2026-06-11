@@ -31,10 +31,6 @@ export interface Settlement {
   /** @nullable */
   processedAt?: string | null;
   /** @nullable */
-  actionedBy?: number | null;
-  /** @nullable */
-  actionedByEmail?: string | null;
-  /** @nullable */
   paidAt?: string | null;
   /** @nullable */
   referenceNumber?: string | null;

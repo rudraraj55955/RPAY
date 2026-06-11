@@ -16,13 +16,7 @@ export interface SavedFilter {
   rawInput: string;
   /** SmartFilter JSON object */
   filterData: SavedFilterFilterData;
-  sortOrder?: number | null;
   createdAt: string;
-}
-
-export interface ReorderSavedFiltersInput {
-  /** Ordered array of saved filter IDs (front to back) */
-  ids: number[];
 }
 
 /**
@@ -40,14 +34,6 @@ export interface CreateSavedFilterInput {
   rawInput: string;
   /** SmartFilter JSON object */
   filterData: CreateSavedFilterInputFilterData;
-}
-
-export interface RenameSavedFilterInput {
-  /**
-     * @minLength 1
-     * @maxLength 40
-     */
-  name: string;
 }
 
 export interface HealthStatus {
@@ -98,9 +84,6 @@ export interface User {
   reconciliationAlertEmails?: boolean;
   planExpiryAlertEmails?: boolean;
   settlementStateEmails?: boolean;
-  signatureFailureAlertEmails?: boolean;
-  /** @nullable */
-  passwordUpdatedAt?: string | null;
   createdAt: string;
 }
 
@@ -144,11 +127,6 @@ export interface Merchant {
   callbackTimestampWindowSeconds?: number | null;
   /** Whether the merchant has configured a callback signing secret. */
   callbackSecretSet?: boolean;
-  /**
-     * ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.
-     * @nullable
-     */
-  callbackSecretUpdatedAt?: string | null;
   /** @nullable */
   currentPlanName?: string | null;
   /** @nullable */
@@ -173,19 +151,6 @@ export interface CallbackWindowInput {
      * @nullable
      */
   windowSeconds?: number | null;
-}
-
-export interface MerchantWebhookUrlResponse {
-  /**
-     * The merchant's current webhook callback URL, or null if not configured.
-     * @nullable
-     */
-  url: string | null;
-}
-
-export interface UpdateMerchantWebhookUrlInput {
-  /** New webhook callback URL. Must be HTTPS. */
-  url: string;
 }
 
 export interface MerchantBrandingInput {
@@ -550,34 +515,6 @@ export interface CallbackSecretRotateResponse {
   secret: string;
 }
 
-export type CredentialEventEventType = typeof CredentialEventEventType[keyof typeof CredentialEventEventType];
-
-
-export const CredentialEventEventType = {
-  callback_secret_rotated: 'callback_secret_rotated',
-  api_key_generated: 'api_key_generated',
-  api_key_revoked: 'api_key_revoked',
-} as const;
-
-export interface CredentialEvent {
-  id: number;
-  merchantId: number;
-  eventType: CredentialEventEventType;
-  /**
-     * Masked key prefix for api_key_generated and api_key_revoked events
-     * @nullable
-     */
-  keyPrefix?: string | null;
-  createdAt: string;
-}
-
-export interface CredentialEventListResponse {
-  data: CredentialEvent[];
-  total: number;
-  page: number;
-  limit: number;
-}
-
 /**
  * Payment notification body. Caller must supply a valid merchant API key in the
 X-Api-Key request header — merchantId is derived from the key automatically.
@@ -638,25 +575,6 @@ export interface QrCodeActivityResponse {
   data: QrCodeActivity[];
 }
 
-export interface CallbackLogAttempt {
-  id: number;
-  callbackLogId: number;
-  /** 1-based sequence number of this attempt within the delivery log */
-  attemptNumber: number;
-  /** ISO timestamp when this attempt was made */
-  firedAt: string;
-  /**
-     * HTTP status returned by the remote endpoint, null if connection failed
-     * @nullable
-     */
-  httpStatus?: number | null;
-  /**
-     * Truncated response body (up to 500 chars)
-     * @nullable
-     */
-  responseBody?: string | null;
-}
-
 export type CallbackLogStatus = typeof CallbackLogStatus[keyof typeof CallbackLogStatus];
 
 
@@ -704,11 +622,6 @@ export interface CallbackLog {
   merchantName?: string | null;
   /** true if this delivery was triggered by a merchant test event, not a real payment */
   isTest?: boolean;
-  /**
-     * Event type extracted from the payload (e.g. payment.success, payment.received) — null for rows created before this field was added
-     * @nullable
-     */
-  eventType?: string | null;
   createdAt: string;
 }
 
@@ -724,63 +637,11 @@ export interface CallbackStatsResponse {
   signatureFailures24h: number;
 }
 
-export interface MerchantSignatureFailure {
-  merchantId: number;
-  /** @nullable */
-  merchantName?: string | null;
-  /** Number of signature failures in the last 24 hours for this merchant */
-  failures: number;
-}
-
-export interface HourlyFailureCount {
-  /** The start of the hour (UTC) */
-  hour: string;
-  /** Number of signature failures in that hour */
-  count: number;
-}
-
 export interface AdminCallbackStatsResponse {
   /** Total signature verification failures across all merchants in the last 24 hours */
   signatureFailures24h: number;
   /** Number of distinct merchants with at least one signature failure in the last 24 hours */
   affectedMerchants: number;
-  /** Per-merchant breakdown of signature failures in the last 24 hours, sorted by failure count descending */
-  merchantBreakdown: MerchantSignatureFailure[];
-  /** Whether the 24-hour signature failure count has exceeded the configured alert threshold */
-  thresholdExceeded: boolean;
-  /** The configured signature failure alert threshold */
-  alertThreshold: number;
-  /** Hourly signature failure counts for the last 24 hours, oldest first */
-  hourlyTrend: HourlyFailureCount[];
-}
-
-export type SignatureFailureAlertLogEntryAffectedMerchantsItem = {
-  name: string;
-  count: number;
-};
-
-export interface SignatureFailureAlertLogEntry {
-  id: number;
-  sentAt: string;
-  /** Total signature failures in the rolling window at the time the alert was sent */
-  failureCount: number;
-  /** Number of distinct merchants affected at the time the alert was sent */
-  affectedMerchantCount: number;
-  /** Number of admin emails the alert was successfully delivered to */
-  recipientCount: number;
-  /** List of admin email addresses the alert was sent to */
-  recipientEmails: string[];
-  /** Per-merchant breakdown captured at alert dispatch time */
-  affectedMerchants: SignatureFailureAlertLogEntryAffectedMerchantsItem[];
-  /** Rolling window (hours) used to count failures */
-  windowHours: number;
-  /** Failure threshold that triggered this alert */
-  threshold: number;
-}
-
-export interface SignatureFailureAlertHistoryResponse {
-  data: SignatureFailureAlertLogEntry[];
-  total: number;
 }
 
 export type SettlementStatus = typeof SettlementStatus[keyof typeof SettlementStatus];
@@ -818,10 +679,6 @@ export interface Settlement {
   /** @nullable */
   processedAt?: string | null;
   /** @nullable */
-  actionedBy?: number | null;
-  /** @nullable */
-  actionedByEmail?: string | null;
-  /** @nullable */
   paidAt?: string | null;
   /** @nullable */
   referenceNumber?: string | null;
@@ -848,31 +705,6 @@ export interface SettlementActionInput {
 export interface SettlementMarkPaidInput {
   remark: string;
   referenceNumber: string;
-}
-
-export type SettlementEventEvent = typeof SettlementEventEvent[keyof typeof SettlementEventEvent];
-
-
-export const SettlementEventEvent = {
-  requested: 'requested',
-  processing: 'processing',
-  approved: 'approved',
-  rejected: 'rejected',
-  paid: 'paid',
-  held: 'held',
-} as const;
-
-export interface SettlementEvent {
-  id: number;
-  settlementId: number;
-  event: SettlementEventEvent;
-  /** @nullable */
-  actorId?: number | null;
-  /** @nullable */
-  actorEmail?: string | null;
-  /** @nullable */
-  note?: string | null;
-  createdAt: string;
 }
 
 export type SettlementStatsCounts = {[key: string]: number};
@@ -932,13 +764,6 @@ export interface LastReconSummary {
   matchedAmount?: number;
   unmatchedAmount?: number;
   triggeredBy?: string;
-}
-
-export interface SecurityHealthStats {
-  /** Total number of active merchants */
-  totalMerchants: number;
-  /** Number of active merchants with no callback signing secret configured */
-  merchantsWithoutSecret: number;
 }
 
 export interface DashboardStats {
@@ -1024,21 +849,6 @@ export interface MerchantConnection {
   deactivatedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
-}
-
-/**
- * Paginated admin response for GET /connections. Includes per-status counts respecting all filters except status itself.
- */
-export interface ConnectionsListPage {
-  data: MerchantConnection[];
-  /** Total count of connections matching all active filters (including status). */
-  total: number;
-  page: number;
-  limit: number;
-  /** Number of active connections matching provider/merchant/search filters (ignores status filter). */
-  activeCount: number;
-  /** Number of inactive connections matching provider/merchant/search filters (ignores status filter). */
-  inactiveCount: number;
 }
 
 export interface MerchantConnectionInput {
@@ -1771,32 +1581,11 @@ export interface AuditReportSchedule {
   frequency: AuditReportScheduleFrequency;
   recipientEmail: string;
   isActive: boolean;
-  /** Maximum number of automatic retry attempts after an initial delivery failure (0–10). */
-  maxRetryAttempts: number;
-  /** Minutes to wait between consecutive retry attempts (1–1440). */
-  retryBackoffMinutes: number;
-  /** Number of consecutive complete delivery cycles that have failed (reset to 0 on success). */
-  consecutiveFailures: number;
-  /** Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause). */
-  autoPauseAfterFailures: number;
-  /**
-     * Timestamp when the schedule was automatically paused due to repeated failures.
-     * @nullable
-     */
-  autoPausedAt?: string | null;
   /** @nullable */
   lastSentAt?: string | null;
   lastSendStatus: AuditReportScheduleLastSendStatus;
   /** @nullable */
   lastErrorMessage?: string | null;
-  /** @nullable */
-  failureAcknowledgedAt?: string | null;
-  /** @nullable */
-  failureAcknowledgedByEmail?: string | null;
-  /** Total number of send attempts (successful and failed) for this schedule. */
-  sendCount: number;
-  /** Number of successful deliveries for this schedule. */
-  successCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1813,12 +1602,6 @@ export const AuditReportScheduleInputFrequency = {
 export interface AuditReportScheduleInput {
   frequency: AuditReportScheduleInputFrequency;
   recipientEmail: string;
-  /** Maximum number of automatic retry attempts (0–10). Defaults to 3. */
-  maxRetryAttempts?: number;
-  /** Minutes to wait between consecutive retry attempts (1–1440). Defaults to 60. */
-  retryBackoffMinutes?: number;
-  /** Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause). Defaults to 3. */
-  autoPauseAfterFailures?: number;
 }
 
 export type AuditReportSchedulePatchFrequency = typeof AuditReportSchedulePatchFrequency[keyof typeof AuditReportSchedulePatchFrequency];
@@ -1834,14 +1617,6 @@ export interface AuditReportSchedulePatch {
   frequency?: AuditReportSchedulePatchFrequency;
   recipientEmail?: string;
   isActive?: boolean;
-  /** Maximum number of automatic retry attempts (0–10). */
-  maxRetryAttempts?: number;
-  /** Minutes to wait between consecutive retry attempts (1–1440). */
-  retryBackoffMinutes?: number;
-  /** Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause). */
-  autoPauseAfterFailures?: number;
-  /** When true, records the current timestamp as failureAcknowledgedAt, clearing the delivery-failure badge. */
-  acknowledgeFailure?: boolean;
 }
 
 export interface AuditReportEmailPreview {
@@ -1852,15 +1627,6 @@ export interface AuditReportScheduleListResponse {
   data: AuditReportSchedule[];
 }
 
-export type AuditReportScheduleLogTriggerType = typeof AuditReportScheduleLogTriggerType[keyof typeof AuditReportScheduleLogTriggerType];
-
-
-export const AuditReportScheduleLogTriggerType = {
-  manual: 'manual',
-  scheduled: 'scheduled',
-  auto_recovery: 'auto_recovery',
-} as const;
-
 export interface AuditReportScheduleLog {
   id: number;
   scheduleId: number;
@@ -1870,79 +1636,10 @@ export interface AuditReportScheduleLog {
   /** @nullable */
   errorMessage?: string | null;
   isRetry: boolean;
-  /** Which attempt number this log entry represents (0 = initial, 1 = first retry, 2 = second retry, etc.). */
-  retryAttempt: number;
-  /** @nullable */
-  recipientEmail?: string | null;
-  triggerType: AuditReportScheduleLogTriggerType;
-  /**
-     * UUID shared by the initial attempt and all its retries within a single delivery cycle.
-     * @nullable
-     */
-  deliveryCycleId?: string | null;
-}
-
-export type AuditReportScheduleLogWithScheduleTriggerType = typeof AuditReportScheduleLogWithScheduleTriggerType[keyof typeof AuditReportScheduleLogWithScheduleTriggerType];
-
-
-export const AuditReportScheduleLogWithScheduleTriggerType = {
-  manual: 'manual',
-  scheduled: 'scheduled',
-  auto_recovery: 'auto_recovery',
-} as const;
-
-export type AuditReportScheduleLogWithScheduleScheduleFrequency = typeof AuditReportScheduleLogWithScheduleScheduleFrequency[keyof typeof AuditReportScheduleLogWithScheduleScheduleFrequency];
-
-
-export const AuditReportScheduleLogWithScheduleScheduleFrequency = {
-  daily: 'daily',
-  weekly: 'weekly',
-  monthly: 'monthly',
-} as const;
-
-export interface AuditReportScheduleLogWithSchedule {
-  id: number;
-  scheduleId: number;
-  sentAt: string;
-  rowCount: number;
-  success: boolean;
-  /** @nullable */
-  errorMessage?: string | null;
-  /** @nullable */
-  recipientEmail?: string | null;
-  isRetry: boolean;
-  triggerType: AuditReportScheduleLogWithScheduleTriggerType;
-  scheduleFrequency: AuditReportScheduleLogWithScheduleScheduleFrequency;
-  scheduleRecipient: string;
-  /**
-     * UUID shared by the initial attempt and all its retries within a single delivery cycle.
-     * @nullable
-     */
-  deliveryCycleId?: string | null;
-}
-
-export interface FailureBreakdownItem {
-  /** @nullable */
-  errorMessage: string | null;
-  count: number;
-}
-
-export interface AuditReportScheduleLogWithScheduleListResponse {
-  data: AuditReportScheduleLogWithSchedule[];
-  total: number;
-  failureCount: number;
-  filteredTotal: number;
-  page: number;
-  failureBreakdown: FailureBreakdownItem[];
 }
 
 export interface AuditReportScheduleLogListResponse {
   data: AuditReportScheduleLog[];
-  total: number;
-  failureCount: number;
-  filteredTotal: number;
-  page: number;
-  failureBreakdown: FailureBreakdownItem[];
 }
 
 export interface AdminAuditLog {
@@ -1967,24 +1664,6 @@ export interface AdminAuditLogInput {
   targetId?: number | null;
   /** @nullable */
   details?: string | null;
-}
-
-export interface MerchantActivityLogEntry {
-  id: number;
-  action: string;
-  /** Anonymised admin email (e.g. a****@rasokart.com) */
-  adminEmail: string;
-  targetType: string;
-  /** @nullable */
-  details?: string | null;
-  createdAt: string;
-}
-
-export interface MerchantActivityLogListResponse {
-  data: MerchantActivityLogEntry[];
-  total: number;
-  page: number;
-  limit: number;
 }
 
 export interface AdminAuditLogStatsResponse {
@@ -2345,27 +2024,12 @@ export interface BroadcastNotificationResult {
   count: number;
 }
 
-export interface SecurityReminderInput {
-  /** IDs of merchants to remind; only those without a callback secret will receive a notification */
-  merchantIds: number[];
-}
-
-export interface SecurityReminderResult {
-  message: string;
-  /** Number of merchants who received a reminder notification */
-  sent: number;
-  /** Number of merchants skipped because they already have a callback secret */
-  skipped: number;
-}
-
 export interface ReconciliationRunInput {
   /** Start date (YYYY-MM-DD) */
   dateFrom: string;
   /** End date (YYYY-MM-DD) */
   dateTo: string;
   merchantId?: number | null;
-  /** Optional reason or notes for this manual run (audit trail) */
-  notes?: string | null;
 }
 
 export interface ReconciliationSchedulerStatus {
@@ -2379,15 +2043,6 @@ export interface ReconciliationSchedulerStatus {
   /** Status of the last auto-triggered run (success | failed | running) */
   lastAutoRunStatus?: string | null;
 }
-
-/**
- * Summary of the most recent email delivery for this run
- */
-export type ReconciliationRunLastEmail = {
-  sentAt: string;
-  status: string;
-  recipients: string;
-} | null;
 
 export interface ReconciliationRun {
   id: number;
@@ -2411,8 +2066,6 @@ export interface ReconciliationRun {
   notes?: string | null;
   completedAt?: string | null;
   createdAt: string;
-  /** Summary of the most recent email delivery for this run */
-  lastEmail?: ReconciliationRunLastEmail;
 }
 
 export interface ReconciliationRunListResponse {
@@ -2484,20 +2137,11 @@ export interface ExpiryCheckResult {
   expiredCount: number;
 }
 
-export interface WebhookSecretCheckResult {
-  message: string;
-  notificationsSent: number;
-  reminderCount: number;
-  overdueCount: number;
-}
-
 export interface ReconciliationNextRun {
   /** ISO timestamp of the next scheduled reconciliation run */
   nextRunAt: string | null;
   /** IANA timezone name of the server (e.g. "America/New_York") used to interpret scheduled hour/minute */
   serverTimezone?: string | null;
-  /** Current wall-clock time on the server at the moment of the request (HH:MM:SS, as-of page load) */
-  serverTime?: string | null;
 }
 
 export interface ReconciliationScheduleConfig {
@@ -2523,85 +2167,6 @@ export interface ReconciliationScheduleConfig {
   enabled: boolean;
 }
 
-export interface StorageCleanupResult {
-  /** Number of uploaded_objects rows examined. */
-  totalScanned: number;
-  /** Number of orphaned rows successfully deleted (GCS object + DB row). */
-  deleted: number;
-  /** Number of orphaned rows that could not be deleted due to errors. */
-  errors: number;
-}
-
-export interface StorageCleanupRun {
-  id: number;
-  runAt: string;
-  totalScanned: number;
-  deleted: number;
-  errors: number;
-  /** Email or identifier of the admin who triggered the run. */
-  triggeredBy: string;
-  createdAt: string;
-}
-
-export interface LookbackPreset {
-  /**
-     * Human-readable name for this preset (e.g. "Fortnightly")
-     * @minLength 1
-     * @maxLength 50
-     */
-  name: string;
-  /**
-     * Number of days to look back
-     * @minimum 1
-     * @maximum 90
-     */
-  days: number;
-}
-
-export interface ReconciliationReportRecipients {
-  /** List of email addresses that receive reconciliation reports */
-  recipients: string[];
-}
-
-export interface ReconciliationReportRecipientInput {
-  /** Email address to add to the report recipient list */
-  email: string;
-}
-
-export interface SignatureFailureAlertConfig {
-  /**
-     * Number of signature verification failures within the window that must be exceeded before an alert email is sent.
-
-     * @minimum 1
-     * @maximum 10000
-     */
-  threshold: number;
-  /**
-     * Rolling time window (in hours) over which signature failures are counted.
-
-     * @minimum 0.25
-     * @maximum 72
-     */
-  windowHours: number;
-  /**
-     * Minimum hours between consecutive alert emails (cooldown period).
-
-     * @minimum 0.25
-     * @maximum 72
-     */
-  rateLimitHours: number;
-}
-
-export interface TestEmailRetentionConfig {
-  /**
-     * Days to retain test_email_sent audit log rows. Set to 0 to disable automatic cleanup.
-
-     * @minimum 0
-     * @maximum 365
-     */
-  retentionDays: number;
-}
-
 export interface QrCleanupConfig {
   /**
      * Days to retain expired/used QR codes before auto-deleting them. Set to 0 to disable automatic cleanup.
@@ -2610,64 +2175,6 @@ export interface QrCleanupConfig {
      * @maximum 365
      */
   retentionDays: number;
-}
-
-export interface UploadedObjectEntry {
-  /** Normalized object path (e.g. /objects/uploads/uuid). */
-  objectPath: string;
-  /** MIME type of the uploaded file. */
-  contentType: string;
-  /** SHA-256 hex digest of the file contents (if recorded). */
-  contentHash?: string;
-  /** When the object was first uploaded. */
-  createdAt: string;
-}
-
-export type MerchantFilterPresetPresetType = typeof MerchantFilterPresetPresetType[keyof typeof MerchantFilterPresetPresetType];
-
-
-export const MerchantFilterPresetPresetType = {
-  combined: 'combined',
-  smart: 'smart',
-  date: 'date',
-} as const;
-
-export type MerchantFilterPresetPayload = { [key: string]: unknown };
-
-export interface MerchantFilterPreset {
-  id: number;
-  merchantId: number;
-  name: string;
-  presetType: MerchantFilterPresetPresetType;
-  payload: MerchantFilterPresetPayload;
-  sortOrder: number;
-  createdAt: string;
-}
-
-export interface MerchantFilterPresetReorderInput {
-  /** Preset IDs in the desired new order */
-  ids: number[];
-}
-
-export type CreateMerchantFilterPresetInputPresetType = typeof CreateMerchantFilterPresetInputPresetType[keyof typeof CreateMerchantFilterPresetInputPresetType];
-
-
-export const CreateMerchantFilterPresetInputPresetType = {
-  combined: 'combined',
-  smart: 'smart',
-  date: 'date',
-} as const;
-
-export type CreateMerchantFilterPresetInputPayload = { [key: string]: unknown };
-
-export interface CreateMerchantFilterPresetInput {
-  /**
-     * @minLength 1
-     * @maxLength 40
-     */
-  name: string;
-  presetType: CreateMerchantFilterPresetInputPresetType;
-  payload: CreateMerchantFilterPresetInputPayload;
 }
 
 export interface UploadUrlRequest {
@@ -2709,7 +2216,6 @@ export type UpdateMyPreferencesBody = {
   reconciliationAlertEmails?: boolean;
   planExpiryAlertEmails?: boolean;
   settlementStateEmails?: boolean;
-  signatureFailureAlertEmails?: boolean;
 };
 
 export type ListMerchantsParams = {
@@ -2723,10 +2229,6 @@ rejectionReason?: string;
  * Filter by whether merchants have a callback secret configured. "true" = secret set, "false" = no secret.
  */
 callbackSecretSet?: ListMerchantsCallbackSecretSet;
-/**
- * When "true", returns only merchants whose callback secret has not been rotated within SECRET_ROTATION_OVERDUE_DAYS (90 days), or has never been set.
- */
-secretOverdue?: ListMerchantsSecretOverdue;
 };
 
 export type ListMerchantsStatus = typeof ListMerchantsStatus[keyof typeof ListMerchantsStatus];
@@ -2754,18 +2256,6 @@ export const ListMerchantsCallbackSecretSet = {
   true: 'true',
   false: 'false',
 } as const;
-
-export type ListMerchantsSecretOverdue = typeof ListMerchantsSecretOverdue[keyof typeof ListMerchantsSecretOverdue];
-
-
-export const ListMerchantsSecretOverdue = {
-  true: 'true',
-} as const;
-
-export type GetAdminMerchantCredentialEventsParams = {
-page?: number;
-limit?: number;
-};
 
 export type ListInvoicesParams = {
 merchantId?: number;
@@ -2848,50 +2338,12 @@ export type GetWebhookLogsParams = {
  * @maximum 50
  */
 limit?: number;
-/**
- * Filter logs to only those matching this event type
- */
-eventType?: GetWebhookLogsEventType;
-};
-
-export type GetWebhookLogsEventType = typeof GetWebhookLogsEventType[keyof typeof GetWebhookLogsEventType];
-
-
-export const GetWebhookLogsEventType = {
-  paymentsuccess: 'payment.success',
-  paymentfailed: 'payment.failed',
-  paymentpending: 'payment.pending',
-  withdrawalapproved: 'withdrawal.approved',
-  withdrawalrejected: 'withdrawal.rejected',
-  settlementprocessed: 'settlement.processed',
-} as const;
-
-export type BackfillWebhookEventTypes200 = {
-  /** Number of callback_logs rows that were updated */
-  rowsUpdated: number;
 };
 
 export type RetryWebhookLog200 = {
   success: boolean;
   delivered: boolean;
   log: CallbackLog;
-};
-
-export type RetryWebhookLog429 = {
-  error: string;
-  /** Seconds remaining until a retry is allowed */
-  retryAfter: number;
-};
-
-export type GetWebhookLogAttempts200 = {
-  data: CallbackLogAttempt[];
-};
-
-export type GetSignatureFailureAlertHistoryParams = {
-/**
- * Maximum number of records to return (default 20)
- */
-limit?: number;
 };
 
 export type ListCallbackLogsParams = {
@@ -2909,22 +2361,6 @@ signatureVerified?: ListCallbackLogsSignatureVerified;
 
  */
 rejectionReason?: ListCallbackLogsRejectionReason;
-/**
- * Admin only — filter logs by a specific merchant ID
- */
-merchantId?: number;
-/**
- * Filter logs by event type stored on the callback log row
- */
-eventType?: ListCallbackLogsEventType;
-/**
- * ISO 8601 datetime — return logs created at or after this timestamp
- */
-from?: string;
-/**
- * ISO 8601 datetime — return logs created at or before this timestamp
- */
-to?: string;
 page?: number;
 limit?: number;
 };
@@ -2959,24 +2395,9 @@ export const ListCallbackLogsRejectionReason = {
   missing_header: 'missing_header',
 } as const;
 
-export type ListCallbackLogsEventType = typeof ListCallbackLogsEventType[keyof typeof ListCallbackLogsEventType];
-
-
-export const ListCallbackLogsEventType = {
-  paymentreceived: 'payment.received',
-  paymentsuccess: 'payment.success',
-  paymentfailed: 'payment.failed',
-  paymentpending: 'payment.pending',
-} as const;
-
 export type RetryCallback200 = {
   success: boolean;
   id: number;
-};
-
-export type ListCredentialEventsParams = {
-page?: number;
-limit?: number;
 };
 
 export type ListSettlementsParams = {
@@ -3000,10 +2421,6 @@ export const ListSettlementsStatus = {
   all: 'all',
 } as const;
 
-export type GetSettlementHistory200 = {
-  data: SettlementEvent[];
-};
-
 export type ListUsersParams = {
 role?: ListUsersRole;
 page?: number;
@@ -3019,71 +2436,11 @@ export const ListUsersRole = {
   all: 'all',
 } as const;
 
-export type ListMerchantConnectionsParams = {
-search?: string;
-provider?: string;
-merchantId?: number;
-page?: number;
-limit?: number;
-/**
- * Filter by connection status — active (isActive=true) or inactive (isActive=false)
- */
-status?: ListMerchantConnectionsStatus;
-};
-
-export type ListMerchantConnectionsStatus = typeof ListMerchantConnectionsStatus[keyof typeof ListMerchantConnectionsStatus];
-
-
-export const ListMerchantConnectionsStatus = {
-  active: 'active',
-  inactive: 'inactive',
-} as const;
-
-export type ExportPlanHistoryParams = {
-merchantId?: number;
-action?: ExportPlanHistoryAction;
-};
-
-export type ExportPlanHistoryAction = typeof ExportPlanHistoryAction[keyof typeof ExportPlanHistoryAction];
-
-
-export const ExportPlanHistoryAction = {
-  assigned: 'assigned',
-  upgraded: 'upgraded',
-  downgraded: 'downgraded',
-  suspended: 'suspended',
-  reinstated: 'reinstated',
-  renewed: 'renewed',
-  unassigned: 'unassigned',
-} as const;
-
 export type ListPlanHistoryParams = {
 merchantId?: number;
-action?: ListPlanHistoryAction;
-/**
- * Filter entries on or after this date (YYYY-MM-DD)
- */
-fromDate?: string;
-/**
- * Filter entries on or before this date (YYYY-MM-DD)
- */
-toDate?: string;
 page?: number;
 limit?: number;
 };
-
-export type ListPlanHistoryAction = typeof ListPlanHistoryAction[keyof typeof ListPlanHistoryAction];
-
-
-export const ListPlanHistoryAction = {
-  assigned: 'assigned',
-  upgraded: 'upgraded',
-  downgraded: 'downgraded',
-  suspended: 'suspended',
-  reinstated: 'reinstated',
-  renewed: 'renewed',
-  unassigned: 'unassigned',
-} as const;
 
 export type ListQrCodesParams = {
 type?: ListQrCodesType;
@@ -3232,100 +2589,8 @@ export const PreviewAuditReportEmailFrequency = {
   monthly: 'monthly',
 } as const;
 
-export type BulkToggleAuditReportSchedulesBody = {
-  isActive: boolean;
-  /** Optional list of schedule IDs to target. When omitted every schedule is updated. When provided only the listed IDs are toggled, leaving all others untouched.
-   */
-  ids?: number[];
-};
-
-export type ListAllAuditReportScheduleLogsParams = {
-scheduleId?: number;
-page?: number;
-limit?: number;
-status?: ListAllAuditReportScheduleLogsStatus;
-triggerType?: ListAllAuditReportScheduleLogsTriggerType;
-dateFrom?: string;
-dateTo?: string;
-};
-
-export type ListAllAuditReportScheduleLogsStatus = typeof ListAllAuditReportScheduleLogsStatus[keyof typeof ListAllAuditReportScheduleLogsStatus];
-
-
-export const ListAllAuditReportScheduleLogsStatus = {
-  success: 'success',
-  failed: 'failed',
-} as const;
-
-export type ListAllAuditReportScheduleLogsTriggerType = typeof ListAllAuditReportScheduleLogsTriggerType[keyof typeof ListAllAuditReportScheduleLogsTriggerType];
-
-
-export const ListAllAuditReportScheduleLogsTriggerType = {
-  manual: 'manual',
-  scheduled: 'scheduled',
-  auto_recovery: 'auto_recovery',
-} as const;
-
 export type ListAuditReportScheduleLogsParams = {
-page?: number;
 limit?: number;
-status?: ListAuditReportScheduleLogsStatus;
-triggerType?: ListAuditReportScheduleLogsTriggerType;
-dateFrom?: string;
-dateTo?: string;
-};
-
-export type ListAuditReportScheduleLogsStatus = typeof ListAuditReportScheduleLogsStatus[keyof typeof ListAuditReportScheduleLogsStatus];
-
-
-export const ListAuditReportScheduleLogsStatus = {
-  success: 'success',
-  failed: 'failed',
-} as const;
-
-export type ListAuditReportScheduleLogsTriggerType = typeof ListAuditReportScheduleLogsTriggerType[keyof typeof ListAuditReportScheduleLogsTriggerType];
-
-
-export const ListAuditReportScheduleLogsTriggerType = {
-  manual: 'manual',
-  scheduled: 'scheduled',
-  auto_recovery: 'auto_recovery',
-} as const;
-
-export type ListMySecurityActivityParams = {
-page?: number;
-limit?: number;
-/**
- * Filter by action type (e.g. plan_assigned, merchant_suspended)
- */
-action?: string;
-/**
- * Filter events on or after this date (ISO 8601, e.g. 2025-01-01)
- */
-dateFrom?: string;
-/**
- * Filter events on or before this date (ISO 8601, e.g. 2025-12-31)
- */
-dateTo?: string;
-/**
- * Return only entries created after this ISO 8601 timestamp (exclusive)
- */
-since?: string;
-};
-
-export type ExportMySecurityActivityParams = {
-/**
- * Filter by action type (e.g. plan_assigned, merchant_suspended)
- */
-action?: string;
-/**
- * Filter events on or after this date (ISO 8601, e.g. 2025-01-01)
- */
-dateFrom?: string;
-/**
- * Filter events on or before this date (ISO 8601, e.g. 2025-12-31)
- */
-dateTo?: string;
 };
 
 export type ExportAdminAuditLogsCsvParams = {
@@ -3343,11 +2608,6 @@ dateFrom?: string;
  * Filter logs on or before this date (ISO 8601, e.g. 2025-12-31)
  */
 dateTo?: string;
-};
-
-export type ClearTestEmailHistory200 = {
-  /** Number of rows deleted */
-  deleted: number;
 };
 
 export type ListAdminAuditLogsParams = {
@@ -3455,27 +2715,6 @@ export type GetReconciliationRunEmailLogs200 = {
 
 export type ResendReconciliationReportEmail200 = {
   ok?: boolean;
-};
-
-export type ListUploadedObjects200 = {
-  data: UploadedObjectEntry[];
-};
-
-export type ListStorageCleanupRunsParams = {
-/**
- * Maximum number of runs to return, newest first.
- * @minimum 1
- * @maximum 100
- */
-limit?: number;
-};
-
-export type ListStorageCleanupRuns200 = {
-  data: StorageCleanupRun[];
-};
-
-export type ListMerchantFilterPresets200 = {
-  data: MerchantFilterPreset[];
 };
 
 export type ListSavedFilters200 = {

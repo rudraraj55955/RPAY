@@ -16,7 +16,6 @@ export const settlementsTable = pgTable("settlements", {
   adminRemark: text("admin_remark"),
   processedBy: integer("processed_by"),
   processedAt: timestamp("processed_at", { withTimezone: true }),
-  actionedBy: integer("actioned_by"),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   referenceNumber: text("reference_number"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

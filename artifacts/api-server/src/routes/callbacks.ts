@@ -1,13 +1,10 @@
 import { Router } from "express";
-import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable, credentialEventsTable, signatureFailureAlertLogsTable } from "@workspace/db";
-import { eq, and, count, countDistinct, sql, gte, lte, isNull, like, asc, desc } from "drizzle-orm";
+import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable } from "@workspace/db";
+import { eq, and, count, countDistinct, sql, gte, isNull, like } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { requireApiKey, verifyCallbackSignature } from "../middlewares/callbackAuth";
 import { logger } from "../lib/logger";
-import { fireCallback, scheduleCallbackRetry, recordAttempt } from "../helpers/callbackRetry";
-import { dismissSecretRotationNotifications } from "../helpers/webhookSecretChecker";
-import { sendCallbackSecretRotatedEmail } from "../helpers/callbackSecretRotatedEmail";
-import { loadSignatureAlertConfig } from "../helpers/signatureFailureAlert";
+import { fireCallback, scheduleCallbackRetry } from "../helpers/callbackRetry";
 
 const router = Router();
 
@@ -117,7 +114,7 @@ router.post("/", requireApiKey, verifyCallbackSignature, async (req, res) => {
       const { ok, httpStatus, responseBody } = await fireCallback(capturedQr.callbackUrl!, bodyStr);
 
       if (ok) {
-        const [inserted] = await db.insert(callbackLogsTable).values({
+        await db.insert(callbackLogsTable).values({
           merchantId: capturedQr.merchantId,
           qrCodeId: capturedQr.id,
           transactionId: transactionId ?? null,
@@ -129,12 +126,7 @@ router.post("/", requireApiKey, verifyCallbackSignature, async (req, res) => {
           attempts: 1,
           lastAttemptAt: now,
           signatureVerified: capturedSignatureVerified,
-          eventType: "payment.received",
-        }).returning({ id: callbackLogsTable.id });
-
-        if (inserted) {
-          await recordAttempt(inserted.id, 1, httpStatus, responseBody);
-        }
+        });
       } else {
         logger.warn({ httpStatus, url: capturedQr.callbackUrl }, "QR callbackUrl fire failed — scheduling retries");
 
@@ -150,11 +142,9 @@ router.post("/", requireApiKey, verifyCallbackSignature, async (req, res) => {
           attempts: 1,
           lastAttemptAt: now,
           signatureVerified: capturedSignatureVerified,
-          eventType: "payment.received",
         }).returning({ id: callbackLogsTable.id });
 
         if (inserted) {
-          await recordAttempt(inserted.id, 1, httpStatus, responseBody);
           await scheduleCallbackRetry(inserted.id, 1);
         }
       }
@@ -202,111 +192,23 @@ router.get("/stats", async (req, res) => {
 router.get("/admin/stats", requireAdmin, async (req, res) => {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [{ threshold }, [row], breakdown, hourlyRows] = await Promise.all([
-    loadSignatureAlertConfig(),
-    db
-      .select({
-        signatureFailures24h: count(),
-        affectedMerchants: countDistinct(callbackLogsTable.merchantId),
-      })
-      .from(callbackLogsTable)
-      .where(
-        and(
-          eq(callbackLogsTable.signatureVerified, false),
-          gte(callbackLogsTable.createdAt, since),
-        )
-      ),
-
-    db
-      .select({
-        merchantId: callbackLogsTable.merchantId,
-        merchantName: merchantsTable.businessName,
-        failures: count(),
-      })
-      .from(callbackLogsTable)
-      .leftJoin(merchantsTable, eq(callbackLogsTable.merchantId, merchantsTable.id))
-      .where(
-        and(
-          eq(callbackLogsTable.signatureVerified, false),
-          gte(callbackLogsTable.createdAt, since),
-        )
+  const [row] = await db
+    .select({
+      signatureFailures24h: count(),
+      affectedMerchants: countDistinct(callbackLogsTable.merchantId),
+    })
+    .from(callbackLogsTable)
+    .where(
+      and(
+        eq(callbackLogsTable.signatureVerified, false),
+        gte(callbackLogsTable.createdAt, since),
       )
-      .groupBy(callbackLogsTable.merchantId, merchantsTable.businessName)
-      .orderBy(sql`count(*) DESC`),
+    );
 
-    db
-      .select({
-        hour: sql<string>`date_trunc('hour', ${callbackLogsTable.createdAt})`.as("hour"),
-        count: count(),
-      })
-      .from(callbackLogsTable)
-      .where(
-        and(
-          eq(callbackLogsTable.signatureVerified, false),
-          gte(callbackLogsTable.createdAt, since),
-        )
-      )
-      .groupBy(sql`date_trunc('hour', ${callbackLogsTable.createdAt})`)
-      .orderBy(sql`date_trunc('hour', ${callbackLogsTable.createdAt}) ASC`),
-  ]);
-
-  // Build a complete 24-slot array with zeros for hours that had no failures
-  const nowMs = Date.now();
-  const hourlyMap = new Map<number, number>();
-  for (const r of hourlyRows) {
-    const slotMs = new Date(r.hour).getTime();
-    hourlyMap.set(slotMs, r.count);
-  }
-
-  const hourlyTrend: { hour: string; count: number }[] = [];
-  for (let i = 23; i >= 0; i--) {
-    const slotMs = Math.floor((nowMs - i * 60 * 60 * 1000) / (60 * 60 * 1000)) * (60 * 60 * 1000);
-    hourlyTrend.push({
-      hour: new Date(slotMs).toISOString(),
-      count: hourlyMap.get(slotMs) ?? 0,
-    });
-  }
-
-  const signatureFailures24h = row?.signatureFailures24h ?? 0;
   res.json({
-    signatureFailures24h,
+    signatureFailures24h: row?.signatureFailures24h ?? 0,
     affectedMerchants: row?.affectedMerchants ?? 0,
-    merchantBreakdown: breakdown,
-    thresholdExceeded: signatureFailures24h > threshold,
-    alertThreshold: threshold,
-    hourlyTrend,
   });
-});
-
-// GET /api/callbacks/admin/alert-history — paginated history of signature failure alert dispatches (admin only)
-router.get("/admin/alert-history", requireAdmin, async (req, res) => {
-  const rawLimit = req.query["limit"];
-  const limit = rawLimit ? Math.min(100, Math.max(1, parseInt(rawLimit as string, 10) || 20)) : 20;
-
-  const [rows, [{ total }]] = await Promise.all([
-    db
-      .select()
-      .from(signatureFailureAlertLogsTable)
-      .orderBy(desc(signatureFailureAlertLogsTable.sentAt))
-      .limit(limit),
-    db
-      .select({ total: count() })
-      .from(signatureFailureAlertLogsTable),
-  ]);
-
-  const data = rows.map(row => ({
-    id: row.id,
-    sentAt: row.sentAt,
-    failureCount: row.failureCount,
-    affectedMerchantCount: row.affectedMerchantCount,
-    recipientCount: row.recipientCount,
-    recipientEmails: (() => { try { return JSON.parse(row.recipientEmails) as string[]; } catch { return []; } })(),
-    affectedMerchants: (() => { try { return JSON.parse(row.affectedMerchants) as { name: string; count: number }[]; } catch { return []; } })(),
-    windowHours: row.windowHours,
-    threshold: row.threshold,
-  }));
-
-  res.json({ data, total });
 });
 
 // GET /api/callbacks/secret — returns callback secret status for the authenticated merchant
@@ -358,70 +260,7 @@ router.post("/secret/rotate", async (req, res) => {
 
   req.log.info({ merchantId: user.merchantId }, "Callback secret rotated");
 
-  // Record credential rotation event (fire-and-forget)
-  db.insert(credentialEventsTable).values({
-    merchantId: user.merchantId,
-    eventType: "callback_secret_rotated",
-  }).catch((err: unknown) => {
-    req.log.warn({ err, merchantId: user.merchantId }, "Failed to record credential event for secret rotation");
-  });
-
-  // Dismiss any pending rotation reminder/overdue notifications for this user
-  dismissSecretRotationNotifications(user.id).catch((err: unknown) => {
-    req.log.warn({ err, userId: user.id }, "Failed to dismiss webhook secret rotation notifications");
-  });
-
-  // Send security alert email to the merchant (fire-and-forget)
-  const rawIp = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-    ?? req.ip
-    ?? "";
-  db.select({ email: merchantsTable.email, businessName: merchantsTable.businessName })
-    .from(merchantsTable)
-    .where(eq(merchantsTable.id, user.merchantId))
-    .limit(1)
-    .then(([merchant]) => {
-      if (!merchant) return;
-      return sendCallbackSecretRotatedEmail({
-        to: merchant.email,
-        businessName: merchant.businessName,
-        rotatedAt: now,
-        ipAddress: rawIp,
-      });
-    })
-    .catch((err: unknown) => {
-      req.log.warn({ err, merchantId: user.merchantId }, "Failed to send callback secret rotation email");
-    });
-
   res.json({ secret: newSecret });
-});
-
-// GET /api/callbacks/secret/history — credential rotation history for the authenticated merchant
-router.get("/secret/history", async (req, res) => {
-  const user = (req as any).user;
-  if (user.role !== "merchant") {
-    res.status(403).json({ error: "Merchant access only" });
-    return;
-  }
-
-  const { page = "1", limit = "50" } = req.query as Record<string, string>;
-  const pageNum = Math.max(1, parseInt(page));
-  const limitNum = Math.min(200, Math.max(1, parseInt(limit)));
-  const offset = (pageNum - 1) * limitNum;
-
-  const [{ total }] = await db
-    .select({ total: count() })
-    .from(credentialEventsTable)
-    .where(eq(credentialEventsTable.merchantId, user.merchantId));
-
-  const rows = await db
-    .select()
-    .from(credentialEventsTable)
-    .where(eq(credentialEventsTable.merchantId, user.merchantId))
-    .orderBy(asc(credentialEventsTable.createdAt))
-    .limit(limitNum)
-    .offset(offset);
-
-  res.json({ data: rows, total, page: pageNum, limit: limitNum });
 });
 
 // POST /api/callbacks/:id/retry — admin only
@@ -471,17 +310,13 @@ const REJECTION_REASON_PATTERNS: Record<string, string> = {
 // GET /api/callbacks
 router.get("/", async (req, res) => {
   const user = (req as any).user;
-  const { status, qrCodeId, signatureVerified, rejectionReason, merchantId, eventType, from, to, page = "1", limit = "20" } = req.query as Record<string, string>;
+  const { status, qrCodeId, signatureVerified, rejectionReason, page = "1", limit = "20" } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
 
   const conditions = [];
-  if (user.role !== "admin") {
-    conditions.push(eq(callbackLogsTable.merchantId, user.merchantId!));
-  } else if (merchantId) {
-    conditions.push(eq(callbackLogsTable.merchantId, parseInt(merchantId)));
-  }
+  if (user.role !== "admin") conditions.push(eq(callbackLogsTable.merchantId, user.merchantId!));
   if (status && status !== "all") conditions.push(eq(callbackLogsTable.status, status));
   if (qrCodeId) conditions.push(eq(callbackLogsTable.qrCodeId, parseInt(qrCodeId)));
   if (signatureVerified === "verified") conditions.push(eq(callbackLogsTable.signatureVerified, true));
@@ -489,15 +324,6 @@ router.get("/", async (req, res) => {
   else if (signatureVerified === "none") conditions.push(isNull(callbackLogsTable.signatureVerified));
   if (rejectionReason && REJECTION_REASON_PATTERNS[rejectionReason]) {
     conditions.push(like(callbackLogsTable.responseBody, REJECTION_REASON_PATTERNS[rejectionReason]));
-  }
-  if (eventType) conditions.push(eq(callbackLogsTable.eventType, eventType));
-  if (from) {
-    const fromDate = new Date(from);
-    if (!isNaN(fromDate.getTime())) conditions.push(gte(callbackLogsTable.createdAt, fromDate));
-  }
-  if (to) {
-    const toDate = new Date(to);
-    if (!isNaN(toDate.getTime())) conditions.push(lte(callbackLogsTable.createdAt, toDate));
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -518,7 +344,6 @@ router.get("/", async (req, res) => {
       lastAttemptAt: callbackLogsTable.lastAttemptAt,
       signatureVerified: callbackLogsTable.signatureVerified,
       isTest: callbackLogsTable.isTest,
-      eventType: callbackLogsTable.eventType,
       createdAt: callbackLogsTable.createdAt,
       merchantName: merchantsTable.businessName,
     })

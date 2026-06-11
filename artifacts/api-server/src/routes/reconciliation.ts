@@ -4,7 +4,7 @@ import { eq, and, gte, lte, inArray, sql, count, or, isNull, isNotNull, gt, desc
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { runReconciliation } from "../helpers/reconcileEngine";
 import { loadReconConfig } from "../helpers/reconScheduler";
-import { sendReconciliationReportEmail, notifyAdminsOfUnmatchedItems } from "../helpers/reconcileEmail";
+import { sendReconciliationReportEmail } from "../helpers/reconcileEmail";
 
 const router = Router();
 router.use(requireAuth);
@@ -58,7 +58,7 @@ router.get("/scheduler-status", async (req, res, next) => {
 // POST /api/reconciliation/run
 router.post("/run", async (req, res, next) => {
   try {
-    const { dateFrom, dateTo, merchantId, notes } = req.body;
+    const { dateFrom, dateTo, merchantId } = req.body;
     const user = (req as any).user;
 
     if (!dateFrom || !dateTo) {
@@ -82,31 +82,6 @@ router.post("/run", async (req, res, next) => {
       merchantId: parsedMerchantId,
       createdBy: user.id,
       triggeredBy: "manual",
-      notes: typeof notes === "string" && notes.trim() ? notes.trim() : null,
-    });
-
-    await db.insert(auditLogsTable).values({
-      adminId: user.id,
-      adminEmail: user.email,
-      action: "reconciliation_run",
-      targetType: "reconciliation_run",
-      targetId: updated.id,
-      details: JSON.stringify({
-        runId: updated.id,
-        dateFrom,
-        dateTo,
-        merchantId: parsedMerchantId ?? null,
-        triggeredBy: "manual",
-        totalDeposits: updated.totalDeposits,
-        totalSettlements: updated.totalSettlements,
-        totalMatched: updated.totalMatched,
-        totalUnmatched: updated.totalUnmatched,
-        matchedAmount: Number(updated.matchedAmount),
-        unmatchedAmount: Number(updated.unmatchedAmount),
-        status: updated.status,
-        notes: typeof notes === "string" && notes.trim() ? notes.trim() : null,
-      }),
-      ipAddress: (req as any).ip ?? null,
     });
 
     res.status(201).json(mapRun(updated));
@@ -322,68 +297,6 @@ router.patch("/items/:id/resolve", async (req, res, next) => {
   }
 });
 
-// PATCH /api/reconciliation/runs/:id/notes
-router.patch("/runs/:id/notes", async (req, res, next) => {
-  try {
-    const runId = parseInt(req.params['id'] as string);
-    const user = (req as any).user;
-    const { notes } = req.body;
-
-    const [run] = await db.select().from(reconciliationRunsTable).where(eq(reconciliationRunsTable.id, runId)).limit(1);
-    if (!run) { res.status(404).json({ error: "Run not found" }); return; }
-
-    const newNotes = typeof notes === "string" && notes.trim() ? notes.trim() : null;
-
-    const [updated] = await db
-      .update(reconciliationRunsTable)
-      .set({ notes: newNotes })
-      .where(eq(reconciliationRunsTable.id, runId))
-      .returning();
-
-    await db.insert(auditLogsTable).values({
-      adminId: user.id,
-      adminEmail: user.email,
-      action: "reconciliation_run_notes_updated",
-      targetType: "reconciliation_run",
-      targetId: runId,
-      details: JSON.stringify({ previousNotes: run.notes, newNotes }),
-      ipAddress: (req as any).ip ?? null,
-    });
-
-    res.json(mapRun(updated));
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/reconciliation/runs/:id/resend-alert
-router.post("/runs/:id/resend-alert", async (req, res, next) => {
-  try {
-    const runId = parseInt(req.params['id'] as string);
-    const user = (req as any).user;
-    const force = req.body?.force === true;
-
-    const [run] = await db.select().from(reconciliationRunsTable).where(eq(reconciliationRunsTable.id, runId)).limit(1);
-    if (!run) { res.status(404).json({ error: "Run not found" }); return; }
-
-    await notifyAdminsOfUnmatchedItems(runId, { force });
-
-    await db.insert(auditLogsTable).values({
-      adminId: user.id,
-      adminEmail: user.email,
-      action: force ? "reconciliation_unmatched_alert_force_resent" : "reconciliation_unmatched_alert_resent",
-      targetType: "reconciliation_run",
-      targetId: runId,
-      details: JSON.stringify({ runId, force }),
-      ipAddress: (req as any).ip ?? null,
-    });
-
-    res.json({ ok: true });
-  } catch (err) {
-    next(err);
-  }
-});
-
 // POST /api/reconciliation/runs/:id/email-logs/resend
 router.post("/runs/:id/email-logs/resend", async (req, res, next) => {
   try {
@@ -426,31 +339,6 @@ router.get("/runs/:id/email-logs", async (req, res, next) => {
       .orderBy(desc(reconciliationEmailLogsTable.sentAt));
 
     res.json({ data: logs });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// GET /api/reconciliation/runs/:id/audit-log
-router.get("/runs/:id/audit-log", async (req, res, next) => {
-  try {
-    const runId = parseInt(req.params['id'] as string);
-
-    const [run] = await db.select().from(reconciliationRunsTable).where(eq(reconciliationRunsTable.id, runId)).limit(1);
-    if (!run) { res.status(404).json({ error: "Run not found" }); return; }
-
-    const entries = await db
-      .select()
-      .from(auditLogsTable)
-      .where(
-        and(
-          eq(auditLogsTable.action, "reconciliation_run_notes_updated"),
-          eq(auditLogsTable.targetId, runId)
-        )
-      )
-      .orderBy(desc(auditLogsTable.createdAt));
-
-    res.json({ data: entries });
   } catch (err) {
     next(err);
   }

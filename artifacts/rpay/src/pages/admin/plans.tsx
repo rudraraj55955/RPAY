@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useListPlans, useCreatePlan, useUpdatePlan, useDeletePlan, getListPlansQueryKey, useListPlanHistory, useListMerchants } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useListPlans, useCreatePlan, useUpdatePlan, useDeletePlan, getListPlansQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,15 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Trash2, PlusCircle, Search, Infinity, KeyRound, Webhook, Percent, CheckCircle2, XCircle, Network, ChevronLeft, ChevronRight, History, X } from "lucide-react";
-import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
+import { Pencil, Trash2, PlusCircle, Search, Infinity, KeyRound, Webhook, Percent, CheckCircle2, XCircle, Network } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import type { Plan } from "@workspace/api-client-react";
-import { getApiErrorMessage, isRateLimitError } from "@/lib/utils";
-import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
 
 interface PricingObj { qr: { monthly: number; perTx: number }; va: { monthly: number; perTx: number } }
 const DEFAULT_PRICING: PricingObj = { qr: { monthly: 0, perTx: 0 }, va: { monthly: 0, perTx: 0 } };
@@ -68,19 +62,8 @@ const DEFAULT_FORM: PlanFormState = {
   apiAccess: true, webhookAccess: true, providerAccess: false, isActive: true,
 };
 
-const ACTION_COLOR: Record<string, string> = {
-  assigned: "text-emerald-400",
-  upgraded: "text-sky-400",
-  downgraded: "text-amber-400",
-  suspended: "text-rose-400",
-  reinstated: "text-emerald-400",
-  renewed: "text-violet-400",
-  unassigned: "text-muted-foreground",
-};
-
 export default function AdminPlans() {
   const qc = useQueryClient();
-  const planRateLimit = useRateLimit();
   const { data: plans, isLoading } = useListPlans();
   const createMutation = useCreatePlan();
   const updateMutation = useUpdatePlan();
@@ -90,31 +73,6 @@ export default function AdminPlans() {
   const [editPlan, setEditPlan] = useState<Plan | null>(null);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState<PlanFormState>(DEFAULT_FORM);
-
-  const [historyPage, setHistoryPage] = useState(1);
-  const [historyMerchantId, setHistoryMerchantId] = useState<string>("");
-  const [historyAction, setHistoryAction] = useState<string>("");
-  const [historyFromDate, setHistoryFromDate] = useState<string>("");
-  const [historyToDate, setHistoryToDate] = useState<string>("");
-  const [merchantSearch, setMerchantSearch] = useState("");
-  const HISTORY_LIMIT = 25;
-
-  const { data: merchantsData } = useListMerchants({ limit: 200 });
-  const filteredMerchants = useMemo(() => {
-    const all = merchantsData?.data ?? [];
-    if (!merchantSearch) return all;
-    const q = merchantSearch.toLowerCase();
-    return all.filter(m => m.businessName?.toLowerCase().includes(q) || m.email.toLowerCase().includes(q));
-  }, [merchantsData, merchantSearch]);
-
-  const { data: historyData, isLoading: historyLoading } = useListPlanHistory({
-    page: historyPage,
-    limit: HISTORY_LIMIT,
-    ...(historyMerchantId ? { merchantId: parseInt(historyMerchantId) } : {}),
-    ...(historyAction ? { action: historyAction as "assigned" | "upgraded" | "downgraded" | "suspended" | "reinstated" | "renewed" | "unassigned" } : {}),
-    ...(historyFromDate ? { fromDate: historyFromDate } : {}),
-    ...(historyToDate ? { toDate: historyToDate } : {}),
-  });
 
   const filteredPlans = plans?.filter(p =>
     !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.description ?? "").toLowerCase().includes(search.toLowerCase())
@@ -183,12 +141,12 @@ export default function AdminPlans() {
     if (editPlan) {
       updateMutation.mutate({ id: editPlan.id, data: payload }, {
         onSuccess: () => { toast.success("Plan updated"); setDialogOpen(false); qc.invalidateQueries({ queryKey: getListPlansQueryKey() }); },
-        onError: (err: unknown) => { if (isRateLimitError(err)) planRateLimit.trigger(); toast.error(getApiErrorMessage(err, "Failed to update plan")); },
+        onError: () => toast.error("Failed to update plan"),
       });
     } else {
       createMutation.mutate({ data: payload }, {
         onSuccess: () => { toast.success("Plan created"); setDialogOpen(false); qc.invalidateQueries({ queryKey: getListPlansQueryKey() }); },
-        onError: (err: unknown) => { if (isRateLimitError(err)) planRateLimit.trigger(); toast.error(getApiErrorMessage(err, "Failed to create plan")); },
+        onError: () => toast.error("Failed to create plan"),
       });
     }
   };
@@ -197,40 +155,11 @@ export default function AdminPlans() {
     if (!confirm(`Delete plan "${name}"? This will unassign it from any merchants.`)) return;
     deleteMutation.mutate({ id }, {
       onSuccess: () => { toast.success("Plan deleted"); qc.invalidateQueries({ queryKey: getListPlansQueryKey() }); },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to delete")),
+      onError: () => toast.error("Failed to delete"),
     });
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
-
-  const historyTotalPages = historyData ? Math.ceil(historyData.total / HISTORY_LIMIT) : 1;
-
-  const hasHistoryFilters = !!historyMerchantId || !!historyAction || !!historyFromDate || !!historyToDate;
-  const clearHistoryFilters = () => {
-    setHistoryMerchantId("");
-    setHistoryAction("");
-    setHistoryFromDate("");
-    setHistoryToDate("");
-    setMerchantSearch("");
-    setHistoryPage(1);
-  };
-  const applyMerchantFilter = (val: string) => {
-    setHistoryMerchantId(val === "all" ? "" : val);
-    setHistoryPage(1);
-  };
-  const applyActionFilter = (val: string) => {
-    setHistoryAction(val === "all" ? "" : val);
-    setHistoryPage(1);
-  };
-
-  const handleExportHistory = () => downloadCsvFromUrl(
-    "/api/plans/history/export",
-    "plan-history.csv",
-    {
-      ...(historyMerchantId ? { merchantId: historyMerchantId } : {}),
-      ...(historyAction ? { action: historyAction } : {}),
-    },
-  );
 
   return (
     <div className="space-y-6">
@@ -242,271 +171,87 @@ export default function AdminPlans() {
         <Button onClick={openCreate} size="sm"><PlusCircle className="w-4 h-4 mr-2" />Create Plan</Button>
       </div>
 
-      <Tabs defaultValue="plans">
-        <TabsList>
-          <TabsTrigger value="plans">Plans</TabsTrigger>
-          <TabsTrigger value="history"><History className="w-3.5 h-3.5 mr-1.5" />History</TabsTrigger>
-        </TabsList>
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input className="pl-9" placeholder="Search plans..." value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
 
-        <TabsContent value="plans" className="mt-4 space-y-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search plans..." value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
-
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Plan</TableHead>
-                    <TableHead className="text-right">Monthly</TableHead>
-                    <TableHead className="text-right">Yearly</TableHead>
-                    <TableHead className="text-right">Setup</TableHead>
-                    <TableHead className="text-right">DQR</TableHead>
-                    <TableHead className="text-right">VA</TableHead>
-                    <TableHead className="text-right">Settlement</TableHead>
-                    <TableHead className="text-center">API</TableHead>
-                    <TableHead className="text-center">WH</TableHead>
-                    <TableHead className="text-center">Provider</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Plan</TableHead>
+                <TableHead className="text-right">Monthly</TableHead>
+                <TableHead className="text-right">Yearly</TableHead>
+                <TableHead className="text-right">Setup</TableHead>
+                <TableHead className="text-right">DQR</TableHead>
+                <TableHead className="text-right">VA</TableHead>
+                <TableHead className="text-right">Settlement</TableHead>
+                <TableHead className="text-center">API</TableHead>
+                <TableHead className="text-center">WH</TableHead>
+                <TableHead className="text-center">Provider</TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                [1,2,3,4,5,6].map(i => (
+                  <TableRow key={i}>
+                    {[1,2,3,4,5,6,7,8,9,10,11,12].map(j => <TableCell key={j}><div className="h-4 bg-muted/50 animate-pulse rounded" /></TableCell>)}
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    [1,2,3,4,5,6].map(i => (
-                      <TableRow key={i}>
-                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(j => <TableCell key={j}><div className="h-4 bg-muted/50 animate-pulse rounded" /></TableCell>)}
-                      </TableRow>
-                    ))
-                  ) : filteredPlans?.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={12} className="text-center text-muted-foreground py-10">No plans found</TableCell>
-                    </TableRow>
-                  ) : filteredPlans?.map(plan => (
-                    <TableRow key={plan.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{plan.name}</p>
-                          {plan.description && <p className="text-xs text-muted-foreground mt-0.5 max-w-xs truncate">{plan.description}</p>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {plan.monthlyFee === "0" ? <span className="text-emerald-400">Free</span> : `₹${parseInt(plan.monthlyFee).toLocaleString()}`}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm text-muted-foreground">
-                        {plan.yearlyFee === "0" ? "—" : `₹${parseInt(plan.yearlyFee).toLocaleString()}`}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm text-muted-foreground">
-                        {plan.setupFee === "0" ? "—" : `₹${parseInt(plan.setupFee).toLocaleString()}`}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm"><LimitCell value={plan.dynamicQrLimit} /></TableCell>
-                      <TableCell className="text-right font-mono text-sm"><LimitCell value={plan.virtualAccountLimit} /></TableCell>
-                      <TableCell className="text-right font-mono text-sm">{plan.settlementFee}%</TableCell>
-                      <TableCell className="text-center">
-                        {plan.apiAccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-muted-foreground mx-auto" />}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {plan.webhookAccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-muted-foreground mx-auto" />}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {plan.providerAccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-muted-foreground mx-auto" />}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={plan.isActive ? "outline" : "secondary"} className={plan.isActive ? "text-emerald-400 border-emerald-500/30" : ""}>
-                          {plan.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(plan)}><Pencil className="w-3.5 h-3.5" /></Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-rose-500 hover:text-rose-400" onClick={() => handleDelete(plan.id, plan.name)}><Trash2 className="w-3.5 h-3.5" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="history" className="mt-4 space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex-1 min-w-[200px] max-w-xs">
-              <Select value={historyMerchantId || "all"} onValueChange={applyMerchantFilter}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="All merchants" />
-                </SelectTrigger>
-                <SelectContent>
-                  <div className="px-2 py-1.5">
-                    <div className="relative">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                      <Input
-                        className="pl-7 h-7 text-xs"
-                        placeholder="Search merchants..."
-                        value={merchantSearch}
-                        onChange={e => setMerchantSearch(e.target.value)}
-                        onKeyDown={e => e.stopPropagation()}
-                      />
+                ))
+              ) : filteredPlans?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={12} className="text-center text-muted-foreground py-10">No plans found</TableCell>
+                </TableRow>
+              ) : filteredPlans?.map(plan => (
+                <TableRow key={plan.id}>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{plan.name}</p>
+                      {plan.description && <p className="text-xs text-muted-foreground mt-0.5 max-w-xs truncate">{plan.description}</p>}
                     </div>
-                  </div>
-                  <SelectItem value="all">All merchants</SelectItem>
-                  {filteredMerchants.map(m => (
-                    <SelectItem key={m.id} value={String(m.id)}>
-                      {m.businessName ?? m.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="min-w-[180px]">
-              <Select value={historyAction || "all"} onValueChange={applyActionFilter}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="All actions" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All actions</SelectItem>
-                  {(["assigned", "upgraded", "downgraded", "suspended", "reinstated", "renewed", "unassigned"] as const).map(act => (
-                    <SelectItem key={act} value={act}>
-                      <span className={`capitalize ${ACTION_COLOR[act] ?? ""}`}>{act}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="date"
-                className="h-9 w-[140px] text-sm"
-                value={historyFromDate}
-                max={historyToDate || undefined}
-                onChange={e => { setHistoryFromDate(e.target.value); setHistoryPage(1); }}
-                placeholder="From"
-              />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input
-                type="date"
-                className="h-9 w-[140px] text-sm"
-                value={historyToDate}
-                min={historyFromDate || undefined}
-                onChange={e => { setHistoryToDate(e.target.value); setHistoryPage(1); }}
-                placeholder="To"
-              />
-            </div>
-
-            {hasHistoryFilters && (
-              <Button variant="ghost" size="sm" className="h-9 text-muted-foreground" onClick={clearHistoryFilters}>
-                <X className="w-3.5 h-3.5 mr-1.5" />Clear filters
-              </Button>
-            )}
-
-            <div className="ml-auto flex items-center gap-3">
-              {historyData && (
-                <p className="text-xs text-muted-foreground">{historyData.total} result{historyData.total !== 1 ? "s" : ""}</p>
-              )}
-              <ExportCsvButton onExport={handleExportHistory} />
-            </div>
-          </div>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Plan Assignment History</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Merchant</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Assigned By</TableHead>
-                    <TableHead>Expires</TableHead>
-                    <TableHead>Notes</TableHead>
-                    <TableHead className="text-right">Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {historyLoading ? (
-                    [1,2,3,4,5].map(i => (
-                      <TableRow key={i}>
-                        {[1,2,3,4,5,6,7].map(j => <TableCell key={j}><div className="h-4 bg-muted/50 animate-pulse rounded" /></TableCell>)}
-                      </TableRow>
-                    ))
-                  ) : !historyData?.data.length ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-10">No plan history yet</TableCell>
-                    </TableRow>
-                  ) : historyData.data.map(entry => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="font-medium">
-                        {entry.businessName ?? <span className="text-muted-foreground text-xs">—</span>}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`capitalize font-medium text-sm ${ACTION_COLOR[entry.action] ?? "text-muted-foreground"}`}>
-                          {entry.action}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {entry.toPlanName
-                          ? <Badge variant="outline" className="text-xs">{entry.toPlanName}</Badge>
-                          : <span className="text-muted-foreground text-xs">—</span>
-                        }
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {entry.adminEmail ?? <span className="text-xs">—</span>}
-                      </TableCell>
-                      <TableCell className="text-sm font-mono">
-                        {entry.expiresAt
-                          ? <span className="text-amber-400">{format(new Date(entry.expiresAt), "dd MMM yyyy")}</span>
-                          : <span className="text-muted-foreground">—</span>
-                        }
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
-                        {entry.notes ?? <span className="text-xs">—</span>}
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
-                        {format(new Date(entry.createdAt), "dd MMM yyyy, HH:mm")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {historyData && historyTotalPages > 1 && (
-            <div className="flex items-center justify-between mt-3 px-1">
-              <p className="text-xs text-muted-foreground">
-                Page {historyData.page} of {historyTotalPages} &middot; {historyData.total} entries
-              </p>
-              <div className="flex items-center gap-1">
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-7 w-7"
-                  disabled={historyPage <= 1}
-                  onClick={() => setHistoryPage(p => p - 1)}
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-7 w-7"
-                  disabled={historyPage >= historyTotalPages}
-                  onClick={() => setHistoryPage(p => p + 1)}
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm">
+                    {plan.monthlyFee === "0" ? <span className="text-emerald-400">Free</span> : `₹${parseInt(plan.monthlyFee).toLocaleString()}`}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                    {plan.yearlyFee === "0" ? "—" : `₹${parseInt(plan.yearlyFee).toLocaleString()}`}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                    {plan.setupFee === "0" ? "—" : `₹${parseInt(plan.setupFee).toLocaleString()}`}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm"><LimitCell value={plan.dynamicQrLimit} /></TableCell>
+                  <TableCell className="text-right font-mono text-sm"><LimitCell value={plan.virtualAccountLimit} /></TableCell>
+                  <TableCell className="text-right font-mono text-sm">{plan.settlementFee}%</TableCell>
+                  <TableCell className="text-center">
+                    {plan.apiAccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-muted-foreground mx-auto" />}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {plan.webhookAccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-muted-foreground mx-auto" />}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {plan.providerAccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-muted-foreground mx-auto" />}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={plan.isActive ? "outline" : "secondary"} className={plan.isActive ? "text-emerald-400 border-emerald-500/30" : ""}>
+                      {plan.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(plan)}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-rose-500 hover:text-rose-400" onClick={() => handleDelete(plan.id, plan.name)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -675,10 +420,9 @@ export default function AdminPlans() {
 
           </div>
 
-          <RateLimitBanner secondsLeft={planRateLimit.secondsLeft} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={!form.name.trim() || isPending || planRateLimit.isRateLimited}>
+            <Button onClick={handleSave} disabled={!form.name.trim() || isPending}>
               {isPending ? "Saving..." : editPlan ? "Update Plan" : "Create Plan"}
             </Button>
           </DialogFooter>

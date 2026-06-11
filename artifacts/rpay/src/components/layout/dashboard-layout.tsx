@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { UserRole, useGetMyPlanUsage, useGetCallbackSecret, useListApiKeys, useListMySecurityActivity } from "@workspace/api-client-react";
+import { UserRole, useGetMyPlanUsage, useGetCallbackSecret, useListApiKeys } from "@workspace/api-client-react";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
@@ -125,22 +125,9 @@ interface DashboardLayoutProps {
   publicMode?: boolean;
 }
 
-const SECURITY_LAST_SEEN_KEY = "rasokart_security_last_seen";
-
 function MerchantSidebar() {
   const [location] = useLocation();
   const { data: usage } = useGetMyPlanUsage();
-
-  const [securityLastSeen] = useState<string | null>(
-    () => localStorage.getItem(SECURITY_LAST_SEEN_KEY)
-  );
-  const { data: newSecurityActivity } = useListMySecurityActivity(
-    securityLastSeen ? { since: securityLastSeen, limit: 1 } : { limit: 1 },
-    { query: { enabled: location !== "/merchant/security" } as any }
-  );
-  const hasNewSecurityActivity = !securityLastSeen
-    ? false
-    : (newSecurityActivity?.total ?? 0) > 0;
 
   const navGroups = [
     {
@@ -171,12 +158,6 @@ function MerchantSidebar() {
       ],
     },
     {
-      group: "Account",
-      items: [
-        { title: "Security", icon: Shield, href: "/merchant/security", locked: false, lockReason: null, badge: hasNewSecurityActivity },
-      ],
-    },
-    {
       group: "Integration",
       items: [
         { title: "Connect", icon: Plug, href: "/merchant/connect", locked: false, lockReason: null },
@@ -190,8 +171,7 @@ function MerchantSidebar() {
           locked: usage !== undefined && !usage.webhookAccess,
           lockReason: "Webhook access is not included in your current plan. Upgrade to unlock."
         },
-        { title: "Callbacks", icon: FileText, href: "/merchant/callbacks", locked: false, lockReason: null, badge: false },
-        { title: "Security", icon: Shield, href: "/merchant/security", locked: false, lockReason: null, badge: hasNewSecurityActivity },
+        { title: "Callbacks", icon: FileText, href: "/merchant/callbacks", locked: false, lockReason: null },
         { title: "API Docs", icon: BookOpen, href: "/merchant/api-docs", locked: false, lockReason: null },
       ],
     },
@@ -223,10 +203,7 @@ function MerchantSidebar() {
                     <SidebarMenuButton asChild isActive={location === item.href} tooltip={item.title}>
                       <Link href={item.href} className="flex items-center gap-3">
                         <item.icon className="w-4 h-4" />
-                        <span className="flex-1">{item.title}</span>
-                        {(item as { badge?: boolean }).badge && (
-                          <span className="w-2 h-2 rounded-full bg-primary shrink-0" aria-label="New activity" />
-                        )}
+                        <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   )}
@@ -332,7 +309,7 @@ export function DashboardLayout({ children, publicMode = false }: DashboardLayou
               <span className="font-bold text-sm tracking-wide">RasoKart</span>
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{portalLabel}</span>
             </div>
-            {!publicMode && user && <NotificationBell />}
+            {!publicMode && !isAdmin && user && <NotificationBell />}
           </SidebarHeader>
           <SidebarContent>
             {publicMode ? (

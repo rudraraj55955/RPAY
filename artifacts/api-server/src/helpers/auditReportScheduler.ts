@@ -1,20 +1,10 @@
 import cron, { type ScheduledTask } from "node-cron";
-import { randomUUID } from "crypto";
-import { db, scheduledAuditReportsTable, scheduledAuditReportLogsTable, auditLogsTable, usersTable } from "@workspace/db";
+import { db, scheduledAuditReportsTable, scheduledAuditReportLogsTable, auditLogsTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { logger } from "../lib/logger";
-import { sendMail, checkMailerHealth } from "./mailer";
-import { createBulkNotifications } from "./notifications";
+import { sendMail } from "./mailer";
 
 let scheduledTask: ScheduledTask | null = null;
-
-/**
- * Tracks the mailer health state from the previous scheduler run.
- * null  = not yet checked (first run)
- * false = was unhealthy on the last run
- * true  = was healthy on the last run
- */
-let mailerWasHealthy: boolean | null = null;
 
 function escapeCsv(val: string | number | null | undefined): string {
   if (val === null || val === undefined) return "";
@@ -122,23 +112,7 @@ function isDue(frequency: string, lastSentAt: Date | null): boolean {
   }
 }
 
-/**
- * Send a single scheduled audit report and log the result.
- *
- * @param schedule          The schedule row from the DB.
- * @param retryAttempt      0 for the initial delivery, 1+ for each automatic retry.
- * @param triggerType       "scheduled" (cron) or "manual" (admin Send Now button).
- * @param deliveryCycleId   UUID shared by all attempts in the same delivery cycle.
- *                          Generated fresh when omitted (i.e. on every attempt-0 send).
- */
-export async function sendScheduledReport(
-  schedule: typeof scheduledAuditReportsTable.$inferSelect,
-  retryAttempt: number = 0,
-  triggerType: "manual" | "scheduled" | "auto_recovery" = "scheduled",
-  deliveryCycleId?: string,
-): Promise<boolean> {
-  const isRetry = retryAttempt > 0;
-  const cycleId = deliveryCycleId ?? randomUUID();
+export async function sendScheduledReport(schedule: typeof scheduledAuditReportsTable.$inferSelect, isRetry = false): Promise<boolean> {
   const { dateFrom, dateTo } = getDateRange(schedule.frequency);
   const sentAt = new Date();
 
@@ -185,258 +159,58 @@ export async function sendScheduledReport(
     rowCount: rows.length,
     success: sent,
     errorMessage,
-    recipientEmail: schedule.recipientEmail,
     isRetry,
-    retryAttempt,
-    triggerType,
-    deliveryCycleId: cycleId,
   });
 
   if (sent) {
     await db
       .update(scheduledAuditReportsTable)
-      .set({ lastSentAt: sentAt, consecutiveFailures: 0, updatedAt: new Date() })
+      .set({ lastSentAt: sentAt, updatedAt: new Date() })
       .where(eq(scheduledAuditReportsTable.id, schedule.id));
-    logger.info({ scheduleId: schedule.id, recipientEmail: schedule.recipientEmail, rowCount: rows.length, isRetry, retryAttempt }, "Scheduled audit report sent");
+    logger.info({ scheduleId: schedule.id, recipientEmail: schedule.recipientEmail, rowCount: rows.length, isRetry }, "Scheduled audit report sent");
   } else {
-    logger.warn({ scheduleId: schedule.id, errorMessage, isRetry, retryAttempt }, "Scheduled audit report send failed");
-
-    // Notify admins only after all retry attempts are exhausted
-    const allRetriesExhausted = retryAttempt >= schedule.maxRetryAttempts;
-    if (allRetriesExhausted) {
-      // Increment consecutive failure count and check auto-pause threshold
-      const newConsecutiveFailures = schedule.consecutiveFailures + 1;
-      const shouldAutoPause =
-        schedule.autoPauseAfterFailures > 0 &&
-        newConsecutiveFailures >= schedule.autoPauseAfterFailures;
-      const now = new Date();
-
-      await db
-        .update(scheduledAuditReportsTable)
-        .set({
-          consecutiveFailures: newConsecutiveFailures,
-          ...(shouldAutoPause
-            ? { isActive: false, autoPausedAt: now }
-            : {}),
-          updatedAt: now,
-        })
-        .where(eq(scheduledAuditReportsTable.id, schedule.id));
-
-      if (shouldAutoPause) {
-        logger.warn(
-          { scheduleId: schedule.id, consecutiveFailures: newConsecutiveFailures, autoPauseAfterFailures: schedule.autoPauseAfterFailures },
-          "Schedule auto-paused after reaching consecutive failure threshold",
-        );
-      }
-
-      try {
-        const admins = await db
-          .select({ id: usersTable.id })
-          .from(usersTable)
-          .where(and(eq(usersTable.role, "admin"), eq(usersTable.isActive, true)));
-
-        if (admins.length > 0) {
-          const appDomain = process.env["APP_DOMAIN"] ?? "https://rasokart.com";
-          const scheduleLink = `${appDomain}/admin/audit-logs?scheduleId=${schedule.id}`;
-          const attemptSummary = schedule.maxRetryAttempts > 0
-            ? ` after ${schedule.maxRetryAttempts} retry attempt${schedule.maxRetryAttempts !== 1 ? "s" : ""}`
-            : "";
-          const autoPauseNote = shouldAutoPause
-            ? ` This schedule has been automatically paused after ${newConsecutiveFailures} consecutive failure${newConsecutiveFailures !== 1 ? "s" : ""}. Re-enable it from the Audit Logs page once the issue is resolved.`
-            : ` (${newConsecutiveFailures} consecutive failure${newConsecutiveFailures !== 1 ? "s" : ""} so far — schedule will be auto-paused after ${schedule.autoPauseAfterFailures})`;
-          const title = shouldAutoPause
-            ? "Scheduled Report Auto-Paused After Repeated Failures"
-            : "Scheduled Report Delivery Failed";
-          await createBulkNotifications(admins.map(a => ({
-            userId: a.id,
-            type: "report_delivery_failure" as const,
-            title,
-            body: `The ${schedule.frequency} audit report scheduled for ${schedule.recipientEmail} could not be delivered${attemptSummary}.${autoPauseNote} Please check the recipient email address and SMTP configuration. View the schedule in Audit Logs.`,
-            metadata: {
-              scheduleId: schedule.id,
-              recipientEmail: schedule.recipientEmail,
-              frequency: schedule.frequency,
-              error: errorMessage,
-              scheduleLink,
-              consecutiveFailures: newConsecutiveFailures,
-              autoPaused: shouldAutoPause,
-            },
-          })));
-
-          logger.info({ scheduleId: schedule.id, adminCount: admins.length, retryAttempt, autoPaused: shouldAutoPause }, "Admin notifications sent for scheduled audit report delivery failure");
-        }
-      } catch (notifyErr) {
-        logger.error({ err: notifyErr, scheduleId: schedule.id }, "Failed to insert admin notifications for scheduled audit report delivery failure");
-      }
-    }
-
+    logger.warn({ scheduleId: schedule.id, errorMessage, isRetry }, "Scheduled audit report send failed");
     throw new Error(errorMessage ?? "Send failed");
   }
   return sent;
 }
 
-/**
- * Fetch the latest log entry for a schedule (or null if none exists).
- * Uses a shared helper to avoid duplicating the query in both passes.
- */
-async function getLatestLog(scheduleId: number) {
-  const [log] = await db
-    .select()
-    .from(scheduledAuditReportLogsTable)
-    .where(eq(scheduledAuditReportLogsTable.scheduleId, scheduleId))
-    .orderBy(desc(scheduledAuditReportLogsTable.sentAt))
-    .limit(1);
-  return log ?? null;
-}
-
-/**
- * Returns true when the latest log represents an active retry cycle that still
- * has budget remaining and the failure is recent enough to retry.
- *
- * "Active retry cycle" means:
- *   - the latest log is a failure
- *   - the failure happened within the schedule's total retry window (we use
- *     maxRetryAttempts × retryBackoffMinutes + a 1-hour buffer as the cutoff
- *     so that a cycle is never retried indefinitely)
- *   - the retry budget is not yet exhausted (retryAttempt < maxRetryAttempts)
- *
- * When this returns true the initial-send pass MUST skip the schedule, letting
- * the retry pass handle it. This prevents fresh attempt-0 sends from
- * overwriting in-progress retry cycles.
- */
-function isActiveRetryCycle(
-  latestLog: typeof scheduledAuditReportLogsTable.$inferSelect,
-  schedule: typeof scheduledAuditReportsTable.$inferSelect,
-): boolean {
-  if (latestLog.success) return false;
-  if (latestLog.retryAttempt >= schedule.maxRetryAttempts) return false;
-
-  // The overall retry window: all attempts at their maximum spacing plus 1 hour buffer
-  const totalWindowMs =
-    schedule.maxRetryAttempts * schedule.retryBackoffMinutes * 60 * 1000 +
-    60 * 60 * 1000;
-  const windowCutoff = new Date(Date.now() - totalWindowMs);
-  return latestLog.sentAt >= windowCutoff;
-}
-
-/**
- * Auto-recovery pass — triggered when the mailer transitions from unhealthy
- * to healthy. Retries every active schedule that has a failure in the last 24 h
- * and has not yet succeeded since that failure.
- *
- * These sends are logged with triggerType="auto_recovery" and isRetry=true so
- * admins can see them in ScheduleHistoryPanel without any manual action.
- */
-async function runRecoveryPass(
-  active: (typeof scheduledAuditReportsTable.$inferSelect)[],
-): Promise<void> {
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-  for (const schedule of active) {
-    const latestLog = await getLatestLog(schedule.id);
-    if (!latestLog || latestLog.success) continue;
-    if (latestLog.sentAt < cutoff) continue;
-
-    const nextAttempt = latestLog.retryAttempt + 1;
-    logger.info(
-      { scheduleId: schedule.id, frequency: schedule.frequency, nextAttempt },
-      "Auto-recovery: retrying failed scheduled audit report after mailer outage cleared",
-    );
-    await sendScheduledReport(schedule, nextAttempt, "auto_recovery").catch(err => {
-      logger.error({ err, scheduleId: schedule.id, nextAttempt }, "Auto-recovery retry also failed");
-    });
-  }
-}
-
 async function runDueReports(): Promise<void> {
   try {
-    // ── Mailer health check — detect outage-clearing transitions ─────────────
-    const mailerNowHealthy = await checkMailerHealth().catch(() => false);
-    const outageJustCleared = mailerWasHealthy === false && mailerNowHealthy === true;
-    if (outageJustCleared) {
-      logger.info("Mailer outage cleared — scheduling auto-recovery pass for recent failures");
-    } else if (!mailerNowHealthy && mailerWasHealthy !== false) {
-      logger.warn("Mailer appears unhealthy — scheduled sends may fail until connectivity is restored");
-    }
-    mailerWasHealthy = mailerNowHealthy;
-
     const active = await db
       .select()
       .from(scheduledAuditReportsTable)
       .where(eq(scheduledAuditReportsTable.isActive, true));
 
-    // ── Auto-recovery pass (runs before normal scheduling) ───────────────────
-    // If the mailer just came back up, retry recent failures immediately.
-    if (outageJustCleared && active.length > 0) {
-      await runRecoveryPass(active);
-    }
-
     const sentInThisRun = new Set<number>();
 
-    // ── First pass: send reports that are due on their normal schedule ──────
-    // Before firing a fresh attempt-0 send, check whether the schedule is in
-    // an active retry cycle (a recent failure still within its retry budget).
-    // If so, skip this pass so the second pass can advance the retry counter.
     for (const schedule of active) {
-      if (!isDue(schedule.frequency, schedule.lastSentAt)) continue;
-
-      if (schedule.maxRetryAttempts > 0) {
-        const latestLog = await getLatestLog(schedule.id);
-        if (latestLog && isActiveRetryCycle(latestLog, schedule)) {
-          // Retry cycle in progress — do NOT restart at attempt 0
-          logger.info(
-            { scheduleId: schedule.id, retryAttempt: latestLog.retryAttempt, maxRetryAttempts: schedule.maxRetryAttempts },
-            "Skipping initial-send pass: active retry cycle in progress",
-          );
-          continue;
-        }
+      if (isDue(schedule.frequency, schedule.lastSentAt)) {
+        sentInThisRun.add(schedule.id);
+        await sendScheduledReport(schedule).catch(err => {
+          logger.error({ err, scheduleId: schedule.id }, "Failed to send scheduled audit report");
+        });
       }
-
-      sentInThisRun.add(schedule.id);
-      await sendScheduledReport(schedule, 0, "scheduled").catch(err => {
-        logger.error({ err, scheduleId: schedule.id }, "Failed to send scheduled audit report");
-      });
     }
 
-    // ── Second pass: advance retry cycles ────────────────────────────────────
-    // For each active schedule NOT sent in this run, check whether the latest
-    // failure is eligible for the next retry attempt based on:
-    //   1. Retry budget not exhausted (retryAttempt < maxRetryAttempts)
-    //   2. Failure is still within the overall retry window
-    //   3. The configured backoff period has elapsed since the last attempt
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
     for (const schedule of active) {
       if (sentInThisRun.has(schedule.id)) continue;
-      if (schedule.maxRetryAttempts <= 0) continue;
 
-      const latestLog = await getLatestLog(schedule.id);
-      if (!latestLog || latestLog.success) continue;
+      const [latestLog] = await db
+        .select()
+        .from(scheduledAuditReportLogsTable)
+        .where(eq(scheduledAuditReportLogsTable.scheduleId, schedule.id))
+        .orderBy(desc(scheduledAuditReportLogsTable.sentAt))
+        .limit(1);
 
-      // Budget check
-      if (latestLog.retryAttempt >= schedule.maxRetryAttempts) continue;
-
-      // Overall window check (prevents retrying stale failures from previous cycles)
-      if (!isActiveRetryCycle(latestLog, schedule)) continue;
-
-      // Backoff check: enough time must have elapsed since the last attempt
-      const backoffMs = schedule.retryBackoffMinutes * 60 * 1000;
-      const backoffCutoff = new Date(Date.now() - backoffMs);
-      if (latestLog.sentAt > backoffCutoff) {
-        logger.info(
-          { scheduleId: schedule.id, retryAttempt: latestLog.retryAttempt, backoffMinutes: schedule.retryBackoffMinutes },
-          "Skipping retry: backoff period not yet elapsed",
-        );
-        continue;
+      if (latestLog && !latestLog.success && latestLog.sentAt >= twoHoursAgo) {
+        logger.info({ scheduleId: schedule.id }, "Retrying recently-failed scheduled audit report");
+        await sendScheduledReport(schedule, true).catch(err => {
+          logger.error({ err, scheduleId: schedule.id }, "Retry of scheduled audit report also failed");
+        });
       }
-
-      const nextRetryAttempt = latestLog.retryAttempt + 1;
-      const cycleId = latestLog.deliveryCycleId ?? undefined;
-      logger.info(
-        { scheduleId: schedule.id, frequency: schedule.frequency, nextRetryAttempt, maxRetryAttempts: schedule.maxRetryAttempts, deliveryCycleId: cycleId },
-        "Retrying failed scheduled audit report",
-      );
-      await sendScheduledReport(schedule, nextRetryAttempt, "scheduled", cycleId).catch(err => {
-        logger.error({ err, scheduleId: schedule.id, nextRetryAttempt }, "Retry of scheduled audit report also failed");
-      });
     }
   } catch (err) {
     logger.error({ err }, "Audit report scheduler run failed");

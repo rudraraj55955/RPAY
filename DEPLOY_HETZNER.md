@@ -114,35 +114,35 @@ pnpm run typecheck:libs
 
 ## 5. Environment Variables
 
-Credentials live in a **`.env` file on the VPS only** — it is gitignored and never committed.
-`deploy.sh` sources this file automatically on every run, so you only set it up once.
+All env vars are set inside `ecosystem.config.cjs` (PM2 process config) — **not** in a `.env` file.
+The repo includes a ready-made template at `ecosystem.config.cjs`. Edit it in-place:
 
 ```bash
-# Generate a secure SESSION_SECRET
-SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
+# Generate a secure SESSION_SECRET first
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 
-# Create /var/www/rasokart/.env  (one-time setup)
-cat > /var/www/rasokart/.env << EOF
-DATABASE_URL=postgresql://rasokart:Rasokart%4012345@localhost:5432/rasokart
-SESSION_SECRET=${SECRET}
-EOF
-
-chmod 600 /var/www/rasokart/.env
+# Edit the template — fill in DATABASE_URL and SESSION_SECRET
+nano /var/www/rasokart/ecosystem.config.cjs
 ```
 
-> **Note:** If your DB password contains special characters, URL-encode them:
-> `@` → `%40`  `#` → `%23`  `%` → `%25`  `:` → `%3A`
+Change these two lines:
+```
+DATABASE_URL: "postgres://rasokart_user:CHANGE_THIS@localhost:5432/rasokart",
+SESSION_SECRET: "REPLACE_WITH_64_CHAR_HEX_FROM_CRYPTO_RANDOM",
+```
 
 ---
 
 ## 6. Run Database Migrations
 
-Migrations run automatically in deploy.sh step 3. For manual runs:
-
 ```bash
 cd /var/www/rasokart
-source .env
-cd lib/db && pnpm run push
+
+# Export DATABASE_URL so drizzle-kit can connect
+export DATABASE_URL="postgres://rasokart_user:YOUR_PASSWORD@localhost:5432/rasokart"
+
+# Push schema (idempotent — safe to re-run)
+pnpm --filter @workspace/db run push
 ```
 
 The API server seed runs automatically on startup — it creates the admin account

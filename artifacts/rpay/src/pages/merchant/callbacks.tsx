@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
-import { useListCallbackLogs, useGetCallbackStats, useRetryWebhookLog } from "@workspace/api-client-react";
-import { getListCallbackLogsQueryKey } from "@workspace/api-client-react";
+import { useListCallbackLogs, useGetCallbackStats } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,8 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { AlertTriangle, ChevronDown, ChevronRight, Clock, Loader2, QrCode, RefreshCw, ShieldAlert, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, QrCode, ShieldAlert, X } from "lucide-react";
 import { format } from "date-fns";
 
 function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }) {
@@ -25,37 +22,8 @@ function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }
   return <span className="text-muted-foreground text-xs">—</span>;
 }
 
-function CallbackRow({
-  log,
-  otherFailedCount,
-  onShowFailed,
-}: {
-  log: any;
-  otherFailedCount: number;
-  onShowFailed: () => void;
-}) {
+function CallbackRow({ log }: { log: any }) {
   const [open, setOpen] = useState(false);
-  const [retryError, setRetryError] = useState<string | null>(null);
-  const [retryAttempted, setRetryAttempted] = useState(false);
-  const queryClient = useQueryClient();
-
-  const { mutate: retryWebhook, isPending: isRetrying } = useRetryWebhookLog({
-    mutation: {
-      onSuccess: () => {
-        setRetryError(null);
-        setRetryAttempted(true);
-        queryClient.invalidateQueries({ queryKey: getListCallbackLogsQueryKey() });
-      },
-      onError: (err: any) => {
-        const msg = err?.response?.data?.error ?? err?.message ?? "Retry failed";
-        setRetryError(msg);
-      },
-    },
-  });
-
-  const canRetry = log.status === "failed" || log.status === "pending_retry";
-  const showViewFailures = retryAttempted && log.status === "success" && otherFailedCount > 0;
-
   const tryParse = (s: string | null) => {
     if (!s) return null;
     try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; }
@@ -90,41 +58,6 @@ function CallbackRow({
                 <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">{tryParse(log.responseBody) || "—"}</pre>
               </div>
             </div>
-            {canRetry && (
-              <div className="flex items-center gap-3 mt-3 px-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/60"
-                  disabled={isRetrying}
-                  onClick={e => {
-                    e.stopPropagation();
-                    setRetryError(null);
-                    retryWebhook({ id: log.id });
-                  }}
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? "animate-spin" : ""}`} />
-                  {isRetrying ? "Retrying…" : "Retry now"}
-                </Button>
-                {retryError && (
-                  <span className="text-xs text-rose-400">{retryError}</span>
-                )}
-              </div>
-            )}
-            {showViewFailures && (
-              <div className="mt-2 px-2">
-                <button
-                  type="button"
-                  onClick={e => {
-                    e.stopPropagation();
-                    onShowFailed();
-                  }}
-                  className="text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2 transition-colors"
-                >
-                  View remaining failures ({otherFailedCount})
-                </button>
-              </div>
-            )}
           </TableCell>
         </TableRow>
       </CollapsibleContent>
@@ -132,26 +65,9 @@ function CallbackRow({
   );
 }
 
-function formatRelativeTime(ms: number): string {
-  const totalMinutes = Math.floor(ms / 60_000);
-  if (totalMinutes < 1) return "less than a minute";
-  if (totalMinutes < 60) return `${totalMinutes} minute${totalMinutes !== 1 ? "s" : ""}`;
-  const hours = Math.floor(totalMinutes / 60);
-  if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""}`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days !== 1 ? "s" : ""}`;
-}
-
 const SIG_WARN_THRESHOLD = 5;
 const SIG_WARN_KEY = "rasokart_sig_warn_dismissed_until";
 const SIG_WARN_TTL_MS = 24 * 60 * 60 * 1000;
-const SIG_VERIFIED_KEY = "rasokart_sig_verified_dismissed_at";
-
-const SNOOZE_OPTIONS = [
-  { label: "1 hour", ttlMs: 1 * 60 * 60 * 1000 },
-  { label: "4 hours", ttlMs: 4 * 60 * 60 * 1000 },
-  { label: "24 hours", ttlMs: SIG_WARN_TTL_MS },
-] as const;
 
 interface SigWarnDismissal {
   dismissedUntil: number;
@@ -177,49 +93,14 @@ function isSigWarnStillDismissed(dismissal: SigWarnDismissal, recentLogs: any[])
   return true;
 }
 
-function writeSigWarnDismissal(ttlMs: number = SIG_WARN_TTL_MS) {
+function writeSigWarnDismissal() {
   try {
     const now = Date.now();
     const dismissal: SigWarnDismissal = {
-      dismissedUntil: now + ttlMs,
+      dismissedUntil: now + SIG_WARN_TTL_MS,
       dismissedAt: now,
     };
     localStorage.setItem(SIG_WARN_KEY, JSON.stringify(dismissal));
-  } catch {
-    // ignore storage errors
-  }
-}
-
-function clearSigWarnDismissal() {
-  try {
-    localStorage.removeItem(SIG_WARN_KEY);
-  } catch {
-    // ignore storage errors
-  }
-}
-
-function readSigVerifiedDismissedAt(): number | null {
-  try {
-    const val = localStorage.getItem(SIG_VERIFIED_KEY);
-    if (!val) return null;
-    const n = Number(val);
-    return isNaN(n) ? null : n;
-  } catch {
-    return null;
-  }
-}
-
-function writeSigVerifiedDismissal() {
-  try {
-    localStorage.setItem(SIG_VERIFIED_KEY, String(Date.now()));
-  } catch {
-    // ignore storage errors
-  }
-}
-
-function clearSigVerifiedDismissal() {
-  try {
-    localStorage.removeItem(SIG_VERIFIED_KEY);
   } catch {
     // ignore storage errors
   }
@@ -235,71 +116,25 @@ export default function MerchantCallbacks() {
     const d = readSigWarnDismissal();
     return d != null && Date.now() < d.dismissedUntil;
   });
-  const [sigVerifiedDismissed, setSigVerifiedDismissed] = useState(() => readSigVerifiedDismissedAt() != null);
-  const [snoozeOpen, setSnoozeOpen] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
 
   const { data: stats } = useGetCallbackStats();
   const failureCount = stats?.signatureFailures24h ?? 0;
 
   const sigFilter = sigVerified !== "all" ? sigVerified : undefined;
 
-  const { data, isLoading, isFetching } = useListCallbackLogs(
-    {
-      status: status as any,
-      qrCodeId,
-      signatureVerified: sigFilter as any,
-      page,
-      limit: 20,
-    },
-    {
-      query: {
-        refetchInterval: (query: any) => {
-          const logs = query.state.data?.data ?? [];
-          return logs.some((l: any) => l.status === "pending_retry") ? 3000 : false;
-        },
-      },
-    } as any
-  );
-
-  const hasPendingRetry = (data?.data ?? []).some(l => l.status === "pending_retry");
+  const { data, isLoading } = useListCallbackLogs({
+    status: status as any,
+    qrCodeId,
+    signatureVerified: sigFilter as any,
+    page,
+    limit: 20,
+  });
 
   const recentLogs = data?.data ?? [];
   const recentN = recentLogs.slice(0, SIG_WARN_THRESHOLD);
   const allRecentFailed =
     recentN.length >= SIG_WARN_THRESHOLD &&
     recentN.every(l => l.signatureVerified === false);
-  const allRecentVerified =
-    recentN.length >= SIG_WARN_THRESHOLD &&
-    recentN.every(l => l.signatureVerified === true);
-
-  useEffect(() => {
-    if (allRecentVerified && readSigWarnDismissal() != null) {
-      clearSigWarnDismissal();
-      setSigWarnDismissed(false);
-    }
-  }, [allRecentVerified]);
-
-  // Auto-clear the "verified" dismissal if a new failure appears after it was dismissed
-  useEffect(() => {
-    if (!sigVerifiedDismissed) return;
-    const dismissedAt = readSigVerifiedDismissedAt();
-    if (dismissedAt == null) return;
-    const hasNewFailure = recentLogs.some(
-      l => l.signatureVerified === false && new Date(l.createdAt).getTime() > dismissedAt
-    );
-    if (hasNewFailure) {
-      clearSigVerifiedDismissal();
-      setSigVerifiedDismissed(false);
-    }
-  }, [recentLogs, sigVerifiedDismissed]);
-
-  const showSigVerified = allRecentVerified && !sigVerifiedDismissed;
 
   const showSigWarning = (() => {
     if (!allRecentFailed) return false;
@@ -307,16 +142,6 @@ export default function MerchantCallbacks() {
     const d = readSigWarnDismissal();
     if (!d) return true;
     return !isSigWarnStillDismissed(d, recentLogs);
-  })();
-
-  const dismissalStatusLine = (() => {
-    if (showSigWarning) return null;
-    if (!sigWarnDismissed) return null;
-    const d = readSigWarnDismissal();
-    if (!d || now >= d.dismissedUntil) return null;
-    const elapsed = formatRelativeTime(now - d.dismissedAt);
-    const remaining = formatRelativeTime(d.dismissedUntil - now);
-    return `Signature warning dismissed ${elapsed} ago — clears in ${remaining}`;
   })();
 
   const applyQrFilter = () => {
@@ -348,23 +173,8 @@ export default function MerchantCallbacks() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">Callback Logs</h1>
-          {hasPendingRetry && (
-            <div className="flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-400">
-              {isFetching ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse inline-block" />
-              )}
-              Live — retrying
-            </div>
-          )}
-        </div>
+        <h1 className="text-3xl font-bold tracking-tight">Callback Logs</h1>
         <p className="text-muted-foreground mt-1">Webhook delivery history for your endpoint</p>
-        {dismissalStatusLine && (
-          <p className="text-xs text-muted-foreground/60 mt-1">{dismissalStatusLine}</p>
-        )}
       </div>
 
       {showSigWarning && (
@@ -384,60 +194,11 @@ export default function MerchantCallbacks() {
               </Link>
             </p>
           </div>
-          <Popover open={snoozeOpen} onOpenChange={setSnoozeOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label="Snooze warning"
-                className="shrink-0 text-amber-400/60 hover:text-amber-300 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              className="w-44 p-1.5 bg-zinc-900 border-amber-500/30"
-            >
-              <p className="text-xs text-muted-foreground px-2 py-1 font-medium">Snooze for…</p>
-              {SNOOZE_OPTIONS.map(opt => (
-                <button
-                  key={opt.label}
-                  type="button"
-                  onClick={() => {
-                    writeSigWarnDismissal(opt.ttlMs);
-                    setSigWarnDismissed(true);
-                    setSnoozeOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-amber-200 hover:bg-amber-500/10 transition-colors"
-                >
-                  <Clock className="w-3.5 h-3.5 text-amber-400/70 shrink-0" />
-                  {opt.label}
-                </button>
-              ))}
-            </PopoverContent>
-          </Popover>
-        </div>
-      )}
-
-      {showSigVerified && (
-        <div className="flex items-start gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3">
-          <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-emerald-300">
-              Secret verified — recent callbacks are passing signature checks
-            </p>
-            <p className="text-xs text-emerald-400/70 mt-0.5">
-              The last {SIG_WARN_THRESHOLD} logged callbacks all passed signature verification. Your signing secret is correctly configured.
-            </p>
-          </div>
           <button
             type="button"
-            aria-label="Dismiss"
-            onClick={() => {
-              writeSigVerifiedDismissal();
-              setSigVerifiedDismissed(true);
-            }}
-            className="shrink-0 text-emerald-400/60 hover:text-emerald-300 transition-colors"
+            aria-label="Dismiss warning"
+            onClick={() => { writeSigWarnDismissal(); setSigWarnDismissed(true); }}
+            className="shrink-0 text-amber-400/60 hover:text-amber-300 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -586,19 +347,7 @@ export default function MerchantCallbacks() {
                       : qrCodeId ? `No webhook logs for QR #${qrCodeId}` : "No callback logs yet"}
                   </TableCell>
                 </TableRow>
-              ) : data?.data?.map(log => {
-                const otherFailedCount = (data.data ?? []).filter(
-                  l => l.id !== log.id && (l.status === "failed" || l.status === "pending_retry")
-                ).length;
-                return (
-                  <CallbackRow
-                    key={log.id}
-                    log={log}
-                    otherFailedCount={otherFailedCount}
-                    onShowFailed={() => { setStatus("failed"); setPage(1); }}
-                  />
-                );
-              })}
+              ) : data?.data?.map(log => <CallbackRow key={log.id} log={log} />)}
             </TableBody>
           </Table>
         </CardContent>

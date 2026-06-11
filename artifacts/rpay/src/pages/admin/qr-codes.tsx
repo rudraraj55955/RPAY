@@ -16,8 +16,6 @@ import { Search, Trash2, Download, QrCode, X, RefreshCw, ChevronDown, ChevronRig
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
-import { getApiErrorMessage, isRateLimitError } from "@/lib/utils";
-import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
 
 function statusBadge(status: string) {
   if (status === "active") return <Badge className="text-xs bg-emerald-500/15 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">Active</Badge>;
@@ -48,10 +46,9 @@ type BulkConfirmDialogProps = {
   onConfirm: () => void;
   onCancel: () => void;
   isPending: boolean;
-  rateLimitSecondsLeft?: number;
 };
 
-function BulkConfirmDialog({ count, label, onConfirm, onCancel, isPending, rateLimitSecondsLeft = 0 }: BulkConfirmDialogProps) {
+function BulkConfirmDialog({ count, label, onConfirm, onCancel, isPending }: BulkConfirmDialogProps) {
   return (
     <Dialog open onOpenChange={onCancel}>
       <DialogContent className="sm:max-w-sm">
@@ -61,16 +58,13 @@ function BulkConfirmDialog({ count, label, onConfirm, onCancel, isPending, rateL
             This will permanently delete {label}. This action cannot be undone.
           </p>
         </DialogHeader>
-        <div className="space-y-3">
-          <RateLimitBanner secondsLeft={rateLimitSecondsLeft} />
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={onCancel} disabled={isPending}>Cancel</Button>
-            <Button variant="destructive" onClick={onConfirm} disabled={isPending || rateLimitSecondsLeft > 0}>
-              <Trash2 className="w-4 h-4 mr-1.5" />
-              {isPending ? "Deleting…" : `Delete ${count} ${count === 1 ? "code" : "codes"}`}
-            </Button>
-          </DialogFooter>
-        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onCancel} disabled={isPending}>Cancel</Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
+            <Trash2 className="w-4 h-4 mr-1.5" />
+            {isPending ? "Deleting…" : `Delete ${count} ${count === 1 ? "code" : "codes"}`}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -262,7 +256,6 @@ function AdminInlineQrRow({ qr }: { qr: AdminQrRow }) {
 
 export default function AdminQrCodes() {
   const qc = useQueryClient();
-  const deleteRateLimit = useRateLimit();
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [merchantName, setMerchantName] = useState(() => {
@@ -318,10 +311,7 @@ export default function AdminQrCodes() {
     if (!confirm("Delete this QR code?")) return;
     deleteMutation.mutate({ id }, {
       onSuccess: () => { toast.success("QR code deleted"); invalidateQr(); },
-      onError: (err: unknown) => {
-        if (isRateLimitError(err)) deleteRateLimit.trigger();
-        toast.error(getApiErrorMessage(err, "Failed to delete"));
-      },
+      onError: () => toast.error("Failed to delete"),
     });
   };
 
@@ -401,9 +391,9 @@ export default function AdminQrCodes() {
         setBulkConfirm(null);
         invalidateQr();
       },
-      onError: (err: unknown) => {
-        if (isRateLimitError(err)) deleteRateLimit.trigger();
-        toast.error(getApiErrorMessage(err, "Bulk delete failed"));
+      onError: () => {
+        toast.error("Bulk delete failed");
+        setBulkConfirm(null);
       },
     });
   };
@@ -459,8 +449,6 @@ export default function AdminQrCodes() {
           );
         })}
       </div>
-
-      <RateLimitBanner secondsLeft={deleteRateLimit.secondsLeft} />
 
       <Card>
         <CardHeader className="pb-4">
@@ -629,8 +617,7 @@ export default function AdminQrCodes() {
                     </TableCell>
                     <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-rose-500 hover:text-rose-400"
-                        onClick={() => handleDelete(qr.id)} title="Delete"
-                        disabled={deleteRateLimit.isRateLimited}>
+                        onClick={() => handleDelete(qr.id)} title="Delete">
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </TableCell>
@@ -659,9 +646,8 @@ export default function AdminQrCodes() {
           count={bulkConfirm.count}
           label={bulkConfirm.label}
           onConfirm={executeBulkDelete}
-          onCancel={() => { setBulkConfirm(null); deleteRateLimit.clear(); }}
+          onCancel={() => setBulkConfirm(null)}
           isPending={bulkDeleteMutation.isPending}
-          rateLimitSecondsLeft={deleteRateLimit.secondsLeft}
         />
       )}
     </div>

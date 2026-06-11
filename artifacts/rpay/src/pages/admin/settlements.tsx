@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import {
   useListSettlements,
   useGetSettlementStats,
@@ -28,11 +28,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
 import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
 import { ChevronDown, ChevronRight, Search, X, MoreHorizontal, TrendingUp, Clock, CheckCircle2, DollarSign, RefreshCw, CheckSquare, AlertTriangle, Wallet, Sparkles, Hash, Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
-import { format, parseISO, isValid } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
-import { SmartFilterBase, parseSmartQuery } from "@/lib/smart-search";
-import { getApiErrorMessage, isRateLimitError } from "@/lib/utils";
-import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
 
 type ActionType = "process" | "approve" | "reject" | "hold" | "mark-paid";
 
@@ -44,21 +41,113 @@ interface ActionModal {
   merchantId?: number;
 }
 
-interface SmartFilter extends SmartFilterBase {
+interface SmartFilter {
+  amountMin?: number;
+  amountMax?: number;
+  dateFrom?: string;
+  dateTo?: string;
   settlementStatus?: "pending" | "processing" | "approved" | "rejected" | "paid" | "hold";
 }
 
-const STATUS_KEYWORDS: Record<string, Partial<SmartFilter>> = {
-  pending: { settlementStatus: "pending" },
-  processing: { settlementStatus: "processing" },
-  approved: { settlementStatus: "approved" },
-  approve: { settlementStatus: "approved" },
-  rejected: { settlementStatus: "rejected" },
-  reject: { settlementStatus: "rejected" },
-  paid: { settlementStatus: "paid" },
-  hold: { settlementStatus: "hold" },
-  held: { settlementStatus: "hold" },
+const STATUS_KEYWORDS: Record<string, SmartFilter["settlementStatus"]> = {
+  pending: "pending",
+  processing: "processing",
+  approved: "approved",
+  approve: "approved",
+  rejected: "rejected",
+  reject: "rejected",
+  paid: "paid",
+  hold: "hold",
+  held: "hold",
 };
+
+function parseDateToken(token: string, now: Date): Pick<SmartFilter, "dateFrom" | "dateTo"> | null {
+  if (token === "today") {
+    return { dateFrom: format(startOfDay(now), "yyyy-MM-dd"), dateTo: format(endOfDay(now), "yyyy-MM-dd") };
+  }
+  if (token === "this week") {
+    return {
+      dateFrom: format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+      dateTo: format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+    };
+  }
+  if (token === "this month") {
+    return { dateFrom: format(startOfMonth(now), "yyyy-MM-dd"), dateTo: format(endOfMonth(now), "yyyy-MM-dd") };
+  }
+  if (token === "last month") {
+    const prev = subMonths(now, 1);
+    return { dateFrom: format(startOfMonth(prev), "yyyy-MM-dd"), dateTo: format(endOfMonth(prev), "yyyy-MM-dd") };
+  }
+  if (token === "last week") {
+    const prevWeekStart = startOfWeek(subDays(now, 7), { weekStartsOn: 1 });
+    const prevWeekEnd = endOfWeek(subDays(now, 7), { weekStartsOn: 1 });
+    return { dateFrom: format(prevWeekStart, "yyyy-MM-dd"), dateTo: format(prevWeekEnd, "yyyy-MM-dd") };
+  }
+  return null;
+}
+
+function parseAmountToken(token: string): Pick<SmartFilter, "amountMin" | "amountMax"> | null {
+  const gtMatch = token.match(/^(>=?)(\d+(?:\.\d+)?)$/);
+  if (gtMatch) {
+    const inclusive = gtMatch[1] === ">=";
+    const val = parseFloat(gtMatch[2]!);
+    return { amountMin: inclusive ? val : val + 0.01 };
+  }
+  const ltMatch = token.match(/^(<=?)(\d+(?:\.\d+)?)$/);
+  if (ltMatch) {
+    const inclusive = ltMatch[1] === "<=";
+    const val = parseFloat(ltMatch[2]!);
+    return { amountMax: inclusive ? val : val - 0.01 };
+  }
+  const rangeMatch = token.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+  if (rangeMatch) {
+    const min = parseFloat(rangeMatch[1]!);
+    const max = parseFloat(rangeMatch[2]!);
+    if (min <= max) return { amountMin: min, amountMax: max };
+  }
+  return null;
+}
+
+function parseSmartQuery(raw: string): SmartFilter | null {
+  const q = raw.trim().toLowerCase();
+  if (!q) return null;
+
+  const filter: SmartFilter = {};
+  const now = new Date();
+
+  for (const phrase of ["this week", "this month", "last month", "last week"]) {
+    if (q.includes(phrase)) {
+      const dateResult = parseDateToken(phrase, now);
+      if (dateResult) { Object.assign(filter, dateResult); break; }
+    }
+  }
+
+  let remaining = q;
+  if (filter.dateFrom) {
+    for (const phrase of ["this week", "this month", "last month", "last week"]) {
+      remaining = remaining.replace(phrase, "").trim();
+    }
+  }
+
+  const tokens = remaining.split(/\s+/).filter(Boolean);
+  for (const token of tokens) {
+    if (token in STATUS_KEYWORDS) { filter.settlementStatus = STATUS_KEYWORDS[token]; continue; }
+    if (!filter.dateFrom) {
+      const dateResult = parseDateToken(token, now);
+      if (dateResult) { Object.assign(filter, dateResult); continue; }
+    }
+    if (filter.amountMin == null && filter.amountMax == null) {
+      const amtResult = parseAmountToken(token);
+      if (amtResult) { Object.assign(filter, amtResult); continue; }
+    }
+  }
+
+  const hasContent =
+    filter.settlementStatus != null || filter.dateFrom != null ||
+    filter.amountMin != null || filter.amountMax != null;
+
+  return hasContent ? filter : null;
+}
 
 interface SavedFilter {
   id: string;
@@ -83,8 +172,6 @@ function storeSavedFilters(filters: SavedFilter[]): void {
 
 export default function AdminSettlements() {
   const qc = useQueryClient();
-  const actionRateLimit = useRateLimit();
-  const bulkRateLimit = useRateLimit();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [search, setSearch] = useState("");
@@ -141,9 +228,8 @@ export default function AdminSettlements() {
     setActionError("");
   };
 
-  const onError = (err: unknown) => {
-    if (isRateLimitError(err)) actionRateLimit.trigger();
-    setActionError(getApiErrorMessage(err, "Action failed"));
+  const onError = (err: any) => {
+    setActionError(err?.response?.data?.error ?? err?.message ?? "Action failed");
   };
 
   const processMut = useProcessSettlement({ mutation: { onSuccess: invalidate, onError } });
@@ -310,10 +396,7 @@ export default function AdminSettlements() {
         (bulkAction === "approve"
           ? approveMut.mutateAsync({ id, data: { remark: bulkRemark } })
           : rejectMut.mutateAsync({ id, data: { remark: bulkRemark } })
-        ).then(() => { succeeded++; }).catch((err: unknown) => {
-          if (isRateLimitError(err)) bulkRateLimit.trigger();
-          failed++;
-        })
+        ).then(() => { succeeded++; }).catch(() => { failed++; })
       )
     );
 
@@ -339,7 +422,7 @@ export default function AdminSettlements() {
 
   const applySmartSearch = () => {
     setSmartError("");
-    const filter = parseSmartQuery<SmartFilter>(smartInput, [STATUS_KEYWORDS]);
+    const filter = parseSmartQuery(smartInput);
     if (!filter) {
       setSmartError("Try: pending, approved >5000, rejected this month, >1000, today");
       return;
@@ -403,16 +486,6 @@ export default function AdminSettlements() {
     setSavedFilters(updated);
     storeSavedFilters(updated);
   };
-
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === SETTLEMENTS_SAVED_FILTERS_KEY) {
-        setSavedFilters(loadSavedFilters());
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
 
   return (
     <div className="space-y-6">
@@ -621,87 +694,9 @@ export default function AdminSettlements() {
 
       {/* Filter summary bar */}
       {anyFilterActive && (
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 space-y-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Active filters</span>
-            {search && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Search: <span className="font-mono">{search}</span>
-                <button
-                  onClick={() => { handleSearchChange(""); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove search filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {activeStatus && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Status: {(activeStatus as string).charAt(0).toUpperCase() + (activeStatus as string).slice(1)}
-                <button
-                  onClick={() => {
-                    if (smartFilter?.settlementStatus) setSmartFilter(prev => prev ? { ...prev, settlementStatus: undefined } : null);
-                    else setStatus("all");
-                    setPage(1);
-                  }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove status filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {activeDateFrom && (() => { const d = parseISO(activeDateFrom); return isValid(d) ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                From: {format(d, "MMM d, yyyy")}
-                <button
-                  onClick={() => {
-                    if (smartFilter?.dateFrom) setSmartFilter(prev => prev ? { ...prev, dateFrom: undefined, dateTo: undefined } : null);
-                    else setDateFrom("");
-                    setPage(1);
-                    clearSelection();
-                  }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove from-date filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ) : null; })()}
-            {activeDateTo && (() => { const d = parseISO(activeDateTo); return isValid(d) ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                To: {format(d, "MMM d, yyyy")}
-                <button
-                  onClick={() => {
-                    if (smartFilter?.dateTo) setSmartFilter(prev => prev ? { ...prev, dateFrom: undefined, dateTo: undefined } : null);
-                    else setDateTo("");
-                    setPage(1);
-                    clearSelection();
-                  }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove to-date filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ) : null; })()}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                handleSearchChange("");
-                handleStatusChange("all");
-                setDateFrom(""); setDateTo("");
-                if (hasSmartFilter) clearSmartFilter();
-              }}
-              className="ml-auto h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 gap-1.5"
-            >
-              <X className="w-3 h-3" />
-              Clear filters
-            </Button>
-          </div>
+        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Filter results</span>
             <div className="flex items-center gap-1.5 text-sm">
               <Hash className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="font-semibold text-foreground">
@@ -895,16 +890,7 @@ export default function AdminSettlements() {
                       </TableCell>
                       <TableCell className="font-medium">{s.merchantName || "—"}</TableCell>
                       <TableCell className="text-right font-mono font-semibold">₹{amount.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-0.5">
-                          <StatusBadge status={s.status} />
-                          {(s.status === "approved" || s.status === "rejected") && s.actionedByEmail && (
-                            <span className="text-xs text-muted-foreground truncate max-w-[160px]" title={s.actionedByEmail}>
-                              by {s.actionedByEmail}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
+                      <TableCell><StatusBadge status={s.status} /></TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {format(new Date(s.createdAt), "MMM d, yyyy")}
                       </TableCell>
@@ -1008,14 +994,6 @@ export default function AdminSettlements() {
                                 <p className="font-medium">{format(new Date(s.processedAt), "MMM d, yyyy HH:mm")}</p>
                               </div>
                             )}
-                            {(s.status === "approved" || s.status === "rejected") && s.actionedByEmail && (
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-0.5">
-                                  {s.status === "approved" ? "Approved By" : "Rejected By"}
-                                </p>
-                                <p className="font-medium text-xs break-all">{s.actionedByEmail}</p>
-                              </div>
-                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1041,7 +1019,7 @@ export default function AdminSettlements() {
       )}
 
       {/* Single-row action modal */}
-      <Dialog open={!!actionModal} onOpenChange={open => { if (!open) { setActionModal(null); setRemark(""); setRefNumber(""); setActionError(""); actionRateLimit.clear(); } }}>
+      <Dialog open={!!actionModal} onOpenChange={open => { if (!open) { setActionModal(null); setRemark(""); setRefNumber(""); setActionError(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{actionModal ? actionLabels[actionModal.type] : ""}</DialogTitle>
@@ -1110,13 +1088,11 @@ export default function AdminSettlements() {
               <p className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-md px-3 py-2">{actionError}</p>
             )}
 
-            <RateLimitBanner secondsLeft={actionRateLimit.secondsLeft} />
-
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setActionModal(null)}>Cancel</Button>
               <Button
                 onClick={handleAction}
-                disabled={isPending || actionRateLimit.isRateLimited}
+                disabled={isPending}
                 className={actionModal ? actionColors[actionModal.type]?.replace("text-", "hover:bg-").replace("400", "500/20") : ""}
               >
                 {isPending ? "Processing..." : actionModal ? actionLabels[actionModal.type] : "Confirm"}
@@ -1127,7 +1103,7 @@ export default function AdminSettlements() {
       </Dialog>
 
       {/* Bulk action modal */}
-      <Dialog open={!!bulkAction} onOpenChange={open => { if (!open) { setBulkAction(null); setBulkRemark(""); setBulkError(""); bulkRateLimit.clear(); } }}>
+      <Dialog open={!!bulkAction} onOpenChange={open => { if (!open) { setBulkAction(null); setBulkRemark(""); setBulkError(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -1152,12 +1128,11 @@ export default function AdminSettlements() {
             {bulkError && (
               <p className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-md px-3 py-2">{bulkError}</p>
             )}
-            <RateLimitBanner secondsLeft={bulkRateLimit.secondsLeft} />
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setBulkAction(null)}>Cancel</Button>
               <Button
                 onClick={handleBulkAction}
-                disabled={isPending || bulkRateLimit.isRateLimited}
+                disabled={isPending}
                 className={bulkAction === "approve" ? "text-emerald-400 hover:bg-emerald-500/20" : "text-rose-400 hover:bg-rose-500/20"}
               >
                 {isPending ? "Processing..." : bulkAction === "approve" ? `Approve ${selected.size}` : `Reject ${selected.size}`}

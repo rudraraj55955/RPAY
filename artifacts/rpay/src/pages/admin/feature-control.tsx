@@ -14,8 +14,6 @@ import { toast } from "sonner";
 import { Search, Download, Settings2, Users, ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
-import { getApiErrorMessage, isRateLimitError } from "@/lib/utils";
-import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
 
 const FEATURES = [
   { key: "dynamicQr",      label: "Dynamic QR",   short: "DQR" },
@@ -42,19 +40,18 @@ async function apiGet(path: string) {
 
 async function apiPut(path: string, body: object) {
   const res = await fetch(`/api${path}`, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` }, body: JSON.stringify(body) });
-  if (!res.ok) throw Object.assign(new Error(await res.text()), { status: res.status });
+  if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
 async function apiPost(path: string, body: object) {
   const res = await fetch(`/api${path}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` }, body: JSON.stringify(body) });
-  if (!res.ok) throw Object.assign(new Error(await res.text()), { status: res.status });
+  if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
 export default function AdminFeatureControl() {
   const queryClient = useQueryClient();
-  const bulkRateLimit = useRateLimit();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -77,7 +74,7 @@ export default function AdminFeatureControl() {
       queryClient.invalidateQueries({ queryKey: ["feature-control"] });
       toast.success("Feature updated");
     },
-    onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to update feature")),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const bulkMutation = useMutation({
@@ -89,7 +86,7 @@ export default function AdminFeatureControl() {
       setBulkDialog(false);
       setSelected(new Set());
     },
-    onError: (e: unknown) => { if (isRateLimitError(e)) bulkRateLimit.trigger(); toast.error(getApiErrorMessage(e, "Failed to bulk update features")); },
+    onError: (e: any) => toast.error(e.message),
   });
 
   function toggleFeature(merchantId: number, key: FeatureKey, currentValue: boolean) {
@@ -280,12 +277,11 @@ export default function AdminFeatureControl() {
               <span className="text-sm">{bulkEnabled ? "Enable" : "Disable"} for selected merchants</span>
             </div>
           </div>
-          <RateLimitBanner secondsLeft={bulkRateLimit.secondsLeft} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkDialog(false)}>Cancel</Button>
             <Button
               onClick={() => bulkMutation.mutate({ merchantIds: Array.from(selected), feature: bulkFeature, enabled: bulkEnabled })}
-              disabled={bulkMutation.isPending || bulkRateLimit.isRateLimited}
+              disabled={bulkMutation.isPending}
             >
               {bulkMutation.isPending ? "Updating..." : "Apply"}
             </Button>

@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Shield, Search, Users, Edit2, ShieldCheck, ShieldAlert, User } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { getApiErrorMessage } from "@/lib/utils";
 
 const ROLE_CONFIG: Record<string, { label: string; icon: typeof Shield; color: string }> = {
   admin:    { label: "Admin",    icon: ShieldCheck, color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
@@ -71,7 +70,7 @@ export default function AdminUserRoles() {
         setNewRole("");
         qc.invalidateQueries({ queryKey: getListUsersQueryKey() });
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to update role")),
+      onError: () => toast.error("Failed to update role"),
     });
   };
 

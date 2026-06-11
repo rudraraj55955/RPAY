@@ -11,15 +11,9 @@ import {
   useUpdateMerchantBranding, useGetMerchantPlanUsageAdmin,
   useGetAdminMerchantCallbackSecret, useResetAdminMerchantCallbackSecret,
   useUpdateMerchantCallbackWindow,
-  useGetAdminMerchantWebhookUrl, useUpdateAdminMerchantWebhookUrl, useDeleteAdminMerchantWebhookUrl,
-  getGetAdminMerchantWebhookUrlQueryKey,
   useScheduleMerchantPlanRenewal, useGetMerchant,
-  useSendSecurityReminder,
   getListMerchantsQueryKey,
   listMerchants,
-  useListCallbackLogs,
-  useGetAdminMerchantCredentialEvents,
-  useRetryCallback,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -34,11 +28,9 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw, Upload, Loader2, X, Info, KeyRound, Clock, BellOff, Bell, Globe, Pencil, Webhook, ExternalLink, Trash2 } from "lucide-react";
+import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw, Upload, Loader2, X, Info, KeyRound, Clock, BellOff } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
-import { getApiErrorMessage, isRateLimitError } from "@/lib/utils";
-import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
 
 const ACTION_COLOR: Record<string, string> = {
   assigned: "text-sky-400",
@@ -51,12 +43,6 @@ const ACTION_COLOR: Record<string, string> = {
   removed: "text-muted-foreground",
 };
 
-const ADMIN_CRED_EVENT_META: Record<string, { label: string; Icon: React.ElementType; color: string; dotColor: string }> = {
-  callback_secret_rotated: { label: "Callback Secret Rotated", Icon: Webhook,   color: "text-sky-400",     dotColor: "bg-sky-500" },
-  api_key_generated:       { label: "API Key Generated",        Icon: KeyRound,  color: "text-emerald-400", dotColor: "bg-emerald-500" },
-  api_key_revoked:         { label: "API Key Revoked",          Icon: KeyRound,  color: "text-rose-400",    dotColor: "bg-rose-500" },
-};
-
 const PLAN_SUB_STATUS_COLOR: Record<string, string> = {
   active: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
   suspended: "text-orange-400 border-orange-500/30 bg-orange-500/10",
@@ -66,8 +52,6 @@ const PLAN_SUB_STATUS_COLOR: Record<string, string> = {
 export default function AdminMerchants() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
-  const assignPlanRateLimit = useRateLimit();
-  const planActionRateLimit = useRateLimit();
   const [search, setSearch] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("search") ?? "";
@@ -75,16 +59,7 @@ export default function AdminMerchants() {
   const [status, setStatus] = useState("all");
   const [expiryStatus, setExpiryStatus] = useState<"" | "expiring" | "expired">("");
   const [rejectionReasonFilter, setRejectionReasonFilter] = useState("");
-  const [callbackSecretFilter, setCallbackSecretFilter] = useState<"" | "true" | "false">(() => {
-    const params = new URLSearchParams(window.location.search);
-    const v = params.get("callbackSecretSet");
-    if (v === "true" || v === "false") return v;
-    return "";
-  });
-  const [secretOverdueFilter, setSecretOverdueFilter] = useState<"" | "true">(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("secretOverdue") === "true" ? "true" : "";
-  });
+  const [callbackSecretFilter, setCallbackSecretFilter] = useState<"" | "true" | "false">("");
   const [page, setPage] = useState(1);
   const [rejectId, setRejectId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -106,7 +81,7 @@ export default function AdminMerchants() {
       setBrandingLogoError(false);
       toast.success("Logo uploaded");
     },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Logo upload failed")),
+    onError: () => toast.error("Logo upload failed"),
   });
   const [assignPlanMerchant, setAssignPlanMerchant] = useState<{ id: number; name: string; callbackTimestampWindowSeconds?: number | null } | null>(null);
   const [windowEditMode, setWindowEditMode] = useState(false);
@@ -117,15 +92,12 @@ export default function AdminMerchants() {
   const [assignScheduledRenewalAt, setAssignScheduledRenewalAt] = useState<string>("");
   const [actionNotes, setActionNotes] = useState<string>("");
   const [showHistory, setShowHistory] = useState(false);
-  const [showCredHistory, setShowCredHistory] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"upgrade" | "downgrade" | "suspend" | "reinstate" | "renew" | "schedule-renewal" | null>(null);
   const [renewExpiresAt, setRenewExpiresAt] = useState<string>("");
   const [actionExpiresAt, setActionExpiresAt] = useState<string>("");
   const [renewScheduledRenewalAt, setRenewScheduledRenewalAt] = useState<string>("");
   const [scheduleRenewalDate, setScheduleRenewalDate] = useState<string>("");
   const [confirmSecretReset, setConfirmSecretReset] = useState(false);
-  const [webhookUrlEditMode, setWebhookUrlEditMode] = useState(false);
-  const [webhookUrlInput, setWebhookUrlInput] = useState("");
 
   // Parse ?open=<merchantId> once on mount (e.g. linked from QR/VA detail panels)
   const [deepLinkId] = useState<number | null>(() => {
@@ -146,7 +118,6 @@ export default function AdminMerchants() {
   const [bulkStatusAction, setBulkStatusAction] = useState<"approve" | "suspend" | "reinstate" | null>(null);
   const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState("");
-  const [securityReminderOpen, setSecurityReminderOpen] = useState(false);
 
   // Bulk result summary state
   const [bulkResultOpen, setBulkResultOpen] = useState(false);
@@ -177,7 +148,7 @@ export default function AdminMerchants() {
   const [bulkUndoSecondsLeft, setBulkUndoSecondsLeft] = useState(0);
   const [bulkUndoUsed, setBulkUndoUsed] = useState(false);
 
-  const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined, callbackSecretSet: callbackSecretFilter as any || undefined, secretOverdue: secretOverdueFilter as any || undefined });
+  const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined, callbackSecretSet: callbackSecretFilter as any || undefined });
   const { data: plans } = useListPlans();
   const { data: currentMerchantPlan, isLoading: planLoading } = useGetMerchantPlan(
     assignPlanMerchant?.id ?? 0,
@@ -189,35 +160,11 @@ export default function AdminMerchants() {
   );
   const { data: merchantPlanUsage } = useGetMerchantPlanUsageAdmin(
     assignPlanMerchant?.id ?? 0,
-    { query: { enabled: !!assignPlanMerchant, queryKey: ["getMerchantPlanUsageAdmin", assignPlanMerchant?.id ?? 0] } }
+    { query: { enabled: !!assignPlanMerchant && !!currentMerchantPlan, queryKey: ["getMerchantPlanUsageAdmin", assignPlanMerchant?.id ?? 0] } }
   );
   const { data: callbackSecretStatus, refetch: refetchCallbackSecret } = useGetAdminMerchantCallbackSecret(
     assignPlanMerchant?.id ?? 0,
     { query: { enabled: !!assignPlanMerchant, queryKey: ["getAdminMerchantCallbackSecret", assignPlanMerchant?.id ?? 0] } }
-  );
-  const { data: merchantWebhookUrl, refetch: refetchWebhookUrl } = useGetAdminMerchantWebhookUrl(
-    assignPlanMerchant?.id ?? 0,
-    { query: { enabled: !!assignPlanMerchant, queryKey: getGetAdminMerchantWebhookUrlQueryKey(assignPlanMerchant?.id ?? 0) } }
-  );
-  const { data: recentWebhookLogs, isLoading: webhookLogsLoading, refetch: refetchWebhookLogs } = useListCallbackLogs(
-    { merchantId: assignPlanMerchant?.id, limit: 10 },
-    { query: { enabled: !!assignPlanMerchant, queryKey: ["listCallbackLogs", assignPlanMerchant?.id] } }
-  );
-  const { mutate: retryWebhookDelivery, isPending: isRetryingWebhook, variables: retryingWebhookVars } = useRetryCallback({
-    mutation: {
-      onSuccess: () => {
-        toast.success("Webhook delivery retry triggered");
-        refetchWebhookLogs();
-      },
-      onError: (err: unknown) => {
-        toast.error(getApiErrorMessage(err, "Failed to retry webhook delivery"));
-      },
-    },
-  });
-  const { data: adminCredEventData, isLoading: adminCredEventsLoading } = useGetAdminMerchantCredentialEvents(
-    assignPlanMerchant?.id ?? 0,
-    {},
-    { query: { enabled: !!assignPlanMerchant && showCredHistory, queryKey: ["getAdminMerchantCredentialEvents", assignPlanMerchant?.id] } }
   );
   // Fetch the deep-link merchant by ID so the panel opens regardless of which page they're on
   const { data: deepLinkMerchant } = useGetMerchant(
@@ -226,8 +173,6 @@ export default function AdminMerchants() {
   );
   const resetCallbackSecretMutation = useResetAdminMerchantCallbackSecret();
   const updateCallbackWindowMutation = useUpdateMerchantCallbackWindow();
-  const updateWebhookUrlMutation = useUpdateAdminMerchantWebhookUrl();
-  const deleteWebhookUrlMutation = useDeleteAdminMerchantWebhookUrl();
   const updateBrandingMutation = useUpdateMerchantBranding();
   const approveMutation = useApproveMerchant();
   const rejectMutation = useRejectMerchant();
@@ -245,7 +190,6 @@ export default function AdminMerchants() {
   const bulkApproveMutation = useBulkApproveMerchants();
   const bulkSuspendMutation = useBulkSuspendMerchants();
   const bulkRejectMutation = useBulkRejectMerchants();
-  const securityReminderMutation = useSendSecurityReminder();
 
   // Clean ?open= param from the URL immediately so back-navigation doesn't re-trigger the panel
   useEffect(() => {
@@ -335,7 +279,7 @@ export default function AdminMerchants() {
           setBulkUndoState(null);
           toast.success(`Undo: approved ${result.updated} merchant${result.updated !== 1 ? "s" : ""}`);
         },
-        onError: (err: unknown) => { setBulkUndoUsed(false); toast.error(getApiErrorMessage(err, "Undo failed")); },
+        onError: () => { setBulkUndoUsed(false); toast.error("Undo failed"); },
       });
     } else {
       bulkSuspendMutation.mutate({ data: { merchantIds: ids, action } }, {
@@ -347,7 +291,7 @@ export default function AdminMerchants() {
           setBulkUndoState(null);
           toast.success(`Undo: ${action === "suspend" ? "suspended" : "reinstated"} ${result.updated} merchant${result.updated !== 1 ? "s" : ""}`);
         },
-        onError: (err: unknown) => { setBulkUndoUsed(false); toast.error(getApiErrorMessage(err, "Undo failed")); },
+        onError: () => { setBulkUndoUsed(false); toast.error("Undo failed"); },
       });
     }
   };
@@ -385,29 +329,29 @@ export default function AdminMerchants() {
       const mutation = action === "upgrade" ? upgradeMutation : downgradeMutation;
       mutation.mutate({ id, data: { planId: parseInt(selectedPlanId), expiresAt: actionExpiresAt || null, notes } }, {
         onSuccess: () => afterSuccess(`Plan ${action}d`, () => setSelectedPlanId("")),
-        onError: (err: unknown) => { if (isRateLimitError(err)) planActionRateLimit.trigger(); toast.error(getApiErrorMessage(err, `Failed to ${action} plan`)); },
+        onError: () => toast.error(`Failed to ${action} plan`),
       });
     } else if (action === "suspend") {
       suspendPlanMutation.mutate({ id, data: { notes } }, {
         onSuccess: () => afterSuccess("Plan suspended"),
-        onError: (err: unknown) => { if (isRateLimitError(err)) planActionRateLimit.trigger(); toast.error(getApiErrorMessage(err, "Failed to suspend plan")); },
+        onError: () => toast.error("Failed to suspend plan"),
       });
     } else if (action === "reinstate") {
       reinstatePlanMutation.mutate({ id, data: { notes } }, {
         onSuccess: () => afterSuccess("Plan reinstated"),
-        onError: (err: unknown) => { if (isRateLimitError(err)) planActionRateLimit.trigger(); toast.error(getApiErrorMessage(err, "Failed to reinstate plan")); },
+        onError: () => toast.error("Failed to reinstate plan"),
       });
     } else if (action === "renew") {
       const defaultExpiry = new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
       renewMutation.mutate({ id, data: { expiresAt: renewExpiresAt || defaultExpiry, scheduledRenewalAt: renewScheduledRenewalAt || null, notes } }, {
         onSuccess: () => afterSuccess("Plan renewed", () => { setRenewExpiresAt(""); setRenewScheduledRenewalAt(""); }),
-        onError: (err: unknown) => { if (isRateLimitError(err)) planActionRateLimit.trigger(); toast.error(getApiErrorMessage(err, "Failed to renew plan")); },
+        onError: () => toast.error("Failed to renew plan"),
       });
     } else if (action === "schedule-renewal") {
       const dateVal = scheduleRenewalDate || null;
       scheduleRenewalMutation.mutate({ id, data: { scheduledRenewalAt: dateVal } }, {
         onSuccess: () => afterSuccess(dateVal ? "Renewal scheduled" : "Scheduled renewal cancelled", () => setScheduleRenewalDate("")),
-        onError: (err: unknown) => { if (isRateLimitError(err)) planActionRateLimit.trigger(); toast.error(getApiErrorMessage(err, "Failed to update scheduled renewal")); },
+        onError: () => toast.error("Failed to update scheduled renewal"),
       });
     }
   };
@@ -420,7 +364,7 @@ export default function AdminMerchants() {
         qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
         setSingleActionResult({ open: true, title: "Merchant Approved", merchantName: merchant.businessName, newStatus: merchant.status, timestamp: new Date().toISOString() });
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to approve merchant")),
+      onError: () => toast.error("Failed to approve merchant"),
     });
   };
 
@@ -430,7 +374,7 @@ export default function AdminMerchants() {
         qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
         setSingleActionResult({ open: true, title: "Merchant Suspended", merchantName: merchant.businessName, newStatus: merchant.status, timestamp: new Date().toISOString() });
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to suspend merchant")),
+      onError: () => toast.error("Failed to suspend merchant"),
     });
   };
 
@@ -440,7 +384,7 @@ export default function AdminMerchants() {
         qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
         setSingleActionResult({ open: true, title: "Merchant Reinstated", merchantName: merchant.businessName, newStatus: merchant.status, timestamp: new Date().toISOString() });
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to unsuspend merchant")),
+      onError: () => toast.error("Failed to unsuspend merchant"),
     });
   };
 
@@ -452,7 +396,7 @@ export default function AdminMerchants() {
         qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
         setSingleActionResult({ open: true, title: "Merchant Rejected", merchantName: merchant.businessName, newStatus: merchant.status, timestamp: new Date().toISOString() });
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to reject merchant")),
+      onError: () => toast.error("Failed to reject merchant"),
     });
   };
 
@@ -478,7 +422,7 @@ export default function AdminMerchants() {
         qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
         closeBranding();
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to update branding")),
+      onError: () => toast.error("Failed to update branding"),
     });
   };
 
@@ -491,7 +435,6 @@ export default function AdminMerchants() {
     setAssignNotes("");
     setAssignScheduledRenewalAt("");
     setShowHistory(false);
-    setShowCredHistory(false);
   };
 
   const closeAssignPlan = () => {
@@ -501,14 +444,11 @@ export default function AdminMerchants() {
     setAssignNotes("");
     setAssignScheduledRenewalAt("");
     setShowHistory(false);
-    setShowCredHistory(false);
     setConfirmSecretReset(false);
     setConfirmAction(null);
     setScheduleRenewalDate("");
     setWindowEditMode(false);
     setWindowInput("");
-    setWebhookUrlEditMode(false);
-    setWebhookUrlInput("");
   };
 
   const handleAssignPlan = () => {
@@ -532,7 +472,7 @@ export default function AdminMerchants() {
         qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
         closeAssignPlan();
       },
-      onError: (err: unknown) => { if (isRateLimitError(err)) assignPlanRateLimit.trigger(); toast.error(getApiErrorMessage(err, "Failed to assign plan")); },
+      onError: () => toast.error("Failed to assign plan"),
     });
   };
 
@@ -575,7 +515,7 @@ export default function AdminMerchants() {
           toast.warning(label);
         }
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Bulk plan assignment failed")),
+      onError: () => toast.error("Bulk plan assignment failed"),
     });
   };
 
@@ -615,7 +555,7 @@ export default function AdminMerchants() {
             toast.warning(label);
           }
         },
-        onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Bulk approve failed")),
+        onError: () => toast.error("Bulk approve failed"),
       });
     } else {
       const actionLabel = bulkStatusAction === "suspend" ? "suspended" : "reinstated";
@@ -646,29 +586,12 @@ export default function AdminMerchants() {
             toast.warning(label);
           }
         },
-        onError: (err: unknown) => toast.error(getApiErrorMessage(err, `Bulk ${capturedAction} failed`)),
+        onError: () => toast.error(`Bulk ${capturedAction} failed`),
       });
     }
   };
 
   const isBulkStatusPending = bulkApproveMutation.isPending || bulkSuspendMutation.isPending;
-
-  const handleSecurityReminder = () => {
-    const ids = Array.from(selected);
-    securityReminderMutation.mutate({ data: { merchantIds: ids } }, {
-      onSuccess: (result) => {
-        setSecurityReminderOpen(false);
-        if (result.sent === 0) {
-          toast.info("All selected merchants already have a callback secret configured");
-        } else if (result.skipped > 0) {
-          toast.success(`Reminder sent to ${result.sent} merchant${result.sent !== 1 ? "s" : ""} — ${result.skipped} already had a secret`);
-        } else {
-          toast.success(`Security reminder sent to ${result.sent} merchant${result.sent !== 1 ? "s" : ""}`);
-        }
-      },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to send security reminder")),
-    });
-  };
 
   const handleBulkReject = () => {
     if (!bulkRejectReason.trim() || selected.size === 0) return;
@@ -686,7 +609,7 @@ export default function AdminMerchants() {
         clearSelection();
         qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Bulk reject failed")),
+      onError: () => toast.error("Bulk reject failed"),
     });
   };
 
@@ -710,7 +633,7 @@ export default function AdminMerchants() {
           const label = `Retry: assigned plan to ${updated} merchant${updated !== 1 ? "s" : ""} — ${failed} failed`;
           if (failed === 0) toast.success(label); else toast.warning(label);
         },
-        onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Retry bulk plan assignment failed")),
+        onError: () => toast.error("Retry bulk plan assignment failed"),
       });
     } else if (bulkRetryContext.type === "approve") {
       bulkApproveMutation.mutate({ data: { merchantIds: failedIds } }, {
@@ -724,7 +647,7 @@ export default function AdminMerchants() {
           const label = `Retry: approved ${updated} merchant${updated !== 1 ? "s" : ""} — ${failed} failed`;
           if (failed === 0) toast.success(label); else toast.warning(label);
         },
-        onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Retry bulk approve failed")),
+        onError: () => toast.error("Retry bulk approve failed"),
       });
     } else if (bulkRetryContext.type === "suspend" || bulkRetryContext.type === "reinstate") {
       const capturedAction = bulkRetryContext.type;
@@ -740,7 +663,7 @@ export default function AdminMerchants() {
           const label = `Retry: ${actionLabel} ${updated} merchant${updated !== 1 ? "s" : ""} — ${failed} failed`;
           if (failed === 0) toast.success(label); else toast.warning(label);
         },
-        onError: (err: unknown) => toast.error(getApiErrorMessage(err, `Retry bulk ${capturedAction} failed`)),
+        onError: () => toast.error(`Retry bulk ${capturedAction} failed`),
       });
     }
   };
@@ -787,7 +710,7 @@ export default function AdminMerchants() {
 
   const handleSelectAllPages = async () => {
     try {
-      const allData = await listMerchants({ status: status as any, search, page: 1, limit: total, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined, callbackSecretSet: callbackSecretFilter as any || undefined, secretOverdue: secretOverdueFilter as any || undefined });
+      const allData = await listMerchants({ status: status as any, search, page: 1, limit: total, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined });
       setSelected(new Set(allData.data.map(m => m.id)));
       setSelectAllMode(true);
     } catch {
@@ -920,17 +843,6 @@ export default function AdminMerchants() {
               <KeyRound className="w-3.5 h-3.5" />
               Secret Set
             </button>
-            <button
-              onClick={() => { setSecretOverdueFilter(secretOverdueFilter === "true" ? "" : "true"); setPage(1); clearSelection(); }}
-              className={`px-3 py-1.5 rounded-md text-sm transition-colors border flex items-center gap-1.5 ${
-                secretOverdueFilter === "true"
-                  ? "bg-rose-500/20 text-rose-400 border-rose-500/40"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-transparent"
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              Secret Overdue
-            </button>
           </div>
         </div>
         {(status === "rejected" || status === "all") && (
@@ -1002,15 +914,6 @@ export default function AdminMerchants() {
               >
                 <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                 Assign Plan
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-                onClick={() => setSecurityReminderOpen(true)}
-              >
-                <Bell className="w-3.5 h-3.5 mr-1.5" />
-                Security Reminder
               </Button>
               <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={clearSelection}>
                 Clear
@@ -1145,36 +1048,17 @@ export default function AdminMerchants() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col gap-1">
-                      {merchant.callbackSecretSet ? (
-                        <Badge variant="outline" className="text-xs py-0 text-emerald-400 border-emerald-500/30 bg-emerald-500/10 gap-1">
-                          <KeyRound className="w-3 h-3" />
-                          Set
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs py-0 text-rose-400 border-rose-500/30 bg-rose-500/10 gap-1">
-                          <KeyRound className="w-3 h-3" />
-                          Not Set
-                        </Badge>
-                      )}
-                      {merchant.callbackSecretSet && merchant.callbackSecretUpdatedAt && (() => {
-                        const ageDays = Math.floor((now - new Date(merchant.callbackSecretUpdatedAt).getTime()) / 86400000);
-                        const isRed = ageDays >= 90;
-                        const isAmber = ageDays >= 75 && ageDays < 90;
-                        return (
-                          <span
-                            title={`Secret last rotated ${ageDays} day${ageDays !== 1 ? "s" : ""} ago${isRed ? " — rotation overdue" : isAmber ? " — rotation due soon" : ""}`}
-                            className={`text-xs ${isRed ? "text-rose-400" : isAmber ? "text-amber-400" : "text-muted-foreground"}`}
-                          >
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3 shrink-0" />
-                              {ageDays === 0 ? "today" : `${ageDays}d ago`}
-                              {isRed && <span className="font-semibold">(overdue)</span>}
-                            </span>
-                          </span>
-                        );
-                      })()}
-                    </div>
+                    {merchant.callbackSecretSet ? (
+                      <Badge variant="outline" className="text-xs py-0 text-emerald-400 border-emerald-500/30 bg-emerald-500/10 gap-1">
+                        <KeyRound className="w-3 h-3" />
+                        Set
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs py-0 text-rose-400 border-rose-500/30 bg-rose-500/10 gap-1">
+                        <KeyRound className="w-3 h-3" />
+                        Not Set
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">₹{Number(merchant.balance).toLocaleString()}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{format(new Date(merchant.createdAt), "MMM d, yyyy")}</TableCell>
@@ -1269,47 +1153,6 @@ export default function AdminMerchants() {
               disabled={!bulkRejectReason.trim() || bulkRejectMutation.isPending}
             >
               {bulkRejectMutation.isPending ? "Rejecting..." : `Reject ${selected.size} Merchant${selected.size !== 1 ? "s" : ""}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Security Reminder Dialog */}
-      <Dialog open={securityReminderOpen} onOpenChange={open => { if (!open) setSecurityReminderOpen(false); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="w-4 h-4 text-amber-400" />
-              Send Security Reminder
-            </DialogTitle>
-            <DialogDescription>
-              An in-app notification will be sent to each selected merchant that has not yet configured a callback signing secret. Merchants who already have a secret will be skipped automatically.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-300 space-y-1">
-            <p className="font-medium">Notification content</p>
-            <p className="text-amber-300/80">
-              <span className="font-medium">Title:</span> Action Required: Set Up Your Callback Secret
-            </p>
-            <p className="text-amber-300/80 text-xs leading-relaxed">
-              <span className="font-medium">Body:</span> Your account does not have a callback signing secret configured. Setting up a secret lets RasoKart sign every webhook payload so your server can verify authenticity.
-            </p>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {selected.size} merchant{selected.size !== 1 ? "s" : ""} selected — only those without a secret will receive this notification.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSecurityReminderOpen(false)}>Cancel</Button>
-            <Button
-              className="bg-amber-500 hover:bg-amber-600 text-black"
-              onClick={handleSecurityReminder}
-              disabled={securityReminderMutation.isPending}
-            >
-              {securityReminderMutation.isPending ? (
-                <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Sending…</>
-              ) : (
-                <><Bell className="w-3.5 h-3.5 mr-1.5" />Send Reminder</>
-              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1627,48 +1470,6 @@ export default function AdminMerchants() {
       <Dialog open={!!assignPlanMerchant} onOpenChange={closeAssignPlan}>
         <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Assign Plan — {assignPlanMerchant?.name}</DialogTitle></DialogHeader>
-
-          {/* Quick resource summary */}
-          {merchantPlanUsage && (
-            <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground border border-border/40 rounded-md bg-muted/10 px-3 py-2">
-              <button
-                type="button"
-                className="font-semibold text-foreground hover:text-primary transition-colors"
-                onClick={() => {
-                  const name = encodeURIComponent(assignPlanMerchant?.name ?? "");
-                  closeAssignPlan();
-                  navigate(`/admin/qr-codes?merchant=${name}`);
-                }}
-              >
-                {merchantPlanUsage.dynamicQr.used + merchantPlanUsage.staticQr.used} QR codes
-              </button>
-              <span className="text-muted-foreground/40">·</span>
-              <button
-                type="button"
-                className="font-semibold text-foreground hover:text-primary transition-colors"
-                onClick={() => {
-                  const name = encodeURIComponent(assignPlanMerchant?.name ?? "");
-                  closeAssignPlan();
-                  navigate(`/admin/virtual-accounts?merchant=${name}`);
-                }}
-              >
-                {merchantPlanUsage.virtualAccount.used} Virtual Accounts
-              </button>
-              <span className="text-muted-foreground/40">·</span>
-              <button
-                type="button"
-                className="font-semibold text-foreground hover:text-primary transition-colors"
-                onClick={() => {
-                  const name = encodeURIComponent(assignPlanMerchant?.name ?? "");
-                  closeAssignPlan();
-                  navigate(`/admin/payment-links?merchant=${name}`);
-                }}
-              >
-                {merchantPlanUsage.paymentLink.used} Payment Links
-              </button>
-            </div>
-          )}
-
           <div className="space-y-4 py-2">
             {/* Current Plan */}
             {planLoading ? (
@@ -1865,45 +1666,17 @@ export default function AdminMerchants() {
               {callbackSecretStatus == null ? (
                 <div className="animate-pulse h-5 bg-muted/30 rounded w-32" />
               ) : callbackSecretStatus.isSet ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span className="text-xs text-emerald-400 font-medium">Set</span>
-                    </div>
-                    <span className="font-mono text-xs text-muted-foreground">{callbackSecretStatus.secretPrefix}</span>
-                    {callbackSecretStatus.lastRotatedAt && (
-                      <span className="text-xs text-muted-foreground">
-                        Last rotated {formatDistanceToNow(new Date(callbackSecretStatus.lastRotatedAt), { addSuffix: true })}
-                      </span>
-                    )}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="text-xs text-emerald-400 font-medium">Set</span>
                   </div>
-                  {callbackSecretStatus.lastRotatedAt && (() => {
-                    const ageDays = Math.floor((now - new Date(callbackSecretStatus.lastRotatedAt).getTime()) / 86400000);
-                    const deadline = 90;
-                    const daysLeft = deadline - ageDays;
-                    if (ageDays >= 90) {
-                      return (
-                        <div className="flex items-center gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-2.5 py-2 text-xs text-rose-400">
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                          <span>
-                            <span className="font-semibold">Rotation overdue</span> — secret is {ageDays} days old (90-day limit exceeded)
-                          </span>
-                        </div>
-                      );
-                    }
-                    if (ageDays >= 75) {
-                      return (
-                        <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-400">
-                          <Clock className="w-3.5 h-3.5 shrink-0" />
-                          <span>
-                            <span className="font-semibold">Rotation due soon</span> — secret is {ageDays} days old, {daysLeft} day{daysLeft !== 1 ? "s" : ""} until 90-day deadline
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                  <span className="font-mono text-xs text-muted-foreground">{callbackSecretStatus.secretPrefix}</span>
+                  {callbackSecretStatus.lastRotatedAt && (
+                    <span className="text-xs text-muted-foreground">
+                      Last rotated {formatDistanceToNow(new Date(callbackSecretStatus.lastRotatedAt), { addSuffix: true })}
+                    </span>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
@@ -1951,7 +1724,7 @@ export default function AdminMerchants() {
                             setConfirmSecretReset(false);
                             refetchCallbackSecret();
                           },
-                          onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to reset callback secret")),
+                          onError: () => toast.error("Failed to reset callback secret"),
                         });
                       }}
                     >
@@ -2041,7 +1814,7 @@ export default function AdminMerchants() {
                               toast.success(parsed === null ? "Replay-protection window reset to default" : `Replay-protection window set to ${parsed}s`);
                               qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
                             },
-                            onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to update replay-protection window")),
+                            onError: () => toast.error("Failed to update replay-protection window"),
                           }
                         );
                       }}
@@ -2066,7 +1839,7 @@ export default function AdminMerchants() {
                                 toast.success("Replay-protection window reset to default");
                                 qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
                               },
-                              onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to reset replay-protection window")),
+                              onError: () => toast.error("Failed to reset replay-protection window"),
                             }
                           );
                         }}
@@ -2075,178 +1848,6 @@ export default function AdminMerchants() {
                       </Button>
                     )}
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Webhook URL */}
-            <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Webhook URL</p>
-              </div>
-              {!webhookUrlEditMode ? (
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {merchantWebhookUrl?.url ? (
-                      <span className="font-mono text-xs text-foreground truncate">{merchantWebhookUrl.url}</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Not configured</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {merchantWebhookUrl?.url && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-                        disabled={deleteWebhookUrlMutation.isPending}
-                        onClick={() => {
-                          if (!assignPlanMerchant) return;
-                          deleteWebhookUrlMutation.mutate(
-                            { id: assignPlanMerchant.id },
-                            {
-                              onSuccess: () => {
-                                toast.success("Webhook URL removed — merchant notified by email");
-                                refetchWebhookUrl();
-                              },
-                              onError: (err: unknown) => {
-                                toast.error(getApiErrorMessage(err, "Failed to remove webhook URL"));
-                              },
-                            }
-                          );
-                        }}
-                      >
-                        {deleteWebhookUrlMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
-                        Remove
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setWebhookUrlInput(merchantWebhookUrl?.url ?? "");
-                        setWebhookUrlEditMode(true);
-                      }}
-                    >
-                      <Pencil className="w-3.5 h-3.5 mr-1" />
-                      {merchantWebhookUrl?.url ? "Edit" : "Set URL"}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Input
-                    className="h-8 text-sm font-mono"
-                    placeholder="https://yourapp.com/webhook"
-                    value={webhookUrlInput}
-                    onChange={e => setWebhookUrlInput(e.target.value)}
-                    type="url"
-                  />
-                  <p className="text-xs text-muted-foreground">Only HTTPS URLs are accepted. The merchant will be notified by email.</p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => { setWebhookUrlEditMode(false); setWebhookUrlInput(""); }}
-                      disabled={updateWebhookUrlMutation.isPending}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
-                      disabled={updateWebhookUrlMutation.isPending || !webhookUrlInput.trim()}
-                      onClick={() => {
-                        if (!assignPlanMerchant) return;
-                        updateWebhookUrlMutation.mutate(
-                          { id: assignPlanMerchant.id, data: { url: webhookUrlInput.trim() } },
-                          {
-                            onSuccess: () => {
-                              toast.success("Webhook URL updated — merchant notified by email");
-                              setWebhookUrlEditMode(false);
-                              setWebhookUrlInput("");
-                              refetchWebhookUrl();
-                            },
-                            onError: (err: unknown) => {
-                              toast.error(getApiErrorMessage(err, "Failed to update webhook URL"));
-                            },
-                          }
-                        );
-                      }}
-                    >
-                      {updateWebhookUrlMutation.isPending ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</> : "Save"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Recent Webhook Deliveries */}
-            <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Webhook className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recent Webhook Deliveries</p>
-                </div>
-                {assignPlanMerchant && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
-                    onClick={() => navigate(`/admin/webhook-logs?merchantId=${assignPlanMerchant.id}`)}
-                  >
-                    View all <ExternalLink className="w-3 h-3" />
-                  </Button>
-                )}
-              </div>
-              {webhookLogsLoading ? (
-                <div className="space-y-1.5 pt-1">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="h-8 bg-muted/30 rounded animate-pulse" />
-                  ))}
-                </div>
-              ) : !recentWebhookLogs?.data?.length ? (
-                <p className="text-xs text-muted-foreground italic py-1">No webhook deliveries yet for this merchant.</p>
-              ) : (
-                <div className="rounded-lg border border-border/40 overflow-hidden mt-1">
-                  {(recentWebhookLogs.data as any[]).map((log: any, idx: number) => (
-                    <div
-                      key={log.id}
-                      className={`flex items-center gap-3 px-3 py-2 text-xs ${idx < recentWebhookLogs.data.length - 1 ? "border-b border-border/30" : ""} ${idx % 2 === 0 ? "bg-muted/10" : ""}`}
-                    >
-                      <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${log.status === "success" ? "bg-emerald-500/10 text-emerald-400" : log.status === "failed" ? "bg-rose-500/10 text-rose-400" : "bg-amber-500/10 text-amber-400"}`}>
-                        {log.status === "success" ? "✓" : log.status === "failed" ? "✗" : "↻"} {log.status}
-                      </span>
-                      <span className="text-muted-foreground/70 font-mono shrink-0">
-                        {log.httpStatus != null ? (
-                          <span className={log.httpStatus < 300 ? "text-emerald-400" : log.httpStatus < 500 ? "text-amber-400" : "text-rose-400"}>
-                            {log.httpStatus}
-                          </span>
-                        ) : "—"}
-                      </span>
-                      <span className="flex-1 text-muted-foreground/60 truncate">
-                        {log.eventType ?? "payment.received"}
-                      </span>
-                      <span className="shrink-0 text-muted-foreground/50">
-                        {format(new Date(log.createdAt), "MMM d, HH:mm")}
-                      </span>
-                      {log.status === "failed" && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-5 w-5 shrink-0 text-muted-foreground hover:text-amber-400"
-                          title="Retry delivery"
-                          disabled={isRetryingWebhook && retryingWebhookVars?.id === log.id}
-                          onClick={() => retryWebhookDelivery({ id: log.id })}
-                        >
-                          {isRetryingWebhook && retryingWebhookVars?.id === log.id
-                            ? <Loader2 className="w-3 h-3 animate-spin" />
-                            : <RotateCcw className="w-3 h-3" />}
-                        </Button>
-                      )}
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
@@ -2395,10 +1996,9 @@ export default function AdminMerchants() {
                       <Label className="text-xs">Notes (optional)</Label>
                       <Input className="h-8 text-sm" value={actionNotes} onChange={e => setActionNotes(e.target.value)} placeholder="Internal note..." />
                     </div>
-                    <RateLimitBanner secondsLeft={planActionRateLimit.secondsLeft} />
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => { setConfirmAction(null); setActionNotes(""); setActionExpiresAt(""); setScheduleRenewalDate(""); }}>Cancel</Button>
-                      <Button size="sm" onClick={() => handlePlanAction(confirmAction)} disabled={isActionPending || planActionRateLimit.isRateLimited || ((confirmAction === "upgrade" || confirmAction === "downgrade") && (!selectedPlanId || (() => { const tp = plans?.find(p => String(p.id) === selectedPlanId); return !!(tp && tp.monthlyFee !== "0" && tp.name.toLowerCase() !== "custom" && !actionExpiresAt); })()))}>
+                      <Button size="sm" onClick={() => handlePlanAction(confirmAction)} disabled={isActionPending || ((confirmAction === "upgrade" || confirmAction === "downgrade") && (!selectedPlanId || (() => { const tp = plans?.find(p => String(p.id) === selectedPlanId); return !!(tp && tp.monthlyFee !== "0" && tp.name.toLowerCase() !== "custom" && !actionExpiresAt); })()))}>
                         {isActionPending ? "Processing..." : confirmAction === "schedule-renewal"
                           ? (scheduleRenewalDate ? "Set Auto-Renewal" : "Cancel Auto-Renewal")
                           : `Confirm ${confirmAction.charAt(0).toUpperCase() + confirmAction.slice(1)}`}
@@ -2562,76 +2162,7 @@ export default function AdminMerchants() {
                 ))}
               </div>
             )}
-
-            {/* Credential History toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-muted-foreground"
-              onClick={() => setShowCredHistory(h => !h)}
-            >
-              <KeyRound className="w-4 h-4 mr-2" />
-              {showCredHistory ? "Hide" : "Show"} Credential History
-            </Button>
-
-            {showCredHistory && (
-              <div>
-                {adminCredEventsLoading ? (
-                  <div className="py-6 text-center text-xs text-muted-foreground">Loading…</div>
-                ) : !adminCredEventData?.data?.length ? (
-                  <div className="py-6 flex flex-col items-center gap-2 text-muted-foreground">
-                    <KeyRound className="w-7 h-7 opacity-20" />
-                    <p className="text-xs">No credential events recorded yet</p>
-                  </div>
-                ) : (
-                  <div className="relative px-4 py-3">
-                    <div className="absolute left-[1.875rem] top-3 bottom-3 w-px bg-border/40" />
-                    <ul className="space-y-0">
-                      {adminCredEventData.data.map((event, idx) => {
-                        const isLast = idx === adminCredEventData.data.length - 1;
-                        const eventMeta = ADMIN_CRED_EVENT_META[event.eventType] ?? {
-                          label: event.eventType.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-                          color: "text-muted-foreground",
-                          dotColor: "bg-muted-foreground",
-                          Icon: KeyRound,
-                        };
-                        const EventIcon = eventMeta.Icon;
-                        return (
-                          <li key={event.id} className={`flex items-start gap-3 ${isLast ? "pb-0" : "pb-4"}`}>
-                            <div className="relative z-10 flex-shrink-0 w-4 h-4 mt-0.5 flex items-center justify-center">
-                              <span className={`w-2 h-2 rounded-full ring-2 ring-background ${eventMeta.dotColor}`} />
-                            </div>
-                            <div className="flex-1 min-w-0 pt-0.5">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <EventIcon className={`w-3 h-3 ${eventMeta.color} shrink-0`} />
-                                <span className={`text-xs font-medium ${eventMeta.color}`}>{eventMeta.label}</span>
-                                {event.keyPrefix && (
-                                  <code className="text-[10px] font-mono bg-muted/40 border border-border/40 px-1 py-0.5 rounded text-muted-foreground">
-                                    {event.keyPrefix}…
-                                  </code>
-                                )}
-                              </div>
-                              <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                                {format(new Date(event.createdAt), "dd MMM yyyy, HH:mm")}
-                                {" · "}
-                                {formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
-                              </p>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    {(adminCredEventData.total ?? 0) > (adminCredEventData.data.length ?? 0) && (
-                      <p className="text-[10px] text-muted-foreground/50 text-center mt-3">
-                        Showing {adminCredEventData.data.length} of {adminCredEventData.total} events
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-          <RateLimitBanner secondsLeft={assignPlanRateLimit.secondsLeft} />
           <DialogFooter>
             <Button variant="outline" onClick={closeAssignPlan}>Cancel</Button>
             {(() => {
@@ -2639,7 +2170,7 @@ export default function AdminMerchants() {
               const isPaid = plan && plan.monthlyFee !== "0" && plan.name.toLowerCase() !== "custom";
               const missingExpiry = isPaid && !expiresAt;
               return (
-                <Button onClick={handleAssignPlan} disabled={!selectedPlanId || !!missingExpiry || assignPlanMutation.isPending || assignPlanRateLimit.isRateLimited}>
+                <Button onClick={handleAssignPlan} disabled={!selectedPlanId || !!missingExpiry || assignPlanMutation.isPending}>
                   {assignPlanMutation.isPending ? "Assigning..." : currentMerchantPlan ? "Change Plan" : "Assign Plan"}
                 </Button>
               );

@@ -63,83 +63,55 @@ async function buildMonthlyUsageMap(connectionIds: number[]): Promise<Map<number
 }
 
 // GET /api/connections
-// Admin: returns paginated { data, total, activeCount, inactiveCount } for all merchants, with search/provider/page/limit
+// Admin: returns paginated { data, total } for all merchants, with search/provider/page/limit
 // Merchant: returns flat array of own connections
 router.get("/", async (req, res) => {
   const user = (req as any).user;
 
   if (user.role === "admin") {
-    const { search, provider, page = "1", limit = "20", merchantId, status } = req.query as Record<string, string>;
+    const { search, provider, page = "1", limit = "20", merchantId } = req.query as Record<string, string>;
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
-    // Base conditions (without status) — used for computing per-status counts
-    const baseConditions: any[] = [];
-    if (provider && provider !== "") baseConditions.push(eq(merchantConnectionsTable.provider, provider));
-    if (merchantId && !isNaN(parseInt(merchantId))) baseConditions.push(eq(merchantConnectionsTable.merchantId, parseInt(merchantId)));
-
-    // Full conditions (with status) — used for paginated data and total count
-    const conditions = [...baseConditions];
-    if (status === "active") conditions.push(eq(merchantConnectionsTable.isActive, true));
-    else if (status === "inactive") conditions.push(eq(merchantConnectionsTable.isActive, false));
+    const conditions: any[] = [];
+    if (provider && provider !== "") conditions.push(eq(merchantConnectionsTable.provider, provider));
+    if (merchantId && !isNaN(parseInt(merchantId))) conditions.push(eq(merchantConnectionsTable.merchantId, parseInt(merchantId)));
 
     if (search) {
       const nameSearch = or(
         ilike(merchantsTable.businessName, `%${search}%`),
         ilike(merchantsTable.email, `%${search}%`)
       )!;
+      const joined = await db
+        .select({ conn: merchantConnectionsTable, businessName: merchantsTable.businessName, merchantEmail: merchantsTable.email })
+        .from(merchantConnectionsTable)
+        .innerJoin(merchantsTable, eq(merchantConnectionsTable.merchantId, merchantsTable.id))
+        .where(conditions.length ? and(...conditions, nameSearch) : nameSearch)
+        .orderBy(sql`${merchantsTable.businessName} ASC`)
+        .limit(limitNum)
+        .offset(offset);
 
-      const baseWhereSearch = baseConditions.length ? and(...baseConditions, nameSearch) : nameSearch;
-      const whereSearch = conditions.length ? and(...conditions, nameSearch) : nameSearch;
+      const [{ total: totalCount }] = await db
+        .select({ total: count() })
+        .from(merchantConnectionsTable)
+        .innerJoin(merchantsTable, eq(merchantConnectionsTable.merchantId, merchantsTable.id))
+        .where(conditions.length ? and(...conditions, nameSearch) : nameSearch);
 
-      const [joined, [{ total: totalCount }], [statusCounts]] = await Promise.all([
-        db
-          .select({ conn: merchantConnectionsTable, businessName: merchantsTable.businessName, merchantEmail: merchantsTable.email })
-          .from(merchantConnectionsTable)
-          .innerJoin(merchantsTable, eq(merchantConnectionsTable.merchantId, merchantsTable.id))
-          .where(whereSearch)
-          .orderBy(sql`${merchantsTable.businessName} ASC`)
-          .limit(limitNum)
-          .offset(offset),
-        db
-          .select({ total: count() })
-          .from(merchantConnectionsTable)
-          .innerJoin(merchantsTable, eq(merchantConnectionsTable.merchantId, merchantsTable.id))
-          .where(whereSearch),
-        db
-          .select({
-            activeCount: sql<number>`cast(count(*) filter (where ${merchantConnectionsTable.isActive}) as int)`,
-            inactiveCount: sql<number>`cast(count(*) filter (where not ${merchantConnectionsTable.isActive}) as int)`,
-          })
-          .from(merchantConnectionsTable)
-          .innerJoin(merchantsTable, eq(merchantConnectionsTable.merchantId, merchantsTable.id))
-          .where(baseWhereSearch),
-      ]);
-
-      const usageMap = await buildMonthlyUsageMap(joined.map(r => r.conn.id));
+      const connectionIds = joined.map(r => r.conn.id);
+      const usageMap = await buildMonthlyUsageMap(connectionIds);
 
       res.json({
         data: joined.map(r => ({ ...formatConn(r.conn, usageMap.get(r.conn.id) ?? 0), businessName: r.businessName, merchantEmail: r.merchantEmail })),
         total: totalCount,
         page: pageNum,
         limit: limitNum,
-        activeCount: statusCounts.activeCount,
-        inactiveCount: statusCounts.inactiveCount,
       });
       return;
     }
 
     const where = conditions.length ? and(...conditions) : undefined;
-    const baseWhere = baseConditions.length ? and(...baseConditions) : undefined;
-
-    const [[{ total: totalCount }], [statusCounts]] = await Promise.all([
-      db.select({ total: count() }).from(merchantConnectionsTable).where(where),
-      db.select({
-        activeCount: sql<number>`cast(count(*) filter (where ${merchantConnectionsTable.isActive}) as int)`,
-        inactiveCount: sql<number>`cast(count(*) filter (where not ${merchantConnectionsTable.isActive}) as int)`,
-      }).from(merchantConnectionsTable).where(baseWhere),
-    ]);
+    const [{ total: totalCount }] = await db.select({ total: count() }).from(merchantConnectionsTable).where(where);
 
     const joined = await db
       .select({ conn: merchantConnectionsTable, businessName: merchantsTable.businessName, merchantEmail: merchantsTable.email })
@@ -150,15 +122,14 @@ router.get("/", async (req, res) => {
       .limit(limitNum)
       .offset(offset);
 
-    const usageMap = await buildMonthlyUsageMap(joined.map(r => r.conn.id));
+    const connectionIds = joined.map(r => r.conn.id);
+    const usageMap = await buildMonthlyUsageMap(connectionIds);
 
     res.json({
       data: joined.map(r => ({ ...formatConn(r.conn, usageMap.get(r.conn.id) ?? 0), businessName: r.businessName, merchantEmail: r.merchantEmail })),
       total: totalCount,
       page: pageNum,
       limit: limitNum,
-      activeCount: statusCounts.activeCount,
-      inactiveCount: statusCounts.inactiveCount,
     });
     return;
   }
@@ -237,10 +208,9 @@ async function backfillUpiPayloads(merchantId: number): Promise<void> {
 /**
  * Re-run the connection→transaction backfill scoped to a single merchant.
  * Mirrors the seed backfill time-window logic: for each provider-tagged
- * transaction, assign the oldest qualifying connection (created before the
- * transaction, not yet deactivated at that time).  Re-maps ALL rows — not
- * just NULL ones — so stale connection IDs are corrected after any toggle.
- * Safe to call fire-and-forget after any isActive toggle.
+ * transaction that has no connectionId yet, assign the oldest qualifying
+ * connection (created before the transaction, not yet deactivated at that
+ * time).  Safe to call fire-and-forget after any isActive toggle.
  */
 async function backfillConnectionIds(merchantId: number): Promise<void> {
   await db.execute(sql`
@@ -255,8 +225,9 @@ async function backfillConnectionIds(merchantId: number): Promise<void> {
       ORDER BY created_at ASC
       LIMIT 1
     )
-    WHERE provider    IS NOT NULL
-      AND merchant_id = ${merchantId}
+    WHERE connection_id IS NULL
+      AND provider      IS NOT NULL
+      AND merchant_id   = ${merchantId}
   `);
 }
 

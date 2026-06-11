@@ -33,19 +33,15 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 
 [[ "$(pwd)" == "$APP_DIR" ]] || { cd "$APP_DIR" || die "Could not cd to $APP_DIR"; }
 
-# Load credentials from $APP_DIR/.env if not already in environment.
-# This file lives only on the VPS and is gitignored — never committed.
-# One-time setup:  echo 'DATABASE_URL=postgresql://rasokart:Rasokart%4012345@localhost:5432/rasokart' >> /var/www/rasokart/.env
-#                  echo 'SESSION_SECRET=<64-char-hex>' >> /var/www/rasokart/.env
-if [[ -f "$APP_DIR/.env" ]]; then
-  set -a
-  # shellcheck source=/dev/null
-  source "$APP_DIR/.env"
-  set +a
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  # Try to load from PM2 ecosystem config if DATABASE_URL not set in env
+  if [[ -f "$APP_DIR/ecosystem.config.cjs" ]]; then
+    warn "DATABASE_URL not set in environment — attempting to read from ecosystem.config.cjs"
+    DATABASE_URL=$(node -e "const c=require('./ecosystem.config.cjs'); const app=c.apps.find(a=>a.name==='$PM2_NAME'); console.log(app?.env?.DATABASE_URL||app?.env_production?.DATABASE_URL||'')" 2>/dev/null || true)
+  fi
+  [[ -z "${DATABASE_URL:-}" ]] && die "DATABASE_URL is not set. Export it before running: export DATABASE_URL=postgres://..."
 fi
-[[ -z "${DATABASE_URL:-}" ]] && die "DATABASE_URL is not set. Create $APP_DIR/.env — see DEPLOY_HETZNER.md § Environment Variables."
 export DATABASE_URL
-export SESSION_SECRET
 
 log "Starting RasoKart deployment — $(date)"
 log "App dir : $APP_DIR"
@@ -54,7 +50,7 @@ log "Branch  : $BRANCH"
 # ─────────────────────────────────────────────
 # Step 1 — Pull latest code
 # ─────────────────────────────────────────────
-step "1/8  Pull latest code"
+step "1/7  Pull latest code"
 git fetch origin "$BRANCH"
 LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse "origin/$BRANCH")
@@ -68,35 +64,28 @@ fi
 # ─────────────────────────────────────────────
 # Step 2 — Install dependencies
 # ─────────────────────────────────────────────
-step "2/8  Install dependencies"
+step "2/7  Install dependencies"
 pnpm install --frozen-lockfile
 log "Dependencies installed"
 
 # ─────────────────────────────────────────────
-# Step 3 — Build lib declarations
+# Step 3 — Push DB schema (idempotent)
 # ─────────────────────────────────────────────
-step "3/8  Build lib declarations"
-pnpm run typecheck:libs
-log "Lib declarations built"
-
-# ─────────────────────────────────────────────
-# Step 4 — Push DB schema (idempotent)
-# ─────────────────────────────────────────────
-step "4/8  Push DB schema"
-(cd "$APP_DIR/lib/db" && pnpm run push)
+step "3/7  Push DB schema"
+pnpm --filter @workspace/db run push
 log "Schema up to date"
 
 # ─────────────────────────────────────────────
-# Step 5 — Build API server
+# Step 4 — Build API server
 # ─────────────────────────────────────────────
-step "5/8  Build API server"
+step "4/7  Build API server"
 pnpm --filter @workspace/api-server run build
 log "API server built → $API_DIR/dist/index.mjs"
 
 # ─────────────────────────────────────────────
-# Step 6 — Restart PM2
+# Step 5 — Restart PM2
 # ─────────────────────────────────────────────
-step "6/8  Restart PM2 ($PM2_NAME)"
+step "5/7  Restart PM2 ($PM2_NAME)"
 if pm2 describe "$PM2_NAME" &>/dev/null; then
   pm2 restart "$PM2_NAME"
   log "PM2 process restarted"
@@ -117,17 +106,17 @@ else
 fi
 
 # ─────────────────────────────────────────────
-# Step 7 — Build frontend
+# Step 6 — Build frontend
 # ─────────────────────────────────────────────
-step "7/8  Build frontend"
+step "6/7  Build frontend"
 PORT=3000 BASE_PATH=/ pnpm --filter @workspace/rpay run build
 [[ -d "$DIST_DIR" ]] || die "Build output not found at $DIST_DIR"
 log "Frontend built → $DIST_DIR ($(du -sh "$DIST_DIR" | cut -f1))"
 
 # ─────────────────────────────────────────────
-# Step 8 — Reload nginx
+# Step 7 — Reload nginx
 # ─────────────────────────────────────────────
-step "8/8  Reload nginx"
+step "7/7  Reload nginx"
 nginx -t && systemctl reload nginx
 log "Nginx reloaded"
 

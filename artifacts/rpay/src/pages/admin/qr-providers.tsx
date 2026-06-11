@@ -10,9 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Search, Plus, Pencil, Trash2, QrCode, Link2, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, QrCode, Link2, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
-import { getApiErrorMessage } from "@/lib/utils";
 
 const QR_PROVIDERS = [
   { value: "phonepe",       label: "PhonePe",        color: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
@@ -44,39 +43,10 @@ function ProviderBadge({ provider }: { provider: string }) {
   );
 }
 
-const FILTER_KEY = "rasokart_qr_providers_filters";
-const VALID_STATUSES = new Set(["all", "active", "inactive"]);
-
-function readFilters() {
-  try {
-    const raw = localStorage.getItem(FILTER_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as unknown;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        const { provider, status } = parsed as Record<string, unknown>;
-        const validProvider = typeof provider === "string" && QR_PROVIDERS.some(p => p.value === provider) ? provider : "all";
-        const validStatus = typeof status === "string" && VALID_STATUSES.has(status) ? status : "all";
-        return { provider: validProvider, status: validStatus };
-      }
-    }
-  } catch {}
-  return { provider: "all", status: "all" };
-}
-
-function saveFilters(provider: string, status: string) {
-  try { localStorage.setItem(FILTER_KEY, JSON.stringify({ provider, status })); } catch {}
-}
-
-function clearFilters() {
-  try { localStorage.removeItem(FILTER_KEY); } catch {}
-}
-
 export default function AdminQrProviders() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [{ provider: _initProvider, status: _initStatus }] = useState(readFilters);
-  const [providerFilter, setProviderFilter] = useState(_initProvider);
-  const [statusFilter, setStatusFilter] = useState(_initStatus);
+  const [providerFilter, setProviderFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState<"create" | "edit" | "delete" | null>(null);
   const [editing, setEditing] = useState<any | null>(null);
@@ -85,8 +55,8 @@ export default function AdminQrProviders() {
 
   // Fetch connections (QR provider assignments)
   const { data, isLoading } = useQuery({
-    queryKey: ["connections", search, providerFilter, statusFilter, page],
-    queryFn: () => api("GET", `/connections?search=${encodeURIComponent(search)}&provider=${providerFilter !== "all" ? providerFilter : ""}&status=${statusFilter !== "all" ? statusFilter : ""}&page=${page}&limit=20`),
+    queryKey: ["connections", search, providerFilter, page],
+    queryFn: () => api("GET", `/connections?search=${encodeURIComponent(search)}&provider=${providerFilter !== "all" ? providerFilter : ""}&page=${page}&limit=20`),
   });
 
   // Fetch merchants for the picker
@@ -98,26 +68,24 @@ export default function AdminQrProviders() {
 
   const rows: any[] = data?.data ?? [];
   const total: number = data?.total ?? 0;
-  const activeCount: number | undefined = data?.activeCount;
-  const inactiveCount: number | undefined = data?.inactiveCount;
   const merchants: any[] = merchantData?.data ?? [];
 
   const createMutation = useMutation({
     mutationFn: (body: object) => api("POST", "/connections", body),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["connections"] }); toast.success("QR provider assigned"); setDialog(null); resetForm(); },
-    onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to assign QR provider")),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, body }: { id: number; body: object }) => api("PUT", `/connections/${id}`, body),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["connections"] }); toast.success("Updated"); setDialog(null); },
-    onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to update QR provider")),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api("DELETE", `/connections/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["connections"] }); toast.success("Removed"); setDialog(null); setEditing(null); },
-    onError: (e: unknown) => toast.error(getApiErrorMessage(e, "Failed to remove QR provider")),
+    onError: (e: any) => toast.error(e.message),
   });
 
   function resetForm() {
@@ -167,72 +135,19 @@ export default function AdminQrProviders() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="relative flex-1 min-w-[180px]">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input className="pl-9" placeholder="Search merchants..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
             </div>
-            <Select value={providerFilter} onValueChange={v => { setProviderFilter(v); saveFilters(v, statusFilter); setPage(1); }}>
+            <Select value={providerFilter} onValueChange={v => { setProviderFilter(v); setPage(1); }}>
               <SelectTrigger className="w-[180px]"><SelectValue placeholder="All providers" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Providers</SelectItem>
                 {QR_PROVIDERS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); saveFilters(providerFilter, v); setPage(1); }}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="All statuses" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="active">
-                  Active{activeCount !== undefined ? ` (${activeCount})` : ""}
-                </SelectItem>
-                <SelectItem value="inactive">
-                  Deactivated{inactiveCount !== undefined ? ` (${inactiveCount})` : ""}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {(search !== "" || providerFilter !== "all" || statusFilter !== "all") && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setSearch(""); setProviderFilter("all"); setStatusFilter("all"); clearFilters(); setPage(1); }}
-                className="text-muted-foreground hover:text-foreground shrink-0"
-              >
-                <X className="w-3.5 h-3.5 mr-1.5" />
-                Clear filters
-              </Button>
-            )}
           </div>
-          {(providerFilter !== "all" || statusFilter !== "all") && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {providerFilter !== "all" && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-foreground">
-                  {QR_PROVIDERS.find(p => p.value === providerFilter)?.label ?? providerFilter}
-                  <button
-                    type="button"
-                    onClick={() => { setProviderFilter("all"); setPage(1); }}
-                    className="ml-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Remove provider filter"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-              {statusFilter !== "all" && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-foreground">
-                  {statusFilter === "active" ? "Active" : "Deactivated"}
-                  <button
-                    type="button"
-                    onClick={() => { setStatusFilter("all"); setPage(1); }}
-                    className="ml-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Remove status filter"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-            </div>
-          )}
         </CardHeader>
         <CardContent className="p-0">
           <Table>

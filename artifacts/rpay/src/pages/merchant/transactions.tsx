@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useListTransactions, useSearchByUtr, useGetTransaction, useGetPaymentLink, useListMerchantFilterPresets, useCreateMerchantFilterPreset, useDeleteMerchantFilterPreset, useReorderMerchantFilterPresets } from "@workspace/api-client-react";
+import { useListTransactions, useSearchByUtr, useGetTransaction, useGetPaymentLink } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Download, Search, X, Info, Sparkles, Zap, TrendingUp, CheckCircle2, XCircle, Hash, Bookmark, BookmarkCheck, Trash2, CreditCard, ArrowDownLeft, ArrowUpRight, FileText, Loader2, Link2, CalendarRange, Layers, Pencil, ChevronLeft, ChevronRight, Check, RefreshCw } from "lucide-react";
-import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay, formatDistanceToNow } from "date-fns";
+import { Download, Search, X, Info, Sparkles, Zap, TrendingUp, CheckCircle2, XCircle, Hash, Bookmark, BookmarkCheck, Trash2, CreditCard, ArrowDownLeft, ArrowUpRight, FileText, Loader2, Link2, CalendarRange, Layers } from "lucide-react";
+import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { getToken } from "@/lib/auth";
 
 function highlightUtr(utr: string, search: string) {
@@ -154,7 +153,6 @@ function parseAmountToken(token: string): Pick<SmartFilter, "amountMin" | "amoun
 
 interface SavedFilter {
   id: string;
-  serverId?: number;
   name: string;
   filter: SmartFilter;
   rawInput: string;
@@ -178,7 +176,6 @@ function storeSavedFilters(filters: SavedFilter[]): void {
 
 interface CustomDatePreset {
   id: string;
-  serverId?: number;
   name: string;
   from: string;
   to: string;
@@ -202,23 +199,15 @@ function storeCustomDatePresets(presets: CustomDatePreset[]): void {
 
 interface CombinedPreset {
   id: string;
-  serverId?: number;
   name: string;
   type: string;
   status: string;
   provider: string;
   dateFrom: string;
   dateTo: string;
-  source?: string;
 }
 
 const COMBINED_PRESETS_KEY = "rasokart_combined_presets";
-const COMBINED_PRESET_OVERRIDES_KEY = "rasokart_combined_preset_overrides_tx";
-
-interface CombinedPresetOverrides {
-  renames: Record<string, string>;
-  order: string[];
-}
 
 function loadCombinedPresets(): CombinedPreset[] {
   try {
@@ -232,38 +221,6 @@ function loadCombinedPresets(): CombinedPreset[] {
 
 function storeCombinedPresets(presets: CombinedPreset[]): void {
   localStorage.setItem(COMBINED_PRESETS_KEY, JSON.stringify(presets));
-}
-
-function loadCombinedPresetOverrides(): CombinedPresetOverrides {
-  try {
-    const raw = localStorage.getItem(COMBINED_PRESET_OVERRIDES_KEY);
-    if (!raw) return { renames: {}, order: [] };
-    return JSON.parse(raw) as CombinedPresetOverrides;
-  } catch { return { renames: {}, order: [] }; }
-}
-
-function storeCombinedPresetOverrides(overrides: CombinedPresetOverrides): void {
-  localStorage.setItem(COMBINED_PRESET_OVERRIDES_KEY, JSON.stringify(overrides));
-}
-
-function applyCombinedPresetOverrides(presets: CombinedPreset[], overrides: CombinedPresetOverrides): CombinedPreset[] {
-  let result = presets.map(p => {
-    const key = p.serverId != null ? String(p.serverId) : p.id;
-    return overrides.renames[key] ? { ...p, name: overrides.renames[key]! } : p;
-  });
-  if (overrides.order.length > 0) {
-    const ordered: CombinedPreset[] = [];
-    const remaining = [...result];
-    for (const key of overrides.order) {
-      const idx = remaining.findIndex(p => (p.serverId != null ? String(p.serverId) : p.id) === key);
-      if (idx !== -1) {
-        ordered.push(remaining[idx]!);
-        remaining.splice(idx, 1);
-      }
-    }
-    result = [...ordered, ...remaining];
-  }
-  return result;
 }
 
 function parseSmartQuery(raw: string): SmartFilter | null {
@@ -345,9 +302,8 @@ function formatProvider(p: string | null | undefined): string {
   return PROVIDER_LABELS[p] ?? p.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-
 function ProviderBadge({ provider }: { provider: string | null | undefined }) {
-  if (!provider) return null;
+  if (!provider) return <span className="text-muted-foreground text-xs">—</span>;
   return (
     <Badge variant="outline" className="text-xs gap-1 border-violet-500/30 text-violet-300 bg-violet-500/10">
       <Zap className="w-3 h-3" />
@@ -570,9 +526,6 @@ export default function MerchantTransactions() {
   const [saveCombinedPresetNameError, setSaveCombinedPresetNameError] = useState("");
   const saveCombinedPresetNameRef = useRef<HTMLInputElement>(null);
 
-  const [renamingCombinedPresetId, setRenamingCombinedPresetId] = useState<string | null>(null);
-  const [renameCombinedValue, setRenameCombinedValue] = useState("");
-
   useEffect(() => {
     if (showSaveInput) {
       setTimeout(() => saveNameInputRef.current?.focus(), 50);
@@ -591,47 +544,6 @@ export default function MerchantTransactions() {
     }
   }, [showSaveCombinedPreset]);
 
-  // Server-side preset sync
-  const { data: serverPresets, isError: presetsError } = useListMerchantFilterPresets();
-  const createPresetMutation = useCreateMerchantFilterPreset();
-  const deletePresetMutation = useDeleteMerchantFilterPreset();
-  const reorderPresetsMutation = useReorderMerchantFilterPresets();
-
-  useEffect(() => {
-    if (!serverPresets) return;
-    const smart: SavedFilter[] = [];
-    const date: CustomDatePreset[] = [];
-    const combined: CombinedPreset[] = [];
-    for (const p of serverPresets.data) {
-      if (p.presetType === "smart") {
-        const pl = p.payload as { rawInput: string; filter: SmartFilter };
-        smart.push({ id: String(p.id), serverId: p.id, name: p.name, filter: pl.filter, rawInput: pl.rawInput });
-      } else if (p.presetType === "date") {
-        const pl = p.payload as { from: string; to: string };
-        date.push({ id: String(p.id), serverId: p.id, name: p.name, from: pl.from, to: pl.to });
-      } else if (p.presetType === "combined") {
-        const pl = p.payload as { type: string; status: string; provider: string; dateFrom: string; dateTo: string; source?: string };
-        combined.push({ id: String(p.id), serverId: p.id, name: p.name, ...pl });
-      }
-    }
-    setSavedFilters(smart);
-    storeSavedFilters(smart);
-    setCustomDatePresets(date);
-    storeCustomDatePresets(date);
-    const overrides = loadCombinedPresetOverrides();
-    const withOverrides = applyCombinedPresetOverrides(combined, overrides);
-    setCombinedPresets(withOverrides);
-    storeCombinedPresets(withOverrides);
-  }, [serverPresets]);
-
-  useEffect(() => {
-    if (presetsError) {
-      setSavedFilters(loadSavedFilters());
-      setCustomDatePresets(loadCustomDatePresets());
-      setCombinedPresets(loadCombinedPresets());
-    }
-  }, [presetsError]);
-
   const amountMin = smartFilter?.amountMin;
   const amountMax = smartFilter?.amountMax;
   const smartDateFrom = smartFilter?.dateFrom;
@@ -646,7 +558,7 @@ export default function MerchantTransactions() {
   const activeStatus = smartFilter?.txStatus ?? status;
   const activeProvider = smartFilter?.txProvider ?? (provider !== "all" ? provider : undefined);
 
-  const { data, isLoading, isFetching, dataUpdatedAt } = useListTransactions({
+  const { data, isLoading } = useListTransactions({
     type: activeType as any,
     status: activeStatus as any,
     page,
@@ -657,13 +569,7 @@ export default function MerchantTransactions() {
     ...(amountMin != null ? { amountMin } : {}),
     ...(amountMax != null ? { amountMax } : {}),
     ...(activeProvider ? { connectionProvider: activeProvider as any } : {}),
-  }, { query: { refetchInterval: 30_000 } } as any);
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 10_000);
-    return () => clearInterval(id);
-  }, []);
-  const lastUpdated = dataUpdatedAt > 0 ? new Date(dataUpdatedAt) : null;
+  });
   const { data: utrResult, isLoading: utrLoading, error: utrError } = useSearchByUtr(
     { utr: utrSearch || "" },
     { query: { enabled: !!utrSearch } as any }
@@ -752,41 +658,15 @@ export default function MerchantTransactions() {
       saveNameInputRef.current?.focus();
       return;
     }
-    const payload = { rawInput: smartInput, filter: smartFilter };
-    const localId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    createPresetMutation.mutate(
-      { data: { name: trimmed, presetType: "smart", payload } },
-      {
-        onSuccess: (created) => {
-          const newFilter: SavedFilter = {
-            id: String(created.id),
-            serverId: created.id,
-            name: created.name,
-            filter: (created.payload as any).filter,
-            rawInput: (created.payload as any).rawInput,
-          };
-          setSavedFilters(prev => {
-            const updated = [...prev.filter(f => f.id !== localId), newFilter];
-            storeSavedFilters(updated);
-            return updated;
-          });
-        },
-        onError: () => {
-          const newFilter: SavedFilter = { id: localId, name: trimmed, filter: smartFilter!, rawInput: smartInput };
-          setSavedFilters(prev => {
-            const updated = [...prev, newFilter];
-            storeSavedFilters(updated);
-            return updated;
-          });
-        },
-      }
-    );
-    const optimistic: SavedFilter = { id: localId, name: trimmed, filter: smartFilter, rawInput: smartInput };
-    setSavedFilters(prev => {
-      const updated = [...prev, optimistic];
-      storeSavedFilters(updated);
-      return updated;
-    });
+    const newFilter: SavedFilter = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name: trimmed,
+      filter: smartFilter,
+      rawInput: smartInput,
+    };
+    const updated = [...savedFilters, newFilter];
+    setSavedFilters(updated);
+    storeSavedFilters(updated);
     setShowSaveInput(false);
     setSaveFilterName("");
     setSaveFilterNameError("");
@@ -799,26 +679,9 @@ export default function MerchantTransactions() {
   };
 
   const deleteSavedFilter = (id: string) => {
-    const target = savedFilters.find(f => f.id === id);
     const updated = savedFilters.filter(f => f.id !== id);
     setSavedFilters(updated);
     storeSavedFilters(updated);
-    if (target?.serverId) {
-      deletePresetMutation.mutate({ id: target.serverId });
-    }
-  };
-
-  const moveSavedFilter = (id: string, direction: "left" | "right") => {
-    const idx = savedFilters.findIndex(f => f.id === id);
-    if (idx === -1) return;
-    const newIdx = direction === "left" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= savedFilters.length) return;
-    const updated = [...savedFilters];
-    [updated[idx], updated[newIdx]] = [updated[newIdx]!, updated[idx]!];
-    setSavedFilters(updated);
-    storeSavedFilters(updated);
-    const serverIds = updated.filter(f => f.serverId != null).map(f => f.serverId!);
-    if (serverIds.length > 0) reorderPresetsMutation.mutate({ data: { ids: serverIds } });
   };
 
   // Custom date preset handlers
@@ -857,36 +720,15 @@ export default function MerchantTransactions() {
       saveDatePresetNameRef.current?.focus();
       return;
     }
-    const payload = { from: dateFrom, to: dateTo };
-    const localId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    createPresetMutation.mutate(
-      { data: { name: trimmed, presetType: "date", payload } },
-      {
-        onSuccess: (created) => {
-          const pl = created.payload as { from: string; to: string };
-          const newPreset: CustomDatePreset = { id: String(created.id), serverId: created.id, name: created.name, from: pl.from, to: pl.to };
-          setCustomDatePresets(prev => {
-            const updated = [...prev.filter(p => p.id !== localId), newPreset];
-            storeCustomDatePresets(updated);
-            return updated;
-          });
-        },
-        onError: () => {
-          const newPreset: CustomDatePreset = { id: localId, name: trimmed, from: dateFrom, to: dateTo };
-          setCustomDatePresets(prev => {
-            const updated = [...prev, newPreset];
-            storeCustomDatePresets(updated);
-            return updated;
-          });
-        },
-      }
-    );
-    const optimistic: CustomDatePreset = { id: localId, name: trimmed, from: dateFrom, to: dateTo };
-    setCustomDatePresets(prev => {
-      const updated = [...prev, optimistic];
-      storeCustomDatePresets(updated);
-      return updated;
-    });
+    const newPreset: CustomDatePreset = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name: trimmed,
+      from: dateFrom,
+      to: dateTo,
+    };
+    const updated = [...customDatePresets, newPreset];
+    setCustomDatePresets(updated);
+    storeCustomDatePresets(updated);
     setShowSaveDatePreset(false);
     setSaveDatePresetName("");
     setSaveDatePresetNameError("");
@@ -899,26 +741,9 @@ export default function MerchantTransactions() {
   };
 
   const deleteCustomDatePreset = (id: string) => {
-    const target = customDatePresets.find(p => p.id === id);
     const updated = customDatePresets.filter(p => p.id !== id);
     setCustomDatePresets(updated);
     storeCustomDatePresets(updated);
-    if (target?.serverId) {
-      deletePresetMutation.mutate({ id: target.serverId });
-    }
-  };
-
-  const moveCustomDatePreset = (id: string, direction: "left" | "right") => {
-    const idx = customDatePresets.findIndex(p => p.id === id);
-    if (idx === -1) return;
-    const newIdx = direction === "left" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= customDatePresets.length) return;
-    const updated = [...customDatePresets];
-    [updated[idx], updated[newIdx]] = [updated[newIdx]!, updated[idx]!];
-    setCustomDatePresets(updated);
-    storeCustomDatePresets(updated);
-    const serverIds = updated.filter(p => p.serverId != null).map(p => p.serverId!);
-    if (serverIds.length > 0) reorderPresetsMutation.mutate({ data: { ids: serverIds } });
   };
 
   // Combined preset handlers
@@ -958,36 +783,18 @@ export default function MerchantTransactions() {
       saveCombinedPresetNameRef.current?.focus();
       return;
     }
-    const payload = { type, status, provider, dateFrom, dateTo, source: "transactions" };
-    const localId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    createPresetMutation.mutate(
-      { data: { name: trimmed, presetType: "combined", payload } },
-      {
-        onSuccess: (created) => {
-          const pl = created.payload as { type: string; status: string; provider: string; dateFrom: string; dateTo: string; source?: string };
-          const newPreset: CombinedPreset = { id: String(created.id), serverId: created.id, name: created.name, ...pl };
-          setCombinedPresets(prev => {
-            const updated = [...prev.filter(p => p.id !== localId), newPreset];
-            storeCombinedPresets(updated);
-            return updated;
-          });
-        },
-        onError: () => {
-          const newPreset: CombinedPreset = { id: localId, name: trimmed, type, status, provider, dateFrom, dateTo, source: "transactions" };
-          setCombinedPresets(prev => {
-            const updated = [...prev, newPreset];
-            storeCombinedPresets(updated);
-            return updated;
-          });
-        },
-      }
-    );
-    const optimistic: CombinedPreset = { id: localId, name: trimmed, type, status, provider, dateFrom, dateTo, source: "transactions" };
-    setCombinedPresets(prev => {
-      const updated = [...prev, optimistic];
-      storeCombinedPresets(updated);
-      return updated;
-    });
+    const newPreset: CombinedPreset = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name: trimmed,
+      type,
+      status,
+      provider,
+      dateFrom,
+      dateTo,
+    };
+    const updated = [...combinedPresets, newPreset];
+    setCombinedPresets(updated);
+    storeCombinedPresets(updated);
     setShowSaveCombinedPreset(false);
     setSaveCombinedPresetName("");
     setSaveCombinedPresetNameError("");
@@ -1000,67 +807,9 @@ export default function MerchantTransactions() {
   };
 
   const deleteCombinedPreset = (id: string) => {
-    const target = combinedPresets.find(p => p.id === id);
     const updated = combinedPresets.filter(p => p.id !== id);
     setCombinedPresets(updated);
     storeCombinedPresets(updated);
-    if (target) {
-      const overrideKey = target.serverId != null ? String(target.serverId) : target.id;
-      const overrides = loadCombinedPresetOverrides();
-      delete overrides.renames[overrideKey];
-      overrides.order = overrides.order.filter(k => k !== overrideKey);
-      storeCombinedPresetOverrides(overrides);
-      if (target.serverId) {
-        deletePresetMutation.mutate({ id: target.serverId });
-      }
-    }
-  };
-
-  const startRenameCombinedPreset = (preset: CombinedPreset) => {
-    setRenamingCombinedPresetId(preset.id);
-    setRenameCombinedValue(preset.name);
-  };
-
-  const confirmRenameCombinedPreset = () => {
-    if (!renamingCombinedPresetId) return;
-    const trimmed = renameCombinedValue.trim();
-    if (trimmed) {
-      const target = combinedPresets.find(p => p.id === renamingCombinedPresetId);
-      if (target) {
-        const overrideKey = target.serverId != null ? String(target.serverId) : target.id;
-        const overrides = loadCombinedPresetOverrides();
-        overrides.renames[overrideKey] = trimmed;
-        storeCombinedPresetOverrides(overrides);
-      }
-      const updated = combinedPresets.map(p =>
-        p.id === renamingCombinedPresetId ? { ...p, name: trimmed } : p
-      );
-      setCombinedPresets(updated);
-      storeCombinedPresets(updated);
-    }
-    setRenamingCombinedPresetId(null);
-    setRenameCombinedValue("");
-  };
-
-  const cancelRenameCombinedPreset = () => {
-    setRenamingCombinedPresetId(null);
-    setRenameCombinedValue("");
-  };
-
-  const moveCombinedPreset = (id: string, direction: "left" | "right") => {
-    const idx = combinedPresets.findIndex(p => p.id === id);
-    if (idx === -1) return;
-    const newIdx = direction === "left" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= combinedPresets.length) return;
-    const updated = [...combinedPresets];
-    [updated[idx], updated[newIdx]] = [updated[newIdx]!, updated[idx]!];
-    setCombinedPresets(updated);
-    storeCombinedPresets(updated);
-    const overrides = loadCombinedPresetOverrides();
-    overrides.order = updated.map(p => p.serverId != null ? String(p.serverId) : p.id);
-    storeCombinedPresetOverrides(overrides);
-    const serverIds = updated.filter(p => p.serverId != null).map(p => p.serverId!);
-    if (serverIds.length > 0) reorderPresetsMutation.mutate({ data: { ids: serverIds } });
   };
 
   const exportCsv = async () => {
@@ -1151,24 +900,7 @@ export default function MerchantTransactions() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
-          <div className="flex items-center gap-3 mt-1">
-            <p className="text-muted-foreground">Your payment history</p>
-            {lastUpdated != null && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground/60 shrink-0">
-                {isFetching && !isLoading ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3 h-3" />
-                )}
-                {isFetching && !isLoading
-                  ? "Refreshing…"
-                  : `Updated ${formatDistanceToNow(lastUpdated, { addSuffix: true })}`}
-              </span>
-            )}
-          </div>
-        </div>
+        <div><h1 className="text-3xl font-bold tracking-tight">Transactions</h1><p className="text-muted-foreground mt-1">Your payment history</p></div>
         <Button variant="outline" size="sm" onClick={exportCsv}><Download className="w-4 h-4 mr-2" />Export CSV</Button>
       </div>
 
@@ -1181,55 +913,28 @@ export default function MerchantTransactions() {
           {savedFilters.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <span className="text-xs text-muted-foreground font-medium">Saved:</span>
-              {savedFilters.map((saved, idx) => (
-                <Tooltip key={saved.id}>
-                  <TooltipTrigger asChild>
-                    <span
-                      className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
-                    >
-                      <button
-                        onClick={() => applySavedFilter(saved)}
-                        className="flex items-center gap-1 pl-0.5 hover:text-violet-100 transition-colors"
-                      >
-                        <BookmarkCheck className="w-3 h-3 shrink-0" />
-                        {saved.name}
-                      </button>
-                      <button
-                        onClick={() => moveSavedFilter(saved.id, "left")}
-                        disabled={idx === 0}
-                        className="p-0.5 text-violet-400/50 hover:text-violet-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-                        aria-label={`Move "${saved.name}" left`}
-                        title="Move left"
-                      >
-                        <ChevronLeft className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => moveSavedFilter(saved.id, "right")}
-                        disabled={idx === savedFilters.length - 1}
-                        className="p-0.5 text-violet-400/50 hover:text-violet-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-                        aria-label={`Move "${saved.name}" right`}
-                        title="Move right"
-                      >
-                        <ChevronRight className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => deleteSavedFilter(saved.id)}
-                        className="p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100 rounded-full"
-                        aria-label={`Delete saved filter "${saved.name}"`}
-                        title="Delete this saved filter"
-                      >
-                        <Trash2 className="w-2.5 h-2.5" />
-                      </button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="bottom"
-                    className="bg-zinc-900 border border-zinc-700 text-zinc-100 px-3 py-2 max-w-[280px]"
+              {savedFilters.map(saved => (
+                <span
+                  key={saved.id}
+                  className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2.5 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
+                >
+                  <button
+                    onClick={() => applySavedFilter(saved)}
+                    className="flex items-center gap-1 hover:text-violet-100 transition-colors"
+                    title={`Apply: ${saved.rawInput}`}
                   >
-                    <p className="text-[11px] font-semibold text-zinc-400 mb-1 uppercase tracking-wide">Query</p>
-                    <p className="text-xs leading-relaxed font-mono break-words">{saved.rawInput}</p>
-                  </TooltipContent>
-                </Tooltip>
+                    <BookmarkCheck className="w-3 h-3 shrink-0" />
+                    {saved.name}
+                  </button>
+                  <button
+                    onClick={() => deleteSavedFilter(saved.id)}
+                    className="ml-0.5 rounded-full p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                    aria-label={`Delete saved filter "${saved.name}"`}
+                    title="Delete this saved filter"
+                  >
+                    <Trash2 className="w-2.5 h-2.5" />
+                  </button>
+                </span>
               ))}
             </div>
           )}
@@ -1391,82 +1096,9 @@ export default function MerchantTransactions() {
 
       {/* Live Filter Summary Bar */}
       {anyFilterActive && (
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 space-y-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Active filters</span>
-            {type !== "all" && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Type: {type.charAt(0).toUpperCase() + type.slice(1)}s
-                <button
-                  onClick={() => { setType("all"); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove type filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {status !== "all" && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Status: {status.charAt(0).toUpperCase() + status.slice(1)}
-                <button
-                  onClick={() => { setStatus("all"); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove status filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {provider !== "all" && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Provider: {formatProvider(provider)}
-                <button
-                  onClick={() => { setProvider("all"); setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove provider filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {activeDateFrom && activeDateTo && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                <CalendarRange className="w-3 h-3" />
-                {activeDateFrom} – {activeDateTo}
-                <button
-                  onClick={() => { setDateFrom(""); setDateTo(""); if (smartFilter?.dateFrom || smartFilter?.dateTo) { setSmartFilter(null); setSmartInput(""); } setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove date filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {(activeDateFrom && !activeDateTo) && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                From: {activeDateFrom}
-                <button
-                  onClick={() => { setDateFrom(""); if (smartFilter?.dateFrom) { setSmartFilter(null); setSmartInput(""); } setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove from-date filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {(!activeDateFrom && activeDateTo) && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
-                Until: {activeDateTo}
-                <button
-                  onClick={() => { setDateTo(""); if (smartFilter?.dateTo) { setSmartFilter(null); setSmartInput(""); } setPage(1); }}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
-                  aria-label="Remove to-date filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
+        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider mr-1">Filter results</span>
             <Button
               variant="ghost"
               size="sm"
@@ -1474,10 +1106,8 @@ export default function MerchantTransactions() {
               className="ml-auto h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 gap-1.5"
             >
               <X className="w-3 h-3" />
-              Clear all
+              Clear filters
             </Button>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <div className="flex items-center gap-1.5 text-sm">
               <Hash className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="font-semibold text-foreground">
@@ -1519,99 +1149,33 @@ export default function MerchantTransactions() {
                 <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
                   <Layers className="w-3 h-3" />Presets:
                 </span>
-                {combinedPresets.map((preset, idx) =>
-                  renamingCombinedPresetId === preset.id ? (
-                    <span
-                      key={preset.id}
-                      className="inline-flex items-center gap-1 rounded-full border border-teal-500/60 bg-teal-500/15 text-teal-200 px-2 py-0.5 text-xs font-medium"
+                {combinedPresets.map(preset => (
+                  <span
+                    key={preset.id}
+                    className={`group inline-flex items-center gap-1 rounded-full border text-xs font-medium transition-colors ${
+                      isCombinedPresetActive(preset)
+                        ? "border-teal-500/60 bg-teal-500/15 text-teal-200"
+                        : "border-teal-500/30 bg-teal-500/8 text-teal-300 hover:border-teal-500/60"
+                    }`}
+                  >
+                    <button
+                      onClick={() => applyCombinedPreset(preset)}
+                      className="flex items-center gap-1 px-2.5 py-1 hover:text-teal-100 transition-colors"
+                      title={buildCombinedPresetLabel(preset)}
                     >
                       <Layers className="w-3 h-3 shrink-0" />
-                      <input
-                        className="bg-transparent border-none outline-none text-teal-100 w-24 min-w-0 text-xs"
-                        value={renameCombinedValue}
-                        onChange={e => setRenameCombinedValue(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === "Enter") confirmRenameCombinedPreset();
-                          if (e.key === "Escape") cancelRenameCombinedPreset();
-                        }}
-                        onBlur={confirmRenameCombinedPreset}
-                        maxLength={40}
-                        autoFocus
-                      />
-                      <button
-                        onClick={confirmRenameCombinedPreset}
-                        className="text-teal-400 hover:text-teal-100 transition-colors p-0.5"
-                        aria-label="Confirm rename"
-                        title="Save name"
-                      >
-                        <Check className="w-3 h-3" />
-                      </button>
-                      <button
-                        onMouseDown={e => { e.preventDefault(); cancelRenameCombinedPreset(); }}
-                        className="text-teal-400/50 hover:text-rose-400 transition-colors p-0.5"
-                        aria-label="Cancel rename"
-                        title="Cancel"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ) : (
-                    <span
-                      key={preset.id}
-                      className={`group inline-flex items-center gap-1 rounded-full border text-xs font-medium transition-colors ${
-                        isCombinedPresetActive(preset)
-                          ? "border-teal-500/60 bg-teal-500/15 text-teal-200"
-                          : "border-teal-500/30 bg-teal-500/8 text-teal-300 hover:border-teal-500/60"
-                      }`}
+                      {preset.name}
+                    </button>
+                    <button
+                      onClick={() => deleteCombinedPreset(preset.id)}
+                      className="pr-1.5 text-teal-400/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-full transition-colors opacity-0 group-hover:opacity-100 py-1 flex items-center"
+                      aria-label={`Remove preset "${preset.name}"`}
+                      title="Remove this preset"
                     >
-                      <button
-                        onClick={() => applyCombinedPreset(preset)}
-                        className="flex items-center gap-1 pl-2.5 py-1 hover:text-teal-100 transition-colors"
-                        title={buildCombinedPresetLabel(preset)}
-                      >
-                        <Layers className="w-3 h-3 shrink-0" />
-                        {preset.name}
-                        {preset.source === "deposits" && (
-                          <span className="text-[10px] opacity-50 font-normal">(Deposits)</span>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => moveCombinedPreset(preset.id, "left")}
-                        disabled={idx === 0}
-                        className="py-1 px-0.5 text-teal-400/50 hover:text-teal-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-                        aria-label={`Move "${preset.name}" left`}
-                        title="Move left"
-                      >
-                        <ChevronLeft className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => moveCombinedPreset(preset.id, "right")}
-                        disabled={idx === combinedPresets.length - 1}
-                        className="py-1 px-0.5 text-teal-400/50 hover:text-teal-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-                        aria-label={`Move "${preset.name}" right`}
-                        title="Move right"
-                      >
-                        <ChevronRight className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => startRenameCombinedPreset(preset)}
-                        className="py-1 px-0.5 text-teal-400/50 hover:text-teal-200 transition-colors opacity-0 group-hover:opacity-100"
-                        aria-label={`Rename "${preset.name}"`}
-                        title="Rename"
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => deleteCombinedPreset(preset.id)}
-                        className="pr-1.5 pl-0.5 text-teal-400/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-full transition-colors opacity-0 group-hover:opacity-100 py-1 flex items-center"
-                        aria-label={`Remove preset "${preset.name}"`}
-                        title="Remove this preset"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  )
-                )}
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
               </div>
             )}
             <div className="flex flex-wrap gap-3 items-center">
@@ -1656,7 +1220,7 @@ export default function MerchantTransactions() {
                     {preset.label}
                   </Button>
                 ))}
-                {customDatePresets.map((preset, idx) => (
+                {customDatePresets.map(preset => (
                   <span
                     key={preset.id}
                     className={`group inline-flex items-center gap-1 rounded-md border text-xs font-medium transition-colors ${
@@ -1672,24 +1236,6 @@ export default function MerchantTransactions() {
                     >
                       <CalendarRange className="w-3 h-3 shrink-0" />
                       {preset.name}
-                    </button>
-                    <button
-                      onClick={() => moveCustomDatePreset(preset.id, "left")}
-                      disabled={idx === 0}
-                      className="p-0.5 text-sky-400/50 hover:text-sky-200 transition-colors opacity-0 group-hover:opacity-100 h-8 flex items-center disabled:pointer-events-none disabled:opacity-0"
-                      aria-label={`Move "${preset.name}" left`}
-                      title="Move left"
-                    >
-                      <ChevronLeft className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => moveCustomDatePreset(preset.id, "right")}
-                      disabled={idx === customDatePresets.length - 1}
-                      className="p-0.5 text-sky-400/50 hover:text-sky-200 transition-colors opacity-0 group-hover:opacity-100 h-8 flex items-center disabled:pointer-events-none disabled:opacity-0"
-                      aria-label={`Move "${preset.name}" right`}
-                      title="Move right"
-                    >
-                      <ChevronRight className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => deleteCustomDatePreset(preset.id)}

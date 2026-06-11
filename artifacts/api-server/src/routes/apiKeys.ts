@@ -1,12 +1,11 @@
 import { Router, type Request } from "express";
-import { db, apiKeysTable, credentialEventsTable } from "@workspace/db";
+import { db, apiKeysTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import crypto from "crypto";
-import { makeRateLimiter } from "../helpers/makeRateLimiter";
+import rateLimit from "express-rate-limit";
 
-const apiKeyCreateLimiter = makeRateLimiter({
-  limiterId: "api-key-create",
+const apiKeyCreateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 10,
   standardHeaders: "draft-8",
@@ -53,13 +52,6 @@ router.post("/", apiKeyCreateLimiter, async (req, res) => {
     isActive: true,
   }).returning();
 
-  // Record credential event (fire-and-forget)
-  db.insert(credentialEventsTable).values({
-    merchantId: user.merchantId!,
-    eventType: "api_key_generated",
-    keyPrefix,
-  }).catch(() => {});
-
   res.status(201).json(key);
 });
 
@@ -74,14 +66,6 @@ router.delete("/:id", async (req, res) => {
     res.status(404).json({ error: "API key not found" });
     return;
   }
-
-  // Record credential event (fire-and-forget)
-  db.insert(credentialEventsTable).values({
-    merchantId: key.merchantId,
-    eventType: "api_key_revoked",
-    keyPrefix: key.keyPrefix,
-  }).catch(() => {});
-
   res.json({ message: "API key revoked" });
 });
 

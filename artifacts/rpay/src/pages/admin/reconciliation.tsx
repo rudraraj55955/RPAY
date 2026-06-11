@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
-import { useSearch, useLocation } from "wouter";
 import { getToken } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,15 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GitMerge, Play, ArrowRightLeft, AlertTriangle, CheckCircle2, Clock, RefreshCw, ChevronRight, ChevronLeft, Link2, Zap, User, ShieldCheck, XCircle, Download, ChevronDown, Settings2, CalendarClock, PauseCircle, Loader2, Mail, MailX, MailCheck, StickyNote, BookmarkPlus, Trash2, Pencil, X, History } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { GitMerge, Play, ArrowRightLeft, AlertTriangle, CheckCircle2, Clock, RefreshCw, ChevronRight, ChevronLeft, Link2, Zap, User, ShieldCheck, XCircle, Download, ChevronDown, Settings2, CalendarClock, PauseCircle, Loader2, Mail, MailX, MailCheck } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { getApiErrorMessage } from "@/lib/utils";
-import { useGetReconciliationScheduleConfig, useUpdateReconciliationScheduleConfig, useGetReconciliationNextRun, useGetReconciliationLookbackPresets, useAddReconciliationLookbackPreset, useDeleteReconciliationLookbackPreset, useGetReconciliationReportRecipients, useAddReconciliationReportRecipient, useRemoveReconciliationReportRecipient } from "@workspace/api-client-react";
-import type { ReconciliationRun } from "@workspace/api-client-react";
+import { useGetReconciliationScheduleConfig, useUpdateReconciliationScheduleConfig, useGetReconciliationNextRun } from "@workspace/api-client-react";
 
 async function apiPost(path: string, body: object) {
   const res = await fetch(`/api${path}`, {
@@ -267,7 +263,7 @@ function ResolveDialog({ item, onClose, onResolved }: ResolveDialogProps) {
       onResolved();
       onClose();
     },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to resolve")),
+    onError: (err: any) => toast.error(`Failed to resolve: ${err.message}`),
   });
 
   const isDeposit = item?.status === "unmatched_deposit";
@@ -463,98 +459,21 @@ function formatCountdown(targetMs: number, nowMs: number): string {
   return `${s}s`;
 }
 
-function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: () => void }) {
+function ScheduleSettingsCard() {
   const qc = useQueryClient();
   const { data: config, isLoading: configLoading } = useGetReconciliationScheduleConfig();
   const { data: nextRunData } = useGetReconciliationNextRun();
   const now = useNow(1000);
 
-  const firedForRef = useRef<string | null>(null);
-  const nextRunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const serverTimeBaseRef = useRef<{ serverSeconds: number; fetchedAtMs: number } | null>(null);
-
-  useEffect(() => {
-    if (nextRunData?.serverTime) {
-      const parts = nextRunData.serverTime.split(":").map(Number);
-      const h = parts[0] ?? 0;
-      const m = parts[1] ?? 0;
-      const s = parts[2] ?? 0;
-      serverTimeBaseRef.current = {
-        serverSeconds: h * 3600 + m * 60 + s,
-        fetchedAtMs: Date.now(),
-      };
-    }
-  }, [nextRunData?.serverTime]);
-
-  useEffect(() => {
-    if (!nextRunData?.nextRunAt) return;
-    const targetMs = new Date(nextRunData.nextRunAt).getTime();
-    if (now >= targetMs && firedForRef.current !== nextRunData.nextRunAt) {
-      firedForRef.current = nextRunData.nextRunAt;
-      onScheduledRunFired?.();
-      if (nextRunTimerRef.current !== null) clearTimeout(nextRunTimerRef.current);
-      nextRunTimerRef.current = setTimeout(() => {
-        nextRunTimerRef.current = null;
-        qc.invalidateQueries({ queryKey: ["/api/system-config/reconciliation/next-run"] });
-      }, 5000);
-    }
-  }, [now, nextRunData?.nextRunAt, onScheduledRunFired, qc]);
-
-  useEffect(() => () => {
-    if (nextRunTimerRef.current !== null) clearTimeout(nextRunTimerRef.current);
-  }, []);
-
   const [editing, setEditing] = useState(false);
   const [localTimeStr, setLocalTimeStr] = useState("00:00");
   const [lookbackDays, setLookbackDays] = useState(1);
-  const [lookbackPreset, setLookbackPreset] = useState<string>("1");
+  const [lookbackPreset, setLookbackPreset] = useState<"1" | "3" | "7" | "30" | "custom">("1");
   const [enabled, setEnabled] = useState(true);
-  const [presetName, setPresetName] = useState("");
-  const [savingPreset, setSavingPreset] = useState(false);
 
-  const { data: savedPresets = [], refetch: refetchPresets } = useGetReconciliationLookbackPresets();
-
-  const { mutate: addPreset } = useAddReconciliationLookbackPreset({
-    mutation: {
-      onSuccess: (updated) => {
-        toast.success("Preset saved");
-        setPresetName("");
-        setSavingPreset(false);
-        refetchPresets();
-        const key = `s:${lookbackDays}`;
-        setLookbackPreset(key);
-      },
-      onError: (err: unknown) => {
-        toast.error(getApiErrorMessage(err, "Failed to save preset"));
-        setSavingPreset(false);
-      },
-    },
-  });
-
-  const { mutate: deletePreset } = useDeleteReconciliationLookbackPreset({
-    mutation: {
-      onSuccess: (updated) => {
-        toast.success("Preset removed");
-        refetchPresets();
-        if (lookbackPreset.startsWith("s:")) {
-          setLookbackPreset("custom");
-        }
-      },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to remove preset")),
-    },
-  });
-
-  const BUILTIN_DAYS = [1, 3, 7, 30];
-
-  function syncLookback(days: number, presets: Array<{ name: string; days: number }> = []) {
+  function syncLookback(days: number) {
     setLookbackDays(days);
-    if (BUILTIN_DAYS.includes(days)) {
-      setLookbackPreset(String(days));
-    } else if (presets.some((p) => p.days === days)) {
-      setLookbackPreset(`s:${days}`);
-    } else {
-      setLookbackPreset("custom");
-    }
+    setLookbackPreset([1, 3, 7, 30].includes(days) ? (String(days) as "1" | "3" | "7" | "30") : "custom");
   }
 
   const tz = nextRunData?.serverTimezone ?? null;
@@ -567,10 +486,10 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
       } else {
         setLocalTimeStr(`${padTwo(config.hour)}:${padTwo(config.minute)}`);
       }
-      syncLookback(config.lookbackDays, savedPresets);
+      syncLookback(config.lookbackDays);
       setEnabled(config.enabled);
     }
-  }, [config, tz, savedPresets]);
+  }, [config, tz]);
 
   const { mutate: saveConfig, isPending: saving } = useUpdateReconciliationScheduleConfig({
     mutation: {
@@ -580,8 +499,8 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
         qc.invalidateQueries({ queryKey: ["/api/system-config/reconciliation/next-run"] });
         qc.invalidateQueries({ queryKey: ["/api/system-config/reconciliation"] });
       },
-      onError: (err: unknown) => {
-        toast.error(getApiErrorMessage(err, "Failed to save schedule settings"));
+      onError: (err: any) => {
+        toast.error(`Failed to save: ${err?.message ?? "Unknown error"}`);
       },
     },
   });
@@ -590,7 +509,6 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
   const currentMinute = config?.minute ?? 0;
   const currentLookback = config?.lookbackDays ?? 1;
   const currentEnabled = config?.enabled ?? true;
-  const matchingPreset = savedPresets.find((p) => p.days === currentLookback);
 
   const serverTz = tz;
   const localEquivalent = serverTz ? serverTimeToLocalDisplay(currentHour, currentMinute, serverTz) : null;
@@ -606,34 +524,10 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
   })();
   const editTzDiffers = serverTz !== null && serverTz !== Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  const LOOKBACK_PRESET_LABELS: Record<number, string> = {
-    1: "yesterday",
-    3: "the last 3 days",
-    7: "the last 7 days",
-    30: "the last 30 days",
-  };
-  const lookbackSummaryLabel = (days: number): string =>
-    LOOKBACK_PRESET_LABELS[days] ?? `the previous ${days} days`;
-
-  const displayTime = localEquivalent && tzDiffers
-    ? localEquivalent
-    : `${padTwo(currentHour)}:${padTwo(currentMinute)}`;
-  const displayTimeSuffix = localEquivalent && tzDiffers
-    ? ` your time (${padTwo(currentHour)}:${padTwo(currentMinute)} server time)`
-    : serverTz && !tzDiffers
-      ? ""
-      : " server time";
-
-  const liveServerTime = (() => {
-    if (!serverTimeBaseRef.current) return null;
-    const { serverSeconds, fetchedAtMs } = serverTimeBaseRef.current;
-    const elapsed = Math.floor((now - fetchedAtMs) / 1000);
-    const total = (serverSeconds + elapsed) % 86400;
-    const h = Math.floor(total / 3600);
-    const mv = Math.floor((total % 3600) / 60);
-    const s = total % 60;
-    return `${padTwo(h)}:${padTwo(mv)}:${padTwo(s)}`;
-  })();
+  const scheduleLabel = `Daily at ${padTwo(currentHour)}:${padTwo(currentMinute)} server time`;
+  const windowLabel = currentLookback === 1
+    ? "lookback: yesterday"
+    : `lookback: last ${currentLookback} days`;
 
   return (
     <Card>
@@ -678,18 +572,30 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
                     {currentEnabled ? "Active" : "Paused"}
                   </Badge>
                 </div>
-                <p className={`text-sm ${currentEnabled ? "text-foreground" : "text-muted-foreground/70"}`}>
+                <div className="flex flex-wrap gap-2">
+                  <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 min-w-[160px]">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Scheduled Time</p>
+                    <p className={`text-sm font-medium font-mono ${!currentEnabled ? "text-muted-foreground/60" : ""}`}>{padTwo(currentHour)}:{padTwo(currentMinute)}</p>
+                    {tz && <p className="text-[10px] text-muted-foreground/60">{tz}</p>}
+                    {localEquivalent && tzDiffers && (
+                      <p className="text-[10px] text-primary/70 mt-0.5">= {localEquivalent} your time</p>
+                    )}
+                  </div>
+                  <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 min-w-[160px]">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Lookback Window</p>
+                    <p className={`text-sm font-medium ${!currentEnabled ? "text-muted-foreground/60" : ""}`}>{currentLookback} {currentLookback === 1 ? "day" : "days"}</p>
+                    <p className="text-[10px] text-muted-foreground/60">{windowLabel}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
                   {currentEnabled
                     ? <>
-                        Runs every day at{" "}
-                        <span className="font-semibold font-mono">{displayTime}</span>
-                        <span className="text-muted-foreground">{displayTimeSuffix}</span>
-                        {", covering "}
-                        <span className="font-semibold">{lookbackSummaryLabel(currentLookback)}</span>
-                        {matchingPreset && (
-                          <span className="text-muted-foreground"> · {matchingPreset.name}</span>
+                        Auto-reconciliation runs{" "}
+                        <span className="text-foreground font-medium">{scheduleLabel}</span>
+                        {localEquivalent && tzDiffers && (
+                          <span className="text-primary/70"> ({localEquivalent} your time)</span>
                         )}
-                        {"."}
+                        , covering the previous {currentLookback === 1 ? "day" : `${currentLookback} days`}.
                       </>
                     : "The scheduler is paused and will not run until re-enabled."}
                 </p>
@@ -706,18 +612,6 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
                           month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
                         })} local)
                       </span>
-                    </span>
-                  </div>
-                )}
-                {liveServerTime && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60">
-                    <Clock className="w-3 h-3 shrink-0" />
-                    <span>
-                      Now:{" "}
-                      <span className="font-mono tabular-nums text-muted-foreground/80">{liveServerTime}</span>
-                      {serverTz && (
-                        <span className="ml-1">server time{tzDiffers ? ` (${serverTz})` : ""}</span>
-                      )}
                     </span>
                   </div>
                 )}
@@ -766,17 +660,13 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
                 <Select
                   value={lookbackPreset}
                   onValueChange={(v) => {
-                    setLookbackPreset(v);
-                    if (v !== "custom" && !v.startsWith("s:")) {
-                      setLookbackDays(parseInt(v));
-                    } else if (v.startsWith("s:")) {
-                      const d = parseInt(v.slice(2));
-                      setLookbackDays(d);
-                    }
+                    const val = v as "1" | "3" | "7" | "30" | "custom";
+                    setLookbackPreset(val);
+                    if (val !== "custom") setLookbackDays(parseInt(val));
                   }}
                   disabled={saving}
                 >
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -784,92 +674,20 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
                     <SelectItem value="3">Last 3 days</SelectItem>
                     <SelectItem value="7">Last 7 days</SelectItem>
                     <SelectItem value="30">Last 30 days</SelectItem>
-                    {savedPresets.length > 0 && (
-                      <>
-                        <div className="px-2 py-1 text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Saved presets</div>
-                        {savedPresets.map((p) => (
-                          <SelectItem key={`s:${p.days}`} value={`s:${p.days}`}>
-                            {p.name} ({p.days}d)
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
                     <SelectItem value="custom">Custom…</SelectItem>
                   </SelectContent>
                 </Select>
-                {(lookbackPreset === "custom" || lookbackPreset.startsWith("s:")) && (
+                {lookbackPreset === "custom" && (
                   <Input
                     type="number"
                     min={1}
                     max={90}
                     value={lookbackDays}
-                    onChange={e => {
-                      const d = Math.min(90, Math.max(1, parseInt(e.target.value) || 1));
-                      setLookbackDays(d);
-                      if (lookbackPreset.startsWith("s:") && parseInt(lookbackPreset.slice(2)) !== d) {
-                        setLookbackPreset("custom");
-                      }
-                    }}
+                    onChange={e => setLookbackDays(Math.min(90, Math.max(1, parseInt(e.target.value) || 1)))}
                     className="w-24 mt-1.5"
                     placeholder="1–90"
                     disabled={saving}
                   />
-                )}
-                {lookbackPreset === "custom" && (
-                  <div className="mt-2 rounded-md border border-primary/20 bg-primary/5 p-2.5 space-y-2">
-                    <p className="text-[10px] text-primary/70 font-medium flex items-center gap-1">
-                      <BookmarkPlus className="w-3 h-3" /> Save as preset
-                    </p>
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        placeholder="e.g. Fortnightly"
-                        value={presetName}
-                        onChange={e => setPresetName(e.target.value)}
-                        className="h-7 text-xs flex-1"
-                        maxLength={50}
-                        disabled={savingPreset || saving}
-                        onKeyDown={e => {
-                          if (e.key === "Enter" && presetName.trim()) {
-                            setSavingPreset(true);
-                            addPreset({ data: { name: presetName.trim(), days: lookbackDays } });
-                          }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 shrink-0"
-                        disabled={!presetName.trim() || savingPreset || saving}
-                        onClick={() => {
-                          setSavingPreset(true);
-                          addPreset({ data: { name: presetName.trim(), days: lookbackDays } });
-                        }}
-                      >
-                        {savingPreset ? <Loader2 className="w-3 h-3 animate-spin" /> : <BookmarkPlus className="w-3 h-3" />}
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {savedPresets.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">Manage presets</p>
-                    {savedPresets.map((p) => (
-                      <div key={p.days} className="flex items-center justify-between rounded border border-border/40 bg-muted/20 px-2 py-1">
-                        <span className="text-xs text-foreground/80">{p.name} <span className="text-muted-foreground/60">({p.days}d)</span></span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-5 w-5 p-0 text-muted-foreground/50 hover:text-red-400 hover:bg-red-500/10"
-                          onClick={() => deletePreset({ days: p.days })}
-                          disabled={saving}
-                          title={`Remove "${p.name}" preset`}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
                 )}
               </div>
             </div>
@@ -900,9 +718,8 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
                     } else {
                       setLocalTimeStr(`${padTwo(config.hour)}:${padTwo(config.minute)}`);
                     }
-                    syncLookback(config.lookbackDays, savedPresets);
+                    syncLookback(config.lookbackDays);
                     setEnabled(config.enabled);
-                    setPresetName("");
                   }
                 }}
                 disabled={saving}
@@ -937,161 +754,6 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
   );
 }
 
-function ReportRecipientsCard() {
-  const qc = useQueryClient();
-  const [newEmail, setNewEmail] = useState("");
-  const [adding, setAdding] = useState(false);
-
-  const { data, isLoading } = useGetReconciliationReportRecipients();
-  const recipients: string[] = data?.recipients ?? [];
-
-  const { mutate: addRecipient, isPending: isAdding } = useAddReconciliationReportRecipient({
-    mutation: {
-      onSuccess: (updated) => {
-        toast.success("Recipient added");
-        setNewEmail("");
-        setAdding(false);
-        qc.invalidateQueries({ queryKey: ["/api/system-config/reconciliation/report-recipients"] });
-      },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to add recipient")),
-    },
-  });
-
-  const { mutate: removeRecipient, isPending: isRemoving } = useRemoveReconciliationReportRecipient({
-    mutation: {
-      onSuccess: () => {
-        toast.success("Recipient removed");
-        qc.invalidateQueries({ queryKey: ["/api/system-config/reconciliation/report-recipients"] });
-      },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to remove recipient")),
-    },
-  });
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const isValidEmail = emailRegex.test(newEmail.trim());
-
-  function handleAdd() {
-    const email = newEmail.trim();
-    if (!email || !isValidEmail) return;
-    addRecipient({ data: { email } });
-  }
-
-  function handleRemove(email: string) {
-    removeRecipient({ email: encodeURIComponent(email) });
-  }
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Mail className="w-4 h-4 text-primary" />
-          Report Recipients
-        </CardTitle>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          These addresses receive the reconciliation report email after each run. The first address is the primary recipient; others are CC'd.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Recipient list */}
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Loading…
-          </div>
-        ) : recipients.length === 0 ? (
-          <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-4 text-center text-sm text-muted-foreground/60">
-            No recipients configured. Add an address below to receive reports.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {recipients.map((email, idx) => (
-              <div
-                key={email}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/10 px-3 py-2"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Mail className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
-                  <span className="text-sm font-mono truncate">{email}</span>
-                  {idx === 0 && (
-                    <Badge className="text-[10px] px-1.5 py-0 h-4 border bg-violet-500/10 text-violet-400 border-violet-500/30 shrink-0">
-                      Primary
-                    </Badge>
-                  )}
-                  {idx > 0 && (
-                    <Badge className="text-[10px] px-1.5 py-0 h-4 border bg-muted text-muted-foreground border-border/50 shrink-0">
-                      CC
-                    </Badge>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 shrink-0"
-                  disabled={isRemoving}
-                  onClick={() => handleRemove(email)}
-                  aria-label={`Remove ${email}`}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Add form */}
-        {adding ? (
-          <div className="flex items-center gap-2 pt-1">
-            <Input
-              type="email"
-              placeholder="email@example.com"
-              value={newEmail}
-              onChange={e => setNewEmail(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && isValidEmail) handleAdd(); if (e.key === "Escape") { setAdding(false); setNewEmail(""); } }}
-              className="h-8 text-sm flex-1"
-              autoFocus
-              disabled={isAdding}
-            />
-            <Button
-              size="sm"
-              className="h-8 gap-1.5"
-              disabled={!isValidEmail || isAdding}
-              onClick={handleAdd}
-            >
-              {isAdding ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Adding…</> : "Add"}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => { setAdding(false); setNewEmail(""); }}
-              disabled={isAdding}
-            >
-              <X className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 h-8"
-            onClick={() => setAdding(true)}
-            disabled={recipients.length >= 20}
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            Add Recipient
-          </Button>
-        )}
-
-        {recipients.length > 0 && (
-          <p className="text-[11px] text-muted-foreground/50">
-            {recipients.length} recipient{recipients.length !== 1 ? "s" : ""} · changes take effect on the next run
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function AdminReconciliation() {
   const qc = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
@@ -1099,62 +761,14 @@ export default function AdminReconciliation() {
 
   const [dateFrom, setDateFrom] = useState(thirtyDaysAgo);
   const [dateTo, setDateTo] = useState(today);
-  const [runLookbackPreset, setRunLookbackPreset] = useState("30");
-  const [runLookbackDays, setRunLookbackDays] = useState(30);
-  const { data: runPresets = [] } = useGetReconciliationLookbackPresets();
-
-  function applyRunLookback(days: number) {
-    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-    setDateFrom(from);
-    setDateTo(new Date().toISOString().slice(0, 10));
-  }
-
-  function handleRunPresetChange(v: string) {
-    setRunLookbackPreset(v);
-    if (!v.startsWith("s:") && v !== "custom") {
-      const d = parseInt(v);
-      setRunLookbackDays(d);
-      applyRunLookback(d);
-    } else if (v.startsWith("s:")) {
-      const d = parseInt(v.slice(2));
-      setRunLookbackDays(d);
-      applyRunLookback(d);
-    }
-  }
-
-  const search = useSearch();
-  const [, navigate] = useLocation();
-
-  const [selectedRunId, setSelectedRunId] = useState<number | null>(() => {
-    const params = new URLSearchParams(search);
-    const raw = params.get("run") ?? params.get("runId") ?? "";
-    const id = parseInt(raw);
-    return isNaN(id) ? null : id;
-  });
-
-  useEffect(() => {
-    const params = new URLSearchParams(search);
-    const raw = params.get("run") ?? params.get("runId") ?? "";
-    const id = parseInt(raw);
-    const next = isNaN(id) ? null : id;
-    setSelectedRunId(prev => (prev === next ? prev : next));
-  }, [search]);
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [resolveItem, setResolveItem] = useState<any | null>(null);
   const [exportFilter, setExportFilter] = useState<"all" | "matched" | "unmatched_deposit" | "unmatched_settlement">("all");
   const [csvExportFilter, setCsvExportFilter] = useState<"all" | "matched" | "unmatched">("all");
   const [isExporting, setIsExporting] = useState(false);
-  const [isPreviewingEmail, setIsPreviewingEmail] = useState(false);
-  const [isPreviewingAlertEmail, setIsPreviewingAlertEmail] = useState(false);
   const [emailLogOpen, setEmailLogOpen] = useState(false);
-  const [reportEmailsOpen, setReportEmailsOpen] = useState(true);
-  const [alertEmailsOpen, setAlertEmailsOpen] = useState(true);
   const [historyPage, setHistoryPage] = useState(1);
   const [emailFailureBannerDismissed, setEmailFailureBannerDismissed] = useState(false);
-  const [forceResendConfirmOpen, setForceResendConfirmOpen] = useState(false);
-  const [runNotes, setRunNotes] = useState("");
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [notesValue, setNotesValue] = useState("");
-  const [notesHistoryOpen, setNotesHistoryOpen] = useState(false);
   const HISTORY_PAGE_SIZE = 15;
 
   const schedulerQuery = useQuery({
@@ -1181,22 +795,15 @@ export default function AdminReconciliation() {
     enabled: !!selectedRunId,
   });
 
-  const notesAuditQuery = useQuery({
-    queryKey: ["/api/reconciliation/runs", selectedRunId, "audit-log"],
-    queryFn: () => apiGet(`/reconciliation/runs/${selectedRunId}/audit-log`),
-    enabled: !!selectedRunId,
-  });
-
   const runMutation = useMutation({
-    mutationFn: () => apiPost("/reconciliation/run", { dateFrom, dateTo, notes: runNotes.trim() || null }),
+    mutationFn: () => apiPost("/reconciliation/run", { dateFrom, dateTo }),
     onSuccess: () => {
       toast.success("Reconciliation run complete");
-      setRunNotes("");
       setHistoryPage(1);
       qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs"] });
       refetch();
     },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Run failed")),
+    onError: (err: any) => toast.error(`Run failed: ${err.message}`),
   });
 
   const resendEmailMutation = useMutation({
@@ -1205,43 +812,12 @@ export default function AdminReconciliation() {
       toast.success("Report email resent");
       qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs", selectedRunId, "email-logs"] });
     },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to resend report email")),
-  });
-
-  const resendAlertMutation = useMutation({
-    mutationFn: () => apiPost(`/reconciliation/runs/${selectedRunId}/resend-alert`, {}),
-    onSuccess: () => {
-      toast.success("Unmatched-items alert email resent");
-      qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs", selectedRunId, "email-logs"] });
-    },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to resend alert email")),
-  });
-
-  const forceResendAlertMutation = useMutation({
-    mutationFn: () => apiPost(`/reconciliation/runs/${selectedRunId}/resend-alert`, { force: true }),
-    onSuccess: () => {
-      toast.success("Alert email force-sent");
-      qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs", selectedRunId, "email-logs"] });
-    },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to force-send alert email")),
-  });
-
-  const updateNotesMutation = useMutation({
-    mutationFn: (notes: string | null) =>
-      apiPatch(`/reconciliation/runs/${selectedRunId}/notes`, { notes }),
-    onSuccess: () => {
-      toast.success("Notes updated");
-      setEditingNotes(false);
-      qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs", selectedRunId, "items"] });
-      qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs"] });
-      qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs", selectedRunId, "audit-log"] });
-    },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to update notes")),
+    onError: (err: any) => toast.error(`Resend failed: ${err.message}`),
   });
 
   const runs = data?.data ?? [];
   const historyTotal: number = data?.total ?? 0;
-  const failedEmailRuns: ReconciliationRun[] = runs.filter((r: ReconciliationRun) => r.lastEmail?.status === "failed");
+  const failedEmailRuns: any[] = runs.filter((r: any) => r.lastEmail?.status === "failed");
   const historyTotalPages = Math.max(1, Math.ceil(historyTotal / HISTORY_PAGE_SIZE));
   const selectedRun = detailQuery.data?.run;
   const allItems: any[] = detailQuery.data?.data ?? [];
@@ -1261,13 +837,6 @@ export default function AdminReconciliation() {
     lastAutoRunAt: string | null;
     lastAutoRunStatus: string | null;
   } | undefined;
-
-  const handleScheduledRunFired = useCallback(() => {
-    toast.info("Reconciliation just ran — refreshing…", { duration: 4000 });
-    setHistoryPage(1);
-    qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs"] });
-    qc.invalidateQueries({ queryKey: ["/api/reconciliation/scheduler-status"] });
-  }, [qc]);
 
   function cronToHumanTime(cronExpression: string): string {
     const parts = cronExpression.split(" ");
@@ -1389,49 +958,6 @@ export default function AdminReconciliation() {
         <CardContent>
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Lookback</Label>
-              <div className="flex items-center gap-2">
-                <Select value={runLookbackPreset} onValueChange={handleRunPresetChange} disabled={runMutation.isPending}>
-                  <SelectTrigger className="w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Yesterday (1 day)</SelectItem>
-                    <SelectItem value="3">Last 3 days</SelectItem>
-                    <SelectItem value="7">Last 7 days</SelectItem>
-                    <SelectItem value="30">Last 30 days</SelectItem>
-                    {runPresets.length > 0 && (
-                      <>
-                        <div className="px-2 py-1 text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Saved presets</div>
-                        {runPresets.map((p) => (
-                          <SelectItem key={`s:${p.days}`} value={`s:${p.days}`}>
-                            {p.name} ({p.days}d)
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
-                    <SelectItem value="custom">Custom…</SelectItem>
-                  </SelectContent>
-                </Select>
-                {runLookbackPreset === "custom" && (
-                  <Input
-                    type="number"
-                    min={1}
-                    max={90}
-                    value={runLookbackDays}
-                    onChange={e => {
-                      const d = Math.min(90, Math.max(1, parseInt(e.target.value) || 1));
-                      setRunLookbackDays(d);
-                      applyRunLookback(d);
-                    }}
-                    className="w-20"
-                    placeholder="days"
-                    disabled={runMutation.isPending}
-                  />
-                )}
-              </div>
-            </div>
-            <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">From</Label>
               <Input
                 type="date"
@@ -1464,31 +990,14 @@ export default function AdminReconciliation() {
               )}
             </Button>
           </div>
-          <div className="mt-3 space-y-1.5">
-            <Label className="text-xs text-muted-foreground flex items-center gap-1">
-              <StickyNote className="w-3.5 h-3.5" />
-              Notes <span className="text-muted-foreground/50">(optional)</span>
-            </Label>
-            <Textarea
-              value={runNotes}
-              onChange={e => setRunNotes(e.target.value)}
-              placeholder="Reason for this run, e.g. dispute investigation, audit request…"
-              rows={2}
-              className="max-w-lg resize-none text-sm"
-              disabled={runMutation.isPending}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="text-xs text-muted-foreground mt-3">
             Matches successful deposits to approved/paid settlements. Settlements with period bounds are matched by overlap; others by creation date.
           </p>
         </CardContent>
       </Card>
 
       {/* Schedule Settings */}
-      <ScheduleSettingsCard onScheduledRunFired={handleScheduledRunFired} />
-
-      {/* Report Recipients */}
-      <ReportRecipientsCard />
+      <ScheduleSettingsCard />
 
       {/* Run History */}
       <Card>
@@ -1519,7 +1028,6 @@ export default function AdminReconciliation() {
                   <thead>
                     <tr className="border-b border-border/50">
                       <th className="text-left px-4 py-2.5 text-xs text-muted-foreground font-medium">Run</th>
-                      <th className="text-left px-4 py-2.5 text-xs text-muted-foreground font-medium">Notes</th>
                       <th className="text-left px-4 py-2.5 text-xs text-muted-foreground font-medium">Period</th>
                       <th className="text-right px-4 py-2.5 text-xs text-muted-foreground font-medium">Deposits</th>
                       <th className="text-right px-4 py-2.5 text-xs text-muted-foreground font-medium">Matched</th>
@@ -1533,9 +1041,9 @@ export default function AdminReconciliation() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
-                    {runs.map((run: ReconciliationRun) => {
+                    {runs.map((run: any) => {
                       const meta = STATUS_META[run.status] ?? STATUS_META.complete;
-                      const lastEmail = run.lastEmail ?? null;
+                      const lastEmail = run.lastEmail as { sentAt: string; status: string; recipients: string } | null;
                       return (
                         <tr key={run.id} className="hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
@@ -1551,33 +1059,14 @@ export default function AdminReconciliation() {
                                 </Badge>
                               )}
                             </div>
-                            {run.triggeredBy !== "auto" && run.createdByEmail && (
+                            {run.triggeredBy !== "auto" && (run as any).createdByEmail && (
                               <div className="text-[10px] text-muted-foreground/60 mt-0.5">
-                                by {run.createdByEmail}
+                                by {(run as any).createdByEmail}
                               </div>
                             )}
                             <div className="text-xs text-muted-foreground">
                               {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
                             </div>
-                          </td>
-                          <td className="px-4 py-3 max-w-[180px]">
-                            {run.notes ? (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="flex items-start gap-1 cursor-default">
-                                      <StickyNote className="w-3 h-3 text-muted-foreground/50 mt-0.5 shrink-0" />
-                                      <span className="text-xs text-muted-foreground truncate block max-w-[150px]">{run.notes}</span>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-xs">
-                                    {run.notes}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : (
-                              <span className="text-xs text-muted-foreground/30">—</span>
-                            )}
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                             {run.dateFrom} → {run.dateTo}
@@ -1624,12 +1113,7 @@ export default function AdminReconciliation() {
                               variant="ghost"
                               size="sm"
                               className="h-7 gap-1 text-xs"
-                              onClick={() => {
-                                const params = new URLSearchParams(window.location.search);
-                                params.set("run", String(run.id));
-                                params.delete("runId");
-                                navigate(`/admin/reconciliation?${params.toString()}`, { replace: true });
-                              }}
+                              onClick={() => setSelectedRunId(run.id)}
                             >
                               Details <ChevronRight className="w-3 h-3" />
                             </Button>
@@ -1723,17 +1207,6 @@ export default function AdminReconciliation() {
             setExportFilter("all");
             setCsvExportFilter("all");
             setEmailLogOpen(false);
-            setEditingNotes(false);
-            setNotesValue("");
-            setForceResendConfirmOpen(false);
-            setNotesHistoryOpen(false);
-            const params = new URLSearchParams(window.location.search);
-            if (params.has("run") || params.has("runId")) {
-              params.delete("run");
-              params.delete("runId");
-              const newSearch = params.toString();
-              navigate(`/admin/reconciliation${newSearch ? `?${newSearch}` : ""}`, { replace: true });
-            }
           }
         }}
       >
@@ -1743,74 +1216,6 @@ export default function AdminReconciliation() {
               <GitMerge className="w-4 h-4 text-primary" />
               Run #{selectedRunId} — Reconciliation Details
               <div className="ml-auto flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1.5 text-xs"
-                  disabled={isPreviewingEmail}
-                  onClick={async () => {
-                    if (!selectedRunId) return;
-                    setIsPreviewingEmail(true);
-                    try {
-                      const res = await fetch(`/api/settings/finance_report_email/preview?runId=${selectedRunId}`, {
-                        headers: { Authorization: `Bearer ${getToken()}` },
-                      });
-                      if (!res.ok) throw new Error("Failed to load preview");
-                      const html = await res.text();
-                      const blob = new Blob([html], { type: "text/html" });
-                      const url = URL.createObjectURL(blob);
-                      const tab = window.open(url, "_blank");
-                      if (tab) {
-                        tab.addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
-                        setTimeout(() => URL.revokeObjectURL(url), 30_000);
-                      }
-                    } catch (err: any) {
-                      toast.error(err.message ?? "Could not load email preview");
-                    } finally {
-                      setIsPreviewingEmail(false);
-                    }
-                  }}
-                >
-                  {isPreviewingEmail ? (
-                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…</>
-                  ) : (
-                    <><Mail className="w-3.5 h-3.5" /> Preview email</>
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1.5 text-xs"
-                  disabled={isPreviewingAlertEmail}
-                  onClick={async () => {
-                    if (!selectedRunId) return;
-                    setIsPreviewingAlertEmail(true);
-                    try {
-                      const res = await fetch(`/api/settings/reconciliation_alert_email/preview?runId=${selectedRunId}`, {
-                        headers: { Authorization: `Bearer ${getToken()}` },
-                      });
-                      if (!res.ok) throw new Error("Failed to load alert email preview");
-                      const html = await res.text();
-                      const blob = new Blob([html], { type: "text/html" });
-                      const url = URL.createObjectURL(blob);
-                      const tab = window.open(url, "_blank");
-                      if (tab) {
-                        tab.addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
-                        setTimeout(() => URL.revokeObjectURL(url), 30_000);
-                      }
-                    } catch (err: any) {
-                      toast.error(err.message ?? "Could not load alert email preview");
-                    } finally {
-                      setIsPreviewingAlertEmail(false);
-                    }
-                  }}
-                >
-                  {isPreviewingAlertEmail ? (
-                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…</>
-                  ) : (
-                    <><Mail className="w-3.5 h-3.5" /> Preview alert email</>
-                  )}
-                </Button>
                 {(() => {
                   const CSV_FILTER_LABELS: Record<string, string> = {
                     all: "All",
@@ -1900,190 +1305,32 @@ export default function AdminReconciliation() {
           </DialogHeader>
 
           {selectedRun && (
-            <div className="border-b border-border/50 pb-4 space-y-3">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { label: "Period", value: `${selectedRun.dateFrom} → ${selectedRun.dateTo}` },
-                  {
-                    label: "Matched",
-                    value: `${selectedRun.totalMatched} items · ${formatCurrency(selectedRun.matchedAmount)}`,
-                    highlight: "text-emerald-400",
-                  },
-                  {
-                    label: "Unmatched",
-                    value: `${selectedRun.totalUnmatched} items · ${formatCurrency(selectedRun.unmatchedAmount)}`,
-                    highlight: "text-orange-400",
-                  },
-                  { label: "Status", value: STATUS_META[selectedRun.status]?.label ?? selectedRun.status },
-                ].map(s => (
-                  <div key={s.label} className="rounded-md border border-border/50 bg-muted/20 px-3 py-2">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
-                    <p className={`text-sm font-medium mt-0.5 ${s.highlight ?? ""}`}>{s.value}</p>
-                  </div>
-                ))}
-              </div>
-              {selectedRun.notes && (
-                <div className="flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-                  <StickyNote className="w-3.5 h-3.5 text-amber-400/70 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Notes</p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selectedRun.notes}</p>
-                  </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-b border-border/50 pb-4">
+              {[
+                { label: "Period", value: `${selectedRun.dateFrom} → ${selectedRun.dateTo}` },
+                {
+                  label: "Matched",
+                  value: `${selectedRun.totalMatched} items · ${formatCurrency(selectedRun.matchedAmount)}`,
+                  highlight: "text-emerald-400",
+                },
+                {
+                  label: "Unmatched",
+                  value: `${selectedRun.totalUnmatched} items · ${formatCurrency(selectedRun.unmatchedAmount)}`,
+                  highlight: "text-orange-400",
+                },
+                { label: "Status", value: STATUS_META[selectedRun.status]?.label ?? selectedRun.status },
+              ].map(s => (
+                <div key={s.label} className="rounded-md border border-border/50 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
+                  <p className={`text-sm font-medium mt-0.5 ${s.highlight ?? ""}`}>{s.value}</p>
                 </div>
-              )}
+              ))}
             </div>
           )}
-
-          {/* Run Notes — inline edit */}
-          {selectedRun && (
-            <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-2.5">
-              <div className="flex items-center gap-2 mb-1">
-                <StickyNote className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
-                <span className="text-xs font-medium text-muted-foreground">Notes</span>
-                {!editingNotes && (
-                  <button
-                    className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-primary transition-colors"
-                    onClick={() => {
-                      setNotesValue(selectedRun.notes ?? "");
-                      setEditingNotes(true);
-                    }}
-                    title="Edit notes"
-                  >
-                    <Pencil className="w-3 h-3" />
-                    Edit
-                  </button>
-                )}
-              </div>
-              {editingNotes ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={notesValue}
-                    onChange={e => setNotesValue(e.target.value)}
-                    placeholder="Add a note for this run…"
-                    rows={3}
-                    className="resize-none text-sm"
-                    disabled={updateNotesMutation.isPending}
-                    autoFocus
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="h-7 gap-1.5 text-xs"
-                      disabled={updateNotesMutation.isPending}
-                      onClick={() => updateNotesMutation.mutate(notesValue.trim() || null)}
-                    >
-                      {updateNotesMutation.isPending ? (
-                        <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</>
-                      ) : (
-                        <><CheckCircle2 className="w-3 h-3" /> Save</>
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 gap-1 text-xs text-muted-foreground"
-                      disabled={updateNotesMutation.isPending}
-                      onClick={() => {
-                        setEditingNotes(false);
-                        setNotesValue("");
-                      }}
-                    >
-                      <X className="w-3 h-3" /> Cancel
-                    </Button>
-                    {selectedRun.notes && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 gap-1 text-xs text-red-400/70 hover:text-red-400 hover:bg-red-500/10 ml-auto"
-                        disabled={updateNotesMutation.isPending}
-                        onClick={() => updateNotesMutation.mutate(null)}
-                      >
-                        <Trash2 className="w-3 h-3" /> Clear
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : selectedRun.notes ? (
-                <p className="text-sm text-foreground/80 whitespace-pre-wrap">{selectedRun.notes}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground/40 italic">No notes — click Edit to add one</p>
-              )}
-            </div>
-          )}
-
-          {/* Notes History */}
-          {selectedRun && (() => {
-            const auditEntries: Array<{ id: number; adminEmail: string; details: string | null; createdAt: string }> = notesAuditQuery.data?.data ?? [];
-            return (
-              <div className="border border-border/50 rounded-md">
-                <button
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/20 transition-colors rounded-md"
-                  onClick={() => setNotesHistoryOpen(v => !v)}
-                >
-                  <History className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
-                  <span className="font-medium text-xs text-muted-foreground">Notes History</span>
-                  {auditEntries.length > 0 && (
-                    <Badge variant="secondary" className="h-4 px-1.5 text-[10px] ml-0.5">{auditEntries.length}</Badge>
-                  )}
-                  <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground ml-auto transition-transform ${notesHistoryOpen ? "rotate-180" : ""}`} />
-                </button>
-                {notesHistoryOpen && (
-                  <div className="border-t border-border/50 px-3 py-2.5 space-y-2">
-                    {notesAuditQuery.isLoading ? (
-                      <p className="text-xs text-muted-foreground/60">Loading…</p>
-                    ) : auditEntries.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/40 italic">No edits recorded yet.</p>
-                    ) : (
-                      auditEntries.map(entry => {
-                        let parsed: { previousNotes?: string | null; newNotes?: string | null } = {};
-                        try { parsed = JSON.parse(entry.details ?? "{}"); } catch {}
-                        return (
-                          <div key={entry.id} className="rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-xs space-y-1.5">
-                            <div className="flex items-center gap-2 text-muted-foreground/60">
-                              <User className="w-3 h-3 shrink-0" />
-                              <span className="font-medium text-muted-foreground/80">{entry.adminEmail}</span>
-                              <span className="ml-auto whitespace-nowrap">
-                                {new Date(entry.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2">
-                              <div className="bg-red-500/5 border border-red-500/20 rounded px-2 py-1.5 min-w-0">
-                                <p className="text-[10px] uppercase tracking-wider text-red-400/60 mb-0.5">Before</p>
-                                {parsed.previousNotes ? (
-                                  <p className="text-muted-foreground/70 whitespace-pre-wrap break-words">{parsed.previousNotes}</p>
-                                ) : (
-                                  <p className="text-muted-foreground/30 italic">empty</p>
-                                )}
-                              </div>
-                              <ArrowRightLeft className="w-3 h-3 text-muted-foreground/30 mt-3 shrink-0" />
-                              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded px-2 py-1.5 min-w-0">
-                                <p className="text-[10px] uppercase tracking-wider text-emerald-400/60 mb-0.5">After</p>
-                                {parsed.newNotes ? (
-                                  <p className="text-muted-foreground/70 whitespace-pre-wrap break-words">{parsed.newNotes}</p>
-                                ) : (
-                                  <p className="text-muted-foreground/30 italic">cleared</p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
 
           {/* Email Delivery Log */}
           {(() => {
             const emailLogs: Array<{ id: number; emailType: string; recipients: string; status: string; errorMessage: string | null; sentAt: string }> = emailLogsQuery.data?.data ?? [];
-            const reportLogs = emailLogs.filter(l => l.emailType === "report");
-            const alertLogs = emailLogs.filter(l => l.emailType !== "report");
-            const reportSent = reportLogs.filter(l => l.status === "sent").length;
-            const reportFailed = reportLogs.filter(l => l.status === "failed").length;
-            const alertSent = alertLogs.filter(l => l.status === "sent").length;
-            const alertFailed = alertLogs.filter(l => l.status === "failed").length;
             const hasSent = emailLogs.some(l => l.status === "sent");
             const hasFailed = emailLogs.some(l => l.status === "failed");
             const indicatorIcon = hasFailed
@@ -2096,35 +1343,6 @@ export default function AdminReconciliation() {
               : hasSent
               ? <span className="text-emerald-400">All emails sent</span>
               : <span className="text-muted-foreground/50">No emails sent</span>;
-
-            function EmailLogEntry({ log }: { log: typeof emailLogs[0] }) {
-              return (
-                <div className={`rounded-md border px-3 py-2 text-xs ${
-                  log.status === "sent"
-                    ? "border-emerald-500/20 bg-emerald-500/5"
-                    : "border-red-500/20 bg-red-500/5"
-                }`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    {log.status === "sent"
-                      ? <MailCheck className="w-3 h-3 text-emerald-400 shrink-0" />
-                      : <MailX className="w-3 h-3 text-red-400 shrink-0" />
-                    }
-                    <span className={`font-medium ${log.status === "sent" ? "text-emerald-400" : "text-red-400"}`}>
-                      {log.status === "sent" ? "Sent" : "Failed"}
-                    </span>
-                    <span className="text-muted-foreground/50 ml-auto whitespace-nowrap">
-                      {new Date(log.sentAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
-                  <p className="text-muted-foreground/70 truncate">
-                    <span className="text-muted-foreground/40">To: </span>{log.recipients || "—"}
-                  </p>
-                  {log.errorMessage && (
-                    <p className="text-red-400/70 mt-1 italic">{log.errorMessage}</p>
-                  )}
-                </div>
-              );
-            }
 
             return (
               <div className="border border-border/50 rounded-md">
@@ -2141,169 +1359,67 @@ export default function AdminReconciliation() {
                   <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground ml-auto transition-transform ${emailLogOpen ? "rotate-180" : ""}`} />
                 </button>
                 {emailLogOpen && (
-                  <div className="border-t border-border/50 px-3 py-2.5 space-y-3">
+                  <div className="border-t border-border/50 px-3 py-2.5 space-y-2">
                     {emailLogsQuery.isLoading ? (
                       <p className="text-xs text-muted-foreground">Loading…</p>
+                    ) : emailLogs.length === 0 ? (
+                      <p className="text-xs text-muted-foreground/50">No email sends recorded for this run.</p>
                     ) : (
-                      <>
-                        {/* Report Emails sub-section */}
-                        <div className="rounded-md border border-violet-500/20 overflow-hidden">
-                          <button
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-violet-500/5 transition-colors"
-                            onClick={() => setReportEmailsOpen(v => !v)}
-                          >
-                            <Mail className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-                            <span className="font-medium text-violet-400">Report Emails</span>
-                            {reportLogs.length > 0 && (
-                              <Badge className="h-4 px-1.5 text-[10px] ml-0.5 bg-violet-500/10 text-violet-400 border border-violet-500/30">
-                                {reportLogs.length}
-                              </Badge>
-                            )}
-                            {reportLogs.length > 0 && (
-                              <span className="flex items-center gap-1 ml-1">
-                                {reportSent > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 rounded px-1 py-0 text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                    {reportSent} sent
-                                  </span>
-                                )}
-                                {reportFailed > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 rounded px-1 py-0 text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                                    {reportFailed} failed
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                            <ChevronDown className={`w-3 h-3 text-violet-400/60 ml-auto transition-transform ${reportEmailsOpen ? "rotate-180" : ""}`} />
-                          </button>
-                          {reportEmailsOpen && (
-                            <div className="border-t border-violet-500/20 px-3 py-2 space-y-2">
-                              {reportLogs.length === 0 ? (
-                                <p className="text-xs text-muted-foreground/50">No report emails sent for this run.</p>
-                              ) : (
-                                reportLogs.map(log => <EmailLogEntry key={log.id} log={log} />)
-                              )}
-                              {(() => {
-                                const lastReport = reportLogs[0];
-                                const showResend = !lastReport || lastReport.status === "failed";
-                                if (!showResend) return null;
-                                return (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="w-full h-7 text-xs gap-1.5 border-violet-500/30 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
-                                    onClick={() => resendEmailMutation.mutate()}
-                                    disabled={resendEmailMutation.isPending}
-                                  >
-                                    {resendEmailMutation.isPending
-                                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                                      : <Mail className="w-3 h-3" />
-                                    }
-                                    {resendEmailMutation.isPending ? "Sending…" : "Resend Report Email"}
-                                  </Button>
-                                );
-                              })()}
-                            </div>
+                      emailLogs.map(log => (
+                        <div key={log.id} className={`rounded-md border px-3 py-2 text-xs ${
+                          log.status === "sent"
+                            ? "border-emerald-500/20 bg-emerald-500/5"
+                            : "border-red-500/20 bg-red-500/5"
+                        }`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            {log.status === "sent"
+                              ? <MailCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                              : <MailX className="w-3 h-3 text-red-400 shrink-0" />
+                            }
+                            <span className={`font-medium ${log.status === "sent" ? "text-emerald-400" : "text-red-400"}`}>
+                              {log.status === "sent" ? "Sent" : "Failed"}
+                            </span>
+                            <Badge className={`text-[10px] px-1.5 py-0 h-4 border ${
+                              log.emailType === "report"
+                                ? "bg-violet-500/10 text-violet-400 border-violet-500/30"
+                                : "bg-orange-500/10 text-orange-400 border-orange-500/30"
+                            }`}>
+                              {log.emailType === "report" ? "Report" : "Unmatched Alert"}
+                            </Badge>
+                            <span className="text-muted-foreground/50 ml-auto whitespace-nowrap">
+                              {new Date(log.sentAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground/70 truncate">
+                            <span className="text-muted-foreground/40">To: </span>{log.recipients || "—"}
+                          </p>
+                          {log.errorMessage && (
+                            <p className="text-red-400/70 mt-1 italic">{log.errorMessage}</p>
                           )}
                         </div>
-
-                        {/* Unmatched Alert Emails sub-section */}
-                        <div className="rounded-md border border-orange-500/20 overflow-hidden">
-                          <button
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-orange-500/5 transition-colors"
-                            onClick={() => setAlertEmailsOpen(v => !v)}
-                          >
-                            <AlertTriangle className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-                            <span className="font-medium text-orange-400">Unmatched Alert Emails</span>
-                            {alertLogs.length > 0 && (
-                              <Badge className="h-4 px-1.5 text-[10px] ml-0.5 bg-orange-500/10 text-orange-400 border border-orange-500/30">
-                                {alertLogs.length}
-                              </Badge>
-                            )}
-                            {alertLogs.length > 0 && (
-                              <span className="flex items-center gap-1 ml-1">
-                                {alertSent > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 rounded px-1 py-0 text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                    {alertSent} sent
-                                  </span>
-                                )}
-                                {alertFailed > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 rounded px-1 py-0 text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                                    {alertFailed} failed
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                            <ChevronDown className={`w-3 h-3 text-orange-400/60 ml-auto transition-transform ${alertEmailsOpen ? "rotate-180" : ""}`} />
-                          </button>
-                          {alertEmailsOpen && (
-                            <div className="border-t border-orange-500/20 px-3 py-2 space-y-2">
-                              {alertLogs.length === 0 ? (
-                                <p className="text-xs text-muted-foreground/50">No alert emails sent for this run.</p>
-                              ) : (
-                                alertLogs.map(log => <EmailLogEntry key={log.id} log={log} />)
-                              )}
-                              {(() => {
-                                const lastAlert = alertLogs[0];
-                                const showRegularResend = !lastAlert || lastAlert.status === "failed";
-                                const hasUnmatched = (selectedRun?.totalUnmatched ?? 0) > 0;
-                                return (
-                                  <div className="flex gap-1.5">
-                                    {showRegularResend && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="flex-1">
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="w-full h-7 text-xs gap-1.5 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300 disabled:pointer-events-none"
-                                              onClick={() => resendAlertMutation.mutate()}
-                                              disabled={resendAlertMutation.isPending || !hasUnmatched}
-                                            >
-                                              {resendAlertMutation.isPending
-                                                ? <Loader2 className="w-3 h-3 animate-spin" />
-                                                : <AlertTriangle className="w-3 h-3" />
-                                              }
-                                              {resendAlertMutation.isPending ? "Sending…" : "Re-send Alert Email"}
-                                            </Button>
-                                          </span>
-                                        </TooltipTrigger>
-                                        {!hasUnmatched && (
-                                          <TooltipContent side="bottom">
-                                            No unmatched items — nothing to alert about
-                                          </TooltipContent>
-                                        )}
-                                      </Tooltip>
-                                    )}
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className={showRegularResend ? "" : "flex-1 w-full"}>
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className={`h-7 text-xs gap-1.5 text-orange-400/70 hover:bg-orange-500/10 hover:text-orange-300 disabled:pointer-events-none ${showRegularResend ? "px-2" : "w-full"}`}
-                                            onClick={() => setForceResendConfirmOpen(true)}
-                                            disabled={resendAlertMutation.isPending || forceResendAlertMutation.isPending}
-                                          >
-                                            {forceResendAlertMutation.isPending
-                                              ? <Loader2 className="w-3 h-3 animate-spin" />
-                                              : <RefreshCw className="w-3 h-3" />
-                                            }
-                                            {!showRegularResend && (forceResendAlertMutation.isPending ? "Sending…" : "Force resend")}
-                                          </Button>
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="bottom">
-                                        Force resend — sends even if a prior alert succeeded
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
-                        </div>
-                      </>
+                      ))
                     )}
+                    {(() => {
+                      const reportLogs = emailLogs.filter(l => l.emailType === "report");
+                      const lastReport = reportLogs[0];
+                      const showResend = !lastReport || lastReport.status === "failed";
+                      if (!showResend) return null;
+                      return (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-7 text-xs gap-1.5 border-violet-500/30 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+                          onClick={() => resendEmailMutation.mutate()}
+                          disabled={resendEmailMutation.isPending}
+                        >
+                          {resendEmailMutation.isPending
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : <Mail className="w-3 h-3" />
+                          }
+                          {resendEmailMutation.isPending ? "Sending…" : "Resend Report Email"}
+                        </Button>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -2437,49 +1553,6 @@ export default function AdminReconciliation() {
           onResolved={handleResolved}
         />
       )}
-
-      {/* Force Resend Alert Email Confirmation */}
-      <Dialog open={forceResendConfirmOpen} onOpenChange={setForceResendConfirmOpen}>
-        <DialogContent className="max-w-sm gap-4">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="w-4 h-4 text-orange-400" />
-              Force Resend Alert Email
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            This will send a new unmatched-items alert email to all admin recipients even though a prior alert already succeeded. A new entry will appear in the alert log.
-          </p>
-          <p className="text-xs text-muted-foreground/60">Run #{selectedRunId}</p>
-          <div className="flex justify-end gap-2 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => setForceResendConfirmOpen(false)}
-              disabled={forceResendAlertMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              className="h-8 text-xs gap-1.5 bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30"
-              variant="outline"
-              onClick={() => {
-                setForceResendConfirmOpen(false);
-                forceResendAlertMutation.mutate();
-              }}
-              disabled={forceResendAlertMutation.isPending}
-            >
-              {forceResendAlertMutation.isPending
-                ? <Loader2 className="w-3 h-3 animate-spin" />
-                : <RefreshCw className="w-3 h-3" />
-              }
-              {forceResendAlertMutation.isPending ? "Sending…" : "Yes, force resend"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

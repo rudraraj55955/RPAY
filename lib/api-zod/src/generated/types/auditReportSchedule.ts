@@ -13,32 +13,11 @@ export interface AuditReportSchedule {
   frequency: AuditReportScheduleFrequency;
   recipientEmail: string;
   isActive: boolean;
-  /** Maximum number of automatic retry attempts after an initial delivery failure (0–10). */
-  maxRetryAttempts: number;
-  /** Minutes to wait between consecutive retry attempts (1–1440). */
-  retryBackoffMinutes: number;
-  /** Number of consecutive complete delivery cycles that have failed (reset to 0 on success). */
-  consecutiveFailures: number;
-  /** Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause). */
-  autoPauseAfterFailures: number;
-  /**
-     * Timestamp when the schedule was automatically paused due to repeated failures.
-     * @nullable
-     */
-  autoPausedAt?: string | null;
   /** @nullable */
   lastSentAt?: string | null;
   lastSendStatus: AuditReportScheduleLastSendStatus;
   /** @nullable */
   lastErrorMessage?: string | null;
-  /** @nullable */
-  failureAcknowledgedAt?: string | null;
-  /** @nullable */
-  failureAcknowledgedByEmail?: string | null;
-  /** Total number of send attempts (successful and failed) for this schedule. */
-  sendCount: number;
-  /** Number of successful deliveries for this schedule. */
-  successCount: number;
   createdAt: string;
   updatedAt: string;
 }

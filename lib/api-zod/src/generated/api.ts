@@ -37,8 +37,6 @@ export const LoginResponse = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
-  "signatureFailureAlertEmails": zod.boolean().optional(),
-  "passwordUpdatedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 })
@@ -71,8 +69,6 @@ export const GetMeResponse = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
-  "signatureFailureAlertEmails": zod.boolean().optional(),
-  "passwordUpdatedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -83,8 +79,7 @@ export const GetMeResponse = zod.object({
 export const UpdateMyPreferencesBody = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
-  "settlementStateEmails": zod.boolean().optional(),
-  "signatureFailureAlertEmails": zod.boolean().optional()
+  "settlementStateEmails": zod.boolean().optional()
 })
 
 export const UpdateMyPreferencesResponse = zod.object({
@@ -98,8 +93,6 @@ export const UpdateMyPreferencesResponse = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
-  "signatureFailureAlertEmails": zod.boolean().optional(),
-  "passwordUpdatedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -153,8 +146,7 @@ export const ListMerchantsQueryParams = zod.object({
   "limit": zod.coerce.number().optional(),
   "expiryStatus": zod.enum(['expiring', 'expired']).optional(),
   "rejectionReason": zod.coerce.string().optional(),
-  "callbackSecretSet": zod.enum(['true', 'false']).optional().describe('Filter by whether merchants have a callback secret configured. \"true\" = secret set, \"false\" = no secret.'),
-  "secretOverdue": zod.enum(['true']).optional().describe('When \"true\", returns only merchants whose callback secret has not been rotated within SECRET_ROTATION_OVERDUE_DAYS (90 days), or has never been set.')
+  "callbackSecretSet": zod.enum(['true', 'false']).optional().describe('Filter by whether merchants have a callback secret configured. \"true\" = secret set, \"false\" = no secret.')
 })
 
 export const ListMerchantsResponse = zod.object({
@@ -174,7 +166,6 @@ export const ListMerchantsResponse = zod.object({
   "brandColor": zod.string().nullish(),
   "callbackTimestampWindowSeconds": zod.number().nullish().describe('Per-merchant replay-protection window in seconds. Null means the global default (300 s) is used.'),
   "callbackSecretSet": zod.boolean().optional().describe('Whether the merchant has configured a callback signing secret.'),
-  "callbackSecretUpdatedAt": zod.string().nullish().describe('ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.'),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -210,7 +201,6 @@ export const GetMerchantResponse = zod.object({
   "brandColor": zod.string().nullish(),
   "callbackTimestampWindowSeconds": zod.number().nullish().describe('Per-merchant replay-protection window in seconds. Null means the global default (300 s) is used.'),
   "callbackSecretSet": zod.boolean().optional().describe('Whether the merchant has configured a callback signing secret.'),
-  "callbackSecretUpdatedAt": zod.string().nullish().describe('ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.'),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -285,7 +275,6 @@ export const ApproveMerchantResponse = zod.object({
   "brandColor": zod.string().nullish(),
   "callbackTimestampWindowSeconds": zod.number().nullish().describe('Per-merchant replay-protection window in seconds. Null means the global default (300 s) is used.'),
   "callbackSecretSet": zod.boolean().optional().describe('Whether the merchant has configured a callback signing secret.'),
-  "callbackSecretUpdatedAt": zod.string().nullish().describe('ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.'),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -321,7 +310,6 @@ export const RejectMerchantResponse = zod.object({
   "brandColor": zod.string().nullish(),
   "callbackTimestampWindowSeconds": zod.number().nullish().describe('Per-merchant replay-protection window in seconds. Null means the global default (300 s) is used.'),
   "callbackSecretSet": zod.boolean().optional().describe('Whether the merchant has configured a callback signing secret.'),
-  "callbackSecretUpdatedAt": zod.string().nullish().describe('ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.'),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -353,7 +341,6 @@ export const SuspendMerchantResponse = zod.object({
   "brandColor": zod.string().nullish(),
   "callbackTimestampWindowSeconds": zod.number().nullish().describe('Per-merchant replay-protection window in seconds. Null means the global default (300 s) is used.'),
   "callbackSecretSet": zod.boolean().optional().describe('Whether the merchant has configured a callback signing secret.'),
-  "callbackSecretUpdatedAt": zod.string().nullish().describe('ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.'),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -385,7 +372,6 @@ export const UnsuspendMerchantResponse = zod.object({
   "brandColor": zod.string().nullish(),
   "callbackTimestampWindowSeconds": zod.number().nullish().describe('Per-merchant replay-protection window in seconds. Null means the global default (300 s) is used.'),
   "callbackSecretSet": zod.boolean().optional().describe('Whether the merchant has configured a callback signing secret.'),
-  "callbackSecretUpdatedAt": zod.string().nullish().describe('ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.'),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -467,33 +453,6 @@ export const GetMerchantPlanHistoryResponseItem = zod.object({
   "createdAt": zod.string()
 })
 export const GetMerchantPlanHistoryResponse = zod.array(GetMerchantPlanHistoryResponseItem)
-
-
-/**
- * Returns all credential events (callback secret rotations, API key generation/revocation) for a specific merchant, ordered oldest to newest.
- * @summary Get credential event history for a merchant (admin only)
- */
-export const GetAdminMerchantCredentialEventsParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const GetAdminMerchantCredentialEventsQueryParams = zod.object({
-  "page": zod.coerce.number().optional(),
-  "limit": zod.coerce.number().optional()
-})
-
-export const GetAdminMerchantCredentialEventsResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.number(),
-  "merchantId": zod.number(),
-  "eventType": zod.enum(['callback_secret_rotated', 'api_key_generated', 'api_key_revoked']),
-  "keyPrefix": zod.string().nullish().describe('Masked key prefix for api_key_generated and api_key_revoked events'),
-  "createdAt": zod.coerce.date()
-})),
-  "total": zod.number(),
-  "page": zod.number(),
-  "limit": zod.number()
-})
 
 
 /**
@@ -801,7 +760,6 @@ export const UpdateMerchantBrandingResponse = zod.object({
   "brandColor": zod.string().nullish(),
   "callbackTimestampWindowSeconds": zod.number().nullish().describe('Per-merchant replay-protection window in seconds. Null means the global default (300 s) is used.'),
   "callbackSecretSet": zod.boolean().optional().describe('Whether the merchant has configured a callback signing secret.'),
-  "callbackSecretUpdatedAt": zod.string().nullish().describe('ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.'),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
@@ -868,50 +826,11 @@ export const UpdateMerchantCallbackWindowResponse = zod.object({
   "brandColor": zod.string().nullish(),
   "callbackTimestampWindowSeconds": zod.number().nullish().describe('Per-merchant replay-protection window in seconds. Null means the global default (300 s) is used.'),
   "callbackSecretSet": zod.boolean().optional().describe('Whether the merchant has configured a callback signing secret.'),
-  "callbackSecretUpdatedAt": zod.string().nullish().describe('ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.'),
   "currentPlanName": zod.string().nullish(),
   "currentPlanStatus": zod.string().nullish(),
   "currentPlanExpiresAt": zod.string().nullish(),
   "currentPlanIsExpired": zod.boolean().nullish(),
   "createdAt": zod.string()
-})
-
-
-/**
- * @summary Get the webhook URL configured for a merchant (admin only)
- */
-export const GetAdminMerchantWebhookUrlParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const GetAdminMerchantWebhookUrlResponse = zod.object({
-  "url": zod.string().nullable().describe('The merchant\'s current webhook callback URL, or null if not configured.')
-})
-
-
-/**
- * Overwrites the merchant's webhook callback URL. If no webhook config exists yet one is created. An email notification is sent to the merchant. Only HTTPS URLs are accepted.
- * @summary Update the webhook URL for a merchant (admin only)
- */
-export const UpdateAdminMerchantWebhookUrlParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const UpdateAdminMerchantWebhookUrlBody = zod.object({
-  "url": zod.string().describe('New webhook callback URL. Must be HTTPS.')
-})
-
-export const UpdateAdminMerchantWebhookUrlResponse = zod.object({
-  "url": zod.string().nullable().describe('The merchant\'s current webhook callback URL, or null if not configured.')
-})
-
-
-/**
- * Clears the merchant's webhook callback URL and marks it inactive. An email notification is sent to the merchant.
- * @summary Remove the webhook URL for a merchant (admin only)
- */
-export const DeleteAdminMerchantWebhookUrlParams = zod.object({
-  "id": zod.coerce.number()
 })
 
 
@@ -1399,8 +1318,7 @@ export const getWebhookLogsQueryLimitMax = 50;
 
 
 export const GetWebhookLogsQueryParams = zod.object({
-  "limit": zod.coerce.number().min(1).max(getWebhookLogsQueryLimitMax).default(getWebhookLogsQueryLimitDefault).describe('Number of recent log entries to return (default 10, max 50)'),
-  "eventType": zod.enum(['payment.success', 'payment.failed', 'payment.pending', 'withdrawal.approved', 'withdrawal.rejected', 'settlement.processed']).optional().describe('Filter logs to only those matching this event type')
+  "limit": zod.coerce.number().min(1).max(getWebhookLogsQueryLimitMax).default(getWebhookLogsQueryLimitDefault).describe('Number of recent log entries to return (default 10, max 50)')
 })
 
 export const GetWebhookLogsResponse = zod.object({
@@ -1420,25 +1338,11 @@ export const GetWebhookLogsResponse = zod.object({
   "signatureVerified": zod.boolean().nullish().describe('HMAC signature verification result — true if passed, false if rejected, null if no secret is configured'),
   "merchantName": zod.string().nullish().describe('Business name of the merchant this callback belongs to'),
   "isTest": zod.boolean().optional().describe('true if this delivery was triggered by a merchant test event, not a real payment'),
-  "eventType": zod.string().nullish().describe('Event type extracted from the payload (e.g. payment.success, payment.received) — null for rows created before this field was added'),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
   "page": zod.number(),
   "limit": zod.number()
-})
-
-
-/**
- * Admin-only one-time maintenance action. Updates all `callback_logs` rows
-where `event_type` is NULL by extracting the `event` field from the stored
-`request_body` JSON. Safe to run multiple times — only rows with a NULL
-event_type are touched.
-
- * @summary Back-fill missing event_type on webhook logs
- */
-export const BackfillWebhookEventTypesResponse = zod.object({
-  "rowsUpdated": zod.number().describe('Number of callback_logs rows that were updated')
 })
 
 
@@ -1472,33 +1376,8 @@ export const RetryWebhookLogResponse = zod.object({
   "signatureVerified": zod.boolean().nullish().describe('HMAC signature verification result — true if passed, false if rejected, null if no secret is configured'),
   "merchantName": zod.string().nullish().describe('Business name of the merchant this callback belongs to'),
   "isTest": zod.boolean().optional().describe('true if this delivery was triggered by a merchant test event, not a real payment'),
-  "eventType": zod.string().nullish().describe('Event type extracted from the payload (e.g. payment.success, payment.received) — null for rows created before this field was added'),
   "createdAt": zod.string()
 })
-})
-
-
-/**
- * Returns the ordered list of individual delivery attempts recorded for a
-specific callback log entry. Each attempt captures the exact timestamp,
-HTTP status code, and truncated response body so merchants can diagnose
-the exact sequence of failures.
-
- * @summary Get per-attempt retry history for a webhook delivery log
- */
-export const GetWebhookLogAttemptsParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const GetWebhookLogAttemptsResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.number(),
-  "callbackLogId": zod.number(),
-  "attemptNumber": zod.number().describe('1-based sequence number of this attempt within the delivery log'),
-  "firedAt": zod.string().describe('ISO timestamp when this attempt was made'),
-  "httpStatus": zod.number().nullish().describe('HTTP status returned by the remote endpoint, null if connection failed'),
-  "responseBody": zod.string().nullish().describe('Truncated response body (up to 500 chars)')
-}))
 })
 
 
@@ -1576,45 +1455,7 @@ export const GetCallbackStatsResponse = zod.object({
  */
 export const GetAdminCallbackStatsResponse = zod.object({
   "signatureFailures24h": zod.number().describe('Total signature verification failures across all merchants in the last 24 hours'),
-  "affectedMerchants": zod.number().describe('Number of distinct merchants with at least one signature failure in the last 24 hours'),
-  "merchantBreakdown": zod.array(zod.object({
-  "merchantId": zod.number(),
-  "merchantName": zod.string().nullish(),
-  "failures": zod.number().describe('Number of signature failures in the last 24 hours for this merchant')
-})).describe('Per-merchant breakdown of signature failures in the last 24 hours, sorted by failure count descending'),
-  "thresholdExceeded": zod.boolean().describe('Whether the 24-hour signature failure count has exceeded the configured alert threshold'),
-  "alertThreshold": zod.number().describe('The configured signature failure alert threshold'),
-  "hourlyTrend": zod.array(zod.object({
-  "hour": zod.coerce.date().describe('The start of the hour (UTC)'),
-  "count": zod.number().describe('Number of signature failures in that hour')
-})).describe('Hourly signature failure counts for the last 24 hours, oldest first')
-})
-
-
-/**
- * Admin-only. Returns the history of signature failure alert emails that have been sent, including failure counts, affected merchants, and recipient counts.
- * @summary Get signature failure alert dispatch history
- */
-export const GetSignatureFailureAlertHistoryQueryParams = zod.object({
-  "limit": zod.coerce.number().optional().describe('Maximum number of records to return (default 20)')
-})
-
-export const GetSignatureFailureAlertHistoryResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.number(),
-  "sentAt": zod.coerce.date(),
-  "failureCount": zod.number().describe('Total signature failures in the rolling window at the time the alert was sent'),
-  "affectedMerchantCount": zod.number().describe('Number of distinct merchants affected at the time the alert was sent'),
-  "recipientCount": zod.number().describe('Number of admin emails the alert was successfully delivered to'),
-  "recipientEmails": zod.array(zod.string()).describe('List of admin email addresses the alert was sent to'),
-  "affectedMerchants": zod.array(zod.object({
-  "name": zod.string(),
-  "count": zod.number()
-})).describe('Per-merchant breakdown captured at alert dispatch time'),
-  "windowHours": zod.number().describe('Rolling window (hours) used to count failures'),
-  "threshold": zod.number().describe('Failure threshold that triggered this alert')
-})),
-  "total": zod.number()
+  "affectedMerchants": zod.number().describe('Number of distinct merchants with at least one signature failure in the last 24 hours')
 })
 
 
@@ -1662,10 +1503,6 @@ export const ListCallbackLogsQueryParams = zod.object({
   "qrCodeId": zod.coerce.number().optional().describe('Filter by QR code ID'),
   "signatureVerified": zod.enum(['all', 'verified', 'failed', 'none']).optional().describe('Filter by signature verification outcome. \"verified\" = passed, \"failed\" = rejected, \"none\" = no secret configured'),
   "rejectionReason": zod.enum(['stale_timestamp', 'replay_detected', 'bad_signature', 'missing_header']).optional().describe('Filter failed logs by the specific rejection reason stored in responseBody. \"stale_timestamp\" = X-Timestamp outside ±window, \"replay_detected\" = duplicate nonce, \"bad_signature\" = HMAC mismatch, \"missing_header\" = required header absent.\n'),
-  "merchantId": zod.coerce.number().optional().describe('Admin only — filter logs by a specific merchant ID'),
-  "eventType": zod.enum(['payment.received', 'payment.success', 'payment.failed', 'payment.pending']).optional().describe('Filter logs by event type stored on the callback log row'),
-  "from": zod.date().optional().describe('ISO 8601 datetime — return logs created at or after this timestamp'),
-  "to": zod.date().optional().describe('ISO 8601 datetime — return logs created at or before this timestamp'),
   "page": zod.coerce.number().optional(),
   "limit": zod.coerce.number().optional()
 })
@@ -1687,7 +1524,6 @@ export const ListCallbackLogsResponse = zod.object({
   "signatureVerified": zod.boolean().nullish().describe('HMAC signature verification result — true if passed, false if rejected, null if no secret is configured'),
   "merchantName": zod.string().nullish().describe('Business name of the merchant this callback belongs to'),
   "isTest": zod.boolean().optional().describe('true if this delivery was triggered by a merchant test event, not a real payment'),
-  "eventType": zod.string().nullish().describe('Event type extracted from the payload (e.g. payment.success, payment.received) — null for rows created before this field was added'),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -1733,29 +1569,6 @@ export const RotateCallbackSecretResponse = zod.object({
 
 
 /**
- * Returns all credential events (callback secret rotations, API key generation/revocation) for the authenticated merchant, ordered oldest to newest.
- * @summary List credential rotation history for the authenticated merchant
- */
-export const ListCredentialEventsQueryParams = zod.object({
-  "page": zod.coerce.number().optional(),
-  "limit": zod.coerce.number().optional()
-})
-
-export const ListCredentialEventsResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.number(),
-  "merchantId": zod.number(),
-  "eventType": zod.enum(['callback_secret_rotated', 'api_key_generated', 'api_key_revoked']),
-  "keyPrefix": zod.string().nullish().describe('Masked key prefix for api_key_generated and api_key_revoked events'),
-  "createdAt": zod.coerce.date()
-})),
-  "total": zod.number(),
-  "page": zod.number(),
-  "limit": zod.number()
-})
-
-
-/**
  * @summary List settlements
  */
 export const ListSettlementsQueryParams = zod.object({
@@ -1783,8 +1596,6 @@ export const ListSettlementsResponse = zod.object({
   "adminRemark": zod.string().nullish(),
   "processedBy": zod.number().nullish(),
   "processedAt": zod.string().nullish(),
-  "actionedBy": zod.number().nullish(),
-  "actionedByEmail": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "referenceNumber": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -1841,8 +1652,6 @@ export const ProcessSettlementResponse = zod.object({
   "adminRemark": zod.string().nullish(),
   "processedBy": zod.number().nullish(),
   "processedAt": zod.string().nullish(),
-  "actionedBy": zod.number().nullish(),
-  "actionedByEmail": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "referenceNumber": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -1876,8 +1685,6 @@ export const ApproveSettlementResponse = zod.object({
   "adminRemark": zod.string().nullish(),
   "processedBy": zod.number().nullish(),
   "processedAt": zod.string().nullish(),
-  "actionedBy": zod.number().nullish(),
-  "actionedByEmail": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "referenceNumber": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -1911,8 +1718,6 @@ export const RejectSettlementResponse = zod.object({
   "adminRemark": zod.string().nullish(),
   "processedBy": zod.number().nullish(),
   "processedAt": zod.string().nullish(),
-  "actionedBy": zod.number().nullish(),
-  "actionedByEmail": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "referenceNumber": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -1946,8 +1751,6 @@ export const HoldSettlementResponse = zod.object({
   "adminRemark": zod.string().nullish(),
   "processedBy": zod.number().nullish(),
   "processedAt": zod.string().nullish(),
-  "actionedBy": zod.number().nullish(),
-  "actionedByEmail": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "referenceNumber": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -1982,32 +1785,10 @@ export const MarkSettlementPaidResponse = zod.object({
   "adminRemark": zod.string().nullish(),
   "processedBy": zod.number().nullish(),
   "processedAt": zod.string().nullish(),
-  "actionedBy": zod.number().nullish(),
-  "actionedByEmail": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "referenceNumber": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
-})
-
-
-/**
- * @summary Get action trail for a settlement
- */
-export const GetSettlementHistoryParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const GetSettlementHistoryResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.number(),
-  "settlementId": zod.number(),
-  "event": zod.enum(['requested', 'processing', 'approved', 'rejected', 'paid', 'held']),
-  "actorId": zod.number().nullish(),
-  "actorEmail": zod.string().nullish(),
-  "note": zod.string().nullish(),
-  "createdAt": zod.string()
-}))
 })
 
 
@@ -2032,8 +1813,6 @@ export const ListUsersResponse = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
-  "signatureFailureAlertEmails": zod.boolean().optional(),
-  "passwordUpdatedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -2078,8 +1857,6 @@ export const UpdateUserResponse = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
-  "signatureFailureAlertEmails": zod.boolean().optional(),
-  "passwordUpdatedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -2134,15 +1911,6 @@ export const ToggleMerchantProductResponse = zod.object({
 /**
  * @summary List merchant payment provider connections
  */
-export const ListMerchantConnectionsQueryParams = zod.object({
-  "search": zod.coerce.string().optional(),
-  "provider": zod.coerce.string().optional(),
-  "merchantId": zod.coerce.number().optional(),
-  "page": zod.coerce.number().optional(),
-  "limit": zod.coerce.number().optional(),
-  "status": zod.enum(['active', 'inactive']).optional().describe('Filter by connection status — active (isActive=true) or inactive (isActive=false)')
-})
-
 export const ListMerchantConnectionsResponseItem = zod.object({
   "id": zod.number(),
   "merchantId": zod.number(),
@@ -2329,22 +2097,10 @@ export const GetMyPlanHistoryResponse = zod.array(GetMyPlanHistoryResponseItem)
 
 
 /**
- * @summary Export plan history as CSV (admin only)
- */
-export const ExportPlanHistoryQueryParams = zod.object({
-  "merchantId": zod.coerce.number().optional(),
-  "action": zod.enum(['assigned', 'upgraded', 'downgraded', 'suspended', 'reinstated', 'renewed', 'unassigned']).optional()
-})
-
-
-/**
  * @summary List all plan history (admin only)
  */
 export const ListPlanHistoryQueryParams = zod.object({
   "merchantId": zod.coerce.number().optional(),
-  "action": zod.enum(['assigned', 'upgraded', 'downgraded', 'suspended', 'reinstated', 'renewed', 'unassigned']).optional(),
-  "fromDate": zod.date().optional().describe('Filter entries on or after this date (YYYY-MM-DD)'),
-  "toDate": zod.date().optional().describe('Filter entries on or before this date (YYYY-MM-DD)'),
   "page": zod.coerce.number().optional(),
   "limit": zod.coerce.number().optional()
 })
@@ -3101,18 +2857,9 @@ export const ListAuditReportSchedulesResponse = zod.object({
   "frequency": zod.enum(['daily', 'weekly', 'monthly']),
   "recipientEmail": zod.string(),
   "isActive": zod.boolean(),
-  "maxRetryAttempts": zod.number().describe('Maximum number of automatic retry attempts after an initial delivery failure (0–10).'),
-  "retryBackoffMinutes": zod.number().describe('Minutes to wait between consecutive retry attempts (1–1440).'),
-  "consecutiveFailures": zod.number().describe('Number of consecutive complete delivery cycles that have failed (reset to 0 on success).'),
-  "autoPauseAfterFailures": zod.number().describe('Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause).'),
-  "autoPausedAt": zod.string().nullish().describe('Timestamp when the schedule was automatically paused due to repeated failures.'),
   "lastSentAt": zod.string().nullish(),
   "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
   "lastErrorMessage": zod.string().nullish(),
-  "failureAcknowledgedAt": zod.string().nullish(),
-  "failureAcknowledgedByEmail": zod.string().nullish(),
-  "sendCount": zod.number().describe('Total number of send attempts (successful and failed) for this schedule.'),
-  "successCount": zod.number().describe('Number of successful deliveries for this schedule.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }))
@@ -3124,42 +2871,7 @@ export const ListAuditReportSchedulesResponse = zod.object({
  */
 export const CreateAuditReportScheduleBody = zod.object({
   "frequency": zod.enum(['daily', 'weekly', 'monthly']),
-  "recipientEmail": zod.string(),
-  "maxRetryAttempts": zod.number().optional().describe('Maximum number of automatic retry attempts (0–10). Defaults to 3.'),
-  "retryBackoffMinutes": zod.number().optional().describe('Minutes to wait between consecutive retry attempts (1–1440). Defaults to 60.'),
-  "autoPauseAfterFailures": zod.number().optional().describe('Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause). Defaults to 3.')
-})
-
-
-/**
- * @summary Pause or resume audit report schedules — all or a specific subset
- */
-export const BulkToggleAuditReportSchedulesBody = zod.object({
-  "isActive": zod.boolean(),
-  "ids": zod.array(zod.number()).optional().describe('Optional list of schedule IDs to target. When omitted every schedule is updated. When provided only the listed IDs are toggled, leaving all others untouched.\n')
-})
-
-export const BulkToggleAuditReportSchedulesResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.number(),
-  "frequency": zod.enum(['daily', 'weekly', 'monthly']),
-  "recipientEmail": zod.string(),
-  "isActive": zod.boolean(),
-  "maxRetryAttempts": zod.number().describe('Maximum number of automatic retry attempts after an initial delivery failure (0–10).'),
-  "retryBackoffMinutes": zod.number().describe('Minutes to wait between consecutive retry attempts (1–1440).'),
-  "consecutiveFailures": zod.number().describe('Number of consecutive complete delivery cycles that have failed (reset to 0 on success).'),
-  "autoPauseAfterFailures": zod.number().describe('Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause).'),
-  "autoPausedAt": zod.string().nullish().describe('Timestamp when the schedule was automatically paused due to repeated failures.'),
-  "lastSentAt": zod.string().nullish(),
-  "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
-  "lastErrorMessage": zod.string().nullish(),
-  "failureAcknowledgedAt": zod.string().nullish(),
-  "failureAcknowledgedByEmail": zod.string().nullish(),
-  "sendCount": zod.number().describe('Total number of send attempts (successful and failed) for this schedule.'),
-  "successCount": zod.number().describe('Number of successful deliveries for this schedule.'),
-  "createdAt": zod.string(),
-  "updatedAt": zod.string()
-}))
+  "recipientEmail": zod.string()
 })
 
 
@@ -3175,62 +2887,11 @@ export const SendAuditReportNowResponse = zod.object({
   "frequency": zod.enum(['daily', 'weekly', 'monthly']),
   "recipientEmail": zod.string(),
   "isActive": zod.boolean(),
-  "maxRetryAttempts": zod.number().describe('Maximum number of automatic retry attempts after an initial delivery failure (0–10).'),
-  "retryBackoffMinutes": zod.number().describe('Minutes to wait between consecutive retry attempts (1–1440).'),
-  "consecutiveFailures": zod.number().describe('Number of consecutive complete delivery cycles that have failed (reset to 0 on success).'),
-  "autoPauseAfterFailures": zod.number().describe('Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause).'),
-  "autoPausedAt": zod.string().nullish().describe('Timestamp when the schedule was automatically paused due to repeated failures.'),
   "lastSentAt": zod.string().nullish(),
   "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
   "lastErrorMessage": zod.string().nullish(),
-  "failureAcknowledgedAt": zod.string().nullish(),
-  "failureAcknowledgedByEmail": zod.string().nullish(),
-  "sendCount": zod.number().describe('Total number of send attempts (successful and failed) for this schedule.'),
-  "successCount": zod.number().describe('Number of successful deliveries for this schedule.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
-})
-
-
-/**
- * @summary List send history across all audit report schedules
- */
-export const listAllAuditReportScheduleLogsQueryPageDefault = 1;
-export const listAllAuditReportScheduleLogsQueryLimitDefault = 20;
-
-export const ListAllAuditReportScheduleLogsQueryParams = zod.object({
-  "scheduleId": zod.coerce.number().optional(),
-  "page": zod.coerce.number().default(listAllAuditReportScheduleLogsQueryPageDefault),
-  "limit": zod.coerce.number().default(listAllAuditReportScheduleLogsQueryLimitDefault),
-  "status": zod.enum(['success', 'failed']).optional(),
-  "triggerType": zod.enum(['manual', 'scheduled', 'auto_recovery']).optional(),
-  "dateFrom": zod.coerce.string().optional(),
-  "dateTo": zod.coerce.string().optional()
-})
-
-export const ListAllAuditReportScheduleLogsResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.number(),
-  "scheduleId": zod.number(),
-  "sentAt": zod.string(),
-  "rowCount": zod.number(),
-  "success": zod.boolean(),
-  "errorMessage": zod.string().nullish(),
-  "recipientEmail": zod.string().nullish(),
-  "isRetry": zod.boolean(),
-  "triggerType": zod.enum(['manual', 'scheduled', 'auto_recovery']),
-  "scheduleFrequency": zod.enum(['daily', 'weekly', 'monthly']),
-  "scheduleRecipient": zod.string(),
-  "deliveryCycleId": zod.string().nullish().describe('UUID shared by the initial attempt and all its retries within a single delivery cycle.')
-})),
-  "total": zod.number(),
-  "failureCount": zod.number(),
-  "filteredTotal": zod.number(),
-  "page": zod.number(),
-  "failureBreakdown": zod.array(zod.object({
-  "errorMessage": zod.string().nullable(),
-  "count": zod.number()
-}))
 })
 
 
@@ -3241,16 +2902,10 @@ export const ListAuditReportScheduleLogsParams = zod.object({
   "id": zod.coerce.number()
 })
 
-export const listAuditReportScheduleLogsQueryPageDefault = 1;
 export const listAuditReportScheduleLogsQueryLimitDefault = 20;
 
 export const ListAuditReportScheduleLogsQueryParams = zod.object({
-  "page": zod.coerce.number().default(listAuditReportScheduleLogsQueryPageDefault),
-  "limit": zod.coerce.number().default(listAuditReportScheduleLogsQueryLimitDefault),
-  "status": zod.enum(['success', 'failed']).optional(),
-  "triggerType": zod.enum(['manual', 'scheduled', 'auto_recovery']).optional(),
-  "dateFrom": zod.coerce.string().optional(),
-  "dateTo": zod.coerce.string().optional()
+  "limit": zod.coerce.number().default(listAuditReportScheduleLogsQueryLimitDefault)
 })
 
 export const ListAuditReportScheduleLogsResponse = zod.object({
@@ -3261,19 +2916,7 @@ export const ListAuditReportScheduleLogsResponse = zod.object({
   "rowCount": zod.number(),
   "success": zod.boolean(),
   "errorMessage": zod.string().nullish(),
-  "isRetry": zod.boolean(),
-  "retryAttempt": zod.number().describe('Which attempt number this log entry represents (0 = initial, 1 = first retry, 2 = second retry, etc.).'),
-  "recipientEmail": zod.string().nullish(),
-  "triggerType": zod.enum(['manual', 'scheduled', 'auto_recovery']),
-  "deliveryCycleId": zod.string().nullish().describe('UUID shared by the initial attempt and all its retries within a single delivery cycle.')
-})),
-  "total": zod.number(),
-  "failureCount": zod.number(),
-  "filteredTotal": zod.number(),
-  "page": zod.number(),
-  "failureBreakdown": zod.array(zod.object({
-  "errorMessage": zod.string().nullable(),
-  "count": zod.number()
+  "isRetry": zod.boolean()
 }))
 })
 
@@ -3288,11 +2931,7 @@ export const UpdateAuditReportScheduleParams = zod.object({
 export const UpdateAuditReportScheduleBody = zod.object({
   "frequency": zod.enum(['daily', 'weekly', 'monthly']).optional(),
   "recipientEmail": zod.string().optional(),
-  "isActive": zod.boolean().optional(),
-  "maxRetryAttempts": zod.number().optional().describe('Maximum number of automatic retry attempts (0–10).'),
-  "retryBackoffMinutes": zod.number().optional().describe('Minutes to wait between consecutive retry attempts (1–1440).'),
-  "autoPauseAfterFailures": zod.number().optional().describe('Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause).'),
-  "acknowledgeFailure": zod.boolean().optional().describe('When true, records the current timestamp as failureAcknowledgedAt, clearing the delivery-failure badge.')
+  "isActive": zod.boolean().optional()
 })
 
 export const UpdateAuditReportScheduleResponse = zod.object({
@@ -3300,18 +2939,9 @@ export const UpdateAuditReportScheduleResponse = zod.object({
   "frequency": zod.enum(['daily', 'weekly', 'monthly']),
   "recipientEmail": zod.string(),
   "isActive": zod.boolean(),
-  "maxRetryAttempts": zod.number().describe('Maximum number of automatic retry attempts after an initial delivery failure (0–10).'),
-  "retryBackoffMinutes": zod.number().describe('Minutes to wait between consecutive retry attempts (1–1440).'),
-  "consecutiveFailures": zod.number().describe('Number of consecutive complete delivery cycles that have failed (reset to 0 on success).'),
-  "autoPauseAfterFailures": zod.number().describe('Auto-pause the schedule after this many consecutive delivery failures (0 = never auto-pause).'),
-  "autoPausedAt": zod.string().nullish().describe('Timestamp when the schedule was automatically paused due to repeated failures.'),
   "lastSentAt": zod.string().nullish(),
   "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
   "lastErrorMessage": zod.string().nullish(),
-  "failureAcknowledgedAt": zod.string().nullish(),
-  "failureAcknowledgedByEmail": zod.string().nullish(),
-  "sendCount": zod.number().describe('Total number of send attempts (successful and failed) for this schedule.'),
-  "successCount": zod.number().describe('Number of successful deliveries for this schedule.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -3326,43 +2956,6 @@ export const DeleteAuditReportScheduleParams = zod.object({
 
 export const DeleteAuditReportScheduleResponse = zod.object({
   "message": zod.string()
-})
-
-
-/**
- * @summary List admin-initiated security events for the authenticated merchant
- */
-export const ListMySecurityActivityQueryParams = zod.object({
-  "page": zod.coerce.number().optional(),
-  "limit": zod.coerce.number().optional(),
-  "action": zod.coerce.string().optional().describe('Filter by action type (e.g. plan_assigned, merchant_suspended)'),
-  "dateFrom": zod.date().optional().describe('Filter events on or after this date (ISO 8601, e.g. 2025-01-01)'),
-  "dateTo": zod.date().optional().describe('Filter events on or before this date (ISO 8601, e.g. 2025-12-31)'),
-  "since": zod.date().optional().describe('Return only entries created after this ISO 8601 timestamp (exclusive)')
-})
-
-export const ListMySecurityActivityResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.number(),
-  "action": zod.string(),
-  "adminEmail": zod.string().describe('Anonymised admin email (e.g. a\*\*\*\*@rasokart.com)'),
-  "targetType": zod.string(),
-  "details": zod.string().nullish(),
-  "createdAt": zod.string()
-})),
-  "total": zod.number(),
-  "page": zod.number(),
-  "limit": zod.number()
-})
-
-
-/**
- * @summary Export merchant security activity log as CSV
- */
-export const ExportMySecurityActivityQueryParams = zod.object({
-  "action": zod.coerce.string().optional().describe('Filter by action type (e.g. plan_assigned, merchant_suspended)'),
-  "dateFrom": zod.date().optional().describe('Filter events on or after this date (ISO 8601, e.g. 2025-01-01)'),
-  "dateTo": zod.date().optional().describe('Filter events on or before this date (ISO 8601, e.g. 2025-12-31)')
 })
 
 
@@ -3383,14 +2976,6 @@ export const ExportAdminAuditLogsCsvQueryParams = zod.object({
   "search": zod.coerce.string().optional(),
   "dateFrom": zod.date().optional().describe('Filter logs on or after this date (ISO 8601, e.g. 2025-01-01)'),
   "dateTo": zod.date().optional().describe('Filter logs on or before this date (ISO 8601, e.g. 2025-12-31)')
-})
-
-
-/**
- * @summary Delete all test_email_sent audit log entries
- */
-export const ClearTestEmailHistoryResponse = zod.object({
-  "deleted": zod.number().describe('Number of rows deleted')
 })
 
 
@@ -3513,15 +3098,6 @@ export const GetDashboardReconSummaryResponse = zod.object({
   "matchedAmount": zod.number().optional(),
   "unmatchedAmount": zod.number().optional(),
   "triggeredBy": zod.string().optional()
-})
-
-
-/**
- * @summary Get platform-wide security health summary (admin only)
- */
-export const GetDashboardSecurityHealthResponse = zod.object({
-  "totalMerchants": zod.number().describe('Total number of active merchants'),
-  "merchantsWithoutSecret": zod.number().describe('Number of active merchants with no callback signing secret configured')
 })
 
 
@@ -4107,20 +3683,6 @@ export const BroadcastNotificationResponse = zod.object({
 
 
 /**
- * @summary Send callback-secret setup reminder to selected merchants (admin only)
- */
-export const SendSecurityReminderBody = zod.object({
-  "merchantIds": zod.array(zod.number()).describe('IDs of merchants to remind; only those without a callback secret will receive a notification')
-})
-
-export const SendSecurityReminderResponse = zod.object({
-  "message": zod.string(),
-  "sent": zod.number().describe('Number of merchants who received a reminder notification'),
-  "skipped": zod.number().describe('Number of merchants skipped because they already have a callback secret')
-})
-
-
-/**
  * @summary Trigger plan-expiry notification check (admin only)
  */
 export const CheckPlanExpiryResponse = zod.object({
@@ -4132,24 +3694,12 @@ export const CheckPlanExpiryResponse = zod.object({
 
 
 /**
- * @summary Trigger webhook secret rotation reminder check (admin only)
- */
-export const CheckWebhookSecretsResponse = zod.object({
-  "message": zod.string(),
-  "notificationsSent": zod.number(),
-  "reminderCount": zod.number(),
-  "overdueCount": zod.number()
-})
-
-
-/**
  * @summary Trigger a reconciliation run (admin only)
  */
 export const RunReconciliationBody = zod.object({
   "dateFrom": zod.string().describe('Start date (YYYY-MM-DD)'),
   "dateTo": zod.string().describe('End date (YYYY-MM-DD)'),
-  "merchantId": zod.number().nullish(),
-  "notes": zod.string().nullish().describe('Optional reason or notes for this manual run (audit trail)')
+  "merchantId": zod.number().nullish()
 })
 
 
@@ -4185,12 +3735,7 @@ export const ListReconciliationRunsResponse = zod.object({
   "triggeredBy": zod.string().optional().describe('\"manual\" or \"auto\" (scheduled)'),
   "notes": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
-  "createdAt": zod.string(),
-  "lastEmail": zod.object({
-  "sentAt": zod.string(),
-  "status": zod.string(),
-  "recipients": zod.string()
-}).nullish().describe('Summary of the most recent email delivery for this run')
+  "createdAt": zod.string()
 })),
   "total": zod.number(),
   "page": zod.number(),
@@ -4235,12 +3780,7 @@ export const ListReconciliationRunItemsResponse = zod.object({
   "triggeredBy": zod.string().optional().describe('\"manual\" or \"auto\" (scheduled)'),
   "notes": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
-  "createdAt": zod.string(),
-  "lastEmail": zod.object({
-  "sentAt": zod.string(),
-  "status": zod.string(),
-  "recipients": zod.string()
-}).nullish().describe('Summary of the most recent email delivery for this run')
+  "createdAt": zod.string()
 }),
   "data": zod.array(zod.object({
   "id": zod.number(),
@@ -4353,8 +3893,7 @@ export const ResolveReconciliationItemResponse = zod.object({
  */
 export const GetReconciliationNextRunResponse = zod.object({
   "nextRunAt": zod.string().nullable().describe('ISO timestamp of the next scheduled reconciliation run'),
-  "serverTimezone": zod.string().nullish().describe('IANA timezone name of the server (e.g. \"America\/New_York\") used to interpret scheduled hour\/minute'),
-  "serverTime": zod.string().nullish().describe('Current wall-clock time on the server at the moment of the request (HH:MM:SS, as-of page load)')
+  "serverTimezone": zod.string().nullish().describe('IANA timezone name of the server (e.g. \"America\/New_York\") used to interpret scheduled hour\/minute')
 })
 
 
@@ -4418,101 +3957,6 @@ export const UpdateReconciliationScheduleConfigResponse = zod.object({
 
 
 /**
- * @summary Get reconciliation report email recipients (admin only)
- */
-export const GetReconciliationReportRecipientsResponse = zod.object({
-  "recipients": zod.array(zod.string()).describe('List of email addresses that receive reconciliation reports')
-})
-
-
-/**
- * @summary Add a reconciliation report email recipient (admin only)
- */
-export const AddReconciliationReportRecipientBody = zod.object({
-  "email": zod.string().describe('Email address to add to the report recipient list')
-})
-
-export const AddReconciliationReportRecipientResponse = zod.object({
-  "recipients": zod.array(zod.string()).describe('List of email addresses that receive reconciliation reports')
-})
-
-
-/**
- * @summary Remove a reconciliation report email recipient (admin only)
- */
-export const RemoveReconciliationReportRecipientParams = zod.object({
-  "email": zod.coerce.string()
-})
-
-export const RemoveReconciliationReportRecipientResponse = zod.object({
-  "recipients": zod.array(zod.string()).describe('List of email addresses that receive reconciliation reports')
-})
-
-
-/**
- * @summary Get saved lookback window presets (admin only)
- */
-export const getReconciliationLookbackPresetsResponseNameMax = 50;
-
-export const getReconciliationLookbackPresetsResponseDaysMax = 90;
-
-
-
-export const GetReconciliationLookbackPresetsResponseItem = zod.object({
-  "name": zod.string().min(1).max(getReconciliationLookbackPresetsResponseNameMax).describe('Human-readable name for this preset (e.g. \"Fortnightly\")'),
-  "days": zod.number().min(1).max(getReconciliationLookbackPresetsResponseDaysMax).describe('Number of days to look back')
-})
-export const GetReconciliationLookbackPresetsResponse = zod.array(GetReconciliationLookbackPresetsResponseItem)
-
-
-/**
- * @summary Add or update a lookback window preset (admin only)
- */
-export const addReconciliationLookbackPresetBodyNameMax = 50;
-
-export const addReconciliationLookbackPresetBodyDaysMax = 90;
-
-
-
-export const AddReconciliationLookbackPresetBody = zod.object({
-  "name": zod.string().min(1).max(addReconciliationLookbackPresetBodyNameMax).describe('Human-readable name for this preset (e.g. \"Fortnightly\")'),
-  "days": zod.number().min(1).max(addReconciliationLookbackPresetBodyDaysMax).describe('Number of days to look back')
-})
-
-export const addReconciliationLookbackPresetResponseNameMax = 50;
-
-export const addReconciliationLookbackPresetResponseDaysMax = 90;
-
-
-
-export const AddReconciliationLookbackPresetResponseItem = zod.object({
-  "name": zod.string().min(1).max(addReconciliationLookbackPresetResponseNameMax).describe('Human-readable name for this preset (e.g. \"Fortnightly\")'),
-  "days": zod.number().min(1).max(addReconciliationLookbackPresetResponseDaysMax).describe('Number of days to look back')
-})
-export const AddReconciliationLookbackPresetResponse = zod.array(AddReconciliationLookbackPresetResponseItem)
-
-
-/**
- * @summary Delete a lookback window preset by day count (admin only)
- */
-export const DeleteReconciliationLookbackPresetParams = zod.object({
-  "days": zod.coerce.number()
-})
-
-export const deleteReconciliationLookbackPresetResponseNameMax = 50;
-
-export const deleteReconciliationLookbackPresetResponseDaysMax = 90;
-
-
-
-export const DeleteReconciliationLookbackPresetResponseItem = zod.object({
-  "name": zod.string().min(1).max(deleteReconciliationLookbackPresetResponseNameMax).describe('Human-readable name for this preset (e.g. \"Fortnightly\")'),
-  "days": zod.number().min(1).max(deleteReconciliationLookbackPresetResponseDaysMax).describe('Number of days to look back')
-})
-export const DeleteReconciliationLookbackPresetResponse = zod.array(DeleteReconciliationLookbackPresetResponseItem)
-
-
-/**
  * @summary Get QR code auto-cleanup retention configuration (admin only)
  */
 export const getQrCleanupConfigResponseRetentionDaysMin = 0;
@@ -4548,97 +3992,6 @@ export const UpdateQrCleanupConfigResponse = zod.object({
 
 
 /**
- * @summary Get test email history auto-delete retention configuration (admin only)
- */
-export const getTestEmailRetentionConfigResponseRetentionDaysMin = 0;
-export const getTestEmailRetentionConfigResponseRetentionDaysMax = 365;
-
-
-
-export const GetTestEmailRetentionConfigResponse = zod.object({
-  "retentionDays": zod.number().min(getTestEmailRetentionConfigResponseRetentionDaysMin).max(getTestEmailRetentionConfigResponseRetentionDaysMax).describe('Days to retain test_email_sent audit log rows. Set to 0 to disable automatic cleanup.\n')
-})
-
-
-/**
- * @summary Update test email history auto-delete retention configuration (admin only)
- */
-export const updateTestEmailRetentionConfigBodyRetentionDaysMin = 0;
-export const updateTestEmailRetentionConfigBodyRetentionDaysMax = 365;
-
-
-
-export const UpdateTestEmailRetentionConfigBody = zod.object({
-  "retentionDays": zod.number().min(updateTestEmailRetentionConfigBodyRetentionDaysMin).max(updateTestEmailRetentionConfigBodyRetentionDaysMax).describe('Days to retain test_email_sent audit log rows. Set to 0 to disable automatic cleanup.\n')
-})
-
-export const updateTestEmailRetentionConfigResponseRetentionDaysMin = 0;
-export const updateTestEmailRetentionConfigResponseRetentionDaysMax = 365;
-
-
-
-export const UpdateTestEmailRetentionConfigResponse = zod.object({
-  "retentionDays": zod.number().min(updateTestEmailRetentionConfigResponseRetentionDaysMin).max(updateTestEmailRetentionConfigResponseRetentionDaysMax).describe('Days to retain test_email_sent audit log rows. Set to 0 to disable automatic cleanup.\n')
-})
-
-
-/**
- * @summary Get signature failure alert configuration (admin only)
- */
-export const getSignatureFailureAlertConfigResponseThresholdMax = 10000;
-
-export const getSignatureFailureAlertConfigResponseWindowHoursMin = 0.25;
-export const getSignatureFailureAlertConfigResponseWindowHoursMax = 72;
-
-export const getSignatureFailureAlertConfigResponseRateLimitHoursMin = 0.25;
-export const getSignatureFailureAlertConfigResponseRateLimitHoursMax = 72;
-
-
-
-export const GetSignatureFailureAlertConfigResponse = zod.object({
-  "threshold": zod.number().min(1).max(getSignatureFailureAlertConfigResponseThresholdMax).describe('Number of signature verification failures within the window that must be exceeded before an alert email is sent.\n'),
-  "windowHours": zod.number().min(getSignatureFailureAlertConfigResponseWindowHoursMin).max(getSignatureFailureAlertConfigResponseWindowHoursMax).describe('Rolling time window (in hours) over which signature failures are counted.\n'),
-  "rateLimitHours": zod.number().min(getSignatureFailureAlertConfigResponseRateLimitHoursMin).max(getSignatureFailureAlertConfigResponseRateLimitHoursMax).describe('Minimum hours between consecutive alert emails (cooldown period).\n')
-})
-
-
-/**
- * @summary Update signature failure alert configuration (admin only)
- */
-export const updateSignatureFailureAlertConfigBodyThresholdMax = 10000;
-
-export const updateSignatureFailureAlertConfigBodyWindowHoursMin = 0.25;
-export const updateSignatureFailureAlertConfigBodyWindowHoursMax = 72;
-
-export const updateSignatureFailureAlertConfigBodyRateLimitHoursMin = 0.25;
-export const updateSignatureFailureAlertConfigBodyRateLimitHoursMax = 72;
-
-
-
-export const UpdateSignatureFailureAlertConfigBody = zod.object({
-  "threshold": zod.number().min(1).max(updateSignatureFailureAlertConfigBodyThresholdMax).describe('Number of signature verification failures within the window that must be exceeded before an alert email is sent.\n'),
-  "windowHours": zod.number().min(updateSignatureFailureAlertConfigBodyWindowHoursMin).max(updateSignatureFailureAlertConfigBodyWindowHoursMax).describe('Rolling time window (in hours) over which signature failures are counted.\n'),
-  "rateLimitHours": zod.number().min(updateSignatureFailureAlertConfigBodyRateLimitHoursMin).max(updateSignatureFailureAlertConfigBodyRateLimitHoursMax).describe('Minimum hours between consecutive alert emails (cooldown period).\n')
-})
-
-export const updateSignatureFailureAlertConfigResponseThresholdMax = 10000;
-
-export const updateSignatureFailureAlertConfigResponseWindowHoursMin = 0.25;
-export const updateSignatureFailureAlertConfigResponseWindowHoursMax = 72;
-
-export const updateSignatureFailureAlertConfigResponseRateLimitHoursMin = 0.25;
-export const updateSignatureFailureAlertConfigResponseRateLimitHoursMax = 72;
-
-
-
-export const UpdateSignatureFailureAlertConfigResponse = zod.object({
-  "threshold": zod.number().min(1).max(updateSignatureFailureAlertConfigResponseThresholdMax).describe('Number of signature verification failures within the window that must be exceeded before an alert email is sent.\n'),
-  "windowHours": zod.number().min(updateSignatureFailureAlertConfigResponseWindowHoursMin).max(updateSignatureFailureAlertConfigResponseWindowHoursMax).describe('Rolling time window (in hours) over which signature failures are counted.\n'),
-  "rateLimitHours": zod.number().min(updateSignatureFailureAlertConfigResponseRateLimitHoursMin).max(updateSignatureFailureAlertConfigResponseRateLimitHoursMax).describe('Minimum hours between consecutive alert emails (cooldown period).\n')
-})
-
-
-/**
  * @summary Mark a single notification as read
  */
 export const MarkNotificationReadParams = zod.object({
@@ -4655,19 +4008,6 @@ export const MarkNotificationReadResponse = zod.object({
   "isRead": zod.boolean(),
   "readAt": zod.string().nullish(),
   "createdAt": zod.string()
-})
-
-
-/**
- * @summary List previously uploaded objects for the authenticated merchant
- */
-export const ListUploadedObjectsResponse = zod.object({
-  "data": zod.array(zod.object({
-  "objectPath": zod.string().describe('Normalized object path (e.g. \/objects\/uploads\/uuid).'),
-  "contentType": zod.string().describe('MIME type of the uploaded file.'),
-  "contentHash": zod.string().optional().describe('SHA-256 hex digest of the file contents (if recorded).'),
-  "createdAt": zod.coerce.date().describe('When the object was first uploaded.')
-}))
 })
 
 
@@ -4715,97 +4055,6 @@ export const GetStorageObjectParams = zod.object({
 
 
 /**
- * Scans the uploaded_objects table for rows whose objectPath is not referenced by any merchant's or provider's logoUrl, then deletes the GCS object and removes the row. Safe to run repeatedly.
-
- * @summary Delete orphaned uploaded_objects rows and their GCS objects (admin only)
- */
-export const RunStorageCleanupResponse = zod.object({
-  "totalScanned": zod.number().describe('Number of uploaded_objects rows examined.'),
-  "deleted": zod.number().describe('Number of orphaned rows successfully deleted (GCS object + DB row).'),
-  "errors": zod.number().describe('Number of orphaned rows that could not be deleted due to errors.')
-})
-
-
-/**
- * @summary List past storage cleanup runs (admin only)
- */
-export const listStorageCleanupRunsQueryLimitDefault = 20;
-export const listStorageCleanupRunsQueryLimitMax = 100;
-
-
-
-export const ListStorageCleanupRunsQueryParams = zod.object({
-  "limit": zod.coerce.number().min(1).max(listStorageCleanupRunsQueryLimitMax).default(listStorageCleanupRunsQueryLimitDefault).describe('Maximum number of runs to return, newest first.')
-})
-
-export const ListStorageCleanupRunsResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.number(),
-  "runAt": zod.coerce.date(),
-  "totalScanned": zod.number(),
-  "deleted": zod.number(),
-  "errors": zod.number(),
-  "triggeredBy": zod.string().describe('Email or identifier of the admin who triggered the run.'),
-  "createdAt": zod.coerce.date()
-}))
-})
-
-
-/**
- * @summary Update the sort order of the current merchant's filter presets
- */
-export const ReorderMerchantFilterPresetsBody = zod.object({
-  "ids": zod.array(zod.number()).describe('Preset IDs in the desired new order')
-})
-
-export const ReorderMerchantFilterPresetsResponse = zod.object({
-  "message": zod.string()
-})
-
-
-/**
- * @summary List all filter presets for the current merchant
- */
-export const ListMerchantFilterPresetsResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.number(),
-  "merchantId": zod.number(),
-  "name": zod.string(),
-  "presetType": zod.enum(['combined', 'smart', 'date']),
-  "payload": zod.record(zod.string(), zod.unknown()),
-  "sortOrder": zod.number(),
-  "createdAt": zod.coerce.date()
-}))
-})
-
-
-/**
- * @summary Create a named filter preset for the current merchant
- */
-export const createMerchantFilterPresetBodyNameMax = 40;
-
-
-
-export const CreateMerchantFilterPresetBody = zod.object({
-  "name": zod.string().min(1).max(createMerchantFilterPresetBodyNameMax),
-  "presetType": zod.enum(['combined', 'smart', 'date']),
-  "payload": zod.record(zod.string(), zod.unknown())
-})
-
-
-/**
- * @summary Delete a merchant filter preset
- */
-export const DeleteMerchantFilterPresetParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const DeleteMerchantFilterPresetResponse = zod.object({
-  "message": zod.string()
-})
-
-
-/**
  * @summary List saved smart search filter presets for the current admin
  */
 export const ListSavedFiltersResponse = zod.object({
@@ -4814,7 +4063,6 @@ export const ListSavedFiltersResponse = zod.object({
   "name": zod.string(),
   "rawInput": zod.string(),
   "filterData": zod.record(zod.string(), zod.unknown()).describe('SmartFilter JSON object'),
-  "sortOrder": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 }))
 })
@@ -4832,43 +4080,6 @@ export const CreateSavedFilterBody = zod.object({
   "name": zod.string().min(1).max(createSavedFilterBodyNameMax),
   "rawInput": zod.string().min(1),
   "filterData": zod.record(zod.string(), zod.unknown()).describe('SmartFilter JSON object')
-})
-
-
-/**
- * @summary Reorder saved filter presets for the current admin
- */
-export const ReorderSavedFiltersBody = zod.object({
-  "ids": zod.array(zod.number()).describe('Ordered array of saved filter IDs (front to back)')
-})
-
-export const ReorderSavedFiltersResponse = zod.object({
-  "message": zod.string()
-})
-
-
-/**
- * @summary Rename a saved filter preset
- */
-export const RenameSavedFilterParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const renameSavedFilterBodyNameMax = 40;
-
-
-
-export const RenameSavedFilterBody = zod.object({
-  "name": zod.string().min(1).max(renameSavedFilterBodyNameMax)
-})
-
-export const RenameSavedFilterResponse = zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "rawInput": zod.string(),
-  "filterData": zod.record(zod.string(), zod.unknown()).describe('SmartFilter JSON object'),
-  "sortOrder": zod.number().nullish(),
-  "createdAt": zod.coerce.date()
 })
 
 

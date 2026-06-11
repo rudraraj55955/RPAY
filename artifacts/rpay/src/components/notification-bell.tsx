@@ -1,19 +1,17 @@
 import { useState, useEffect } from "react";
 import { useListNotifications, useMarkAllNotificationsRead, useMarkNotificationRead } from "@workspace/api-client-react";
-import { Bell, Check, CheckCheck, CreditCard, Zap, AlertCircle, Megaphone, Mail } from "lucide-react";
+import { Bell, Check, CheckCheck, CreditCard, Zap, AlertCircle, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { Link, useLocation } from "wouter";
-import { useAuth } from "@/lib/auth-context";
-import { UserRole } from "@workspace/api-client-react";
+import { Link } from "wouter";
 
 function notifIcon(type: string) {
   if (type.startsWith("settlement")) return <CreditCard className="w-3.5 h-3.5" />;
   if (type.startsWith("plan")) return <Zap className="w-3.5 h-3.5" />;
   if (type === "limit_exceeded") return <AlertCircle className="w-3.5 h-3.5" />;
-  if (type === "reconciliation_email_failure" || type === "report_delivery_failure") return <Mail className="w-3.5 h-3.5" />;
   return <Megaphone className="w-3.5 h-3.5" />;
 }
 
@@ -22,54 +20,18 @@ function notifColor(type: string): string {
   if (type === "settlement_rejected") return "text-red-400";
   if (type === "plan_expiring" || type === "limit_exceeded") return "text-amber-400";
   if (type === "plan_expired") return "text-red-400";
-  if (type === "reconciliation_email_failure" || type === "report_delivery_failure") return "text-red-400";
   return "text-blue-400";
-}
-
-function extractMetadata(raw: unknown): Record<string, unknown> {
-  if (raw == null) return {};
-  if (typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
-  if (typeof raw === "string") {
-    try { return JSON.parse(raw) as Record<string, unknown>; } catch { return {}; }
-  }
-  return {};
-}
-
-function getNotifLink(type: string, metadata: unknown): string | null {
-  const meta = extractMetadata(metadata);
-  if (type === "reconciliation_email_failure") {
-    const runId = meta["runId"];
-    if (runId != null) return `/admin/reconciliation?runId=${runId}`;
-    return "/admin/reconciliation";
-  }
-  if (type === "report_delivery_failure") {
-    const scheduleLink = typeof meta["scheduleLink"] === "string" ? meta["scheduleLink"] : null;
-    if (scheduleLink) {
-      return scheduleLink.replace(/^https?:\/\/[^/]+/, "");
-    }
-    return "/admin/audit-logs";
-  }
-  return null;
-}
-
-function getNotifLinkLabel(type: string): string {
-  if (type === "reconciliation_email_failure") return "Click to view run →";
-  if (type === "report_delivery_failure") return "Click to view schedule →";
-  return "Click to view →";
 }
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
-  const [, navigate] = useLocation();
-  const { user } = useAuth();
-
-  const isAdmin = user?.role === UserRole.admin;
 
   const { data, refetch } = useListNotifications({ limit: 10, page: 1 });
   const markAll = useMarkAllNotificationsRead();
   const markOne = useMarkNotificationRead();
 
+  // Poll for new notifications every 60s
   useEffect(() => {
     const id = setInterval(() => {
       qc.invalidateQueries({ queryKey: ["/api/notifications"] });
@@ -96,17 +58,6 @@ export function NotificationBell() {
       },
     });
   }
-
-  function handleItemClick(id: number, type: string, metadata: unknown, isRead: boolean) {
-    if (!isRead) handleMarkOne(id);
-    const link = getNotifLink(type, metadata);
-    if (link) {
-      setOpen(false);
-      navigate(link);
-    }
-  }
-
-  const allNotificationsHref = isAdmin ? "/admin/notifications" : "/merchant/notifications";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -136,51 +87,32 @@ export function NotificationBell() {
             <div className="py-10 text-center text-xs text-muted-foreground">No notifications yet</div>
           ) : (
             <ul className="divide-y divide-border/40">
-              {items.map((n) => {
-                const link = getNotifLink(n.type, n.metadata);
-                const isClickable = !!link;
-                return (
-                  <li
-                    key={n.id}
-                    className={`flex items-start gap-3 px-4 py-3 ${!n.isRead ? "bg-primary/5" : ""} ${isClickable ? "cursor-pointer hover:bg-primary/10" : ""}`}
-                    onClick={isClickable ? () => handleItemClick(n.id, n.type, n.metadata, n.isRead) : undefined}
-                    role={isClickable ? "button" : undefined}
-                    tabIndex={isClickable ? 0 : undefined}
-                    onKeyDown={isClickable ? (e) => e.key === "Enter" && handleItemClick(n.id, n.type, n.metadata, n.isRead) : undefined}
-                  >
-                    <div className={`mt-0.5 shrink-0 ${notifColor(n.type)}`}>{notifIcon(n.type)}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-xs font-medium leading-tight truncate">{n.title}</p>
-                        {!n.isRead && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-2">{n.body}</p>
-                      {isClickable && (
-                        <p className="text-[10px] text-primary/70 mt-0.5">{getNotifLinkLabel(n.type)}</p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                        {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
-                      </p>
+              {items.map((n) => (
+                <li key={n.id} className={`flex items-start gap-3 px-4 py-3 ${!n.isRead ? "bg-primary/5" : ""}`}>
+                  <div className={`mt-0.5 shrink-0 ${notifColor(n.type)}`}>{notifIcon(n.type)}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-medium leading-tight truncate">{n.title}</p>
+                      {!n.isRead && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
                     </div>
-                    {!n.isRead && !isClickable && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={(e) => { e.stopPropagation(); handleMarkOne(n.id); }}
-                      >
-                        <Check className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </li>
-                );
-              })}
+                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-2">{n.body}</p>
+                    <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                      {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                    </p>
+                  </div>
+                  {!n.isRead && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => handleMarkOne(n.id)}>
+                      <Check className="w-3 h-3" />
+                    </Button>
+                  )}
+                </li>
+              ))}
             </ul>
           )}
         </div>
 
         <div className="border-t border-border/50 px-4 py-2">
-          <Link href={allNotificationsHref} onClick={() => setOpen(false)}>
+          <Link href="/merchant/notifications" onClick={() => setOpen(false)}>
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground">
               View all notifications
             </Button>

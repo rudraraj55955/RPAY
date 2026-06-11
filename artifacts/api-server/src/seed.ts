@@ -7,7 +7,6 @@ import {
   transactionsTable,
   withdrawalsTable,
   callbackLogsTable,
-  callbackLogAttemptsTable,
   settlementsTable,
   apiKeysTable,
   webhooksTable,
@@ -26,8 +25,6 @@ import {
   SYSTEM_CONFIG_KEYS,
   SYSTEM_CONFIG_DEFAULTS,
   systemSettingsTable,
-  scheduledAuditReportsTable,
-  scheduledAuditReportLogsTable,
 } from "@workspace/db";
 
 const PLAN_TIERS = [
@@ -214,115 +211,21 @@ export async function seed() {
 
   const cbCount = await db.select({ c: count() }).from(callbackLogsTable);
   if (cbCount[0].c === 0) {
-    // Richer demo data: varying attempt counts, timestamps, and retry states
-    type CbSample = {
-      merchantId: number;
-      url: string;
-      status: "success" | "failed" | "pending_retry";
-      httpStatus: number | null;
-      attempts: number;
-      daysAgo: number;
-      hoursSpan: number; // time between first attempt and last
-      requestBody: string;
-      responseBody: string;
-      eventType: string;
-    };
-    const CB_SAMPLES: CbSample[] = [
-      // Single-attempt successes
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "success", httpStatus: 200, attempts: 1, daysAgo: 25, hoursSpan: 0, requestBody: JSON.stringify({ event: "payment.success", amount: 5200 }), responseBody: JSON.stringify({ ok: true }), eventType: "payment.success" },
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "success", httpStatus: 200, attempts: 1, daysAgo: 20, hoursSpan: 0, requestBody: JSON.stringify({ event: "payment.success", amount: 3100 }), responseBody: JSON.stringify({ received: true }), eventType: "payment.success" },
-      { merchantId: m2.id, url: "https://api.techpay.io/hooks/payment", status: "success", httpStatus: 200, attempts: 1, daysAgo: 22, hoursSpan: 0, requestBody: JSON.stringify({ event: "payment.success", amount: 8800 }), responseBody: JSON.stringify({ ok: true }), eventType: "payment.success" },
-      { merchantId: m2.id, url: "https://api.techpay.io/hooks/payment", status: "success", httpStatus: 200, attempts: 1, daysAgo: 18, hoursSpan: 0, requestBody: JSON.stringify({ event: "settlement.paid", amount: 9750 }), responseBody: JSON.stringify({ processed: true }), eventType: "settlement.paid" },
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "success", httpStatus: 200, attempts: 1, daysAgo: 10, hoursSpan: 0, requestBody: JSON.stringify({ event: "settlement.approved", amount: 7300 }), responseBody: JSON.stringify({ ok: true }), eventType: "settlement.approved" },
-      // Two-attempt: first failed then succeeded
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "success", httpStatus: 200, attempts: 2, daysAgo: 15, hoursSpan: 0.5, requestBody: JSON.stringify({ event: "payment.failed", amount: 2500 }), responseBody: JSON.stringify({ ok: true }), eventType: "payment.failed" },
-      { merchantId: m2.id, url: "https://api.techpay.io/hooks/payment", status: "success", httpStatus: 200, attempts: 2, daysAgo: 12, hoursSpan: 1, requestBody: JSON.stringify({ event: "payment.success", amount: 4600 }), responseBody: JSON.stringify({ received: true }), eventType: "payment.success" },
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "success", httpStatus: 200, attempts: 2, daysAgo: 8,  hoursSpan: 0.25, requestBody: JSON.stringify({ event: "payment.success", amount: 1800 }), responseBody: JSON.stringify({ ok: true }), eventType: "payment.success" },
-      { merchantId: m2.id, url: "https://api.techpay.io/hooks/payment", status: "success", httpStatus: 200, attempts: 2, daysAgo: 5,  hoursSpan: 2, requestBody: JSON.stringify({ event: "settlement.approved", amount: 3800 }), responseBody: JSON.stringify({ processed: true }), eventType: "settlement.approved" },
-      // Three-attempt: two failures then success
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "success", httpStatus: 200, attempts: 3, daysAgo: 28, hoursSpan: 4, requestBody: JSON.stringify({ event: "payment.success", amount: 11200 }), responseBody: JSON.stringify({ ok: true }), eventType: "payment.success" },
-      { merchantId: m2.id, url: "https://api.techpay.io/hooks/payment", status: "success", httpStatus: 200, attempts: 3, daysAgo: 17, hoursSpan: 6, requestBody: JSON.stringify({ event: "payment.success", amount: 6700 }), responseBody: JSON.stringify({ received: true }), eventType: "payment.success" },
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "success", httpStatus: 200, attempts: 3, daysAgo: 7,  hoursSpan: 3, requestBody: JSON.stringify({ event: "settlement.paid", amount: 5000 }), responseBody: JSON.stringify({ ok: true }), eventType: "settlement.paid" },
-      // Permanently failed (max retries exhausted)
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "failed", httpStatus: 500, attempts: 3, daysAgo: 23, hoursSpan: 8, requestBody: JSON.stringify({ event: "payment.success", amount: 9900 }), responseBody: JSON.stringify({ error: "Internal Server Error" }), eventType: "payment.success" },
-      { merchantId: m2.id, url: "https://api.techpay.io/hooks/payment", status: "failed", httpStatus: 404, attempts: 2, daysAgo: 14, hoursSpan: 1, requestBody: JSON.stringify({ event: "payment.failed", amount: 3300 }), responseBody: "Not Found", eventType: "payment.failed" },
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "failed", httpStatus: 503, attempts: 3, daysAgo: 6,  hoursSpan: 12, requestBody: JSON.stringify({ event: "payment.success", amount: 7800 }), responseBody: JSON.stringify({ error: "Service Unavailable" }), eventType: "payment.success" },
-      { merchantId: m2.id, url: "https://api.techpay.io/hooks/payment", status: "failed", httpStatus: 500, attempts: 1, daysAgo: 3,  hoursSpan: 0, requestBody: JSON.stringify({ event: "settlement.paid", amount: 4200 }), responseBody: JSON.stringify({ error: "Unhandled exception" }), eventType: "settlement.paid" },
-      // Pending retry (still in queue)
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "pending_retry", httpStatus: 503, attempts: 1, daysAgo: 1, hoursSpan: 0, requestBody: JSON.stringify({ event: "payment.success", amount: 2200 }), responseBody: JSON.stringify({ error: "Service Unavailable" }), eventType: "payment.success" },
-      { merchantId: m2.id, url: "https://api.techpay.io/hooks/payment", status: "pending_retry", httpStatus: 500, attempts: 2, daysAgo: 1, hoursSpan: 0.5, requestBody: JSON.stringify({ event: "payment.success", amount: 6100 }), responseBody: JSON.stringify({ error: "Internal Server Error" }), eventType: "payment.success" },
-      { merchantId: m1.id, url: "https://demo-business.example.com/webhooks/rasokart", status: "pending_retry", httpStatus: null, attempts: 1, daysAgo: 0, hoursSpan: 0, requestBody: JSON.stringify({ event: "settlement.approved", amount: 1500 }), responseBody: "", eventType: "settlement.approved" },
-      { merchantId: m2.id, url: "https://api.techpay.io/hooks/payment", status: "pending_retry", httpStatus: 500, attempts: 2, daysAgo: 0, hoursSpan: 0.1, requestBody: JSON.stringify({ event: "payment.failed", amount: 900 }), responseBody: JSON.stringify({ error: "Bad gateway" }), eventType: "payment.failed" },
-    ];
-
-    for (const s of CB_SAMPLES) {
-      const createdAt = new Date(Date.now() - s.daysAgo * 86400000);
-      const lastAttemptAt = s.attempts > 1
-        ? new Date(createdAt.getTime() + s.hoursSpan * 3600000)
-        : createdAt;
-      const nextRetryAt = s.status === "pending_retry"
-        ? new Date(Date.now() + 30 * 60000)
-        : null;
+    const methods = ["GET", "POST"] as const;
+    const statuses = [200, 200, 200, 404, 500] as const;
+    for (let i = 0; i < 20; i++) {
+      const httpStatus = statuses[Math.floor(Math.random() * statuses.length)];
       await db.insert(callbackLogsTable).values({
-        merchantId: s.merchantId,
-        url: s.url,
-        status: s.status,
-        httpStatus: s.httpStatus,
-        attempts: s.attempts,
-        requestBody: s.requestBody,
-        responseBody: s.responseBody,
-        eventType: s.eventType,
-        lastAttemptAt,
-        nextRetryAt,
-        createdAt,
+        merchantId: i % 2 === 0 ? m1.id : m2.id,
+        url: `https://api.merchant${i % 2 + 1}.com/callback`,
+        status: httpStatus === 200 ? "success" : "failed",
+        httpStatus,
+        requestBody: JSON.stringify({ event: "payment.success", amount: 1000 }),
+        responseBody: JSON.stringify({ ok: true }),
       });
     }
   }
   console.log("Callback logs seeded");
-
-  // ── Backfill attempt history for existing callback_logs ──────────────────
-  // Idempotent: only inserts rows for logs that have no attempt rows yet.
-  // Synthetic timestamps are spaced linearly between createdAt and lastAttemptAt.
-  // Intermediate attempts (not the final one) are treated as failures (HTTP 500).
-  {
-    const existingAttemptLogIds = await db
-      .selectDistinct({ callbackLogId: callbackLogAttemptsTable.callbackLogId })
-      .from(callbackLogAttemptsTable);
-    const coveredIds = new Set(existingAttemptLogIds.map(r => r.callbackLogId));
-
-    const allLogs = await db.select().from(callbackLogsTable);
-    const toBackfill = allLogs.filter(log => !coveredIds.has(log.id));
-
-    for (const log of toBackfill) {
-      const numAttempts = log.attempts ?? 1;
-      const createdAt = log.createdAt ?? new Date();
-      const lastAttemptAt = log.lastAttemptAt ?? createdAt;
-      const spanMs = lastAttemptAt.getTime() - createdAt.getTime();
-
-      for (let i = 1; i <= numAttempts; i++) {
-        const fraction = numAttempts > 1 ? (i - 1) / (numAttempts - 1) : 0;
-        const firedAt = new Date(createdAt.getTime() + fraction * spanMs);
-
-        const isLast = i === numAttempts;
-        const httpStatus = isLast ? log.httpStatus : 500;
-        const responseBody = isLast
-          ? (log.responseBody ?? null)
-          : JSON.stringify({ error: "Connection timeout" });
-
-        await db.insert(callbackLogAttemptsTable).values({
-          callbackLogId: log.id,
-          attemptNumber: i,
-          firedAt,
-          httpStatus,
-          responseBody,
-        });
-      }
-    }
-
-    if (toBackfill.length > 0) {
-      console.log(`Backfilled attempt rows for ${toBackfill.length} callback logs`);
-    }
-  }
 
   const settCount = await db.select({ c: count() }).from(settlementsTable);
   if (settCount[0].c === 0) {
@@ -896,67 +799,6 @@ export async function seed() {
       AND provider IS NOT NULL
   `);
   console.log("Connection ID backfill complete.");
-
-  // Backfill actionedBy from processedBy for approved/rejected settlements that
-  // pre-date the actionedBy column. Idempotent: WHERE clause limits to rows
-  // where actioned_by IS NULL AND processed_by IS NOT NULL.
-  await db.execute(sql`
-    UPDATE settlements
-    SET actioned_by = processed_by
-    WHERE status IN ('approved', 'rejected')
-      AND actioned_by IS NULL
-      AND processed_by IS NOT NULL
-  `);
-  console.log("Settlement actionedBy backfill complete.");
-
-  // ── Scheduled audit report demo data ─────────────────────────────────────
-  // Seed two demo schedules with a mix of successful and failed delivery runs
-  // so the Delivery History UI is demonstrable out of the box.
-  const [existingScheduleCount] = await db
-    .select({ c: count() })
-    .from(scheduledAuditReportsTable);
-
-  if (existingScheduleCount.c === 0) {
-    const [weekly] = await db
-      .insert(scheduledAuditReportsTable)
-      .values({
-        frequency: "weekly",
-        recipientEmail: "compliance@rasokart.com",
-        isActive: true,
-        lastSentAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-      })
-      .returning();
-
-    const [monthly] = await db
-      .insert(scheduledAuditReportsTable)
-      .values({
-        frequency: "monthly",
-        recipientEmail: "reports@rasokart.com",
-        isActive: true,
-        lastSentAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-      })
-      .returning();
-
-    const now = Date.now();
-    const day = 24 * 60 * 60 * 1000;
-
-    await db.insert(scheduledAuditReportLogsTable).values([
-      // Weekly schedule runs — mixed success/failure
-      { scheduleId: weekly.id, sentAt: new Date(now - 3 * day), rowCount: 412, success: true, isRetry: false, triggerType: "scheduled" },
-      { scheduleId: weekly.id, sentAt: new Date(now - 10 * day), rowCount: 388, success: true, isRetry: false, triggerType: "scheduled" },
-      { scheduleId: weekly.id, sentAt: new Date(now - 17 * day), rowCount: 0, success: false, errorMessage: "SMTP connection refused: connect ECONNREFUSED 127.0.0.1:587", isRetry: false, triggerType: "scheduled" },
-      { scheduleId: weekly.id, sentAt: new Date(now - 17 * day + 30 * 60 * 1000), rowCount: 401, success: true, isRetry: true, triggerType: "scheduled" },
-      { scheduleId: weekly.id, sentAt: new Date(now - 24 * day), rowCount: 356, success: true, isRetry: false, triggerType: "scheduled" },
-      { scheduleId: weekly.id, sentAt: new Date(now - 5 * day), rowCount: 198, success: true, isRetry: false, triggerType: "manual" },
-      // Monthly schedule runs — one failure with no retry
-      { scheduleId: monthly.id, sentAt: new Date(now - 10 * day), rowCount: 1842, success: true, isRetry: false, triggerType: "scheduled" },
-      { scheduleId: monthly.id, sentAt: new Date(now - 40 * day), rowCount: 0, success: false, errorMessage: "Authentication failed: 535 5.7.8 Username and Password not accepted", isRetry: false, triggerType: "scheduled" },
-      { scheduleId: monthly.id, sentAt: new Date(now - 40 * day + 60 * 60 * 1000), rowCount: 1761, success: true, isRetry: true, triggerType: "scheduled" },
-      { scheduleId: monthly.id, sentAt: new Date(now - 70 * day), rowCount: 1599, success: true, isRetry: false, triggerType: "scheduled" },
-      { scheduleId: monthly.id, sentAt: new Date(now - 2 * day), rowCount: 0, success: false, errorMessage: "Recipient address rejected: User unknown in virtual mailbox table", isRetry: false, triggerType: "scheduled" },
-    ]);
-    console.log("Scheduled audit report demo data seeded.");
-  }
 
   console.log("Seed complete.");
 }

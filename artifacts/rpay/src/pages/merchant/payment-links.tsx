@@ -18,7 +18,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Search, Plus, Trash2, Link2, Copy, ExternalLink, CheckCircle2, XCircle, Hash, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { getApiErrorMessage } from "@/lib/utils";
 
 type LinkRow = {
   id: number;
@@ -125,8 +124,9 @@ export default function MerchantPaymentLinks() {
           resetForm();
           invalidate();
         },
-        onError: (err: unknown) => {
-          toast.error(getApiErrorMessage(err, "Failed to create payment link"));
+        onError: (err: any) => {
+          const msg = err?.response?.data?.error ?? "Failed to create payment link";
+          toast.error(msg);
         },
       }
     );
@@ -138,7 +138,7 @@ export default function MerchantPaymentLinks() {
       { id: link.id, data: { status: newStatus as any } },
       {
         onSuccess: () => { toast.success(`Link ${newStatus === "active" ? "activated" : "deactivated"}`); invalidate(); },
-        onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to update link")),
+        onError: () => toast.error("Failed to update link"),
       }
     );
   };
@@ -163,7 +163,7 @@ export default function MerchantPaymentLinks() {
           setEditLink(null);
           invalidate();
         },
-        onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to update payment cap")),
+        onError: () => toast.error("Failed to update payment cap"),
       }
     );
   };
@@ -172,7 +172,7 @@ export default function MerchantPaymentLinks() {
     if (!confirm("Delete this payment link? It will no longer be accessible.")) return;
     deleteMutation.mutate({ id }, {
       onSuccess: () => { toast.success("Payment link deleted"); invalidate(); },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to delete")),
+      onError: () => toast.error("Failed to delete"),
     });
   };
 

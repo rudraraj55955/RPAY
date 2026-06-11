@@ -9,8 +9,6 @@ import { AuthLayout } from "@/components/layout/auth-layout";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { isRateLimitError } from "@/lib/utils";
-import { useRateLimit, RateLimitBanner } from "@/components/ui/rate-limit-banner";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -22,8 +20,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function AdminLogin() {
   const [_, setLocation] = useLocation();
   const { login: setAuthToken } = useAuth();
-  const { isRateLimited, secondsLeft, trigger } = useRateLimit();
-
+  
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -48,11 +45,7 @@ export default function AdminLogin() {
           setLocation("/admin/dashboard");
         },
         onError: (err) => {
-          if (isRateLimitError(err)) {
-            trigger();
-          } else {
-            toast.error((err as { message?: string }).message || "Login failed");
-          }
+          toast.error(err.message || "Login failed");
         },
       }
     );
@@ -62,7 +55,6 @@ export default function AdminLogin() {
     <AuthLayout title="Admin Portal" subtitle="Sign in to RasoKart operations">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <RateLimitBanner secondsLeft={secondsLeft} message="Too many login attempts. Please wait before trying again." />
           <FormField
             control={form.control}
             name="email"
@@ -70,10 +62,7 @@ export default function AdminLogin() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="admin@rasokart.com"
-                    {...field}
-                  />
+                  <Input placeholder="admin@rasokart.com" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -86,26 +75,18 @@ export default function AdminLogin() {
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    {...field}
-                  />
+                  <Input type="password" placeholder="••••••••" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loginMutation.isPending || isRateLimited}
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={loginMutation.isPending}
           >
-            {loginMutation.isPending
-              ? "Authenticating..."
-              : isRateLimited
-                ? `Try again in ${secondsLeft}s`
-                : "Sign in"}
+            {loginMutation.isPending ? "Authenticating..." : "Sign in"}
           </Button>
         </form>
       </Form>

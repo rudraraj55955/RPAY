@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useListCallbackLogs, useGetWebhookLogAttempts } from "@workspace/api-client-react";
-import type { CallbackLogAttempt } from "@workspace/api-client-react";
+import { useListCallbackLogs } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Webhook, Search, CheckCircle2, XCircle, Activity, Eye, ListOrdered, Loader2 } from "lucide-react";
+import { Webhook, Search, CheckCircle2, XCircle, Activity, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }) {
@@ -20,71 +19,6 @@ function SignatureVerifiedBadge({ value }: { value: boolean | null | undefined }
     return <Badge className="bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20 text-xs">✗ Failed</Badge>;
   }
   return <span className="text-muted-foreground text-xs">— None</span>;
-}
-
-function AttemptStatusDot({ httpStatus }: { httpStatus: number | null | undefined }) {
-  if (httpStatus != null && httpStatus >= 200 && httpStatus < 300) {
-    return <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 shrink-0 mt-0.5" />;
-  }
-  if (httpStatus != null) {
-    return <span className="inline-block w-2 h-2 rounded-full bg-rose-400 shrink-0 mt-0.5" />;
-  }
-  return <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground/30 shrink-0 mt-0.5" />;
-}
-
-function RetryHistorySection({ logId }: { logId: number }) {
-  const { data, isLoading } = useGetWebhookLogAttempts(logId);
-  const attempts: CallbackLogAttempt[] = data?.data ?? [];
-
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-2">
-        <ListOrdered className="w-3.5 h-3.5 text-muted-foreground/60" />
-        <p className="text-xs text-muted-foreground/60 uppercase tracking-wider font-medium">Retry History</p>
-      </div>
-      {isLoading ? (
-        <div className="flex items-center gap-2 py-3 text-muted-foreground/50">
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          <span className="text-xs">Loading…</span>
-        </div>
-      ) : attempts.length === 0 ? (
-        <p className="text-xs text-muted-foreground/50 italic px-1">No per-attempt records yet — history is recorded for new deliveries going forward.</p>
-      ) : (
-        <div className="space-y-0 rounded-lg border border-border/40 overflow-hidden">
-          {attempts.map((attempt, idx) => (
-            <div
-              key={attempt.id}
-              className={`flex items-start gap-3 px-3 py-2.5 text-xs ${idx < attempts.length - 1 ? "border-b border-border/30" : ""} ${idx % 2 === 0 ? "bg-muted/10" : ""}`}
-            >
-              <AttemptStatusDot httpStatus={attempt.httpStatus} />
-              <div className="shrink-0 w-16">
-                <span className="text-muted-foreground/50">#{attempt.attemptNumber}</span>
-              </div>
-              <div className="flex-1 min-w-0 space-y-0.5">
-                <div className="flex items-center gap-3 flex-wrap">
-                  {attempt.httpStatus != null ? (
-                    <span className={`font-mono font-semibold ${attempt.httpStatus >= 200 && attempt.httpStatus < 300 ? "text-emerald-400" : "text-rose-400"}`}>
-                      HTTP {attempt.httpStatus}
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground/50 italic">No response</span>
-                  )}
-                  <span className="text-muted-foreground/50 font-mono">
-                    {format(new Date(attempt.firedAt), "MMM d, HH:mm:ss")}
-                  </span>
-                </div>
-                {attempt.responseBody && (
-                  <p className="text-muted-foreground/60 font-mono truncate" title={attempt.responseBody}>
-                    {attempt.responseBody}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function exportCsv(data: any[]) {
@@ -108,20 +42,14 @@ export default function AdminWebhookLogs() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [sigVerified, setSigVerified] = useState("all");
-  const [merchantIdFilter, setMerchantIdFilter] = useState<string>(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("merchantId") ?? "";
-  });
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any | null>(null);
 
   const sigVerifiedParam = sigVerified === "all" ? undefined : (sigVerified as any);
-  const merchantIdParam = merchantIdFilter.trim() ? parseInt(merchantIdFilter.trim()) : undefined;
 
   const { data, isLoading } = useListCallbackLogs({
     status: status === "all" ? undefined : (status as any),
     signatureVerified: sigVerifiedParam,
-    merchantId: merchantIdParam,
     page,
     limit: 20,
   } as any);
@@ -191,8 +119,8 @@ export default function AdminWebhookLogs() {
 
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-[180px]">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 className="pl-9"
@@ -201,12 +129,6 @@ export default function AdminWebhookLogs() {
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
               />
             </div>
-            <Input
-              className="w-[140px]"
-              placeholder="Merchant ID..."
-              value={merchantIdFilter}
-              onChange={e => { setMerchantIdFilter(e.target.value.replace(/\D/g, "")); setPage(1); }}
-            />
             <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>
               <SelectTrigger className="w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
@@ -225,17 +147,6 @@ export default function AdminWebhookLogs() {
               </SelectContent>
             </Select>
           </div>
-          {merchantIdParam != null && (
-            <div className="flex items-center gap-2 px-1 pt-1">
-              <span className="text-xs text-muted-foreground">
-                Showing logs for:{" "}
-                <span className="font-medium text-foreground">
-                  {items[0]?.merchantName ?? "Merchant"}
-                </span>{" "}
-                <span className="text-muted-foreground/60">(#{merchantIdParam})</span>
-              </span>
-            </div>
-          )}
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -270,13 +181,7 @@ export default function AdminWebhookLogs() {
               ) : items.map((c: any) => (
                 <TableRow key={c.id}>
                   <TableCell className="font-mono text-xs text-muted-foreground">#{c.id}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {c.merchantName ? (
-                      <span>{c.merchantName} <span className="text-muted-foreground/50">(#{c.merchantId})</span></span>
-                    ) : (
-                      <span>#{c.merchantId}</span>
-                    )}
-                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">#{c.merchantId}</TableCell>
                   <TableCell className="max-w-[200px]">
                     <span className="font-mono text-xs truncate block" title={c.url}>{c.url}</span>
                   </TableCell>
@@ -314,7 +219,7 @@ export default function AdminWebhookLogs() {
       )}
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Webhook className="w-4 h-4" /> Webhook Delivery #{selected?.id}
@@ -336,12 +241,8 @@ export default function AdminWebhookLogs() {
                   <p className="font-semibold">{selected.attempts}</p>
                 </div>
                 <div className="rounded-lg bg-muted/20 p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Merchant</p>
-                  {selected.merchantName ? (
-                    <p className="font-medium">{selected.merchantName} <span className="font-mono text-muted-foreground text-xs">(#{selected.merchantId})</span></p>
-                  ) : (
-                    <p className="font-mono">#{selected.merchantId}</p>
-                  )}
+                  <p className="text-xs text-muted-foreground mb-1">Merchant ID</p>
+                  <p className="font-mono">#{selected.merchantId}</p>
                 </div>
                 <div className="rounded-lg bg-muted/20 p-3">
                   <p className="text-xs text-muted-foreground mb-1">Signature</p>
@@ -352,7 +253,6 @@ export default function AdminWebhookLogs() {
                 <p className="text-xs text-muted-foreground mb-1">Endpoint URL</p>
                 <p className="font-mono text-xs break-all">{selected.url}</p>
               </div>
-              <RetryHistorySection logId={selected.id} />
               {selected.requestBody && (
                 <div className="rounded-lg bg-muted/20 p-3">
                   <p className="text-xs text-muted-foreground mb-2">Request Body</p>

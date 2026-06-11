@@ -1,8 +1,18 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
+import rateLimit from "express-rate-limit";
 import { db, virtualAccountsTable, merchantsTable, transactionsTable, vaBalanceHistoryTable, usersTable, auditLogsTable } from "@workspace/db";
 import { eq, and, ilike, count, or, desc, gte, lte, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { checkPlanLimit, rejectWithLimitError } from "../helpers/planLimits";
+
+const createVaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => String((req as Request & { user?: { merchantId?: number } }).user?.merchantId ?? req.ip),
+  message: { error: "Too many virtual account creation requests. Please try again later." },
+});
 
 async function logVaAudit(req: any, action: string, targetId: number | null, details: object) {
   await db.insert(auditLogsTable).values({
@@ -298,7 +308,7 @@ router.get("/balance-history/export", async (req, res) => {
 });
 
 // POST /api/virtual-accounts
-router.post("/", async (req, res) => {
+router.post("/", createVaLimiter, async (req, res) => {
   const user = (req as any).user;
   const merchantId = user.merchantId!;
   const { accountNumber, ifsc, bankName, accountHolder, label } = req.body;

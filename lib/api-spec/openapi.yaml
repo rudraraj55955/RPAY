@@ -3075,6 +3075,37 @@ paths:
         "403":
           description: Forbidden
 
+  /audit-logs/schedules/bulk-toggle:
+    patch:
+      operationId: bulkToggleAuditReportSchedules
+      tags: [dashboard]
+      summary: Pause or resume all audit report schedules at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isActive]
+              properties:
+                isActive:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated list of all schedules
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditReportScheduleListResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+
   /audit-logs/schedules/{id}/send:
     post:
       operationId: sendAuditReportNow

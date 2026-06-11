@@ -3,7 +3,7 @@ import {
   useListAdminAuditLogs, useGetAdminAuditLogStats,
   useListAuditReportSchedules, useCreateAuditReportSchedule,
   useUpdateAuditReportSchedule, useDeleteAuditReportSchedule,
-  useSendAuditReportNow,
+  useSendAuditReportNow, useBulkToggleAuditReportSchedules,
   getListAuditReportSchedulesQueryKey,
   useListAuditReportScheduleLogs,
   getListAuditReportScheduleLogsQueryKey,
@@ -1408,6 +1408,8 @@ function ScheduledReportsPanel() {
   const deleteSchedule = useDeleteAuditReportSchedule();
   const sendNow = useSendAuditReportNow();
 
+  const bulkToggle = useBulkToggleAuditReportSchedules();
+
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newFrequency, setNewFrequency] = useState("weekly");
@@ -1418,6 +1420,7 @@ function ScheduledReportsPanel() {
   const [acknowledgingId, setAcknowledgingId] = useState<number | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [bulkToggling, setBulkToggling] = useState(false);
 
   const schedules = schedulesData?.data ?? [];
 
@@ -1440,6 +1443,19 @@ function ScheduledReportsPanel() {
   async function handleToggleActive(id: number, isActive: boolean) {
     await updateSchedule.mutateAsync({ id, data: { isActive: !isActive } });
     invalidate();
+  }
+
+  async function handleBulkToggle(targetActive: boolean) {
+    setBulkToggling(true);
+    try {
+      await bulkToggle.mutateAsync({ data: { isActive: targetActive } });
+      invalidate();
+      toast.success(targetActive ? "All schedules resumed" : "All schedules paused");
+    } catch {
+      toast.error("Failed to update schedules");
+    } finally {
+      setBulkToggling(false);
+    }
   }
 
   async function handleDelete(id: number) {
@@ -1499,15 +1515,41 @@ function ScheduledReportsPanel() {
             <Clock className="w-4 h-4 text-violet-400" />
             <CardTitle className="text-base font-semibold">Scheduled Email Reports</CardTitle>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowAdd(true)}
-            className="border-violet-500/30 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 hover:border-violet-500/50"
-          >
-            <Plus className="w-3.5 h-3.5 mr-1.5" />
-            Add Schedule
-          </Button>
+          <div className="flex items-center gap-2">
+            {schedules.length > 0 && (() => {
+              const anyActive = schedules.some((s: any) => s.isActive);
+              return (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={bulkToggling}
+                  onClick={() => handleBulkToggle(!anyActive)}
+                  className={anyActive
+                    ? "border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/50"
+                    : "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/50"
+                  }
+                >
+                  {bulkToggling ? (
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  ) : anyActive ? (
+                    <Ban className="w-3.5 h-3.5 mr-1.5" />
+                  ) : (
+                    <MonitorPlay className="w-3.5 h-3.5 mr-1.5" />
+                  )}
+                  {anyActive ? "Pause All" : "Resume All"}
+                </Button>
+              );
+            })()}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAdd(true)}
+              className="border-violet-500/30 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 hover:border-violet-500/50"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              Add Schedule
+            </Button>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
           Automatically email audit log CSV reports on a recurring schedule. Click the history icon on any schedule to see past deliveries and failures.

@@ -2870,6 +2870,10 @@ export const PreviewAuditReportEmailFrequency = {
   monthly: 'monthly',
 } as const;
 
+export type BulkToggleAuditReportSchedulesBody = {
+  isActive: boolean;
+};
+
 export type ListAuditReportScheduleLogsParams = {
 page?: number;
 limit?: number;

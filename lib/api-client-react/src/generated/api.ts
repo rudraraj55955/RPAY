@@ -56,6 +56,7 @@ import type {
   BulkMerchantActionResult,
   BulkRejectInput,
   BulkSuspendInput,
+  BulkToggleAuditReportSchedulesBody,
   BulkUpdateMerchantFeatures200,
   CallbackLogListResponse,
   CallbackSecretRotateResponse,
@@ -9408,6 +9409,77 @@ export const useCreateAuditReportSchedule = <TError = ErrorType<ErrorResponse | 
         TContext
       > => {
       return useMutation(getCreateAuditReportScheduleMutationOptions(options));
+    }
+
+export const getBulkToggleAuditReportSchedulesUrl = () => {
+
+
+
+
+  return `/api/audit-logs/schedules/bulk-toggle`
+}
+
+/**
+ * @summary Pause or resume all audit report schedules at once
+ */
+export const bulkToggleAuditReportSchedules = async (bulkToggleAuditReportSchedulesBody: BulkToggleAuditReportSchedulesBody, options?: RequestInit): Promise<AuditReportScheduleListResponse> => {
+
+  return customFetch<AuditReportScheduleListResponse>(getBulkToggleAuditReportSchedulesUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      bulkToggleAuditReportSchedulesBody,)
+  }
+);}
+
+
+
+
+export const getBulkToggleAuditReportSchedulesMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkToggleAuditReportSchedules>>, TError,{data: BodyType<BulkToggleAuditReportSchedulesBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkToggleAuditReportSchedules>>, TError,{data: BodyType<BulkToggleAuditReportSchedulesBody>}, TContext> => {
+
+const mutationKey = ['bulkToggleAuditReportSchedules'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkToggleAuditReportSchedules>>, {data: BodyType<BulkToggleAuditReportSchedulesBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  bulkToggleAuditReportSchedules(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkToggleAuditReportSchedulesMutationResult = NonNullable<Awaited<ReturnType<typeof bulkToggleAuditReportSchedules>>>
+    export type BulkToggleAuditReportSchedulesMutationBody = BodyType<BulkToggleAuditReportSchedulesBody>
+    export type BulkToggleAuditReportSchedulesMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Pause or resume all audit report schedules at once
+ */
+export const useBulkToggleAuditReportSchedules = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkToggleAuditReportSchedules>>, TError,{data: BodyType<BulkToggleAuditReportSchedulesBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkToggleAuditReportSchedules>>,
+        TError,
+        {data: BodyType<BulkToggleAuditReportSchedulesBody>},
+        TContext
+      > => {
+      return useMutation(getBulkToggleAuditReportSchedulesMutationOptions(options));
     }
 
 export const getSendAuditReportNowUrl = (id: number,) => {

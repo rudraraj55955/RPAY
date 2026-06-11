@@ -2972,6 +2972,28 @@ export const CreateAuditReportScheduleBody = zod.object({
 
 
 /**
+ * @summary Pause or resume all audit report schedules at once
+ */
+export const BulkToggleAuditReportSchedulesBody = zod.object({
+  "isActive": zod.boolean()
+})
+
+export const BulkToggleAuditReportSchedulesResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "frequency": zod.enum(['daily', 'weekly', 'monthly']),
+  "recipientEmail": zod.string(),
+  "isActive": zod.boolean(),
+  "lastSentAt": zod.string().nullish(),
+  "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
+  "lastErrorMessage": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+
+/**
  * @summary Trigger an immediate send of an audit report schedule
  */
 export const SendAuditReportNowParams = zod.object({

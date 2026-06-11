@@ -429,6 +429,40 @@ router.post("/schedules", async (req, res) => {
   res.status(201).json(serializeSchedule(schedule));
 });
 
+router.patch("/schedules/bulk-toggle", async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  const { isActive } = req.body;
+  if (typeof isActive !== "boolean") {
+    res.status(400).json({ error: "isActive must be a boolean" });
+    return;
+  }
+
+  const updated = await db
+    .update(scheduledAuditReportsTable)
+    .set({ isActive, updatedAt: new Date() })
+    .returning();
+
+  const scheduleColumns = getTableColumns(scheduledAuditReportsTable);
+  const rows = await db
+    .select({
+      ...scheduleColumns,
+      lastSuccess: sql<boolean | null>`(
+        SELECT success FROM ${scheduledAuditReportLogsTable}
+        WHERE schedule_id = ${scheduledAuditReportsTable.id}
+        ORDER BY sent_at DESC LIMIT 1
+      )`,
+    })
+    .from(scheduledAuditReportsTable)
+    .where(
+      updated.length > 0
+        ? sql`${scheduledAuditReportsTable.id} IN (${sql.join(updated.map(u => sql`${u.id}`), sql`, `)})`
+        : sql`FALSE`
+    );
+
+  res.json({ data: rows.map(r => serializeSchedule(r)) });
+});
+
 router.patch("/schedules/:id", async (req, res) => {
   if (!ensureAdmin(req, res)) return;
   const id = parseInt(req.params['id'] as string);

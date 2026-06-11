@@ -59,6 +59,7 @@ export * from './bulkMerchantActionResultItem';
 export * from './bulkRejectInput';
 export * from './bulkSuspendInput';
 export * from './bulkSuspendInputAction';
+export * from './bulkToggleAuditReportSchedulesBody';
 export * from './bulkUpdateMerchantFeatures200';
 export * from './callbackLog';
 export * from './callbackLogAttempt';

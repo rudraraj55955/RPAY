@@ -55,7 +55,9 @@ export default function MerchantApiKeys() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-3xl font-bold tracking-tight">API Keys</h1><p className="text-muted-foreground mt-1">Manage your integration credentials</p></div>
-        <Button onClick={handleGenerate} disabled={generateMutation.isPending || isRateLimited}><Plus className="w-4 h-4 mr-2" />Generate Key</Button>
+        <Button onClick={handleGenerate} disabled={generateMutation.isPending || isRateLimited}>
+          {isRateLimited ? `Try again in ${secondsLeft}s` : <><Plus className="w-4 h-4 mr-2" />Generate Key</>}
+        </Button>
       </div>
 
       <Alert className="border-amber-500/30 bg-amber-500/5">

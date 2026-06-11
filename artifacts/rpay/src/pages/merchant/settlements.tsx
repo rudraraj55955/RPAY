@@ -1199,7 +1199,7 @@ export default function MerchantSettlements() {
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => { setRequestOpen(false); clearRateLimit(); }}>Cancel</Button>
               <Button onClick={handleSubmitRequest} disabled={createMutation.isPending || isRateLimited}>
-                {createMutation.isPending ? "Submitting..." : "Submit Request"}
+                {createMutation.isPending ? "Submitting..." : isRateLimited ? `Try again in ${secondsLeft}s` : "Submit Request"}
               </Button>
             </div>
           </div>

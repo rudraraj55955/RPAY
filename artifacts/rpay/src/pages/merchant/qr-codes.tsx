@@ -832,7 +832,7 @@ export default function MerchantQrCodes() {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCreate(false); clearCreateRateLimit(); }}>Cancel</Button>
             <Button onClick={handleCreate} disabled={createMutation.isPending || !hasProvider || createRateLimited}>
-              {createMutation.isPending ? "Creating..." : "Generate QR"}
+              {createMutation.isPending ? "Creating..." : createRateLimited ? `Try again in ${createSecondsLeft}s` : "Generate QR"}
             </Button>
           </DialogFooter>
         </DialogContent>

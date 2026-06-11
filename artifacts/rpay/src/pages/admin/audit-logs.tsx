@@ -1271,8 +1271,8 @@ function ScheduleRow({
                       Auto-retrying ({s.currentRetryAttempt + 1} of {s.maxRetryAttempts ?? 2})
                       {s.nextRetryAt && (
                         <span className="text-amber-400/70">
-                          {" · next in "}
-                          {formatDistanceToNow(new Date(s.nextRetryAt), { addSuffix: false })}
+                          {" · Retries at "}
+                          {new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(s.nextRetryAt))}
                         </span>
                       )}
                     </span>
@@ -1281,7 +1281,7 @@ function ScheduleRow({
                     {s.lastErrorMessage
                       ? `Last attempt failed: ${s.lastErrorMessage}. Automatic retry pending.`
                       : `Delivery failed. Automatic retry pending.`}
-                    {s.nextRetryAt && ` Next retry at ${format(new Date(s.nextRetryAt), "HH:mm")}.`}
+                    {s.nextRetryAt && ` Next retry at ${new Date(s.nextRetryAt).toISOString()}.`}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

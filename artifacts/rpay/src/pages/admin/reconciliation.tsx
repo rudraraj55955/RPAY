@@ -410,6 +410,7 @@ function ScheduleSettingsCard() {
         toast.success("Schedule settings saved — takes effect on the next run");
         setEditing(false);
         qc.invalidateQueries({ queryKey: ["/api/system-config/reconciliation/next-run"] });
+        qc.invalidateQueries({ queryKey: ["/api/system-config/reconciliation"] });
       },
       onError: (err: any) => {
         toast.error(`Failed to save: ${err?.message ?? "Unknown error"}`);

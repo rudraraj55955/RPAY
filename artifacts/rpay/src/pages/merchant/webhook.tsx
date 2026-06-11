@@ -773,7 +773,9 @@ export default function MerchantWebhook() {
   const [sigVerifiedFromCallbacks, setSigVerifiedFromCallbacks] = useState<boolean>(() => {
     try { return !!localStorage.getItem(SIG_VERIFIED_KEY); } catch { return false; }
   });
-  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [breakdownOpen, setBreakdownOpen] = useState(() => {
+    try { return localStorage.getItem("rasokart_breakdown_open") === "true"; } catch { return false; }
+  });
 
   useEffect(() => {
     if (config) {
@@ -1172,7 +1174,11 @@ onError: () => toast.error("Failed to send test event"),
           {logStatsData && logStatsData.data.length > 0 && (
             <div className="mb-4">
               <button
-                onClick={() => setBreakdownOpen(o => !o)}
+                onClick={() => setBreakdownOpen(o => {
+                  const next = !o;
+                  try { localStorage.setItem("rasokart_breakdown_open", String(next)); } catch {}
+                  return next;
+                })}
                 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors mb-2 group"
               >
                 <BarChart2 className="w-3.5 h-3.5" />

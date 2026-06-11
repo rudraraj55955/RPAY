@@ -359,6 +359,20 @@ export default function MerchantDeposits() {
     }
   }, [showSaveCombinedPreset]);
 
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === MERCHANT_DEPOSITS_SAVED_FILTERS_KEY) {
+        setSavedFilters(loadSavedFilters());
+      } else if (e.key === CUSTOM_DATE_PRESETS_KEY) {
+        setCustomDatePresets(loadCustomDatePresets());
+      } else if (e.key === COMBINED_PRESETS_KEY) {
+        setAllCombinedPresets(loadCombinedPresets());
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   // Effective filter values — smart filter takes precedence over manual dropdowns
   const activeStatus = smartFilter?.txStatus ?? (status !== "all" ? status : undefined);
   const activeDateFrom = smartFilter?.dateFrom ?? (dateFrom || undefined);

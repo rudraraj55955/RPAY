@@ -126,6 +126,16 @@ export default function MerchantSettlements() {
     saveLastDateRange(dateFrom, dateTo);
   }, [dateFrom, dateTo]);
 
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === CUSTOM_DATE_PRESETS_KEY) {
+        setCustomDatePresets(loadCustomDatePresets());
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const applyPreset = (preset: (typeof DATE_PRESETS)[number]) => {
     const { from, to } = preset.getRange();
     setDateFrom(from);

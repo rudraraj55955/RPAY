@@ -4278,6 +4278,55 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /system-config/test-email-retention:
+    get:
+      operationId: getTestEmailRetentionConfig
+      tags: [system-config]
+      summary: Get test email history retention configuration (admin only)
+      responses:
+        "200":
+          description: Current test email retention config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestEmailRetentionConfig"
+    put:
+      operationId: updateTestEmailRetentionConfig
+      tags: [system-config]
+      summary: Update test email history retention configuration (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestEmailRetentionConfig"
+      responses:
+        "200":
+          description: Updated test email retention config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestEmailRetentionConfig"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /system-config/test-email-retention/run:
+    post:
+      operationId: runTestEmailRetentionCleanup
+      tags: [system-config]
+      summary: Immediately run the test email history retention cleanup (admin only)
+      responses:
+        "200":
+          description: Cleanup result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestEmailRetentionRunResult"
+
   /system-config/webhook-retries:
     get:
       operationId: getWebhookRetriesConfig
@@ -7558,6 +7607,26 @@ components:
           description: >
             Days to retain expired/used QR codes before auto-deleting them.
             Set to 0 to disable automatic cleanup.
+
+    TestEmailRetentionConfig:
+      type: object
+      required: [retentionDays]
+      properties:
+        retentionDays:
+          type: integer
+          minimum: 0
+          maximum: 365
+          description: >
+            Days to retain test email audit log entries before auto-deleting them.
+            Set to 0 to disable automatic cleanup.
+
+    TestEmailRetentionRunResult:
+      type: object
+      required: [deleted]
+      properties:
+        deleted:
+          type: integer
+          description: Number of test email history rows deleted by this cleanup run.
 
     MerchantCredentialEvent:
       type: object

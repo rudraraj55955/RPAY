@@ -185,12 +185,12 @@ export default function AdminSettings() {
   const [initialized, setInitialized] = useState(false);
   const [retentionDays, setRetentionDays] = useState<number>(30);
   const [retentionInitialized, setRetentionInitialized] = useState(false);
-  const [storageScheduleEnabled, setStorageScheduleEnabled] = useState(true);
-  const [storageScheduleHour, setStorageScheduleHour] = useState(3);
-  const [storageScheduleInitialized, setStorageScheduleInitialized] = useState(false);
 
   const [vaRetentionDays, setVaRetentionDays] = useState<number>(30);
   const [vaRetentionInitialized, setVaRetentionInitialized] = useState(false);
+
+  const [testEmailRetentionDays, setTestEmailRetentionDays] = useState<number>(30);
+  const [testEmailRetentionInitialized, setTestEmailRetentionInitialized] = useState(false);
 
   const [retryDelay1, setRetryDelay1] = useState<number>(300);
   const [retryDelay2, setRetryDelay2] = useState<number>(900);
@@ -450,6 +450,17 @@ export default function AdminSettings() {
     },
   } as any);
 
+  const { data: testEmailRetentionData, isLoading: testEmailRetentionLoading } = useQuery<{ retentionDays: number }>({
+    queryKey: ["/api/system-config/test-email-retention"],
+    queryFn: () => apiGet("/system-config/test-email-retention"),
+    onSuccess: (d: { retentionDays: number }) => {
+      if (!testEmailRetentionInitialized) {
+        setTestEmailRetentionDays(d.retentionDays);
+        setTestEmailRetentionInitialized(true);
+      }
+    },
+  } as any);
+
   const currentVaRetentionDays = vaCleanupData?.retentionDays ?? 30;
   const vaRetentionUnchanged = vaRetentionDays === currentVaRetentionDays;
 
@@ -462,6 +473,29 @@ export default function AdminSettings() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const currentTestEmailRetentionDays = testEmailRetentionData?.retentionDays ?? 30;
+  const testEmailRetentionUnchanged = testEmailRetentionDays === currentTestEmailRetentionDays;
+
+  const { mutate: saveTestEmailRetention, isPending: savingTestEmailRetention } = useMutation({
+    mutationFn: () => apiPut("/system-config/test-email-retention", { retentionDays: testEmailRetentionDays }),
+    onSuccess: () => {
+      toast.success("Test email history retention saved");
+      qc.invalidateQueries({ queryKey: ["/api/system-config/test-email-retention"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const { mutate: runTestEmailCleanup, isPending: runningTestEmailCleanup } = useMutation({
+    mutationFn: () => apiPost("/system-config/test-email-retention/run"),
+    onSuccess: (res: { deleted: number }) => {
+      if (res.deleted === 0) {
+        toast.info("Cleanup complete — no rows to delete.");
+      } else {
+        toast.success(`Cleanup complete — deleted ${res.deleted} test email history row${res.deleted === 1 ? "" : "s"}.`);
+      }
+    },
+    onError: (err: Error) => toast.error(`Cleanup failed: ${err.message}`),
+  });
 
   const { data: storageCleanupConfig, isLoading: storageConfigLoading } = useQuery<{ enabled: boolean; hour: number }>({
     queryKey: ["/api/system-config/storage-cleanup"],
@@ -1198,6 +1232,91 @@ export default function AdminSettings() {
                 </div>
               );
             })()}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Test Email History Retention */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-muted-foreground" />
+            <CardTitle className="text-base">Test Email History Retention</CardTitle>
+          </div>
+          <CardDescription className="text-sm">
+            Automatically prune test email audit log entries older than the configured number of days.
+            The cleanup job runs nightly at 02:30 server time.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!testEmailRetentionLoading && currentTestEmailRetentionDays === 0 && (
+            <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>Auto-cleanup is <strong>disabled</strong>. Test email history will never be deleted automatically.</span>
+            </div>
+          )}
+          {!testEmailRetentionLoading && currentTestEmailRetentionDays > 0 && (
+            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                Test email history entries are deleted automatically after{" "}
+                <strong>{currentTestEmailRetentionDays} day{currentTestEmailRetentionDays !== 1 ? "s" : ""}</strong>.
+              </span>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="test-email-retention-days" className="text-sm">Retention period (days)</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                id="test-email-retention-days"
+                type="number"
+                min={0}
+                max={365}
+                value={testEmailRetentionDays}
+                onChange={e => {
+                  const v = parseInt(e.target.value);
+                  if (!isNaN(v)) setTestEmailRetentionDays(Math.max(0, Math.min(365, v)));
+                }}
+                disabled={testEmailRetentionLoading}
+                className="w-32"
+              />
+              <span className="text-sm text-muted-foreground">days since sent</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Set to <strong>0</strong> to disable automatic cleanup entirely. Maximum is 365 days.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => saveTestEmailRetention()}
+              disabled={savingTestEmailRetention || testEmailRetentionLoading || testEmailRetentionUnchanged}
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              {savingTestEmailRetention ? "Saving…" : "Save"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => runTestEmailCleanup()}
+              disabled={runningTestEmailCleanup || currentTestEmailRetentionDays === 0}
+              title={currentTestEmailRetentionDays === 0 ? "Enable retention first to run cleanup" : "Run cleanup now"}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${runningTestEmailCleanup ? "animate-spin" : ""}`} />
+              {runningTestEmailCleanup ? "Running…" : "Run now"}
+            </Button>
+            {!testEmailRetentionUnchanged && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setTestEmailRetentionDays(currentTestEmailRetentionDays)}
+                disabled={savingTestEmailRetention}
+              >
+                Cancel
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

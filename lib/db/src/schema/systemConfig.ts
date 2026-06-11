@@ -23,6 +23,7 @@ export const SYSTEM_CONFIG_KEYS = {
   WEBHOOK_RETRY_DELAY_1: "webhook_retry_delay_1",
   WEBHOOK_RETRY_DELAY_2: "webhook_retry_delay_2",
   WEBHOOK_RETRY_DELAY_3: "webhook_retry_delay_3",
+  TEST_EMAIL_HISTORY_RETENTION_DAYS: "test_email_history_retention_days",
 } as const;
 
 export const SYSTEM_CONFIG_DEFAULTS = {
@@ -36,4 +37,5 @@ export const SYSTEM_CONFIG_DEFAULTS = {
   [SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1]: "300",
   [SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2]: "900",
   [SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3]: "3600",
+  [SYSTEM_CONFIG_KEYS.TEST_EMAIL_HISTORY_RETENTION_DAYS]: "30",
 } as const;

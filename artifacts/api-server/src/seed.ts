@@ -26,6 +26,8 @@ import {
   SYSTEM_CONFIG_KEYS,
   SYSTEM_CONFIG_DEFAULTS,
   systemSettingsTable,
+  scheduledAuditReportsTable,
+  scheduledAuditReportLogsTable,
 } from "@workspace/db";
 
 const PLAN_TIERS = [
@@ -906,6 +908,55 @@ export async function seed() {
       AND processed_by IS NOT NULL
   `);
   console.log("Settlement actionedBy backfill complete.");
+
+  // ── Scheduled audit report demo data ─────────────────────────────────────
+  // Seed two demo schedules with a mix of successful and failed delivery runs
+  // so the Delivery History UI is demonstrable out of the box.
+  const [existingScheduleCount] = await db
+    .select({ c: count() })
+    .from(scheduledAuditReportsTable);
+
+  if (existingScheduleCount.c === 0) {
+    const [weekly] = await db
+      .insert(scheduledAuditReportsTable)
+      .values({
+        frequency: "weekly",
+        recipientEmail: "compliance@rasokart.com",
+        isActive: true,
+        lastSentAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+      })
+      .returning();
+
+    const [monthly] = await db
+      .insert(scheduledAuditReportsTable)
+      .values({
+        frequency: "monthly",
+        recipientEmail: "reports@rasokart.com",
+        isActive: true,
+        lastSentAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      })
+      .returning();
+
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+
+    await db.insert(scheduledAuditReportLogsTable).values([
+      // Weekly schedule runs — mixed success/failure
+      { scheduleId: weekly.id, sentAt: new Date(now - 3 * day), rowCount: 412, success: true, isRetry: false, triggerType: "scheduled" },
+      { scheduleId: weekly.id, sentAt: new Date(now - 10 * day), rowCount: 388, success: true, isRetry: false, triggerType: "scheduled" },
+      { scheduleId: weekly.id, sentAt: new Date(now - 17 * day), rowCount: 0, success: false, errorMessage: "SMTP connection refused: connect ECONNREFUSED 127.0.0.1:587", isRetry: false, triggerType: "scheduled" },
+      { scheduleId: weekly.id, sentAt: new Date(now - 17 * day + 30 * 60 * 1000), rowCount: 401, success: true, isRetry: true, triggerType: "scheduled" },
+      { scheduleId: weekly.id, sentAt: new Date(now - 24 * day), rowCount: 356, success: true, isRetry: false, triggerType: "scheduled" },
+      { scheduleId: weekly.id, sentAt: new Date(now - 5 * day), rowCount: 198, success: true, isRetry: false, triggerType: "manual" },
+      // Monthly schedule runs — one failure with no retry
+      { scheduleId: monthly.id, sentAt: new Date(now - 10 * day), rowCount: 1842, success: true, isRetry: false, triggerType: "scheduled" },
+      { scheduleId: monthly.id, sentAt: new Date(now - 40 * day), rowCount: 0, success: false, errorMessage: "Authentication failed: 535 5.7.8 Username and Password not accepted", isRetry: false, triggerType: "scheduled" },
+      { scheduleId: monthly.id, sentAt: new Date(now - 40 * day + 60 * 60 * 1000), rowCount: 1761, success: true, isRetry: true, triggerType: "scheduled" },
+      { scheduleId: monthly.id, sentAt: new Date(now - 70 * day), rowCount: 1599, success: true, isRetry: false, triggerType: "scheduled" },
+      { scheduleId: monthly.id, sentAt: new Date(now - 2 * day), rowCount: 0, success: false, errorMessage: "Recipient address rejected: User unknown in virtual mailbox table", isRetry: false, triggerType: "scheduled" },
+    ]);
+    console.log("Scheduled audit report demo data seeded.");
+  }
 
   console.log("Seed complete.");
 }

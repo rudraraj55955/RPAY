@@ -7,8 +7,11 @@ import {
   getListAuditReportSchedulesQueryKey,
   useListAuditReportScheduleLogs,
   getListAuditReportScheduleLogsQueryKey,
+  useListAllAuditReportScheduleLogs,
+  getListAllAuditReportScheduleLogsQueryKey,
   previewAuditReportEmail,
   type ListAuditReportScheduleLogsParams,
+  type ListAllAuditReportScheduleLogsParams,
 } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -1274,7 +1277,7 @@ function ScheduleHistoryPanel({ scheduleId }: { scheduleId: number }) {
       ) : (
         <div className="divide-y divide-border/30">
           {accLogs.map((log: any) => (
-            <div key={log.id} className="flex items-start gap-3 px-4 py-2.5">
+            <div key={log.id} className={`flex items-start gap-3 px-4 py-2.5 ${!log.success ? "bg-rose-500/5" : ""}`}>
               <div className="mt-0.5 shrink-0">
                 {log.success
                   ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -1368,6 +1371,278 @@ function ScheduleHistoryPanel({ scheduleId }: { scheduleId: number }) {
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+const DELIVERY_PAGE_SIZE = 20;
+
+function DeliveryHistoryPanel({ schedules }: { schedules: any[] }) {
+  const [scheduleFilter, setScheduleFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "success" | "failed">("all");
+  const [page, setPage] = useState(1);
+  const [accLogs, setAccLogs] = useState<any[]>([]);
+  const queryClient = useQueryClient();
+  const retrySend = useSendAuditReportNow();
+  const [retryingId, setRetryingId] = useState<number | null>(null);
+
+  const filterKey = `${scheduleFilter}|${statusFilter}`;
+  const prevFilterKey = useRef(filterKey);
+  if (prevFilterKey.current !== filterKey) {
+    prevFilterKey.current = filterKey;
+    setPage(1);
+    setAccLogs([]);
+  }
+
+  const params: ListAllAuditReportScheduleLogsParams = { limit: DELIVERY_PAGE_SIZE, page };
+  if (scheduleFilter !== "all") params.scheduleId = parseInt(scheduleFilter);
+  if (statusFilter !== "all") params.status = statusFilter;
+
+  const { data, isLoading, isFetching } = useListAllAuditReportScheduleLogs(params);
+
+  useEffect(() => {
+    if (!data?.data) return;
+    if (page === 1) {
+      setAccLogs(data.data);
+    } else {
+      setAccLogs(prev => [...prev, ...data.data]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  async function handleRetry(scheduleId: number, logId: number) {
+    setRetryingId(logId);
+    try {
+      await retrySend.mutateAsync({ id: scheduleId });
+      toast.success("Report queued for delivery.");
+      await queryClient.invalidateQueries({ queryKey: getListAllAuditReportScheduleLogsQueryKey() });
+    } catch {
+      toast.error("Retry failed. Check the mailer configuration.");
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
+  const total = data?.total ?? 0;
+  const failureCount = data?.failureCount ?? 0;
+  const filteredTotal = data?.filteredTotal ?? 0;
+  const hasMore = accLogs.length < filteredTotal;
+
+  return (
+    <div>
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-border/30 bg-muted/5">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Schedule</span>
+          <select
+            value={scheduleFilter}
+            onChange={e => setScheduleFilter(e.target.value)}
+            className="h-7 rounded-md border border-border/40 bg-muted/10 px-2 text-[11px] text-foreground focus:outline-none focus:border-violet-500/50"
+          >
+            <option value="all">All schedules</option>
+            {schedules.map((s: any) => (
+              <option key={s.id} value={String(s.id)}>
+                {s.recipientEmail} ({FREQUENCY_LABELS[s.frequency] ?? s.frequency})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center rounded-md border border-border/40 bg-muted/10 overflow-hidden text-[11px]">
+          {(["all", "success", "failed"] as const).map(v => (
+            <button
+              key={v}
+              onClick={() => setStatusFilter(v)}
+              className={`px-2.5 py-1 transition-colors ${
+                statusFilter === v
+                  ? v === "failed"
+                    ? "bg-rose-500/20 text-rose-400 font-medium"
+                    : v === "success"
+                    ? "bg-emerald-500/20 text-emerald-400 font-medium"
+                    : "bg-muted/30 text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {v === "all" ? "All" : v === "success" ? "Delivered" : "Failed"}
+            </button>
+          ))}
+        </div>
+        {(scheduleFilter !== "all" || statusFilter !== "all") && (
+          <button
+            onClick={() => { setScheduleFilter("all"); setStatusFilter("all"); }}
+            className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            <X className="w-3 h-3" /> Clear
+          </button>
+        )}
+      </div>
+
+      {/* Failure summary banner */}
+      {!isLoading && total > 0 && (
+        <div className={`px-4 py-2 flex items-center gap-2 text-xs border-b border-border/30 ${
+          failureCount > 0 ? "bg-rose-500/5" : "bg-emerald-500/5"
+        }`}>
+          {failureCount > 0 ? (
+            <>
+              <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span className="text-rose-400 font-medium">{failureCount} of {total} send{total !== 1 ? "s" : ""} failed</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="text-emerald-400 font-medium">All {total} send{total !== 1 ? "s" : ""} delivered successfully</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="space-y-1.5 px-2 py-2">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-10 bg-muted/20 rounded animate-pulse" />)}
+        </div>
+      ) : accLogs.length === 0 ? (
+        <div className="flex items-center gap-2 px-4 py-6 text-muted-foreground justify-center">
+          <History className="w-4 h-4 opacity-40" />
+          <span className="text-xs">
+            {scheduleFilter !== "all" || statusFilter !== "all"
+              ? "No runs match the current filters."
+              : "No delivery runs recorded yet."}
+          </span>
+        </div>
+      ) : (
+        <>
+          {/* Header row */}
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-4 py-1.5 border-b border-border/30 bg-muted/10 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>Schedule</span>
+            <span className="text-right">Sent</span>
+            <span className="text-right">Rows</span>
+            <span>Status</span>
+            <span></span>
+          </div>
+          <div className="divide-y divide-border/20">
+            {accLogs.map((log: any) => (
+              <div
+                key={log.id}
+                className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-start gap-3 px-4 py-2.5 ${
+                  !log.success ? "bg-rose-500/5 border-l-2 border-l-rose-500/40" : ""
+                }`}
+              >
+                {/* Schedule info: recipient + frequency */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-medium truncate">{log.scheduleRecipient}</span>
+                    <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium ${
+                      log.scheduleFrequency === "daily"
+                        ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
+                        : log.scheduleFrequency === "weekly"
+                        ? "bg-violet-500/10 text-violet-400 border-violet-500/20"
+                        : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                    }`}>
+                      {FREQUENCY_LABELS[log.scheduleFrequency] ?? log.scheduleFrequency}
+                    </span>
+                    {log.isRetry && (
+                      <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                        ↩ Retry
+                      </span>
+                    )}
+                    {log.triggerType === "manual" && (
+                      <span className="inline-flex items-center rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+                        Manual
+                      </span>
+                    )}
+                  </div>
+                  {!log.success && log.errorMessage && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p className="text-[10px] text-rose-400/80 mt-0.5 truncate cursor-default max-w-xs">
+                            {log.errorMessage}
+                          </p>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-xs break-words">
+                          {log.errorMessage}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+
+                {/* Sent at */}
+                <div className="text-right shrink-0">
+                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                    {format(new Date(log.sentAt), "MMM d, yyyy")}
+                  </span>
+                  <p className="text-[10px] text-muted-foreground/60">
+                    {format(new Date(log.sentAt), "HH:mm")}
+                  </p>
+                </div>
+
+                {/* Row count */}
+                <div className="text-right shrink-0">
+                  <span className="text-xs font-medium tabular-nums">{log.rowCount.toLocaleString()}</span>
+                </div>
+
+                {/* Status badge */}
+                <div className="shrink-0">
+                  {log.success ? (
+                    <span className="inline-flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                      <CheckCircle2 className="w-2.5 h-2.5" />
+                      Delivered
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">
+                      <AlertCircle className="w-2.5 h-2.5" />
+                      Failed
+                    </span>
+                  )}
+                </div>
+
+                {/* Retry button */}
+                <div className="shrink-0">
+                  {!log.success ? (
+                    <button
+                      onClick={() => handleRetry(log.scheduleId, log.id)}
+                      disabled={retryingId === log.id}
+                      className="inline-flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-400 hover:bg-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Retry this send"
+                    >
+                      {retryingId === log.id
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <Send className="w-3 h-3" />
+                      }
+                      {retryingId === log.id ? "…" : "Retry"}
+                    </button>
+                  ) : (
+                    <div className="w-16" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {hasMore && (
+            <div className="px-4 py-2.5 flex items-center justify-between border-t border-border/30">
+              <span className="text-[11px] text-muted-foreground">
+                Showing {accLogs.length} of {filteredTotal}
+              </span>
+              <button
+                onClick={() => setPage(p => p + 1)}
+                disabled={isFetching}
+                className="text-[11px] text-violet-400 hover:text-violet-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+              >
+                {isFetching ? (
+                  <>
+                    <span className="w-3 h-3 border border-violet-400/50 border-t-violet-400 rounded-full animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  "Load more"
+                )}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -1686,7 +1961,7 @@ function ScheduledReportsPanel() {
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Automatically email audit log CSV reports on a recurring schedule. Click the history icon on any schedule to see past deliveries and failures.
+          Automatically email audit log CSV reports on a recurring schedule. Expand the history icon on any schedule or use the Delivery History section below to investigate past deliveries and failures.
         </p>
       </CardHeader>
       <CardContent className="pt-0">
@@ -1717,6 +1992,20 @@ function ScheduledReportsPanel() {
           </div>
         )}
       </CardContent>
+
+      {/* Delivery History section — consolidated cross-schedule run log */}
+      {!isLoading && (
+        <div className="border-t border-border/40">
+          <div className="px-4 pt-4 pb-2 flex items-center gap-2">
+            <History className="w-4 h-4 text-violet-400 shrink-0" />
+            <span className="text-sm font-semibold">Delivery History</span>
+          </div>
+          <p className="px-4 pb-2 text-xs text-muted-foreground">
+            All scheduled report delivery runs across every schedule. Filter by schedule or failure status to investigate issues.
+          </p>
+          <DeliveryHistoryPanel schedules={schedules} />
+        </div>
+      )}
 
       <Dialog open={showAdd} onOpenChange={open => { if (!open) { setShowAdd(false); setNewEmail(""); setNewFrequency("weekly"); } }}>
         <DialogContent className="sm:max-w-md">

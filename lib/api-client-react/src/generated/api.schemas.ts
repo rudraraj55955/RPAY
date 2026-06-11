@@ -1807,6 +1807,45 @@ export interface AuditReportScheduleLog {
   triggerType: AuditReportScheduleLogTriggerType;
 }
 
+export type AuditReportScheduleLogWithScheduleTriggerType = typeof AuditReportScheduleLogWithScheduleTriggerType[keyof typeof AuditReportScheduleLogWithScheduleTriggerType];
+
+
+export const AuditReportScheduleLogWithScheduleTriggerType = {
+  manual: 'manual',
+  scheduled: 'scheduled',
+} as const;
+
+export type AuditReportScheduleLogWithScheduleScheduleFrequency = typeof AuditReportScheduleLogWithScheduleScheduleFrequency[keyof typeof AuditReportScheduleLogWithScheduleScheduleFrequency];
+
+
+export const AuditReportScheduleLogWithScheduleScheduleFrequency = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export interface AuditReportScheduleLogWithSchedule {
+  id: number;
+  scheduleId: number;
+  sentAt: string;
+  rowCount: number;
+  success: boolean;
+  /** @nullable */
+  errorMessage?: string | null;
+  isRetry: boolean;
+  triggerType: AuditReportScheduleLogWithScheduleTriggerType;
+  scheduleFrequency: AuditReportScheduleLogWithScheduleScheduleFrequency;
+  scheduleRecipient: string;
+}
+
+export interface AuditReportScheduleLogWithScheduleListResponse {
+  data: AuditReportScheduleLogWithSchedule[];
+  total: number;
+  failureCount: number;
+  filteredTotal: number;
+  page: number;
+}
+
 export interface AuditReportScheduleLogListResponse {
   data: AuditReportScheduleLog[];
   total: number;
@@ -3036,6 +3075,23 @@ export const PreviewAuditReportEmailFrequency = {
 export type BulkToggleAuditReportSchedulesBody = {
   isActive: boolean;
 };
+
+export type ListAllAuditReportScheduleLogsParams = {
+scheduleId?: number;
+page?: number;
+limit?: number;
+status?: ListAllAuditReportScheduleLogsStatus;
+dateFrom?: string;
+dateTo?: string;
+};
+
+export type ListAllAuditReportScheduleLogsStatus = typeof ListAllAuditReportScheduleLogsStatus[keyof typeof ListAllAuditReportScheduleLogsStatus];
+
+
+export const ListAllAuditReportScheduleLogsStatus = {
+  success: 'success',
+  failed: 'failed',
+} as const;
 
 export type ListAuditReportScheduleLogsParams = {
 page?: number;

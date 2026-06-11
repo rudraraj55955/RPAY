@@ -350,6 +350,85 @@ router.get("/schedules", async (req, res) => {
   });
 });
 
+router.get("/schedules/logs", async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  const q = req.query as Record<string, string>;
+  const pageNum = Math.max(1, parseInt(q['page'] ?? "1") || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(q['limit'] ?? "20") || 20));
+  const offset = (pageNum - 1) * limitNum;
+  const { scheduleId, status, dateFrom, dateTo } = q;
+
+  const scheduleIdNum = scheduleId ? parseInt(scheduleId) : null;
+
+  const baseConditions: any[] = [];
+  if (scheduleIdNum != null && !isNaN(scheduleIdNum)) {
+    baseConditions.push(eq(scheduledAuditReportLogsTable.scheduleId, scheduleIdNum));
+  }
+  if (dateFrom) {
+    const from = new Date(dateFrom);
+    from.setUTCHours(0, 0, 0, 0);
+    if (!isNaN(from.getTime())) baseConditions.push(gte(scheduledAuditReportLogsTable.sentAt, from));
+  }
+  if (dateTo) {
+    const to = new Date(dateTo);
+    to.setUTCHours(23, 59, 59, 999);
+    if (!isNaN(to.getTime())) baseConditions.push(lte(scheduledAuditReportLogsTable.sentAt, to));
+  }
+
+  const baseWhere = baseConditions.length > 0 ? and(...baseConditions) : undefined;
+
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(scheduledAuditReportLogsTable)
+    .where(baseWhere);
+
+  const [{ failureCount }] = await db
+    .select({ failureCount: count() })
+    .from(scheduledAuditReportLogsTable)
+    .where(baseConditions.length > 0
+      ? and(...baseConditions, eq(scheduledAuditReportLogsTable.success, false))
+      : eq(scheduledAuditReportLogsTable.success, false));
+
+  const dataConditions: any[] = [...baseConditions];
+  if (status === "success") dataConditions.push(eq(scheduledAuditReportLogsTable.success, true));
+  else if (status === "failed") dataConditions.push(eq(scheduledAuditReportLogsTable.success, false));
+  const dataWhere = dataConditions.length > 0 ? and(...dataConditions) : undefined;
+
+  const [{ filteredTotal }] = await db
+    .select({ filteredTotal: count() })
+    .from(scheduledAuditReportLogsTable)
+    .where(dataWhere);
+
+  const logs = await db
+    .select({
+      id: scheduledAuditReportLogsTable.id,
+      scheduleId: scheduledAuditReportLogsTable.scheduleId,
+      sentAt: scheduledAuditReportLogsTable.sentAt,
+      rowCount: scheduledAuditReportLogsTable.rowCount,
+      success: scheduledAuditReportLogsTable.success,
+      errorMessage: scheduledAuditReportLogsTable.errorMessage,
+      isRetry: scheduledAuditReportLogsTable.isRetry,
+      triggerType: scheduledAuditReportLogsTable.triggerType,
+      scheduleFrequency: scheduledAuditReportsTable.frequency,
+      scheduleRecipient: scheduledAuditReportsTable.recipientEmail,
+    })
+    .from(scheduledAuditReportLogsTable)
+    .innerJoin(scheduledAuditReportsTable, eq(scheduledAuditReportLogsTable.scheduleId, scheduledAuditReportsTable.id))
+    .where(dataWhere)
+    .orderBy(desc(scheduledAuditReportLogsTable.sentAt))
+    .limit(limitNum)
+    .offset(offset);
+
+  res.json({
+    data: logs.map(l => ({ ...l, sentAt: l.sentAt.toISOString() })),
+    total,
+    failureCount,
+    filteredTotal,
+    page: pageNum,
+  });
+});
+
 router.get("/schedules/:id/logs", async (req, res) => {
   if (!ensureAdmin(req, res)) return;
   const id = parseInt(req.params['id'] as string);

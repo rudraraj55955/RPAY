@@ -3087,6 +3087,41 @@ export const SendAuditReportNowResponse = zod.object({
 
 
 /**
+ * @summary List send history across all audit report schedules
+ */
+export const listAllAuditReportScheduleLogsQueryPageDefault = 1;
+export const listAllAuditReportScheduleLogsQueryLimitDefault = 20;
+
+export const ListAllAuditReportScheduleLogsQueryParams = zod.object({
+  "scheduleId": zod.coerce.number().optional(),
+  "page": zod.coerce.number().default(listAllAuditReportScheduleLogsQueryPageDefault),
+  "limit": zod.coerce.number().default(listAllAuditReportScheduleLogsQueryLimitDefault),
+  "status": zod.enum(['success', 'failed']).optional(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional()
+})
+
+export const ListAllAuditReportScheduleLogsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "scheduleId": zod.number(),
+  "sentAt": zod.string(),
+  "rowCount": zod.number(),
+  "success": zod.boolean(),
+  "errorMessage": zod.string().nullish(),
+  "isRetry": zod.boolean(),
+  "triggerType": zod.enum(['manual', 'scheduled']),
+  "scheduleFrequency": zod.enum(['daily', 'weekly', 'monthly']),
+  "scheduleRecipient": zod.string()
+})),
+  "total": zod.number(),
+  "failureCount": zod.number(),
+  "filteredTotal": zod.number(),
+  "page": zod.number()
+})
+
+
+/**
  * @summary List send history for a scheduled audit report
  */
 export const ListAuditReportScheduleLogsParams = zod.object({

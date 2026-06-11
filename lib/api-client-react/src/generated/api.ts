@@ -43,6 +43,7 @@ import type {
   AuditReportScheduleInput,
   AuditReportScheduleListResponse,
   AuditReportScheduleLogListResponse,
+  AuditReportScheduleLogWithScheduleListResponse,
   AuditReportSchedulePatch,
   AuthResponse,
   BackfillVaBalanceHistory200,
@@ -91,6 +92,7 @@ import type {
   LedgerListResponse,
   ListAccountDetailsParams,
   ListAdminAuditLogsParams,
+  ListAllAuditReportScheduleLogsParams,
   ListAuditReportScheduleLogsParams,
   ListCallbackLogsParams,
   ListCredentialEventsParams,
@@ -9800,6 +9802,90 @@ export const useSendAuditReportNow = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getSendAuditReportNowMutationOptions(options));
     }
+
+export const getListAllAuditReportScheduleLogsUrl = (params?: ListAllAuditReportScheduleLogsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/audit-logs/schedules/logs?${stringifiedParams}` : `/api/audit-logs/schedules/logs`
+}
+
+/**
+ * @summary List send history across all audit report schedules
+ */
+export const listAllAuditReportScheduleLogs = async (params?: ListAllAuditReportScheduleLogsParams, options?: RequestInit): Promise<AuditReportScheduleLogWithScheduleListResponse> => {
+
+  return customFetch<AuditReportScheduleLogWithScheduleListResponse>(getListAllAuditReportScheduleLogsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAllAuditReportScheduleLogsQueryKey = (params?: ListAllAuditReportScheduleLogsParams,) => {
+    return [
+    `/api/audit-logs/schedules/logs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAllAuditReportScheduleLogsQueryOptions = <TData = Awaited<ReturnType<typeof listAllAuditReportScheduleLogs>>, TError = ErrorType<void>>(params?: ListAllAuditReportScheduleLogsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAllAuditReportScheduleLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAllAuditReportScheduleLogsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAllAuditReportScheduleLogs>>> = ({ signal }) => listAllAuditReportScheduleLogs(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAllAuditReportScheduleLogs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAllAuditReportScheduleLogsQueryResult = NonNullable<Awaited<ReturnType<typeof listAllAuditReportScheduleLogs>>>
+export type ListAllAuditReportScheduleLogsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List send history across all audit report schedules
+ */
+
+export function useListAllAuditReportScheduleLogs<TData = Awaited<ReturnType<typeof listAllAuditReportScheduleLogs>>, TError = ErrorType<void>>(
+ params?: ListAllAuditReportScheduleLogsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAllAuditReportScheduleLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAllAuditReportScheduleLogsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListAuditReportScheduleLogsUrl = (id: number,
     params?: ListAuditReportScheduleLogsParams,) => {

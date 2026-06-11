@@ -546,10 +546,23 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
   })();
   const editTzDiffers = serverTz !== null && serverTz !== Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  const scheduleLabel = `Daily at ${padTwo(currentHour)}:${padTwo(currentMinute)} server time`;
-  const windowLabel = currentLookback === 1
-    ? "lookback: yesterday"
-    : `lookback: last ${currentLookback} days`;
+  const LOOKBACK_PRESET_LABELS: Record<number, string> = {
+    1: "yesterday",
+    3: "the last 3 days",
+    7: "the last 7 days",
+    30: "the last 30 days",
+  };
+  const lookbackSummaryLabel = (days: number): string =>
+    LOOKBACK_PRESET_LABELS[days] ?? `the previous ${days} days`;
+
+  const displayTime = localEquivalent && tzDiffers
+    ? localEquivalent
+    : `${padTwo(currentHour)}:${padTwo(currentMinute)}`;
+  const displayTimeSuffix = localEquivalent && tzDiffers
+    ? ` your time (${padTwo(currentHour)}:${padTwo(currentMinute)} server time)`
+    : serverTz && !tzDiffers
+      ? ""
+      : " server time";
 
   return (
     <Card>
@@ -594,33 +607,14 @@ function ScheduleSettingsCard({ onScheduledRunFired }: { onScheduledRunFired?: (
                     {currentEnabled ? "Active" : "Paused"}
                   </Badge>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 min-w-[160px]">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Scheduled Time</p>
-                    <p className={`text-sm font-medium font-mono ${!currentEnabled ? "text-muted-foreground/60" : ""}`}>{padTwo(currentHour)}:{padTwo(currentMinute)}</p>
-                    {tz && <p className="text-[10px] text-muted-foreground/60">{tz}</p>}
-                    {nextRunData?.serverTime && (
-                      <p className="text-[10px] text-muted-foreground/60">Now: <span className="font-mono">{nextRunData.serverTime}</span></p>
-                    )}
-                    {localEquivalent && tzDiffers && (
-                      <p className="text-[10px] text-primary/70 mt-0.5">= {localEquivalent} your time</p>
-                    )}
-                  </div>
-                  <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 min-w-[160px]">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Lookback Window</p>
-                    <p className={`text-sm font-medium ${!currentEnabled ? "text-muted-foreground/60" : ""}`}>{currentLookback} {currentLookback === 1 ? "day" : "days"}</p>
-                    <p className="text-[10px] text-muted-foreground/60">{windowLabel}</p>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
+                <p className={`text-sm ${currentEnabled ? "text-foreground" : "text-muted-foreground/70"}`}>
                   {currentEnabled
                     ? <>
-                        Auto-reconciliation runs{" "}
-                        <span className="text-foreground font-medium">{scheduleLabel}</span>
-                        {localEquivalent && tzDiffers && (
-                          <span className="text-primary/70"> ({localEquivalent} your time)</span>
-                        )}
-                        , covering the previous {currentLookback === 1 ? "day" : `${currentLookback} days`}.
+                        Runs every day at{" "}
+                        <span className="font-semibold font-mono">{displayTime}</span>
+                        <span className="text-muted-foreground">{displayTimeSuffix}</span>
+                        {", covering "}
+                        <span className="font-semibold">{lookbackSummaryLabel(currentLookback)}</span>.
                       </>
                     : "The scheduler is paused and will not run until re-enabled."}
                 </p>

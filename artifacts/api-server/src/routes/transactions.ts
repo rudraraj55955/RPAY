@@ -462,7 +462,7 @@ router.get("/export/csv", async (req, res) => {
     targetId: null,
     details: JSON.stringify({
       rowCount: rows.length,
-      filters: { type: type ?? null, status: status ?? null, search: search ?? null, merchantId: merchantId ?? null, dateFrom: dateFrom ?? null, dateTo: dateTo ?? null, amountMin: amountMin ?? null, amountMax: amountMax ?? null },
+      filters: { type: type ?? null, status: status ?? null, search: search ?? null, merchantId: merchantId ?? null, dateFrom: dateFrom ?? null, dateTo: dateTo ?? null, connectionProvider: connectionProvider ?? null, amountMin: amountMin ?? null, amountMax: amountMax ?? null },
     }),
     ipAddress: req.ip ?? null,
   }).catch(() => {});

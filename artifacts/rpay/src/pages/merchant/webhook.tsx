@@ -174,6 +174,38 @@ function formatJsonBody(raw: string | null | undefined): string {
   }
 }
 
+function parseEventType(requestBody: string | null | undefined): string | null {
+  if (!requestBody) return null;
+  try {
+    const parsed = JSON.parse(requestBody);
+    if (typeof parsed?.event === "string" && parsed.event.length > 0) {
+      return parsed.event as string;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return null;
+}
+
+const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  "payment.success":      { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/25" },
+  "payment.failed":       { bg: "bg-rose-500/10",    text: "text-rose-400",    border: "border-rose-500/25"    },
+  "payment.pending":      { bg: "bg-amber-500/10",   text: "text-amber-400",   border: "border-amber-500/25"   },
+  "payment.received":     { bg: "bg-sky-500/10",     text: "text-sky-400",     border: "border-sky-500/25"     },
+  "withdrawal.approved":  { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/25" },
+  "withdrawal.rejected":  { bg: "bg-rose-500/10",    text: "text-rose-400",    border: "border-rose-500/25"    },
+  "settlement.processed": { bg: "bg-violet-500/10",  text: "text-violet-400",  border: "border-violet-500/25"  },
+};
+
+function EventTypeBadge({ eventType, size = "sm" }: { eventType: string | null; size?: "sm" | "md" }) {
+  if (!eventType) return null;
+  const colors = EVENT_TYPE_COLORS[eventType] ?? { bg: "bg-muted/40", text: "text-muted-foreground", border: "border-border/50" };
+  const cls = size === "md"
+    ? `inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-mono font-semibold ${colors.bg} ${colors.text} ${colors.border}`
+    : `inline-flex items-center rounded border px-1.5 py-px text-[10px] font-mono font-semibold ${colors.bg} ${colors.text} ${colors.border}`;
+  return <span className={cls}>{eventType}</span>;
+}
+
 function DeliveryDetailModal({ log, onClose, onRetry, isRetrying }: { log: CallbackLog | null; onClose: () => void; onRetry?: (id: number) => void; isRetrying?: boolean }) {
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -186,6 +218,7 @@ function DeliveryDetailModal({ log, onClose, onRetry, isRetrying }: { log: Callb
 
   const reqBody = formatJsonBody(log.requestBody);
   const resBody = formatJsonBody(log.responseBody);
+  const eventType = parseEventType(log.requestBody);
 
   return (
     <Dialog open={!!log} onOpenChange={onClose}>
@@ -204,6 +237,14 @@ function DeliveryDetailModal({ log, onClose, onRetry, isRetrying }: { log: Callb
         </DialogHeader>
 
         <div className="space-y-4 mt-1">
+          {/* Event type */}
+          {eventType && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground/60 uppercase tracking-wider font-medium">Event</p>
+              <EventTypeBadge eventType={eventType} size="md" />
+            </div>
+          )}
+
           {/* Status row */}
           <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/20 border border-border/50">
             <StatusBadge status={log.status} />
@@ -551,7 +592,9 @@ export default function MerchantWebhook() {
             </div>
           ) : (
             <div className="divide-y divide-border/50">
-              {logs.map(log => (
+              {logs.map(log => {
+                const rowEventType = parseEventType(log.requestBody);
+                return (
                 <div
                   key={log.id}
                   className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 group cursor-pointer hover:bg-muted/20 -mx-1 px-1 rounded transition-colors"
@@ -562,13 +605,14 @@ export default function MerchantWebhook() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-xs font-mono text-muted-foreground truncate" title={log.url}>{log.url}</p>
+                      {rowEventType && <EventTypeBadge eventType={rowEventType} />}
                       {log.isTest && (
                         <span className="shrink-0 flex items-center gap-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-400 px-1.5 py-0.5 text-[10px] font-semibold">
                           <FlaskRound className="w-2.5 h-2.5" />
                           Test
                         </span>
                       )}
+                      <p className="text-xs font-mono text-muted-foreground truncate" title={log.url}>{log.url}</p>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
                       <span className="text-xs text-muted-foreground/70">
@@ -608,7 +652,8 @@ export default function MerchantWebhook() {
                     <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors" />
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

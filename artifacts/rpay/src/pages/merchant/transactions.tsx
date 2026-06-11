@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Download, Search, X, Info, Sparkles, Zap, TrendingUp, CheckCircle2, XCircle, Hash, Bookmark, BookmarkCheck, Trash2, CreditCard, ArrowDownLeft, ArrowUpRight, FileText, Loader2, Link2, CalendarRange, Layers, Pencil, ChevronLeft, ChevronRight, Check, RefreshCw } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay, formatDistanceToNow } from "date-fns";
 import { getToken } from "@/lib/auth";
@@ -1180,45 +1181,54 @@ export default function MerchantTransactions() {
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <span className="text-xs text-muted-foreground font-medium">Saved:</span>
               {savedFilters.map((saved, idx) => (
-                <span
-                  key={saved.id}
-                  className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
-                >
-                  <button
-                    onClick={() => applySavedFilter(saved)}
-                    className="flex items-center gap-1 pl-0.5 hover:text-violet-100 transition-colors"
-                    title={`Apply: ${saved.rawInput}`}
+                <Tooltip key={saved.id}>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
+                    >
+                      <button
+                        onClick={() => applySavedFilter(saved)}
+                        className="flex items-center gap-1 pl-0.5 hover:text-violet-100 transition-colors"
+                      >
+                        <BookmarkCheck className="w-3 h-3 shrink-0" />
+                        {saved.name}
+                      </button>
+                      <button
+                        onClick={() => moveSavedFilter(saved.id, "left")}
+                        disabled={idx === 0}
+                        className="p-0.5 text-violet-400/50 hover:text-violet-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
+                        aria-label={`Move "${saved.name}" left`}
+                        title="Move left"
+                      >
+                        <ChevronLeft className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => moveSavedFilter(saved.id, "right")}
+                        disabled={idx === savedFilters.length - 1}
+                        className="p-0.5 text-violet-400/50 hover:text-violet-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
+                        aria-label={`Move "${saved.name}" right`}
+                        title="Move right"
+                      >
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => deleteSavedFilter(saved.id)}
+                        className="p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100 rounded-full"
+                        aria-label={`Delete saved filter "${saved.name}"`}
+                        title="Delete this saved filter"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    className="bg-zinc-900 border border-zinc-700 text-zinc-100 px-3 py-2 max-w-[280px]"
                   >
-                    <BookmarkCheck className="w-3 h-3 shrink-0" />
-                    {saved.name}
-                  </button>
-                  <button
-                    onClick={() => moveSavedFilter(saved.id, "left")}
-                    disabled={idx === 0}
-                    className="p-0.5 text-violet-400/50 hover:text-violet-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-                    aria-label={`Move "${saved.name}" left`}
-                    title="Move left"
-                  >
-                    <ChevronLeft className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => moveSavedFilter(saved.id, "right")}
-                    disabled={idx === savedFilters.length - 1}
-                    className="p-0.5 text-violet-400/50 hover:text-violet-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-                    aria-label={`Move "${saved.name}" right`}
-                    title="Move right"
-                  >
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => deleteSavedFilter(saved.id)}
-                    className="p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100 rounded-full"
-                    aria-label={`Delete saved filter "${saved.name}"`}
-                    title="Delete this saved filter"
-                  >
-                    <Trash2 className="w-2.5 h-2.5" />
-                  </button>
-                </span>
+                    <p className="text-[11px] font-semibold text-zinc-400 mb-1 uppercase tracking-wide">Query</p>
+                    <p className="text-xs leading-relaxed font-mono break-words">{saved.rawInput}</p>
+                  </TooltipContent>
+                </Tooltip>
               ))}
             </div>
           )}

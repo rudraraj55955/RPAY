@@ -7,6 +7,7 @@ import {
   getListAuditReportSchedulesQueryKey,
   useListAuditReportScheduleLogs,
   previewAuditReportEmail,
+  useListCredentialEvents,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -23,8 +24,9 @@ import {
   Package, PencilLine, Trash2, ArrowRightLeft, CreditCard,
   Users, Loader2, QrCode, Landmark,
   Clock, Mail, Plus, Ban, Send, History, ChevronDown, ChevronUp, AlertCircle, Settings,
-  MonitorPlay, RefreshCw,
+  MonitorPlay, RefreshCw, KeyRound, RotateCcw,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
@@ -1425,6 +1427,255 @@ function ScheduledReportsPanel() {
   );
 }
 
+const CREDENTIAL_EVENT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string; cardColor: string }> = {
+  api_key_generated: {
+    label: "API Key Generated",
+    icon: <KeyRound className="w-4 h-4" />,
+    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    cardColor: "bg-emerald-500/5 border-emerald-500/20",
+  },
+  api_key_revoked: {
+    label: "API Key Revoked",
+    icon: <Trash2 className="w-4 h-4" />,
+    color: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+    cardColor: "bg-rose-500/5 border-rose-500/20",
+  },
+  callback_secret_rotated: {
+    label: "Callback Secret Rotated",
+    icon: <RotateCcw className="w-4 h-4" />,
+    color: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    cardColor: "bg-amber-500/5 border-amber-500/20",
+  },
+};
+
+function CredentialEventBadge({ eventType }: { eventType: string }) {
+  const cfg = CREDENTIAL_EVENT_CONFIG[eventType];
+  if (!cfg) {
+    return (
+      <Badge variant="outline" className="text-xs capitalize">{eventType.replace(/_/g, " ")}</Badge>
+    );
+  }
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium ${cfg.color}`}>
+      {cfg.icon}
+      {cfg.label}
+    </span>
+  );
+}
+
+function SecurityEventsPanel() {
+  const [eventType, setEventType] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [merchantIdInput, setMerchantIdInput] = useState("");
+  const [merchantId, setMerchantId] = useState<number | undefined>(undefined);
+  const [page, setPage] = useState(1);
+
+  function resetFilters() {
+    setEventType("all");
+    setDateFrom("");
+    setDateTo("");
+    setMerchantIdInput("");
+    setMerchantId(undefined);
+    setPage(1);
+  }
+
+  function applyMerchantIdFilter(val: string) {
+    const num = parseInt(val.trim());
+    setMerchantId(val.trim() !== "" && !isNaN(num) ? num : undefined);
+    setPage(1);
+  }
+
+  const hasFilters = eventType !== "all" || dateFrom !== "" || dateTo !== "" || merchantId != null;
+
+  const { data, isLoading } = useListCredentialEvents({
+    eventType: eventType === "all" ? undefined : eventType,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    merchantId,
+    page,
+    limit: 20,
+  } as any);
+
+  const events = data?.data ?? [];
+  const total = data?.total ?? 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Shield className="w-4 h-4 text-amber-400" />
+          <CardTitle className="text-base font-semibold">Security Events</CardTitle>
+          <span className="text-xs text-muted-foreground ml-1">
+            Credential rotations and API key changes across all merchants
+          </span>
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Select value={eventType} onValueChange={v => { setEventType(v); setPage(1); }}>
+              <SelectTrigger className="w-[220px]"><SelectValue placeholder="Event type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Security Events</SelectItem>
+                <SelectItem value="api_key_generated">API Key Generated</SelectItem>
+                <SelectItem value="api_key_revoked">API Key Revoked</SelectItem>
+                <SelectItem value="callback_secret_rotated">Callback Secret Rotated</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-2 flex-1">
+              <CalendarIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+              <div className="flex items-center gap-2 flex-1">
+                <div className="relative flex-1">
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    max={dateTo || undefined}
+                    onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                    className="text-sm [color-scheme:dark]"
+                    aria-label="Date from"
+                  />
+                  {dateFrom && (
+                    <button
+                      onClick={() => { setDateFrom(""); setPage(1); }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label="Clear from date"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <span className="text-muted-foreground text-sm shrink-0">to</span>
+                <div className="relative flex-1">
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                    className="text-sm [color-scheme:dark]"
+                    aria-label="Date to"
+                  />
+                  {dateTo && (
+                    <button
+                      onClick={() => { setDateTo(""); setPage(1); }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label="Clear to date"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="relative w-36 shrink-0">
+              <Landmark className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                className="pl-8 pr-7 text-sm h-9"
+                placeholder="Merchant ID"
+                value={merchantIdInput}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                onChange={e => {
+                  const v = e.target.value.replace(/\D/g, "");
+                  setMerchantIdInput(v);
+                  applyMerchantIdFilter(v);
+                }}
+                aria-label="Filter by merchant ID"
+              />
+              {merchantIdInput && (
+                <button
+                  onClick={() => { setMerchantIdInput(""); setMerchantId(undefined); setPage(1); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear merchant ID filter"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground hover:text-foreground shrink-0">
+                <X className="w-3.5 h-3.5 mr-1.5" />
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Merchant</TableHead>
+              <TableHead>Event</TableHead>
+              <TableHead>Actor</TableHead>
+              <TableHead>Key Prefix</TableHead>
+              <TableHead>IP Address</TableHead>
+              <TableHead>Timestamp</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={i}>
+                  {Array.from({ length: 6 }).map((_, j) => (
+                    <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : !events.length ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-16">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <KeyRound className="w-8 h-8 opacity-30" />
+                    <p className="text-sm">No security events yet</p>
+                    <p className="text-xs opacity-70">API key and callback secret changes will appear here</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : events.map((ev: any) => (
+              <TableRow key={ev.id}>
+                <TableCell>
+                  <div>
+                    <p className="text-sm font-medium">{ev.merchantBusinessName ?? `Merchant #${ev.merchantId}`}</p>
+                    <p className="text-xs text-muted-foreground font-mono">ID #{ev.merchantId}</p>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <CredentialEventBadge eventType={ev.eventType} />
+                </TableCell>
+                <TableCell>
+                  <div>
+                    <p className="text-sm">{ev.actorEmail}</p>
+                    <p className="text-xs text-muted-foreground">ID #{ev.actorId}</p>
+                  </div>
+                </TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {ev.keyPrefix ?? "—"}
+                </TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {ev.ipAddress ?? "—"}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {format(new Date(ev.createdAt), "MMM d, yyyy HH:mm:ss")}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+
+      {total > 20 && (
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border/40">
+          <span className="text-sm text-muted-foreground">{total} total events</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total}>Next</Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export default function AdminAuditLogs() {
   const [search, setSearch] = useState("");
   const [action, setAction] = useState("all");
@@ -1523,7 +1774,7 @@ export default function AdminAuditLogs() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>
-          <p className="text-muted-foreground mt-1">Track all admin actions and changes</p>
+          <p className="text-muted-foreground mt-1">Track all admin actions and security events</p>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/20 border border-border/50 rounded-lg px-3 py-2">
           <Shield className="w-3.5 h-3.5" />
@@ -1551,10 +1802,23 @@ export default function AdminAuditLogs() {
         </Card>
       </button>
 
-      <ScheduledReportsPanel />
+      <Tabs defaultValue="admin-actions">
+        <TabsList className="mb-2">
+          <TabsTrigger value="admin-actions" className="flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5" />
+            Admin Actions
+          </TabsTrigger>
+          <TabsTrigger value="security-events" className="flex items-center gap-1.5">
+            <KeyRound className="w-3.5 h-3.5" />
+            Security Events
+          </TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader className="pb-4">
+        <TabsContent value="admin-actions" className="space-y-6 mt-0">
+          <ScheduledReportsPanel />
+
+          <Card>
+            <CardHeader className="pb-4">
           <div className="flex flex-col gap-3">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
@@ -1855,15 +2119,21 @@ export default function AdminAuditLogs() {
         </CardContent>
       </Card>
 
-      {total > 20 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{total} total events</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total}>Next</Button>
-          </div>
-        </div>
-      )}
+          {total > 20 && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{total} total events</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total}>Next</Button>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="security-events" className="mt-0">
+          <SecurityEventsPanel />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent>

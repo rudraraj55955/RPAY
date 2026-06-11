@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, auditLogsTable, scheduledAuditReportsTable, scheduledAuditReportLogsTable } from "@workspace/db";
+import { db, auditLogsTable, scheduledAuditReportsTable, scheduledAuditReportLogsTable, credentialEventsTable, merchantsTable } from "@workspace/db";
 import { eq, ilike, and, count, sql, or, gte, lte, desc, getTableColumns } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { sendScheduledReport, buildEmailHtml, getDateRange } from "../helpers/auditReportScheduler";
@@ -222,6 +222,62 @@ router.get("/my-activity/export", async (req, res) => {
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send(csv);
+});
+
+router.get("/credential-events", async (req, res) => {
+  if (!ensureAdmin(req, res)) return;
+
+  const { page = "1", limit = "20", dateFrom, dateTo, merchantId, eventType } = req.query as Record<string, string>;
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+  const offset = (pageNum - 1) * limitNum;
+
+  const conditions: any[] = [];
+  if (eventType && eventType !== "all") conditions.push(eq(credentialEventsTable.eventType, eventType));
+  if (dateFrom) {
+    const from = new Date(dateFrom);
+    from.setUTCHours(0, 0, 0, 0);
+    if (!isNaN(from.getTime())) conditions.push(gte(credentialEventsTable.createdAt, from));
+  }
+  if (dateTo) {
+    const to = new Date(dateTo);
+    to.setUTCHours(23, 59, 59, 999);
+    if (!isNaN(to.getTime())) conditions.push(lte(credentialEventsTable.createdAt, to));
+  }
+  if (merchantId) {
+    const merchantIdNum = parseInt(merchantId);
+    if (!isNaN(merchantIdNum)) conditions.push(eq(credentialEventsTable.merchantId, merchantIdNum));
+  }
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const [{ total }] = await db.select({ total: count() }).from(credentialEventsTable).where(where);
+
+  const rows = await db
+    .select({
+      id: credentialEventsTable.id,
+      merchantId: credentialEventsTable.merchantId,
+      eventType: credentialEventsTable.eventType,
+      actorId: credentialEventsTable.actorId,
+      actorEmail: credentialEventsTable.actorEmail,
+      keyPrefix: credentialEventsTable.keyPrefix,
+      ipAddress: credentialEventsTable.ipAddress,
+      createdAt: credentialEventsTable.createdAt,
+      merchantBusinessName: merchantsTable.businessName,
+      merchantEmail: merchantsTable.email,
+    })
+    .from(credentialEventsTable)
+    .leftJoin(merchantsTable, eq(credentialEventsTable.merchantId, merchantsTable.id))
+    .where(where)
+    .limit(limitNum)
+    .offset(offset)
+    .orderBy(desc(credentialEventsTable.createdAt));
+
+  res.json({
+    data: rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })),
+    total,
+    page: pageNum,
+    limit: limitNum,
+  });
 });
 
 router.post("/", async (req, res) => {

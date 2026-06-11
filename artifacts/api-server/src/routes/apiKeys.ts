@@ -1,5 +1,5 @@
 import { Router, type Request } from "express";
-import { db, apiKeysTable, merchantsTable } from "@workspace/db";
+import { db, apiKeysTable, merchantsTable, credentialEventsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import crypto from "crypto";
@@ -46,6 +46,10 @@ router.post("/", apiKeyCreateLimiter, async (req, res) => {
   const secretKey = `rasokart_secret_${crypto.randomBytes(32).toString("hex")}`;
   const keyPrefix = apiKey.slice(0, 20) + "...";
 
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    ?? req.socket.remoteAddress
+    ?? "";
+
   const [key] = await db.insert(apiKeysTable).values({
     merchantId: user.merchantId!,
     apiKey,
@@ -53,6 +57,15 @@ router.post("/", apiKeyCreateLimiter, async (req, res) => {
     keyPrefix,
     isActive: true,
   }).returning();
+
+  await db.insert(credentialEventsTable).values({
+    merchantId: user.merchantId!,
+    eventType: "api_key_generated",
+    actorId: user.id,
+    actorEmail: user.email,
+    keyPrefix,
+    ipAddress: ip || null,
+  });
 
   res.status(201).json(key);
 
@@ -65,10 +78,6 @@ router.post("/", apiKeyCreateLimiter, async (req, res) => {
       .limit(1);
 
     if (!merchant?.email) return;
-
-    const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-      ?? req.socket.remoteAddress
-      ?? "";
 
     await sendApiKeyGeneratedEmail({
       to: merchant.email,
@@ -93,6 +102,20 @@ router.delete("/:id", async (req, res) => {
     res.status(404).json({ error: "API key not found" });
     return;
   }
+
+  const revokeIp = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    ?? req.socket.remoteAddress
+    ?? "";
+
+  await db.insert(credentialEventsTable).values({
+    merchantId: key.merchantId,
+    eventType: "api_key_revoked",
+    actorId: user.id,
+    actorEmail: user.email,
+    keyPrefix: key.keyPrefix,
+    ipAddress: revokeIp || null,
+  });
+
   res.json({ message: "API key revoked" });
 
   // Fire-and-forget security email
@@ -105,16 +128,12 @@ router.delete("/:id", async (req, res) => {
 
     if (!merchant?.email) return;
 
-    const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-      ?? req.socket.remoteAddress
-      ?? "";
-
     await sendApiKeyRevokedEmail({
       to: merchant.email,
       businessName: merchant.businessName,
       keyPrefix: key.keyPrefix,
       revokedAt: new Date(),
-      ipAddress: ip,
+      ipAddress: revokeIp,
     });
   })().catch((err: unknown) => {
     req.log.warn({ err, keyId: id }, "Failed to send API key revoked email");

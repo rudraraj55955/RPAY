@@ -3061,6 +3061,37 @@ export const DeleteAuditReportScheduleResponse = zod.object({
 
 
 /**
+ * @summary List credential events (admin only)
+ */
+export const ListCredentialEventsQueryParams = zod.object({
+  "page": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional(),
+  "dateFrom": zod.date().optional().describe('Filter events on or after this date (ISO 8601)'),
+  "dateTo": zod.date().optional().describe('Filter events on or before this date (ISO 8601)'),
+  "merchantId": zod.coerce.number().optional().describe('Filter events by merchant ID'),
+  "eventType": zod.coerce.string().optional().describe('Filter by event type: api_key_generated, api_key_revoked, callback_secret_rotated')
+})
+
+export const ListCredentialEventsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "eventType": zod.string().describe('api_key_generated | api_key_revoked | callback_secret_rotated'),
+  "actorId": zod.number(),
+  "actorEmail": zod.string(),
+  "keyPrefix": zod.string().nullish().describe('First characters of the API key (populated for api_key_\* events)'),
+  "ipAddress": zod.string().nullish(),
+  "merchantBusinessName": zod.string().nullish(),
+  "merchantEmail": zod.string().nullish(),
+  "createdAt": zod.string()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
  * @summary Get audit log summary stats
  */
 export const GetAdminAuditLogStatsResponse = zod.object({

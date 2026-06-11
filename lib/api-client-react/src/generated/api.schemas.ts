@@ -1743,6 +1743,34 @@ export interface AdminAuditLogListResponse {
   limit: number;
 }
 
+export interface CredentialEvent {
+  id: number;
+  merchantId: number;
+  /** api_key_generated | api_key_revoked | callback_secret_rotated */
+  eventType: string;
+  actorId: number;
+  actorEmail: string;
+  /**
+     * First characters of the API key (populated for api_key_* events)
+     * @nullable
+     */
+  keyPrefix?: string | null;
+  /** @nullable */
+  ipAddress?: string | null;
+  /** @nullable */
+  merchantBusinessName?: string | null;
+  /** @nullable */
+  merchantEmail?: string | null;
+  createdAt: string;
+}
+
+export interface CredentialEventListResponse {
+  data: CredentialEvent[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface MerchantVolume {
   merchantId: number;
   merchantName: string;
@@ -2728,6 +2756,27 @@ export const PreviewAuditReportEmailFrequency = {
 
 export type ListAuditReportScheduleLogsParams = {
 limit?: number;
+};
+
+export type ListCredentialEventsParams = {
+page?: number;
+limit?: number;
+/**
+ * Filter events on or after this date (ISO 8601)
+ */
+dateFrom?: string;
+/**
+ * Filter events on or before this date (ISO 8601)
+ */
+dateTo?: string;
+/**
+ * Filter events by merchant ID
+ */
+merchantId?: number;
+/**
+ * Filter by event type: api_key_generated, api_key_revoked, callback_secret_rotated
+ */
+eventType?: string;
 };
 
 export type ExportAdminAuditLogsCsvParams = {

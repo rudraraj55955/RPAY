@@ -3120,6 +3120,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /audit-logs/credential-events:
+    get:
+      operationId: listCredentialEvents
+      tags: [dashboard]
+      summary: List credential events (admin only)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: dateFrom
+          in: query
+          description: "Filter events on or after this date (ISO 8601)"
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          description: "Filter events on or before this date (ISO 8601)"
+          schema: { type: string, format: date }
+        - name: merchantId
+          in: query
+          description: "Filter events by merchant ID"
+          schema: { type: integer }
+        - name: eventType
+          in: query
+          description: "Filter by event type: api_key_generated, api_key_revoked, callback_secret_rotated"
+          schema: { type: string }
+      responses:
+        "200":
+          description: Credential event list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialEventListResponse"
+
   /audit-logs/stats:
     get:
       operationId: getAdminAuditLogStats
@@ -6539,6 +6575,48 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminAuditLog"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    CredentialEvent:
+      type: object
+      required: [id, merchantId, eventType, actorId, actorEmail, createdAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        eventType:
+          type: string
+          description: "api_key_generated | api_key_revoked | callback_secret_rotated"
+        actorId:
+          type: integer
+        actorEmail:
+          type: string
+        keyPrefix:
+          type: ["string", "null"]
+          description: "First characters of the API key (populated for api_key_* events)"
+        ipAddress:
+          type: ["string", "null"]
+        merchantBusinessName:
+          type: ["string", "null"]
+        merchantEmail:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    CredentialEventListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CredentialEvent"
         total:
           type: integer
         page:

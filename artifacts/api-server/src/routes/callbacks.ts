@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable, webhooksTable, callbackLogAttemptsTable, systemSettingsTable } from "@workspace/db";
+import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable, webhooksTable, callbackLogAttemptsTable, systemSettingsTable, credentialEventsTable } from "@workspace/db";
 import { eq, and, count, countDistinct, sql, gte, lte, isNull, like, asc, desc } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { requireApiKey, verifyCallbackSignature } from "../middlewares/callbackAuth";
@@ -284,6 +284,10 @@ router.post("/secret/rotate", async (req, res) => {
   const newSecret = randomBytes(32).toString("hex");
 
   const now = new Date();
+  const rotateIp = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    ?? req.socket.remoteAddress
+    ?? "";
+
   await Promise.all([
     db
       .update(merchantsTable)
@@ -293,6 +297,14 @@ router.post("/secret/rotate", async (req, res) => {
       .update(webhooksTable)
       .set({ secretRotatedAt: now })
       .where(eq(webhooksTable.merchantId, user.merchantId)),
+    db.insert(credentialEventsTable).values({
+      merchantId: user.merchantId,
+      eventType: "callback_secret_rotated",
+      actorId: user.id,
+      actorEmail: user.email,
+      keyPrefix: null,
+      ipAddress: rotateIp || null,
+    }),
   ]);
 
   req.log.info({ merchantId: user.merchantId }, "Callback secret rotated");

@@ -66,6 +66,7 @@ import type {
   CreateSavedFilterInput,
   CreateSettlementInput,
   CredentialEvent,
+  CredentialEventListResponse,
   DashboardStats,
   DeleteAccountDetail200,
   ErrorResponse,
@@ -91,6 +92,7 @@ import type {
   ListAdminAuditLogsParams,
   ListAuditReportScheduleLogsParams,
   ListCallbackLogsParams,
+  ListCredentialEventsParams,
   ListInvoicesParams,
   ListLedgerEntriesParams,
   ListMerchantCredentialEventsParams,
@@ -9704,6 +9706,90 @@ export const useDeleteAuditReportSchedule = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getDeleteAuditReportScheduleMutationOptions(options));
     }
+
+export const getListCredentialEventsUrl = (params?: ListCredentialEventsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/audit-logs/credential-events?${stringifiedParams}` : `/api/audit-logs/credential-events`
+}
+
+/**
+ * @summary List credential events (admin only)
+ */
+export const listCredentialEvents = async (params?: ListCredentialEventsParams, options?: RequestInit): Promise<CredentialEventListResponse> => {
+
+  return customFetch<CredentialEventListResponse>(getListCredentialEventsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCredentialEventsQueryKey = (params?: ListCredentialEventsParams,) => {
+    return [
+    `/api/audit-logs/credential-events`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCredentialEventsQueryOptions = <TData = Awaited<ReturnType<typeof listCredentialEvents>>, TError = ErrorType<unknown>>(params?: ListCredentialEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCredentialEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCredentialEventsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCredentialEvents>>> = ({ signal }) => listCredentialEvents(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCredentialEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCredentialEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listCredentialEvents>>>
+export type ListCredentialEventsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List credential events (admin only)
+ */
+
+export function useListCredentialEvents<TData = Awaited<ReturnType<typeof listCredentialEvents>>, TError = ErrorType<unknown>>(
+ params?: ListCredentialEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCredentialEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCredentialEventsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetAdminAuditLogStatsUrl = () => {
 

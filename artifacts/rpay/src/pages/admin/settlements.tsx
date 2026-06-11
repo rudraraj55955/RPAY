@@ -890,7 +890,16 @@ export default function AdminSettlements() {
                       </TableCell>
                       <TableCell className="font-medium">{s.merchantName || "—"}</TableCell>
                       <TableCell className="text-right font-mono font-semibold">₹{amount.toLocaleString()}</TableCell>
-                      <TableCell><StatusBadge status={s.status} /></TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <StatusBadge status={s.status} />
+                          {(s.status === "approved" || s.status === "rejected") && s.actionedByEmail && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[160px]" title={s.actionedByEmail}>
+                              by {s.actionedByEmail}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {format(new Date(s.createdAt), "MMM d, yyyy")}
                       </TableCell>
@@ -992,6 +1001,14 @@ export default function AdminSettlements() {
                               <div>
                                 <p className="text-xs text-muted-foreground mb-0.5">Processed At</p>
                                 <p className="font-medium">{format(new Date(s.processedAt), "MMM d, yyyy HH:mm")}</p>
+                              </div>
+                            )}
+                            {(s.status === "approved" || s.status === "rejected") && s.actionedByEmail && (
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-0.5">
+                                  {s.status === "approved" ? "Approved By" : "Rejected By"}
+                                </p>
+                                <p className="font-medium text-xs break-all">{s.actionedByEmail}</p>
                               </div>
                             )}
                           </div>

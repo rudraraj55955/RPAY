@@ -5419,6 +5419,10 @@ components:
           type: ["integer", "null"]
         processedAt:
           type: ["string", "null"]
+        actionedBy:
+          type: ["integer", "null"]
+        actionedByEmail:
+          type: ["string", "null"]
         paidAt:
           type: ["string", "null"]
         referenceNumber:

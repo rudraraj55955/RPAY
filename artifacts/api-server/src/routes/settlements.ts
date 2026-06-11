@@ -28,12 +28,13 @@ async function getMerchantName(merchantId: number): Promise<string> {
 const router = Router();
 router.use(requireAuth);
 
-function mapSettlement(s: typeof settlementsTable.$inferSelect, merchantName?: string | null) {
+function mapSettlement(s: typeof settlementsTable.$inferSelect, merchantName?: string | null, actionedByEmail?: string | null) {
   return {
     ...s,
     amount: Number(s.amount),
     requestedAmount: s.requestedAmount != null ? Number(s.requestedAmount) : null,
     merchantName: merchantName ?? null,
+    actionedByEmail: actionedByEmail ?? null,
   };
 }
 
@@ -86,16 +87,17 @@ router.get("/", async (req, res) => {
   const [{ total }] = await db.select({ total: count() }).from(settlementsTable).where(where);
 
   const rows = await db
-    .select({ settlement: settlementsTable, merchantName: merchantsTable.businessName })
+    .select({ settlement: settlementsTable, merchantName: merchantsTable.businessName, actionedByEmail: usersTable.email })
     .from(settlementsTable)
     .leftJoin(merchantsTable, eq(settlementsTable.merchantId, merchantsTable.id))
+    .leftJoin(usersTable, eq(settlementsTable.actionedBy, usersTable.id))
     .where(where)
     .limit(limitNum)
     .offset(offset)
     .orderBy(sql`${settlementsTable.createdAt} DESC`);
 
   res.json({
-    data: rows.map(r => mapSettlement(r.settlement, r.merchantName)),
+    data: rows.map(r => mapSettlement(r.settlement, r.merchantName, r.actionedByEmail)),
     total,
     page: pageNum,
     limit: limitNum,
@@ -331,7 +333,7 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
       }
 
       const [result] = await tx.update(settlementsTable)
-        .set({ status: "approved", adminRemark: remark, processedBy: user.id })
+        .set({ status: "approved", adminRemark: remark, processedBy: user.id, actionedBy: user.id })
         .where(and(eq(settlementsTable.id, id), eq(settlementsTable.status, "processing")))
         .returning();
 
@@ -404,7 +406,7 @@ router.post("/:id/reject", requireAdmin, async (req, res) => {
   if (!remark) { res.status(400).json({ error: "Remark is required" }); return; }
 
   const [updated] = await db.update(settlementsTable)
-    .set({ status: "rejected", adminRemark: remark, processedBy: user.id, processedAt: new Date() })
+    .set({ status: "rejected", adminRemark: remark, processedBy: user.id, processedAt: new Date(), actionedBy: user.id })
     .where(and(eq(settlementsTable.id, id), sql`${settlementsTable.status} IN ('pending', 'processing')`))
     .returning();
 

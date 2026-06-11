@@ -1800,6 +1800,11 @@ function ScheduleRow({
               ? `Last sent: ${format(new Date(s.lastSentAt), "MMM d, yyyy 'at' HH:mm")}`
               : "Not yet sent"}
           </p>
+          {s.failureAcknowledgedAt && s.failureAcknowledgedByEmail && (
+            <p className="text-xs text-emerald-500/70 mt-0.5">
+              Acknowledged by {s.failureAcknowledgedByEmail} at {format(new Date(s.failureAcknowledgedAt), "MMM d, yyyy 'at' HH:mm")}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <Button

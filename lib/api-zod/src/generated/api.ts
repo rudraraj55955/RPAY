@@ -3029,6 +3029,7 @@ export const ListAuditReportSchedulesResponse = zod.object({
   "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
   "lastErrorMessage": zod.string().nullish(),
   "failureAcknowledgedAt": zod.string().nullish(),
+  "failureAcknowledgedByEmail": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }))
@@ -3065,6 +3066,7 @@ export const BulkToggleAuditReportSchedulesResponse = zod.object({
   "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
   "lastErrorMessage": zod.string().nullish(),
   "failureAcknowledgedAt": zod.string().nullish(),
+  "failureAcknowledgedByEmail": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }))
@@ -3089,6 +3091,7 @@ export const SendAuditReportNowResponse = zod.object({
   "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
   "lastErrorMessage": zod.string().nullish(),
   "failureAcknowledgedAt": zod.string().nullish(),
+  "failureAcknowledgedByEmail": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -3193,6 +3196,7 @@ export const UpdateAuditReportScheduleResponse = zod.object({
   "lastSendStatus": zod.enum(['ok', 'failed', 'none']),
   "lastErrorMessage": zod.string().nullish(),
   "failureAcknowledgedAt": zod.string().nullish(),
+  "failureAcknowledgedByEmail": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })

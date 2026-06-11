@@ -585,6 +585,7 @@ router.patch("/schedules/:id", async (req, res) => {
     isActive: boolean;
     maxRetryAttempts: number;
     failureAcknowledgedAt: Date | null;
+    failureAcknowledgedByEmail: string | null;
     updatedAt: Date;
   }> = {
     updatedAt: new Date(),
@@ -616,7 +617,10 @@ router.patch("/schedules/:id", async (req, res) => {
     }
     (updates as any).retryBackoffMinutes = parsed;
   }
-  if (acknowledgeFailure === true) updates.failureAcknowledgedAt = new Date();
+  if (acknowledgeFailure === true) {
+    updates.failureAcknowledgedAt = new Date();
+    updates.failureAcknowledgedByEmail = (req as any).user.email;
+  }
 
   const [updated] = await db
     .update(scheduledAuditReportsTable)

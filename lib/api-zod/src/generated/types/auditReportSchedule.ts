@@ -24,6 +24,8 @@ export interface AuditReportSchedule {
   lastErrorMessage?: string | null;
   /** @nullable */
   failureAcknowledgedAt?: string | null;
+  /** @nullable */
+  failureAcknowledgedByEmail?: string | null;
   createdAt: string;
   updatedAt: string;
 }

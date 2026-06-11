@@ -178,6 +178,10 @@ export default function AdminSettings() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const testEmailTrimmed = testEmailTo.trim();
+  const testEmailInvalid = testEmailTrimmed.length > 0 && !EMAIL_REGEX.test(testEmailTrimmed);
+
   const currentEmail = data?.finance_report_email ?? null;
   const emailUnchanged = financeEmail === (currentEmail ?? "");
 
@@ -359,20 +363,22 @@ export default function AdminSettings() {
                 value={testEmailTo}
                 onChange={e => setTestEmailTo(e.target.value)}
                 disabled={isLoading || sendingTest}
-                className="max-w-sm"
+                className={`max-w-sm ${testEmailInvalid ? "border-red-500/70 focus-visible:ring-red-500/30" : ""}`}
               />
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => sendTestEmail()}
-                disabled={sendingTest || isLoading || smtpConfigured === false || (!testEmailTo.trim() && !currentEmail)}
+                disabled={sendingTest || isLoading || smtpConfigured === false || (!testEmailTrimmed && !currentEmail) || testEmailInvalid}
                 title={
                   smtpConfigured === false
                     ? "SMTP is not configured — set SMTP_HOST, SMTP_USER, and SMTP_PASS on the server"
-                    : !testEmailTo.trim() && !currentEmail
+                    : testEmailInvalid
+                    ? "Enter a valid email address"
+                    : !testEmailTrimmed && !currentEmail
                     ? "Enter an address above or save a finance report email first"
-                    : testEmailTo.trim()
-                    ? `Send test to ${testEmailTo.trim()}`
+                    : testEmailTrimmed
+                    ? `Send test to ${testEmailTrimmed}`
                     : `Send test to ${currentEmail}`
                 }
               >
@@ -380,9 +386,17 @@ export default function AdminSettings() {
                 {sendingTest ? "Sending…" : "Send test"}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Optional override — if blank, the test goes to the saved finance report email.
-            </p>
+            {testEmailInvalid && (
+              <p className="text-xs text-red-400 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                Invalid email address
+              </p>
+            )}
+            {!testEmailInvalid && (
+              <p className="text-xs text-muted-foreground">
+                Optional override — if blank, the test goes to the saved finance report email.
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

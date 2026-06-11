@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useListCallbackLogs, useGetCallbackStats } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -106,6 +106,14 @@ function writeSigWarnDismissal() {
   }
 }
 
+function clearSigWarnDismissal() {
+  try {
+    localStorage.removeItem(SIG_WARN_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export default function MerchantCallbacks() {
   const [status, setStatus] = useState("all");
   const [sigVerified, setSigVerified] = useState("all");
@@ -135,6 +143,16 @@ export default function MerchantCallbacks() {
   const allRecentFailed =
     recentN.length >= SIG_WARN_THRESHOLD &&
     recentN.every(l => l.signatureVerified === false);
+  const allRecentVerified =
+    recentN.length >= SIG_WARN_THRESHOLD &&
+    recentN.every(l => l.signatureVerified === true);
+
+  useEffect(() => {
+    if (allRecentVerified && readSigWarnDismissal() != null) {
+      clearSigWarnDismissal();
+      setSigWarnDismissed(false);
+    }
+  }, [allRecentVerified]);
 
   const showSigWarning = (() => {
     if (!allRecentFailed) return false;

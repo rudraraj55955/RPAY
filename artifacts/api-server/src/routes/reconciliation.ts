@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, reconciliationRunsTable, reconciliationItemsTable, transactionsTable, settlementsTable, merchantsTable, auditLogsTable, reconciliationEmailLogsTable } from "@workspace/db";
+import { db, reconciliationRunsTable, reconciliationItemsTable, transactionsTable, settlementsTable, merchantsTable, usersTable, auditLogsTable, reconciliationEmailLogsTable } from "@workspace/db";
 import { eq, and, gte, lte, inArray, sql, count, or, isNull, isNotNull, gt, desc } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { runReconciliation } from "../helpers/reconcileEngine";
@@ -109,9 +109,11 @@ router.get("/runs", async (req, res, next) => {
       .select({
         run: reconciliationRunsTable,
         merchantName: merchantsTable.businessName,
+        createdByEmail: usersTable.email,
       })
       .from(reconciliationRunsTable)
       .leftJoin(merchantsTable, eq(reconciliationRunsTable.merchantId, merchantsTable.id))
+      .leftJoin(usersTable, eq(reconciliationRunsTable.createdBy, usersTable.id))
       .where(where)
       .orderBy(sql`${reconciliationRunsTable.createdAt} DESC`)
       .limit(limitNum)
@@ -142,6 +144,7 @@ router.get("/runs", async (req, res, next) => {
       data: rows.map(r => ({
         ...mapRun(r.run),
         merchantName: r.merchantName ?? null,
+        createdByEmail: r.createdByEmail ?? null,
         lastEmail: lastEmailByRun.get(r.run.id) ?? null,
       })),
       total,

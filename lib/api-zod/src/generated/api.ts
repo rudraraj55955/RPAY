@@ -3709,6 +3709,7 @@ export const ListReconciliationRunsResponse = zod.object({
   "unmatchedAmount": zod.number(),
   "status": zod.string(),
   "createdBy": zod.number().nullish(),
+  "createdByEmail": zod.string().nullish().describe('Email of the admin who triggered the run (manual runs only)'),
   "triggeredBy": zod.string().optional().describe('\"manual\" or \"auto\" (scheduled)'),
   "notes": zod.string().nullish(),
   "createdAt": zod.string()
@@ -3752,6 +3753,7 @@ export const ListReconciliationRunItemsResponse = zod.object({
   "unmatchedAmount": zod.number(),
   "status": zod.string(),
   "createdBy": zod.number().nullish(),
+  "createdByEmail": zod.string().nullish().describe('Email of the admin who triggered the run (manual runs only)'),
   "triggeredBy": zod.string().optional().describe('\"manual\" or \"auto\" (scheduled)'),
   "notes": zod.string().nullish(),
   "createdAt": zod.string()

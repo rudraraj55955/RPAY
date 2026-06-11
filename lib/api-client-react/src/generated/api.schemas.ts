@@ -2040,6 +2040,8 @@ export interface ReconciliationRun {
   unmatchedAmount: number;
   status: string;
   createdBy?: number | null;
+  /** Email of the admin who triggered the run (manual runs only) */
+  createdByEmail?: string | null;
   /** "manual" or "auto" (scheduled) */
   triggeredBy?: string;
   notes?: string | null;

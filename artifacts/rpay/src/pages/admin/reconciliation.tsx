@@ -1019,6 +1019,11 @@ export default function AdminReconciliation() {
                                 </Badge>
                               )}
                             </div>
+                            {run.triggeredBy !== "auto" && (run as any).createdByEmail && (
+                              <div className="text-[10px] text-muted-foreground/60 mt-0.5">
+                                by {(run as any).createdByEmail}
+                              </div>
+                            )}
                             <div className="text-xs text-muted-foreground">
                               {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
                             </div>

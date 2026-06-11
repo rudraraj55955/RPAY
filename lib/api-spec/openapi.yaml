@@ -6754,6 +6754,10 @@ components:
         createdBy:
           type: integer
           nullable: true
+        createdByEmail:
+          type: string
+          nullable: true
+          description: 'Email of the admin who triggered the run (manual runs only)'
         triggeredBy:
           type: string
           description: '"manual" or "auto" (scheduled)'

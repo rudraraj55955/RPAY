@@ -5006,6 +5006,9 @@ components:
         callbackSecretSet:
           type: boolean
           description: Whether the merchant has configured a callback signing secret.
+        callbackSecretUpdatedAt:
+          type: ["string", "null"]
+          description: ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.
         currentPlanName:
           type: ["string", "null"]
         currentPlanStatus:

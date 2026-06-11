@@ -1094,17 +1094,40 @@ export default function AdminMerchants() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {merchant.callbackSecretSet ? (
-                      <Badge variant="outline" className="text-xs py-0 text-emerald-400 border-emerald-500/30 bg-emerald-500/10 gap-1">
-                        <KeyRound className="w-3 h-3" />
-                        Set
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs py-0 text-rose-400 border-rose-500/30 bg-rose-500/10 gap-1">
-                        <KeyRound className="w-3 h-3" />
-                        Not Set
-                      </Badge>
-                    )}
+                    <div className="flex flex-col gap-1">
+                      {merchant.callbackSecretSet ? (
+                        <Badge variant="outline" className="text-xs py-0 text-emerald-400 border-emerald-500/30 bg-emerald-500/10 gap-1">
+                          <KeyRound className="w-3 h-3" />
+                          Set
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs py-0 text-rose-400 border-rose-500/30 bg-rose-500/10 gap-1">
+                          <KeyRound className="w-3 h-3" />
+                          Not Set
+                        </Badge>
+                      )}
+                      {merchant.callbackSecretSet && merchant.callbackSecretUpdatedAt && (() => {
+                        const ageDays = Math.floor((now - new Date(merchant.callbackSecretUpdatedAt).getTime()) / 86400000);
+                        if (ageDays < 75) return null;
+                        const isRed = ageDays >= 90;
+                        return (
+                          <button
+                            type="button"
+                            title={`Secret last rotated ${ageDays} days ago — ${isRed ? "rotation overdue" : "rotation due soon"}`}
+                            onClick={() => openAssignPlan(merchant.id, merchant.businessName, merchant.callbackTimestampWindowSeconds)}
+                            className="text-left"
+                          >
+                            <Badge
+                              variant="outline"
+                              className={`text-xs py-0 gap-1 cursor-pointer ${isRed ? "text-rose-400 border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20" : "text-amber-400 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20"}`}
+                            >
+                              <Clock className="w-3 h-3" />
+                              {ageDays}d old
+                            </Badge>
+                          </button>
+                        );
+                      })()}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">₹{Number(merchant.balance).toLocaleString()}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{format(new Date(merchant.createdAt), "MMM d, yyyy")}</TableCell>
@@ -1795,17 +1818,45 @@ export default function AdminMerchants() {
               {callbackSecretStatus == null ? (
                 <div className="animate-pulse h-5 bg-muted/30 rounded w-32" />
               ) : callbackSecretStatus.isSet ? (
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span className="text-xs text-emerald-400 font-medium">Set</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="text-xs text-emerald-400 font-medium">Set</span>
+                    </div>
+                    <span className="font-mono text-xs text-muted-foreground">{callbackSecretStatus.secretPrefix}</span>
+                    {callbackSecretStatus.lastRotatedAt && (
+                      <span className="text-xs text-muted-foreground">
+                        Last rotated {formatDistanceToNow(new Date(callbackSecretStatus.lastRotatedAt), { addSuffix: true })}
+                      </span>
+                    )}
                   </div>
-                  <span className="font-mono text-xs text-muted-foreground">{callbackSecretStatus.secretPrefix}</span>
-                  {callbackSecretStatus.lastRotatedAt && (
-                    <span className="text-xs text-muted-foreground">
-                      Last rotated {formatDistanceToNow(new Date(callbackSecretStatus.lastRotatedAt), { addSuffix: true })}
-                    </span>
-                  )}
+                  {callbackSecretStatus.lastRotatedAt && (() => {
+                    const ageDays = Math.floor((now - new Date(callbackSecretStatus.lastRotatedAt).getTime()) / 86400000);
+                    const deadline = 90;
+                    const daysLeft = deadline - ageDays;
+                    if (ageDays >= 90) {
+                      return (
+                        <div className="flex items-center gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-2.5 py-2 text-xs text-rose-400">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>
+                            <span className="font-semibold">Rotation overdue</span> — secret is {ageDays} days old (90-day limit exceeded)
+                          </span>
+                        </div>
+                      );
+                    }
+                    if (ageDays >= 75) {
+                      return (
+                        <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-400">
+                          <Clock className="w-3.5 h-3.5 shrink-0" />
+                          <span>
+                            <span className="font-semibold">Rotation due soon</span> — secret is {ageDays} days old, {daysLeft} day{daysLeft !== 1 ? "s" : ""} until 90-day deadline
+                          </span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">

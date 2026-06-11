@@ -144,6 +144,11 @@ export interface Merchant {
   callbackTimestampWindowSeconds?: number | null;
   /** Whether the merchant has configured a callback signing secret. */
   callbackSecretSet?: boolean;
+  /**
+     * ISO timestamp of the last callback secret rotation. Null if no secret has ever been set.
+     * @nullable
+     */
+  callbackSecretUpdatedAt?: string | null;
   /** @nullable */
   currentPlanName?: string | null;
   /** @nullable */

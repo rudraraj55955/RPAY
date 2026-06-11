@@ -134,6 +134,7 @@ router.get("/", requireAdmin, async (req, res) => {
       return {
         ...serializeMerchant(r.merchant),
         callbackSecretSet: r.merchant.callbackSecret != null,
+        callbackSecretUpdatedAt: r.merchant.callbackSecretUpdatedAt?.toISOString() ?? null,
         currentPlanName: r.currentPlanName ?? null,
         currentPlanStatus: r.currentPlanStatus ?? null,
         currentPlanExpiresAt: expiresAt ? expiresAt.toISOString() : null,

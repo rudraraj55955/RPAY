@@ -64,23 +64,41 @@ function CallbackRow({ log }: { log: any }) {
   );
 }
 
+const SIG_WARN_THRESHOLD = 5;
+
 export default function MerchantCallbacks() {
   const [status, setStatus] = useState("all");
+  const [sigVerified, setSigVerified] = useState("all");
   const [qrCodeIdInput, setQrCodeIdInput] = useState("");
   const [qrCodeId, setQrCodeId] = useState<number | undefined>(undefined);
   const [sigFilter, setSigFilter] = useState<"failed" | undefined>(undefined);
   const [page, setPage] = useState(1);
+  const [sigWarnDismissed, setSigWarnDismissed] = useState(false);
 
   const { data: stats } = useGetCallbackStats();
   const failureCount = stats?.signatureFailures24h ?? 0;
 
+  const signatureVerifiedParam =
+    sigFilter === "failed" ? "failed" :
+    sigVerified === "verified" ? "verified" :
+    sigVerified === "failed" ? "failed" :
+    sigVerified === "none" ? "none" :
+    undefined;
+
   const { data, isLoading } = useListCallbackLogs({
     status: status as any,
     qrCodeId,
-    signatureVerified: sigFilter as any,
+    signatureVerified: signatureVerifiedParam as any,
     page,
     limit: 20,
   });
+
+  const recentLogs = data?.data ?? [];
+  const recentN = recentLogs.slice(0, SIG_WARN_THRESHOLD);
+  const showSigWarning =
+    !sigWarnDismissed &&
+    recentN.length >= SIG_WARN_THRESHOLD &&
+    recentN.every(l => l.signatureVerified === false);
 
   const applyQrFilter = () => {
     const parsed = parseInt(qrCodeIdInput.trim());
@@ -114,6 +132,28 @@ export default function MerchantCallbacks() {
         <h1 className="text-3xl font-bold tracking-tight">Callback Logs</h1>
         <p className="text-muted-foreground mt-1">Webhook delivery history for your endpoint</p>
       </div>
+
+      {showSigWarning && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-300">
+              Recent callbacks have failing signature checks — your signing secret may be misconfigured
+            </p>
+            <p className="text-xs text-amber-400/70 mt-0.5">
+              The last {SIG_WARN_THRESHOLD} logged callbacks all failed signature verification. Check that your webhook signing secret matches the one configured on your server.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss warning"
+            onClick={() => setSigWarnDismissed(true)}
+            className="shrink-0 text-amber-400/60 hover:text-amber-300 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {failureCount > 0 && (
         <button

@@ -159,17 +159,18 @@ export default function AdminQrProviders() {
                 <TableHead>Used This Month</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Assigned</TableHead>
+                <TableHead>Deactivated</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>{Array.from({ length: 7 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
+                  <TableRow key={i}>{Array.from({ length: 8 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
                 ))
               ) : !rows.length ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-16">
+                  <TableCell colSpan={8} className="text-center py-16">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <Link2 className="w-8 h-8 opacity-30" />
                       <p className="text-sm">No QR provider assignments yet</p>
@@ -212,6 +213,15 @@ export default function AdminQrProviders() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {format(new Date(row.createdAt), "MMM d, yyyy")}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {row.deactivatedAt ? (
+                      <span className="text-rose-400 font-medium tabular-nums">
+                        {format(new Date(row.deactivatedAt), "MMM d, yyyy")}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">

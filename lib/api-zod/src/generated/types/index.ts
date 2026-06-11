@@ -277,6 +277,7 @@ export * from './webhookConfig';
 export * from './webhookConfigInput';
 export * from './webhookLogEventStat';
 export * from './webhookLogStatsResponse';
+export * from './webhookRetriesConfig';
 export * from './webhookRetryDelay';
 export * from './webhookRetryPolicy';
 export * from './webhookSecretCheckResult';

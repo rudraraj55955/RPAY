@@ -187,6 +187,11 @@ export default function AdminSettings() {
   const [retentionDays, setRetentionDays] = useState<number>(30);
   const [retentionInitialized, setRetentionInitialized] = useState(false);
 
+  const [retryDelay1, setRetryDelay1] = useState<number>(300);
+  const [retryDelay2, setRetryDelay2] = useState<number>(900);
+  const [retryDelay3, setRetryDelay3] = useState<number>(3600);
+  const [retryInitialized, setRetryInitialized] = useState(false);
+
   // SMTP config form state
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState("587");
@@ -441,6 +446,19 @@ export default function AdminSettings() {
     },
   } as any);
 
+  const { data: webhookRetriesData, isLoading: webhookRetriesLoading } = useQuery<{ delay1: number; delay2: number; delay3: number }>({
+    queryKey: ["/api/system-config/webhook-retries"],
+    queryFn: () => apiGet("/system-config/webhook-retries"),
+    onSuccess: (d: { delay1: number; delay2: number; delay3: number }) => {
+      if (!retryInitialized) {
+        setRetryDelay1(d.delay1);
+        setRetryDelay2(d.delay2);
+        setRetryDelay3(d.delay3);
+        setRetryInitialized(true);
+      }
+    },
+  } as any);
+
   const currentStorageEnabled = storageCleanupConfig?.enabled ?? true;
   const currentStorageHour = storageCleanupConfig?.hour ?? 3;
   const storageScheduleUnchanged =
@@ -451,6 +469,21 @@ export default function AdminSettings() {
     onSuccess: () => {
       toast.success("Storage cleanup schedule saved");
       qc.invalidateQueries({ queryKey: ["/api/system-config/storage-cleanup"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const currentRetryDelay1 = webhookRetriesData?.delay1 ?? 300;
+  const currentRetryDelay2 = webhookRetriesData?.delay2 ?? 900;
+  const currentRetryDelay3 = webhookRetriesData?.delay3 ?? 3600;
+  const retryUnchanged = retryDelay1 === currentRetryDelay1 && retryDelay2 === currentRetryDelay2 && retryDelay3 === currentRetryDelay3;
+  const retryOrderWarning = retryDelay1 > retryDelay2 || retryDelay2 > retryDelay3;
+
+  const { mutate: saveRetry, isPending: savingRetry } = useMutation({
+    mutationFn: () => apiPut("/system-config/webhook-retries", { delay1: retryDelay1, delay2: retryDelay2, delay3: retryDelay3 }),
+    onSuccess: () => {
+      toast.success("Webhook retry delays saved");
+      qc.invalidateQueries({ queryKey: ["/api/system-config/webhook-retries"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -1193,6 +1226,113 @@ export default function AdminSettings() {
                 variant="ghost"
                 onClick={() => setRetentionDays(currentRetentionDays)}
                 disabled={savingRetention}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Webhook Retries */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <RotateCcw className="w-4 h-4 text-muted-foreground" />
+            <CardTitle className="text-base">Webhook Retries</CardTitle>
+          </div>
+          <CardDescription className="text-sm">
+            Configure how long the system waits before each retry attempt when a webhook delivery fails.
+            Delays must be non-decreasing to ensure a proper backoff schedule.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {retryOrderWarning && (
+            <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                Delays are out of order — each retry delay must be greater than or equal to the previous one.
+                Fix this before saving.
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="retry-delay-1" className="text-sm">After 1st failure</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="retry-delay-1"
+                  type="number"
+                  min={0}
+                  value={retryDelay1}
+                  onChange={e => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v)) setRetryDelay1(Math.max(0, v));
+                  }}
+                  disabled={webhookRetriesLoading}
+                  className="w-full"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">seconds</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="retry-delay-2" className="text-sm">After 2nd failure</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="retry-delay-2"
+                  type="number"
+                  min={0}
+                  value={retryDelay2}
+                  onChange={e => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v)) setRetryDelay2(Math.max(0, v));
+                  }}
+                  disabled={webhookRetriesLoading}
+                  className="w-full"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">seconds</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="retry-delay-3" className="text-sm">After 3rd failure</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="retry-delay-3"
+                  type="number"
+                  min={0}
+                  value={retryDelay3}
+                  onChange={e => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v)) setRetryDelay3(Math.max(0, v));
+                  }}
+                  disabled={webhookRetriesLoading}
+                  className="w-full"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">seconds</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => saveRetry()}
+              disabled={savingRetry || webhookRetriesLoading || retryUnchanged || retryOrderWarning}
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              {savingRetry ? "Saving…" : "Save"}
+            </Button>
+            {!retryUnchanged && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setRetryDelay1(currentRetryDelay1);
+                  setRetryDelay2(currentRetryDelay2);
+                  setRetryDelay3(currentRetryDelay3);
+                }}
+                disabled={savingRetry}
               >
                 Cancel
               </Button>

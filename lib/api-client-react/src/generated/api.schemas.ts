@@ -2311,6 +2311,24 @@ export interface CredentialEvent {
   occurredAt: string;
 }
 
+export interface WebhookRetriesConfig {
+  /**
+     * Delay in seconds before the first retry (after the 1st failure).
+     * @minimum 0
+     */
+  delay1: number;
+  /**
+     * Delay in seconds before the second retry (after the 2nd failure).
+     * @minimum 0
+     */
+  delay2: number;
+  /**
+     * Delay in seconds before the third retry (after the 3rd failure).
+     * @minimum 0
+     */
+  delay3: number;
+}
+
 export interface UploadUrlRequest {
   /**
      * Original file name.

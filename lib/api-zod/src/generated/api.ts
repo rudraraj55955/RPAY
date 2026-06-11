@@ -4141,18 +4141,52 @@ export const UpdateQrCleanupConfigResponse = zod.object({
 
 
 /**
- * Returns the maximum number of delivery attempts and the per-attempt delay schedule used by the callback retry engine.
- * @summary Get the active webhook retry policy (admin only)
+ * @summary Get webhook retry delay configuration (admin only)
  */
-export const GetWebhookRetryPolicyResponse = zod.object({
-  "maxAttempts": zod.number().describe('Total maximum delivery attempts (initial + retries).'),
-  "initialAttempt": zod.number().describe('Always 1 — represents the first delivery attempt.'),
-  "retries": zod.number().describe('Number of automatic retries after the initial attempt.'),
-  "delays": zod.array(zod.object({
-  "attempt": zod.number().describe('The attempt number after which this delay applies (1-indexed).'),
-  "delaySeconds": zod.number().describe('Delay in seconds before the next retry.'),
-  "label": zod.string().describe('Human-readable delay label, e.g. \"30s\", \"5m\", \"30m\".')
-})).describe('Per-attempt delay schedule. Entry N gives the wait before attempt N+1.')
+export const getWebhookRetriesConfigResponseDelay1Min = 0;
+
+export const getWebhookRetriesConfigResponseDelay2Min = 0;
+
+export const getWebhookRetriesConfigResponseDelay3Min = 0;
+
+
+
+export const GetWebhookRetriesConfigResponse = zod.object({
+  "delay1": zod.number().min(getWebhookRetriesConfigResponseDelay1Min).describe('Delay in seconds before the first retry (after the 1st failure).'),
+  "delay2": zod.number().min(getWebhookRetriesConfigResponseDelay2Min).describe('Delay in seconds before the second retry (after the 2nd failure).'),
+  "delay3": zod.number().min(getWebhookRetriesConfigResponseDelay3Min).describe('Delay in seconds before the third retry (after the 3rd failure).')
+})
+
+
+/**
+ * @summary Update webhook retry delay configuration (admin only)
+ */
+export const updateWebhookRetriesConfigBodyDelay1Min = 0;
+
+export const updateWebhookRetriesConfigBodyDelay2Min = 0;
+
+export const updateWebhookRetriesConfigBodyDelay3Min = 0;
+
+
+
+export const UpdateWebhookRetriesConfigBody = zod.object({
+  "delay1": zod.number().min(updateWebhookRetriesConfigBodyDelay1Min).describe('Delay in seconds before the first retry (after the 1st failure).'),
+  "delay2": zod.number().min(updateWebhookRetriesConfigBodyDelay2Min).describe('Delay in seconds before the second retry (after the 2nd failure).'),
+  "delay3": zod.number().min(updateWebhookRetriesConfigBodyDelay3Min).describe('Delay in seconds before the third retry (after the 3rd failure).')
+})
+
+export const updateWebhookRetriesConfigResponseDelay1Min = 0;
+
+export const updateWebhookRetriesConfigResponseDelay2Min = 0;
+
+export const updateWebhookRetriesConfigResponseDelay3Min = 0;
+
+
+
+export const UpdateWebhookRetriesConfigResponse = zod.object({
+  "delay1": zod.number().min(updateWebhookRetriesConfigResponseDelay1Min).describe('Delay in seconds before the first retry (after the 1st failure).'),
+  "delay2": zod.number().min(updateWebhookRetriesConfigResponseDelay2Min).describe('Delay in seconds before the second retry (after the 2nd failure).'),
+  "delay3": zod.number().min(updateWebhookRetriesConfigResponseDelay3Min).describe('Delay in seconds before the third retry (after the 3rd failure).')
 })
 
 

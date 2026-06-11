@@ -289,17 +289,98 @@ router.put("/signature-failure-alert", async (req, res, next) => {
 });
 
 // GET /api/system-config/webhook-retries
-router.get("/webhook-retries", (_req, res) => {
-  res.json({
-    maxAttempts: 4,
-    initialAttempt: 1,
-    retries: 3,
-    delays: [
-      { attempt: 1, delaySeconds: 30, label: "30s" },
-      { attempt: 2, delaySeconds: 300, label: "5m" },
-      { attempt: 3, delaySeconds: 1800, label: "30m" },
-    ],
-  });
+router.get("/webhook-retries", async (req, res, next) => {
+  try {
+    const keys = [
+      SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1,
+      SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2,
+      SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3,
+    ];
+
+    const rows = await db
+      .select()
+      .from(systemConfigTable)
+      .where(inArray(systemConfigTable.key, keys));
+
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+
+    res.json({
+      delay1: parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1]),
+      delay2: parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2]),
+      delay3: parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3]),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/system-config/webhook-retries
+router.put("/webhook-retries", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { delay1, delay2, delay3 } = req.body;
+
+    if (
+      typeof delay1 !== "number" ||
+      typeof delay2 !== "number" ||
+      typeof delay3 !== "number"
+    ) {
+      res.status(400).json({ error: "delay1, delay2, and delay3 must be numbers" });
+      return;
+    }
+
+    if (!Number.isInteger(delay1) || !Number.isInteger(delay2) || !Number.isInteger(delay3)) {
+      res.status(400).json({ error: "delay1, delay2, and delay3 must be integers" });
+      return;
+    }
+
+    if (delay1 < 0 || delay2 < 0 || delay3 < 0) {
+      res.status(400).json({ error: "delay values must be non-negative" });
+      return;
+    }
+
+    if (delay1 > delay2) {
+      res.status(400).json({ error: "delay1 must be less than or equal to delay2 (non-decreasing backoff order)" });
+      return;
+    }
+
+    if (delay2 > delay3) {
+      res.status(400).json({ error: "delay2 must be less than or equal to delay3 (non-decreasing backoff order)" });
+      return;
+    }
+
+    const entries = [
+      { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1, value: String(delay1), updatedByEmail: user.email },
+      { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2, value: String(delay2), updatedByEmail: user.email },
+      { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3, value: String(delay3), updatedByEmail: user.email },
+    ];
+
+    for (const entry of entries) {
+      await db
+        .insert(systemConfigTable)
+        .values(entry)
+        .onConflictDoUpdate({
+          target: systemConfigTable.key,
+          set: { value: entry.value, updatedByEmail: entry.updatedByEmail, updatedAt: sql`now()` },
+        });
+    }
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id,
+      adminEmail: user.email,
+      action: "system_config_updated",
+      targetType: "system_config",
+      targetId: null,
+      details: JSON.stringify({ section: "webhook_retries", delay1, delay2, delay3 }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ delay1, delay2, delay3 }, "Webhook retry delays config updated");
+
+    res.json({ delay1, delay2, delay3 });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

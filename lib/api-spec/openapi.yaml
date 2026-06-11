@@ -4219,17 +4219,39 @@ paths:
 
   /system-config/webhook-retries:
     get:
-      operationId: getWebhookRetryPolicy
+      operationId: getWebhookRetriesConfig
       tags: [system-config]
-      summary: Get the active webhook retry policy (admin only)
-      description: Returns the maximum number of delivery attempts and the per-attempt delay schedule used by the callback retry engine.
+      summary: Get webhook retry delay configuration (admin only)
       responses:
         "200":
-          description: Current webhook retry policy
+          description: Current webhook retry delays
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/WebhookRetryPolicy"
+                $ref: "#/components/schemas/WebhookRetriesConfig"
+    put:
+      operationId: updateWebhookRetriesConfig
+      tags: [system-config]
+      summary: Update webhook retry delay configuration (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookRetriesConfig"
+      responses:
+        "200":
+          description: Updated webhook retry delays
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookRetriesConfig"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /notifications/{id}/read:
     post:
@@ -7331,6 +7353,23 @@ components:
         occurredAt:
           type: string
           description: ISO timestamp of when the event occurred
+
+    WebhookRetriesConfig:
+      type: object
+      required: [delay1, delay2, delay3]
+      properties:
+        delay1:
+          type: integer
+          minimum: 0
+          description: Delay in seconds before the first retry (after the 1st failure).
+        delay2:
+          type: integer
+          minimum: 0
+          description: Delay in seconds before the second retry (after the 2nd failure).
+        delay3:
+          type: integer
+          minimum: 0
+          description: Delay in seconds before the third retry (after the 3rd failure).
 
     UploadUrlRequest:
       type: object

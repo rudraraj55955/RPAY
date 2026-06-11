@@ -1192,7 +1192,14 @@ function ScheduleRow({
 
 function ScheduledReportsPanel() {
   const queryClient = useQueryClient();
-  const { data: schedulesData, isLoading } = useListAuditReportSchedules();
+  const { data: schedulesData, isLoading } = useListAuditReportSchedules({
+    query: {
+      refetchInterval: (query) => {
+        const rows = (query.state.data as { data?: { retryInProgress?: boolean }[] } | undefined)?.data ?? [];
+        return rows.some((s) => s.retryInProgress) ? 30_000 : false;
+      },
+    },
+  });
   const createSchedule = useCreateAuditReportSchedule();
   const updateSchedule = useUpdateAuditReportSchedule();
   const deleteSchedule = useDeleteAuditReportSchedule();

@@ -71,7 +71,8 @@ async function main() {
   initPlanRenewalScheduler();
   initNonceCleanupScheduler();
   // Startup sweep: prune any expired nonces that accumulated while the server
-  // was down, before the first scheduled run (every 6 hours) fires.
+  // was down, before the first scheduled run fires (interval controlled by
+  // NONCE_CLEANUP_INTERVAL_HOURS, default 6 — see nonceCleanupScheduler.ts).
   pruneExpiredNonces().catch((err) => {
     logger.warn({ err }, "Startup nonce cleanup sweep failed");
   });

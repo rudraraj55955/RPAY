@@ -64,6 +64,7 @@ import type {
   CallbackStatsResponse,
   CallbackWindowInput,
   ChartDataPoint,
+  ClearSignatureFailureAlertHistory200,
   CreateSavedFilterInput,
   CreateSettlementInput,
   CredentialEvent,
@@ -79,6 +80,7 @@ import type {
   GetLedgerBackfillLastRun200,
   GetQrCodeStatsParams,
   GetReconciliationRunEmailLogs200,
+  GetSignatureFailureAlertHistoryParams,
   GetVirtualAccountBalanceHistoryParams,
   GetWebhookLogAttempts200,
   GetWebhookLogsParams,
@@ -110,6 +112,8 @@ import type {
   ListReconciliationRunsParams,
   ListSavedFilters200,
   ListSettlementsParams,
+  ListStorageCleanupRuns200,
+  ListStorageCleanupRunsParams,
   ListTransactionsParams,
   ListUsersParams,
   ListVaBalanceAuditParams,
@@ -186,7 +190,9 @@ import type {
   SettlementListResponse,
   SettlementMarkPaidInput,
   SettlementStats,
+  SignatureFailureAlertHistoryResponse,
   SimulatePaymentInput,
+  StorageCleanupRunResult,
   ToggleProductInput,
   Transaction,
   TransactionListResponse,
@@ -211,7 +217,6 @@ import type {
   WebhookLogStatsResponse,
   WebhookRetriesConfig,
   WebhookRetryPolicy,
-  WebhookSecretCheckResult,
   WebhookTestRequest,
   WebhookTestResult,
   Withdrawal,
@@ -13967,6 +13972,391 @@ export const useUpdateWebhookRetriesConfig = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getUpdateWebhookRetriesConfigMutationOptions(options));
+    }
+
+export const getGetWebhookRetryPolicyUrl = () => {
+
+
+
+
+  return `/api/system-config/webhook-retry-policy`
+}
+
+/**
+ * @summary Get computed webhook retry policy (admin only)
+ */
+export const getWebhookRetryPolicy = async ( options?: RequestInit): Promise<WebhookRetryPolicy> => {
+
+  return customFetch<WebhookRetryPolicy>(getGetWebhookRetryPolicyUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWebhookRetryPolicyQueryKey = () => {
+    return [
+    `/api/system-config/webhook-retry-policy`
+    ] as const;
+    }
+
+
+export const getGetWebhookRetryPolicyQueryOptions = <TData = Awaited<ReturnType<typeof getWebhookRetryPolicy>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWebhookRetryPolicy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWebhookRetryPolicyQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWebhookRetryPolicy>>> = ({ signal }) => getWebhookRetryPolicy({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWebhookRetryPolicy>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWebhookRetryPolicyQueryResult = NonNullable<Awaited<ReturnType<typeof getWebhookRetryPolicy>>>
+export type GetWebhookRetryPolicyQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get computed webhook retry policy (admin only)
+ */
+
+export function useGetWebhookRetryPolicy<TData = Awaited<ReturnType<typeof getWebhookRetryPolicy>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWebhookRetryPolicy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWebhookRetryPolicyQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListStorageCleanupRunsUrl = (params?: ListStorageCleanupRunsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/system-config/storage-cleanup/runs?${stringifiedParams}` : `/api/system-config/storage-cleanup/runs`
+}
+
+/**
+ * @summary List past storage cleanup run history (admin only)
+ */
+export const listStorageCleanupRuns = async (params?: ListStorageCleanupRunsParams, options?: RequestInit): Promise<ListStorageCleanupRuns200> => {
+
+  return customFetch<ListStorageCleanupRuns200>(getListStorageCleanupRunsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListStorageCleanupRunsQueryKey = (params?: ListStorageCleanupRunsParams,) => {
+    return [
+    `/api/system-config/storage-cleanup/runs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListStorageCleanupRunsQueryOptions = <TData = Awaited<ReturnType<typeof listStorageCleanupRuns>>, TError = ErrorType<unknown>>(params?: ListStorageCleanupRunsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listStorageCleanupRuns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListStorageCleanupRunsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listStorageCleanupRuns>>> = ({ signal }) => listStorageCleanupRuns(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listStorageCleanupRuns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListStorageCleanupRunsQueryResult = NonNullable<Awaited<ReturnType<typeof listStorageCleanupRuns>>>
+export type ListStorageCleanupRunsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List past storage cleanup run history (admin only)
+ */
+
+export function useListStorageCleanupRuns<TData = Awaited<ReturnType<typeof listStorageCleanupRuns>>, TError = ErrorType<unknown>>(
+ params?: ListStorageCleanupRunsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listStorageCleanupRuns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListStorageCleanupRunsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getRunStorageCleanupUrl = () => {
+
+
+
+
+  return `/api/system-config/storage-cleanup/run`
+}
+
+/**
+ * @summary Trigger an immediate storage cleanup run (admin only)
+ */
+export const runStorageCleanup = async ( options?: RequestInit): Promise<StorageCleanupRunResult> => {
+
+  return customFetch<StorageCleanupRunResult>(getRunStorageCleanupUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRunStorageCleanupMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runStorageCleanup>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runStorageCleanup>>, TError,void, TContext> => {
+
+const mutationKey = ['runStorageCleanup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runStorageCleanup>>, void> = () => {
+
+
+          return  runStorageCleanup(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunStorageCleanupMutationResult = NonNullable<Awaited<ReturnType<typeof runStorageCleanup>>>
+
+    export type RunStorageCleanupMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Trigger an immediate storage cleanup run (admin only)
+ */
+export const useRunStorageCleanup = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runStorageCleanup>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runStorageCleanup>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRunStorageCleanupMutationOptions(options));
+    }
+
+export const getGetSignatureFailureAlertHistoryUrl = (params?: GetSignatureFailureAlertHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/system-config/signature-failure-alert-history?${stringifiedParams}` : `/api/system-config/signature-failure-alert-history`
+}
+
+/**
+ * @summary Get signature failure alert send history (admin only)
+ */
+export const getSignatureFailureAlertHistory = async (params?: GetSignatureFailureAlertHistoryParams, options?: RequestInit): Promise<SignatureFailureAlertHistoryResponse> => {
+
+  return customFetch<SignatureFailureAlertHistoryResponse>(getGetSignatureFailureAlertHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSignatureFailureAlertHistoryQueryKey = (params?: GetSignatureFailureAlertHistoryParams,) => {
+    return [
+    `/api/system-config/signature-failure-alert-history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSignatureFailureAlertHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getSignatureFailureAlertHistory>>, TError = ErrorType<unknown>>(params?: GetSignatureFailureAlertHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSignatureFailureAlertHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSignatureFailureAlertHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSignatureFailureAlertHistory>>> = ({ signal }) => getSignatureFailureAlertHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSignatureFailureAlertHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSignatureFailureAlertHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getSignatureFailureAlertHistory>>>
+export type GetSignatureFailureAlertHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get signature failure alert send history (admin only)
+ */
+
+export function useGetSignatureFailureAlertHistory<TData = Awaited<ReturnType<typeof getSignatureFailureAlertHistory>>, TError = ErrorType<unknown>>(
+ params?: GetSignatureFailureAlertHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSignatureFailureAlertHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSignatureFailureAlertHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getClearSignatureFailureAlertHistoryUrl = () => {
+
+
+
+
+  return `/api/system-config/signature-failure-alert-history`
+}
+
+/**
+ * @summary Clear all signature failure alert history entries (admin only)
+ */
+export const clearSignatureFailureAlertHistory = async ( options?: RequestInit): Promise<ClearSignatureFailureAlertHistory200> => {
+
+  return customFetch<ClearSignatureFailureAlertHistory200>(getClearSignatureFailureAlertHistoryUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getClearSignatureFailureAlertHistoryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearSignatureFailureAlertHistory>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearSignatureFailureAlertHistory>>, TError,void, TContext> => {
+
+const mutationKey = ['clearSignatureFailureAlertHistory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearSignatureFailureAlertHistory>>, void> = () => {
+
+
+          return  clearSignatureFailureAlertHistory(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClearSignatureFailureAlertHistoryMutationResult = NonNullable<Awaited<ReturnType<typeof clearSignatureFailureAlertHistory>>>
+
+    export type ClearSignatureFailureAlertHistoryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Clear all signature failure alert history entries (admin only)
+ */
+export const useClearSignatureFailureAlertHistory = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearSignatureFailureAlertHistory>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof clearSignatureFailureAlertHistory>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getClearSignatureFailureAlertHistoryMutationOptions(options));
     }
 
 export const getMarkNotificationReadUrl = (id: number,) => {

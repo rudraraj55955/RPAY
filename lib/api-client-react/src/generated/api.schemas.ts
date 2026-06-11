@@ -84,6 +84,7 @@ export interface User {
   reconciliationAlertEmails?: boolean;
   planExpiryAlertEmails?: boolean;
   settlementStateEmails?: boolean;
+  signatureFailureAlertEmails?: boolean;
   createdAt: string;
 }
 
@@ -522,22 +523,25 @@ export interface CallbackSecretStatus {
   lastRotatedAt?: string | null;
 }
 
-export type CredentialEventType = typeof CredentialEventType[keyof typeof CredentialEventType];
+export type CredentialEventEventType = typeof CredentialEventEventType[keyof typeof CredentialEventEventType];
 
 
-export const CredentialEventType = {
+export const CredentialEventEventType = {
+  key_generated: 'key_generated',
+  key_revoked: 'key_revoked',
   secret_rotated: 'secret_rotated',
   api_key_created: 'api_key_created',
   api_key_revoked: 'api_key_revoked',
 } as const;
 
 export interface CredentialEvent {
-  type: CredentialEventType;
+  eventType: CredentialEventEventType;
   occurredAt: string;
   /** @nullable */
   keyPrefix?: string | null;
-  description: string;
-  isRevoked: boolean;
+  /** @nullable */
+  description?: string | null;
+  isRevoked?: boolean;
 }
 
 export interface CredentialEventList {
@@ -1765,7 +1769,7 @@ export interface AdminAuditLogListResponse {
   limit: number;
 }
 
-export interface CredentialEvent {
+export interface AdminCredentialEvent {
   id: number;
   merchantId: number;
   /** api_key_generated | api_key_revoked | callback_secret_rotated */
@@ -1787,7 +1791,7 @@ export interface CredentialEvent {
 }
 
 export interface CredentialEventListResponse {
-  data: CredentialEvent[];
+  data: AdminCredentialEvent[];
   total: number;
   page: number;
   limit: number;
@@ -2313,24 +2317,55 @@ export interface QrCleanupConfig {
   retentionDays: number;
 }
 
-export type CredentialEventEventType = typeof CredentialEventEventType[keyof typeof CredentialEventEventType];
-
-
-export const CredentialEventEventType = {
-  key_generated: 'key_generated',
-  key_revoked: 'key_revoked',
-  secret_rotated: 'secret_rotated',
-} as const;
-
-export interface CredentialEvent {
-  eventType: CredentialEventEventType;
+export interface StorageCleanupRun {
+  id: number;
+  createdAt: string;
+  /** Total number of files scanned during the run */
+  totalScanned: number;
+  /** Number of orphaned files deleted */
+  deleted: number;
+  /** Number of deletion errors encountered */
+  errors: number;
   /**
-     * Key prefix for key_generated/key_revoked events; null for secret_rotated
+     * scheduled | manual
      * @nullable
      */
-  keyPrefix: string | null;
-  /** ISO timestamp of when the event occurred */
-  occurredAt: string;
+  triggeredBy?: string | null;
+}
+
+export interface StorageCleanupRunResult {
+  totalScanned: number;
+  deleted: number;
+  errors: number;
+}
+
+export interface SignatureFailureAlertLogEntryAffectedMerchantsItem {
+  name: string;
+  count: number;
+}
+
+export interface SignatureFailureAlertLogEntry {
+  id: number;
+  sentAt: string;
+  /** Total signature failures in the rolling window at the time the alert was sent */
+  failureCount: number;
+  /** Number of distinct merchants affected at the time the alert was sent */
+  affectedMerchantCount: number;
+  /** Number of admin emails the alert was successfully delivered to */
+  recipientCount: number;
+  /** List of admin email addresses the alert was sent to */
+  recipientEmails: string[];
+  /** Per-merchant breakdown captured at alert dispatch time */
+  affectedMerchants: SignatureFailureAlertLogEntryAffectedMerchantsItem[];
+  /** Rolling window (hours) used to count failures */
+  windowHours: number;
+  /** Failure threshold that triggered this alert */
+  threshold: number;
+}
+
+export interface SignatureFailureAlertHistoryResponse {
+  data: SignatureFailureAlertLogEntry[];
+  total: number;
 }
 
 export interface WebhookRetriesConfig {
@@ -2390,6 +2425,7 @@ export type UpdateMyPreferencesBody = {
   reconciliationAlertEmails?: boolean;
   planExpiryAlertEmails?: boolean;
   settlementStateEmails?: boolean;
+  signatureFailureAlertEmails?: boolean;
 };
 
 export type ListMerchantsParams = {
@@ -2959,6 +2995,31 @@ export type GetReconciliationRunEmailLogs200 = {
 
 export type ResendReconciliationReportEmail200 = {
   ok?: boolean;
+};
+
+export type ListStorageCleanupRunsParams = {
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListStorageCleanupRuns200 = {
+  data: StorageCleanupRun[];
+  total: number;
+};
+
+export type GetSignatureFailureAlertHistoryParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+};
+
+export type ClearSignatureFailureAlertHistory200 = {
+  cleared: boolean;
 };
 
 export type ListSavedFilters200 = {

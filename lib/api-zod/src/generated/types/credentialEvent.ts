@@ -5,24 +5,14 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { CredentialEventEventType } from './credentialEventEventType';
 
 export interface CredentialEvent {
-  id: number;
-  merchantId: number;
-  /** api_key_generated | api_key_revoked | callback_secret_rotated */
-  eventType: string;
-  actorId: number;
-  actorEmail: string;
-  /**
-     * First characters of the API key (populated for api_key_* events)
-     * @nullable
-     */
+  eventType: CredentialEventEventType;
+  occurredAt: Date;
+  /** @nullable */
   keyPrefix?: string | null;
   /** @nullable */
-  ipAddress?: string | null;
-  /** @nullable */
-  merchantBusinessName?: string | null;
-  /** @nullable */
-  merchantEmail?: string | null;
-  createdAt: string;
+  description?: string | null;
+  isRevoked?: boolean;
 }

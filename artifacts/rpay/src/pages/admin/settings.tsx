@@ -9,7 +9,7 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, type AdminAuditLog } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry } from "@workspace/api-client-react";
 
 async function apiGet(path: string) {
   const res = await fetch(`/api${path}`, {
@@ -197,8 +197,6 @@ export default function AdminSettings() {
   const [retryDelay3, setRetryDelay3] = useState<number>(3600);
   const [retryInitialized, setRetryInitialized] = useState(false);
 
-  const [storageScheduleEnabled, setStorageScheduleEnabled] = useState(true);
-  const [storageScheduleHour, setStorageScheduleHour] = useState(3);
   const [storageScheduleInitialized, setStorageScheduleInitialized] = useState(false);
 
   // SMTP config form state
@@ -217,7 +215,7 @@ export default function AdminSettings() {
   const alertEnabled = me?.reconciliationAlertEmails ?? true;
   const planExpiryEnabled = me?.planExpiryAlertEmails ?? true;
   const settlementStateEnabled = me?.settlementStateEmails ?? true;
-  const signatureFailureEnabled = (me as any)?.signatureFailureAlertEmails ?? true;
+  const signatureFailureEnabled = me?.signatureFailureAlertEmails ?? true;
 
   const { mutate: updatePrefs, isPending: savingPrefs } = useUpdateMyPreferences({
     mutation: {
@@ -522,28 +520,42 @@ export default function AdminSettings() {
   });
 
   const [cleanupResult, setCleanupResult] = useState<{ totalScanned: number; deleted: number; errors: number } | null>(null);
-  const CLEANUP_RUNS_QUERY_KEY = ["/api/system-config/storage-cleanup/runs"] as const;
-  const { data: cleanupRunsData, refetch: refetchCleanupRuns } = useQuery<{ data: any[] }>({
-    queryKey: CLEANUP_RUNS_QUERY_KEY,
-    queryFn: () => apiGet("/system-config/storage-cleanup/runs?limit=20"),
-  });
-  const cleanupRuns: any[] = cleanupRunsData?.data ?? [];
 
-  const { mutate: runCleanup, isPending: runningCleanup } = useMutation({
-    mutationFn: () => apiPost("/system-config/storage-cleanup/run", {}),
-    onSuccess: (result: any) => {
-      setCleanupResult(result);
-      void refetchCleanupRuns();
-      qc.invalidateQueries({ queryKey: CLEANUP_RUNS_QUERY_KEY });
-      if (result.deleted === 0) {
-        toast.success("No orphaned files found — storage is already clean");
-      } else {
-        toast.success(`Deleted ${result.deleted} orphaned file${result.deleted !== 1 ? "s" : ""}`);
-      }
+  const CLEANUP_RUNS_PARAMS = { limit: 20 } as const;
+  const { data: cleanupRunsData, refetch: refetchCleanupRuns } = useListStorageCleanupRuns(CLEANUP_RUNS_PARAMS);
+  const cleanupRuns: StorageCleanupRun[] = cleanupRunsData?.data ?? [];
+
+  const { mutate: runCleanup, isPending: runningCleanup } = useRunStorageCleanup({
+    mutation: {
+      onSuccess: (result: { totalScanned: number; deleted: number; errors: number }) => {
+        setCleanupResult(result);
+        void refetchCleanupRuns();
+        qc.invalidateQueries({ queryKey: getListStorageCleanupRunsQueryKey(CLEANUP_RUNS_PARAMS) });
+        if (result.deleted === 0) {
+          toast.success("No orphaned files found — storage is already clean");
+        } else {
+          toast.success(`Deleted ${result.deleted} orphaned file${result.deleted !== 1 ? "s" : ""}`);
+        }
+      },
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Cleanup failed")),
     },
-    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Cleanup failed")),
   });
 
+
+  const { data: sigFailureHistoryData, refetch: refetchSigFailureHistory } = useGetSignatureFailureAlertHistory();
+  const sigFailureHistory: SignatureFailureAlertLogEntry[] = sigFailureHistoryData?.data ?? [];
+  const sigFailureHistoryCount = sigFailureHistoryData?.total ?? 0;
+
+  const { mutate: clearSigFailureHistory, isPending: clearingSigFailureHistory } = useClearSignatureFailureAlertHistory({
+    mutation: {
+      onSuccess: () => {
+        toast.success("Signature failure alert history cleared");
+        qc.invalidateQueries({ queryKey: getGetSignatureFailureAlertHistoryQueryKey() });
+        void refetchSigFailureHistory();
+      },
+      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to clear history")),
+    },
+  });
 
   const testEmailTrimmed = testEmailTo.trim();
   const testEmailInvalid = testEmailTrimmed.length > 0 && !EMAIL_REGEX.test(testEmailTrimmed);
@@ -1453,6 +1465,63 @@ export default function AdminSettings() {
 
       {/* Maintenance */}
       <MaintenanceCard />
+
+      {/* Signature Failure Alert History */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-muted-foreground" />
+              <CardTitle className="text-base">Signature Failure Alert History</CardTitle>
+            </div>
+            {sigFailureHistoryCount > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
+                onClick={() => clearSigFailureHistory()}
+                disabled={clearingSigFailureHistory}
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                {clearingSigFailureHistory ? "Clearing…" : `Clear (${sigFailureHistoryCount})`}
+              </Button>
+            )}
+          </div>
+          <CardDescription className="text-sm">
+            A record of every signature failure alert email dispatched by the platform. Useful for auditing alert frequency and reviewing which merchants were affected.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sigFailureHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">No alerts have been sent yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {sigFailureHistory.map((entry) => (
+                <div key={entry.id} className="rounded-lg border border-border/50 bg-muted/5 px-4 py-3 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">
+                      {new Date(entry.sentAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                    </span>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>{entry.failureCount} failure{entry.failureCount !== 1 ? "s" : ""}</span>
+                      <span>{entry.affectedMerchantCount} merchant{entry.affectedMerchantCount !== 1 ? "s" : ""}</span>
+                      <span>{entry.recipientCount} recipient{entry.recipientCount !== 1 ? "s" : ""}</span>
+                    </div>
+                  </div>
+                  {entry.affectedMerchants.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Merchants: {entry.affectedMerchants.map(m => `${m.name} (${m.count})`).join(", ")}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Window: {entry.windowHours}h · Threshold: {entry.threshold} · Sent to: {entry.recipientEmails.join(", ")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* My Notification Preferences */}
       <Card className="border-border/50" id="signature-failure-alert">

@@ -37,6 +37,7 @@ export const LoginResponse = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
+  "signatureFailureAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 })
@@ -69,6 +70,7 @@ export const GetMeResponse = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
+  "signatureFailureAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -79,7 +81,8 @@ export const GetMeResponse = zod.object({
 export const UpdateMyPreferencesBody = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
-  "settlementStateEmails": zod.boolean().optional()
+  "settlementStateEmails": zod.boolean().optional(),
+  "signatureFailureAlertEmails": zod.boolean().optional()
 })
 
 export const UpdateMyPreferencesResponse = zod.object({
@@ -93,6 +96,7 @@ export const UpdateMyPreferencesResponse = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
+  "signatureFailureAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -847,9 +851,11 @@ export const ListMerchantCredentialEventsQueryParams = zod.object({
 })
 
 export const ListMerchantCredentialEventsResponseItem = zod.object({
-  "eventType": zod.enum(['key_generated', 'key_revoked', 'secret_rotated']),
-  "keyPrefix": zod.string().nullable().describe('Key prefix for key_generated\/key_revoked events; null for secret_rotated'),
-  "occurredAt": zod.string().describe('ISO timestamp of when the event occurred')
+  "eventType": zod.enum(['key_generated', 'key_revoked', 'secret_rotated', 'api_key_created', 'api_key_revoked']),
+  "occurredAt": zod.coerce.date(),
+  "keyPrefix": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "isRevoked": zod.boolean().optional()
 })
 export const ListMerchantCredentialEventsResponse = zod.array(ListMerchantCredentialEventsResponseItem)
 
@@ -1322,11 +1328,11 @@ export const ListApiKeysResponse = zod.array(ListApiKeysResponseItem)
  */
 export const ListApiKeyHistoryResponse = zod.object({
   "data": zod.array(zod.object({
-  "type": zod.enum(['secret_rotated', 'api_key_created', 'api_key_revoked']),
+  "eventType": zod.enum(['key_generated', 'key_revoked', 'secret_rotated', 'api_key_created', 'api_key_revoked']),
   "occurredAt": zod.coerce.date(),
   "keyPrefix": zod.string().nullish(),
-  "description": zod.string(),
-  "isRevoked": zod.boolean()
+  "description": zod.string().nullish(),
+  "isRevoked": zod.boolean().optional()
 }))
 })
 
@@ -1661,11 +1667,11 @@ export const GetCallbackSecretResponse = zod.object({
  */
 export const GetCallbackSecretHistoryResponse = zod.object({
   "data": zod.array(zod.object({
-  "type": zod.enum(['secret_rotated', 'api_key_created', 'api_key_revoked']),
+  "eventType": zod.enum(['key_generated', 'key_revoked', 'secret_rotated', 'api_key_created', 'api_key_revoked']),
   "occurredAt": zod.coerce.date(),
   "keyPrefix": zod.string().nullish(),
-  "description": zod.string(),
-  "isRevoked": zod.boolean()
+  "description": zod.string().nullish(),
+  "isRevoked": zod.boolean().optional()
 }))
 })
 
@@ -1926,6 +1932,7 @@ export const ListUsersResponse = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
+  "signatureFailureAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -1970,6 +1977,7 @@ export const UpdateUserResponse = zod.object({
   "reconciliationAlertEmails": zod.boolean().optional(),
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
+  "signatureFailureAlertEmails": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -4217,6 +4225,95 @@ export const UpdateWebhookRetriesConfigResponse = zod.object({
   "delay1": zod.number().min(updateWebhookRetriesConfigResponseDelay1Min).describe('Delay in seconds before the first retry (after the 1st failure).'),
   "delay2": zod.number().min(updateWebhookRetriesConfigResponseDelay2Min).describe('Delay in seconds before the second retry (after the 2nd failure).'),
   "delay3": zod.number().min(updateWebhookRetriesConfigResponseDelay3Min).describe('Delay in seconds before the third retry (after the 3rd failure).')
+})
+
+
+/**
+ * @summary Get computed webhook retry policy (admin only)
+ */
+export const GetWebhookRetryPolicyResponse = zod.object({
+  "maxAttempts": zod.number().describe('Total maximum delivery attempts (initial + retries).'),
+  "initialAttempt": zod.number().describe('Always 1 — represents the first delivery attempt.'),
+  "retries": zod.number().describe('Number of automatic retries after the initial attempt.'),
+  "delays": zod.array(zod.object({
+  "attempt": zod.number().describe('The attempt number after which this delay applies (1-indexed).'),
+  "delaySeconds": zod.number().describe('Delay in seconds before the next retry.'),
+  "label": zod.string().describe('Human-readable delay label, e.g. \"30s\", \"5m\", \"30m\".')
+})).describe('Per-attempt delay schedule. Entry N gives the wait before attempt N+1.')
+})
+
+
+/**
+ * @summary List past storage cleanup run history (admin only)
+ */
+export const listStorageCleanupRunsQueryLimitDefault = 20;
+export const listStorageCleanupRunsQueryLimitMax = 100;
+
+
+
+export const ListStorageCleanupRunsQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(listStorageCleanupRunsQueryLimitMax).default(listStorageCleanupRunsQueryLimitDefault)
+})
+
+export const ListStorageCleanupRunsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "createdAt": zod.coerce.date(),
+  "totalScanned": zod.number().describe('Total number of files scanned during the run'),
+  "deleted": zod.number().describe('Number of orphaned files deleted'),
+  "errors": zod.number().describe('Number of deletion errors encountered'),
+  "triggeredBy": zod.string().nullish().describe('scheduled | manual')
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Trigger an immediate storage cleanup run (admin only)
+ */
+export const RunStorageCleanupResponse = zod.object({
+  "totalScanned": zod.number(),
+  "deleted": zod.number(),
+  "errors": zod.number()
+})
+
+
+/**
+ * @summary Get signature failure alert send history (admin only)
+ */
+export const getSignatureFailureAlertHistoryQueryLimitDefault = 50;
+export const getSignatureFailureAlertHistoryQueryLimitMax = 200;
+
+
+
+export const GetSignatureFailureAlertHistoryQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getSignatureFailureAlertHistoryQueryLimitMax).default(getSignatureFailureAlertHistoryQueryLimitDefault)
+})
+
+export const GetSignatureFailureAlertHistoryResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "sentAt": zod.coerce.date(),
+  "failureCount": zod.number().describe('Total signature failures in the rolling window at the time the alert was sent'),
+  "affectedMerchantCount": zod.number().describe('Number of distinct merchants affected at the time the alert was sent'),
+  "recipientCount": zod.number().describe('Number of admin emails the alert was successfully delivered to'),
+  "recipientEmails": zod.array(zod.string()).describe('List of admin email addresses the alert was sent to'),
+  "affectedMerchants": zod.array(zod.object({
+  "name": zod.string(),
+  "count": zod.number()
+})).describe('Per-merchant breakdown captured at alert dispatch time'),
+  "windowHours": zod.number().describe('Rolling window (hours) used to count failures'),
+  "threshold": zod.number().describe('Failure threshold that triggered this alert')
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Clear all signature failure alert history entries (admin only)
+ */
+export const ClearSignatureFailureAlertHistoryResponse = zod.object({
+  "cleared": zod.boolean()
 })
 
 

@@ -36,3 +36,4 @@ export * from "./callbackLogAttempts";
 export * from "./savedFilters";
 export * from "./credentialEvents";
 export * from "./rateLimitHits";
+export * from "./signatureFailureAlertLogs";

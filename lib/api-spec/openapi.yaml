@@ -162,6 +162,8 @@ paths:
                   type: boolean
                 settlementStateEmails:
                   type: boolean
+                signatureFailureAlertEmails:
+                  type: boolean
       responses:
         "200":
           description: Updated preferences
@@ -4312,6 +4314,97 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /system-config/webhook-retry-policy:
+    get:
+      operationId: getWebhookRetryPolicy
+      tags: [system-config]
+      summary: Get computed webhook retry policy (admin only)
+      responses:
+        "200":
+          description: Current webhook retry policy derived from configured delays
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookRetryPolicy"
+
+  /system-config/storage-cleanup/runs:
+    get:
+      operationId: listStorageCleanupRuns
+      tags: [system-config]
+      summary: List past storage cleanup run history (admin only)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: List of past storage cleanup runs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/StorageCleanupRun"
+                  total:
+                    type: integer
+
+  /system-config/storage-cleanup/run:
+    post:
+      operationId: runStorageCleanup
+      tags: [system-config]
+      summary: Trigger an immediate storage cleanup run (admin only)
+      responses:
+        "200":
+          description: Cleanup run completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageCleanupRunResult"
+
+  /system-config/signature-failure-alert-history:
+    get:
+      operationId: getSignatureFailureAlertHistory
+      tags: [system-config]
+      summary: Get signature failure alert send history (admin only)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: List of signature failure alert log entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignatureFailureAlertHistoryResponse"
+    delete:
+      operationId: clearSignatureFailureAlertHistory
+      tags: [system-config]
+      summary: Clear all signature failure alert history entries (admin only)
+      responses:
+        "200":
+          description: History cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cleared]
+                properties:
+                  cleared:
+                    type: boolean
+
   /notifications/{id}/read:
     post:
       operationId: markNotificationRead
@@ -4609,6 +4702,8 @@ components:
         planExpiryAlertEmails:
           type: boolean
         settlementStateEmails:
+          type: boolean
+        signatureFailureAlertEmails:
           type: boolean
         createdAt:
           type: string
@@ -5127,18 +5222,18 @@ components:
 
     CredentialEvent:
       type: object
-      required: [type, occurredAt, description, isRevoked]
+      required: [eventType, occurredAt]
       properties:
-        type:
+        eventType:
           type: string
-          enum: [secret_rotated, api_key_created, api_key_revoked]
+          enum: [key_generated, key_revoked, secret_rotated, api_key_created, api_key_revoked]
         occurredAt:
           type: string
           format: date-time
         keyPrefix:
           type: ["string", "null"]
         description:
-          type: string
+          type: ["string", "null"]
         isRevoked:
           type: boolean
 
@@ -6692,7 +6787,7 @@ components:
         limit:
           type: integer
 
-    CredentialEvent:
+    AdminCredentialEvent:
       type: object
       required: [id, merchantId, eventType, actorId, actorEmail, createdAt]
       properties:
@@ -6726,7 +6821,7 @@ components:
         data:
           type: array
           items:
-            $ref: "#/components/schemas/CredentialEvent"
+            $ref: "#/components/schemas/AdminCredentialEvent"
         total:
           type: integer
         page:
@@ -7428,19 +7523,93 @@ components:
             Days to retain expired/used QR codes before auto-deleting them.
             Set to 0 to disable automatic cleanup.
 
-    CredentialEvent:
+    StorageCleanupRun:
       type: object
-      required: [eventType, keyPrefix, occurredAt]
+      required: [id, createdAt, totalScanned, deleted, errors]
       properties:
-        eventType:
+        id:
+          type: integer
+        createdAt:
           type: string
-          enum: [key_generated, key_revoked, secret_rotated]
-        keyPrefix:
+          format: date-time
+        totalScanned:
+          type: integer
+          description: Total number of files scanned during the run
+        deleted:
+          type: integer
+          description: Number of orphaned files deleted
+        errors:
+          type: integer
+          description: Number of deletion errors encountered
+        triggeredBy:
           type: ["string", "null"]
-          description: Key prefix for key_generated/key_revoked events; null for secret_rotated
-        occurredAt:
+          description: "scheduled | manual"
+
+    StorageCleanupRunResult:
+      type: object
+      required: [totalScanned, deleted, errors]
+      properties:
+        totalScanned:
+          type: integer
+        deleted:
+          type: integer
+        errors:
+          type: integer
+
+    SignatureFailureAlertLogEntryAffectedMerchantsItem:
+      type: object
+      required: [name, count]
+      properties:
+        name:
           type: string
-          description: ISO timestamp of when the event occurred
+        count:
+          type: integer
+
+    SignatureFailureAlertLogEntry:
+      type: object
+      required: [id, sentAt, failureCount, affectedMerchantCount, recipientCount, recipientEmails, affectedMerchants, windowHours, threshold]
+      properties:
+        id:
+          type: integer
+        sentAt:
+          type: string
+          format: date-time
+        failureCount:
+          type: integer
+          description: Total signature failures in the rolling window at the time the alert was sent
+        affectedMerchantCount:
+          type: integer
+          description: Number of distinct merchants affected at the time the alert was sent
+        recipientCount:
+          type: integer
+          description: Number of admin emails the alert was successfully delivered to
+        recipientEmails:
+          type: array
+          items:
+            type: string
+          description: List of admin email addresses the alert was sent to
+        affectedMerchants:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignatureFailureAlertLogEntryAffectedMerchantsItem"
+          description: Per-merchant breakdown captured at alert dispatch time
+        windowHours:
+          type: integer
+          description: Rolling window (hours) used to count failures
+        threshold:
+          type: integer
+          description: Failure threshold that triggered this alert
+
+    SignatureFailureAlertHistoryResponse:
+      type: object
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignatureFailureAlertLogEntry"
+        total:
+          type: integer
 
     WebhookRetriesConfig:
       type: object

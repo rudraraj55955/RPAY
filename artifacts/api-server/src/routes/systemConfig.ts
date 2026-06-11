@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable, signatureFailureAlertLogsTable } from "@workspace/db";
+import { inArray, desc, count } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { rescheduleFromDb, getNextRunTime } from "../helpers/reconScheduler";
 import { loadQrCleanupRetentionDays } from "../helpers/qrCleanupScheduler";
@@ -439,6 +439,51 @@ router.put("/webhook-retries", async (req, res, next) => {
     req.log.info({ delay1, delay2, delay3 }, "Webhook retry delays config updated");
 
     res.json({ delay1, delay2, delay3 });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/system-config/signature-failure-alert-history
+router.get("/signature-failure-alert-history", async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt((req.query['limit'] as string) || "50") || 50, 200);
+
+    const [rows, [{ total }]] = await Promise.all([
+      db
+        .select()
+        .from(signatureFailureAlertLogsTable)
+        .orderBy(desc(signatureFailureAlertLogsTable.sentAt))
+        .limit(limit),
+      db.select({ total: count() }).from(signatureFailureAlertLogsTable),
+    ]);
+
+    res.json({ data: rows, total });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/system-config/signature-failure-alert-history
+router.delete("/signature-failure-alert-history", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+
+    await db.delete(signatureFailureAlertLogsTable);
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id,
+      adminEmail: user.email,
+      action: "system_config_updated",
+      targetType: "system_config",
+      targetId: null,
+      details: JSON.stringify({ section: "signature_failure_alert_history", action: "cleared" }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info("Signature failure alert history cleared");
+
+    res.json({ cleared: true });
   } catch (err) {
     next(err);
   }

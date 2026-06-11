@@ -142,18 +142,18 @@ function buildCsvText(data: any[]): string {
 
 // ─── Credential event helpers ─────────────────────────────────────────────────
 
-type CredentialEventType = "secret_rotated" | "api_key_created" | "api_key_revoked";
+type CredentialEventType = "secret_rotated" | "api_key_created" | "api_key_revoked" | "key_generated" | "key_revoked";
 
-interface CredentialEvent {
-  type: CredentialEventType;
+interface LocalCredEvent {
+  eventType: CredentialEventType;
   occurredAt: string;
   keyPrefix?: string | null;
-  description: string;
-  isRevoked: boolean;
+  description?: string | null;
+  isRevoked?: boolean;
 }
 
-function credentialEventMeta(type: CredentialEventType) {
-  switch (type) {
+function credentialEventMeta(eventType: CredentialEventType) {
+  switch (eventType) {
     case "secret_rotated":
       return {
         icon: <RotateCcw className="w-4 h-4" />,
@@ -161,22 +161,30 @@ function credentialEventMeta(type: CredentialEventType) {
         badgeClass: "bg-amber-500/10 text-amber-400 border-amber-500/20",
       };
     case "api_key_created":
+    case "key_generated":
       return {
         icon: <KeyRound className="w-4 h-4" />,
         label: "Key Generated",
         badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
       };
     case "api_key_revoked":
+    case "key_revoked":
       return {
         icon: <KeyRound className="w-4 h-4" />,
         label: "Key Revoked",
         badgeClass: "bg-rose-500/10 text-rose-400 border-rose-500/20",
       };
+    default:
+      return {
+        icon: null,
+        label: eventType,
+        badgeClass: "bg-muted/10 text-muted-foreground border-border/50",
+      };
   }
 }
 
-function CredentialEventRow({ event }: { event: CredentialEvent }) {
-  const meta = credentialEventMeta(event.type);
+function CredentialEventRow({ event }: { event: LocalCredEvent }) {
+  const meta = credentialEventMeta(event.eventType as CredentialEventType);
   return (
     <div className="flex items-start gap-4 py-4">
       <div className="flex flex-col items-center gap-1 shrink-0">
@@ -404,8 +412,8 @@ export default function MerchantSecurity() {
   const { data: apiKeyHistory, isLoading: loadingApiKeys } = useListApiKeyHistory();
   const credEventsLoading = loadingSecret || loadingApiKeys;
 
-  const credentialEvents = useMemo<CredentialEvent[]>(() => {
-    const all: CredentialEvent[] = [
+  const credentialEvents = useMemo<LocalCredEvent[]>(() => {
+    const all: LocalCredEvent[] = [
       ...(secretHistory?.data ?? []),
       ...(apiKeyHistory?.data ?? []),
     ];
@@ -744,7 +752,7 @@ export default function MerchantSecurity() {
           ) : (
             <div className="divide-y divide-border/40">
               {credentialEvents.map((event, idx) => (
-                <CredentialEventRow key={`${event.type}-${event.occurredAt}-${idx}`} event={event} />
+                <CredentialEventRow key={`${event.eventType}-${event.occurredAt}-${idx}`} event={event} />
               ))}
             </div>
           )}

@@ -1,5 +1,5 @@
-import { db, callbackLogsTable, usersTable, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
-import { eq, and, count, gte, inArray } from "drizzle-orm";
+import { db, callbackLogsTable, usersTable, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, merchantsTable, signatureFailureAlertLogsTable } from "@workspace/db";
+import { eq, and, count, gte, inArray, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendMail } from "./mailer";
 
@@ -119,7 +119,8 @@ export async function checkAndAlertSignatureFailures(): Promise<void> {
       }
     }
 
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const windowHours = 24;
+    const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
 
     const [{ total }] = await db
       .select({ total: count() })
@@ -138,6 +139,27 @@ export async function checkAndAlertSignatureFailures(): Promise<void> {
       );
       return;
     }
+
+    const affectedRows = await db
+      .select({
+        merchantId: callbackLogsTable.merchantId,
+        merchantName: merchantsTable.businessName,
+        failureCount: count(),
+      })
+      .from(callbackLogsTable)
+      .innerJoin(merchantsTable, eq(callbackLogsTable.merchantId, merchantsTable.id))
+      .where(
+        and(
+          eq(callbackLogsTable.signatureVerified, false),
+          gte(callbackLogsTable.createdAt, since),
+        )
+      )
+      .groupBy(callbackLogsTable.merchantId, merchantsTable.businessName);
+
+    const affectedMerchants = affectedRows.map((r) => ({
+      name: r.merchantName ?? `Merchant #${r.merchantId}`,
+      count: r.failureCount,
+    }));
 
     const recipients = await getAdminEmails();
 
@@ -160,6 +182,16 @@ export async function checkAndAlertSignatureFailures(): Promise<void> {
     const failed = results.length - sent;
 
     lastAlertSentAt = new Date();
+
+    await db.insert(signatureFailureAlertLogsTable).values({
+      failureCount: total,
+      affectedMerchantCount: affectedMerchants.length,
+      recipientCount: sent,
+      recipientEmails: recipients,
+      affectedMerchants,
+      windowHours,
+      threshold,
+    });
 
     logger.info(
       { total, threshold, totalAdmins: recipients.length, sent, failed },

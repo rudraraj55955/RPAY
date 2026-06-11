@@ -5,10 +5,10 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
-import type { CredentialEvent } from './credentialEvent';
+import type { AdminCredentialEvent } from './adminCredentialEvent';
 
 export interface CredentialEventListResponse {
-  data: CredentialEvent[];
+  data: AdminCredentialEvent[];
   total: number;
   page: number;
   limit: number;

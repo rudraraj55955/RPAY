@@ -11,7 +11,7 @@ import { TestEmailHistoryPanel } from "@/components/test-email-history-panel";
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useClearTestEmailHistory, useBackfillWebhookEventTypes, type AdminAuditLog, type StorageCleanupRun } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useClearTestEmailHistory, useBackfillWebhookEventTypes, useGetSignatureFailureAlertHistory, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry } from "@workspace/api-client-react";
 
 async function apiGet(path: string) {
   const res = await fetch(`/api${path}`, {
@@ -506,6 +506,10 @@ export default function AdminSettings() {
     },
     onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save webhook retry settings")),
   });
+
+  const SIG_ALERT_HISTORY_PARAMS = { limit: 20 } as const;
+  const { data: sigAlertHistoryData, isLoading: sigAlertHistoryLoading } = useGetSignatureFailureAlertHistory(SIG_ALERT_HISTORY_PARAMS);
+  const sigAlertHistory: SignatureFailureAlertLogEntry[] = sigAlertHistoryData?.data ?? [];
 
   const currentSigAlertThreshold = sigAlertData?.threshold ?? 10;
   const currentSigAlertWindowHours = sigAlertData?.windowHours ?? 1;
@@ -1703,6 +1707,80 @@ export default function AdminSettings() {
               >
                 Cancel
               </Button>
+            )}
+          </div>
+
+          {/* Alert dispatch history */}
+          <div className="border-t border-border/50 pt-4 space-y-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <History className="w-3.5 h-3.5" />
+              <span className="font-medium text-foreground text-sm">Alert dispatch history</span>
+            </div>
+
+            {sigAlertHistoryLoading && (
+              <p className="text-xs text-muted-foreground py-2">Loading history…</p>
+            )}
+
+            {!sigAlertHistoryLoading && sigAlertHistory.length === 0 && (
+              <p className="text-xs text-muted-foreground py-2">
+                No alerts have been sent yet. Alerts appear here once the threshold is exceeded.
+              </p>
+            )}
+
+            {!sigAlertHistoryLoading && sigAlertHistory.length > 0 && (
+              <div className="rounded-md border border-border/50 overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-muted/20">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Sent at</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Failures</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Threshold</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Window</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Merchants</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Sent / Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sigAlertHistory.map((entry, idx) => (
+                      <tr
+                        key={entry.id}
+                        className={`border-b border-border/30 last:border-0 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
+                      >
+                        <td className="px-3 py-2 tabular-nums text-muted-foreground whitespace-nowrap">
+                          {new Date(entry.sentAt).toLocaleString(undefined, {
+                            month: "short", day: "numeric", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums font-medium text-red-400">
+                          {entry.failureCount}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                          {entry.threshold}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">
+                          {entry.windowHours === 1 ? "1 hr" : `${entry.windowHours} hrs`}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                          {entry.affectedMerchantCount}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          <span className={entry.recipientCount > 0 ? "text-emerald-400" : "text-amber-400"}>
+                            {entry.recipientCount}
+                          </span>
+                          <span className="text-muted-foreground"> / {entry.recipientEmails.length}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {!sigAlertHistoryLoading && sigAlertHistoryData != null && sigAlertHistoryData.total > sigAlertHistory.length && (
+              <p className="text-xs text-muted-foreground">
+                Showing {sigAlertHistory.length} of {sigAlertHistoryData.total} alerts.
+              </p>
             )}
           </div>
         </CardContent>

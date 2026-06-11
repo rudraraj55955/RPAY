@@ -919,19 +919,71 @@ export default function MerchantTransactions() {
               {savedFilters.map(saved => (
                 <span
                   key={saved.id}
-                  className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2.5 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
+                  className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
                 >
-                  <button
-                    onClick={() => applySavedFilter(saved)}
-                    className="flex items-center gap-1 hover:text-violet-100 transition-colors"
-                    title={`Apply: ${saved.rawInput}`}
-                  >
-                    <BookmarkCheck className="w-3 h-3 shrink-0" />
-                    {saved.name}
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => applySavedFilter(saved)}
+                        className="flex items-center gap-1 px-2.5 py-1 hover:text-violet-100 transition-colors"
+                      >
+                        <BookmarkCheck className="w-3 h-3 shrink-0" />
+                        {saved.name}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="bg-zinc-900 border-zinc-700 p-0 overflow-hidden">
+                      <div className="px-3 py-1.5 border-b border-zinc-700">
+                        <p className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Filter preview</p>
+                      </div>
+                      <div className="px-3 py-2 space-y-1">
+                        {saved.filter.txType && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-zinc-500 w-16 shrink-0">Type</span>
+                            <span className="text-zinc-200">{saved.filter.txType.charAt(0).toUpperCase() + saved.filter.txType.slice(1)}</span>
+                          </div>
+                        )}
+                        {saved.filter.txStatus && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-zinc-500 w-16 shrink-0">Status</span>
+                            <span className="text-zinc-200">{saved.filter.txStatus.charAt(0).toUpperCase() + saved.filter.txStatus.slice(1)}</span>
+                          </div>
+                        )}
+                        {saved.filter.txProvider && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-zinc-500 w-16 shrink-0">Provider</span>
+                            <span className="text-zinc-200">{formatProvider(saved.filter.txProvider)}</span>
+                          </div>
+                        )}
+                        {(saved.filter.dateFrom ?? saved.filter.dateTo) && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-zinc-500 w-16 shrink-0">Date</span>
+                            <span className="text-zinc-200">
+                              {saved.filter.dateFrom && saved.filter.dateTo
+                                ? `${saved.filter.dateFrom} – ${saved.filter.dateTo}`
+                                : saved.filter.dateFrom
+                                  ? `From ${saved.filter.dateFrom}`
+                                  : `Until ${saved.filter.dateTo}`}
+                            </span>
+                          </div>
+                        )}
+                        {(saved.filter.amountMin != null || saved.filter.amountMax != null) && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-zinc-500 w-16 shrink-0">Amount</span>
+                            <span className="text-zinc-200">
+                              {saved.filter.amountMin != null && saved.filter.amountMax != null
+                                ? `₹${saved.filter.amountMin} – ₹${saved.filter.amountMax}`
+                                : saved.filter.amountMin != null
+                                  ? `≥ ₹${saved.filter.amountMin}`
+                                  : `≤ ₹${saved.filter.amountMax}`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                   <button
                     onClick={() => deleteSavedFilter(saved.id)}
-                    className="ml-0.5 rounded-full p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                    className="mr-1 rounded-full p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
                     aria-label={`Delete saved filter "${saved.name}"`}
                     title="Delete this saved filter"
                   >

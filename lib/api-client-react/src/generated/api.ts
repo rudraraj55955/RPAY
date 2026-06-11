@@ -205,6 +205,8 @@ import type {
   WebhookConfig,
   WebhookConfigInput,
   WebhookLogStatsResponse,
+  WebhookRetryPolicy,
+  WebhookSecretCheckResult,
   WebhookTestRequest,
   WebhookTestResult,
   Withdrawal,
@@ -13497,6 +13499,84 @@ export const useUpdateQrCleanupConfig = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getUpdateQrCleanupConfigMutationOptions(options));
     }
+
+export const getGetWebhookRetryPolicyUrl = () => {
+
+
+
+
+  return `/api/system-config/webhook-retries`
+}
+
+/**
+ * Returns the maximum number of delivery attempts and the per-attempt delay schedule used by the callback retry engine.
+ * @summary Get the active webhook retry policy (admin only)
+ */
+export const getWebhookRetryPolicy = async ( options?: RequestInit): Promise<WebhookRetryPolicy> => {
+
+  return customFetch<WebhookRetryPolicy>(getGetWebhookRetryPolicyUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWebhookRetryPolicyQueryKey = () => {
+    return [
+    `/api/system-config/webhook-retries`
+    ] as const;
+    }
+
+
+export const getGetWebhookRetryPolicyQueryOptions = <TData = Awaited<ReturnType<typeof getWebhookRetryPolicy>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWebhookRetryPolicy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWebhookRetryPolicyQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWebhookRetryPolicy>>> = ({ signal }) => getWebhookRetryPolicy({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWebhookRetryPolicy>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWebhookRetryPolicyQueryResult = NonNullable<Awaited<ReturnType<typeof getWebhookRetryPolicy>>>
+export type GetWebhookRetryPolicyQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the active webhook retry policy (admin only)
+ */
+
+export function useGetWebhookRetryPolicy<TData = Awaited<ReturnType<typeof getWebhookRetryPolicy>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWebhookRetryPolicy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWebhookRetryPolicyQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getMarkNotificationReadUrl = (id: number,) => {
 

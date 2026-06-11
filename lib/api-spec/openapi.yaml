@@ -4181,6 +4181,20 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /system-config/webhook-retries:
+    get:
+      operationId: getWebhookRetryPolicy
+      tags: [system-config]
+      summary: Get the active webhook retry policy (admin only)
+      description: Returns the maximum number of delivery attempts and the per-attempt delay schedule used by the callback retry engine.
+      responses:
+        "200":
+          description: Current webhook retry policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookRetryPolicy"
+
   /notifications/{id}/read:
     post:
       operationId: markNotificationRead
@@ -7180,6 +7194,39 @@ components:
         enabled:
           type: boolean
           description: Whether the scheduled auto-reconciliation is enabled
+
+    WebhookRetryDelay:
+      type: object
+      required: [attempt, delaySeconds, label]
+      properties:
+        attempt:
+          type: integer
+          description: The attempt number after which this delay applies (1-indexed).
+        delaySeconds:
+          type: integer
+          description: Delay in seconds before the next retry.
+        label:
+          type: string
+          description: Human-readable delay label, e.g. "30s", "5m", "30m".
+
+    WebhookRetryPolicy:
+      type: object
+      required: [maxAttempts, initialAttempt, retries, delays]
+      properties:
+        maxAttempts:
+          type: integer
+          description: Total maximum delivery attempts (initial + retries).
+        initialAttempt:
+          type: integer
+          description: Always 1 — represents the first delivery attempt.
+        retries:
+          type: integer
+          description: Number of automatic retries after the initial attempt.
+        delays:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookRetryDelay"
+          description: Per-attempt delay schedule. Entry N gives the wait before attempt N+1.
 
     QrCleanupConfig:
       type: object

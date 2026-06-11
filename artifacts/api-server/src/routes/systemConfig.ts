@@ -288,4 +288,18 @@ router.put("/signature-failure-alert", async (req, res, next) => {
   }
 });
 
+// GET /api/system-config/webhook-retries
+router.get("/webhook-retries", (_req, res) => {
+  res.json({
+    maxAttempts: 4,
+    initialAttempt: 1,
+    retries: 3,
+    delays: [
+      { attempt: 1, delaySeconds: 30, label: "30s" },
+      { attempt: 2, delaySeconds: 300, label: "5m" },
+      { attempt: 3, delaySeconds: 1800, label: "30m" },
+    ],
+  });
+});
+
 export default router;

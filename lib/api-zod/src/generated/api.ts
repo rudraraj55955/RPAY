@@ -4110,6 +4110,22 @@ export const UpdateQrCleanupConfigResponse = zod.object({
 
 
 /**
+ * Returns the maximum number of delivery attempts and the per-attempt delay schedule used by the callback retry engine.
+ * @summary Get the active webhook retry policy (admin only)
+ */
+export const GetWebhookRetryPolicyResponse = zod.object({
+  "maxAttempts": zod.number().describe('Total maximum delivery attempts (initial + retries).'),
+  "initialAttempt": zod.number().describe('Always 1 — represents the first delivery attempt.'),
+  "retries": zod.number().describe('Number of automatic retries after the initial attempt.'),
+  "delays": zod.array(zod.object({
+  "attempt": zod.number().describe('The attempt number after which this delay applies (1-indexed).'),
+  "delaySeconds": zod.number().describe('Delay in seconds before the next retry.'),
+  "label": zod.string().describe('Human-readable delay label, e.g. \"30s\", \"5m\", \"30m\".')
+})).describe('Per-attempt delay schedule. Entry N gives the wait before attempt N+1.')
+})
+
+
+/**
  * @summary Mark a single notification as read
  */
 export const MarkNotificationReadParams = zod.object({

@@ -2233,6 +2233,26 @@ export interface ReconciliationScheduleConfig {
   enabled: boolean;
 }
 
+export interface WebhookRetryDelay {
+  /** The attempt number after which this delay applies (1-indexed). */
+  attempt: number;
+  /** Delay in seconds before the next retry. */
+  delaySeconds: number;
+  /** Human-readable delay label, e.g. "30s", "5m", "30m". */
+  label: string;
+}
+
+export interface WebhookRetryPolicy {
+  /** Total maximum delivery attempts (initial + retries). */
+  maxAttempts: number;
+  /** Always 1 — represents the first delivery attempt. */
+  initialAttempt: number;
+  /** Number of automatic retries after the initial attempt. */
+  retries: number;
+  /** Per-attempt delay schedule. Entry N gives the wait before attempt N+1. */
+  delays: WebhookRetryDelay[];
+}
+
 export interface QrCleanupConfig {
   /**
      * Days to retain expired/used QR codes before auto-deleting them. Set to 0 to disable automatic cleanup.

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListCallbackLogs, useRetryCallback, useGetAdminCallbackStats, ListCallbackLogsEventType } from "@workspace/api-client-react";
+import { useListCallbackLogs, useRetryCallback, useGetAdminCallbackStats, useGetWebhookRetryPolicy, ListCallbackLogsEventType } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EventTypeBadge, EVENT_TYPE_COLORS } from "@/components/ui/event-type-badge";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, RefreshCw, RotateCcw, ShieldAlert, Users } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ChevronDown, ChevronRight, RefreshCw, RotateCcw, ShieldAlert, Users, Info, ArrowRight } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -175,6 +176,53 @@ const EVENT_TYPE_OPTIONS: { value: ListCallbackLogsEventType; label: string }[] 
   { value: ListCallbackLogsEventType.paymentpending, label: "payment.pending" },
 ];
 
+function RetryScheduleBanner({ maxAttempts, delays }: { maxAttempts: number; delays: { attempt: number; delaySeconds: number; label: string }[] }) {
+  return (
+    <TooltipProvider>
+      <div className="flex items-center gap-3 rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-2.5">
+        <Info className="w-4 h-4 text-blue-400 shrink-0" />
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <span className="text-xs font-medium text-blue-300 shrink-0">Active retry policy:</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="px-2 py-0.5 rounded bg-blue-500/15 text-blue-300 text-xs font-mono font-semibold border border-blue-500/20 cursor-default">
+                  Attempt 1
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Initial delivery</TooltipContent>
+            </Tooltip>
+            {delays.map((d) => (
+              <div key={d.attempt} className="flex items-center gap-1.5">
+                <ArrowRight className="w-3 h-3 text-blue-400/50 shrink-0" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-300/80 text-xs font-mono border border-blue-500/15 cursor-default">
+                      +{d.label}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    Retry #{d.attempt} — waits {d.label} after previous failure
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="px-2 py-0.5 rounded bg-blue-500/15 text-blue-300 text-xs font-mono font-semibold border border-blue-500/20 cursor-default">
+                      Attempt {d.attempt + 1}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">Retry #{d.attempt} of {maxAttempts - 1}</TooltipContent>
+                </Tooltip>
+              </div>
+            ))}
+          </div>
+          <span className="text-xs text-blue-400/60 shrink-0">· max {maxAttempts} attempts total</span>
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+}
+
 export default function AdminCallbacks() {
   const [status, setStatus] = useState("all");
   const [sigVerified, setSigVerified] = useState("all");
@@ -196,6 +244,7 @@ export default function AdminCallbacks() {
   });
 
   const { data: adminStats } = useGetAdminCallbackStats();
+  const { data: retryPolicy } = useGetWebhookRetryPolicy();
 
   const hasFailures = (adminStats?.signatureFailures24h ?? 0) > 0;
 
@@ -208,6 +257,10 @@ export default function AdminCallbacks() {
   return (
     <div className="space-y-6">
       <div><h1 className="text-3xl font-bold tracking-tight">Callback Logs</h1><p className="text-muted-foreground mt-1">Webhook delivery history with automatic retry</p></div>
+
+      {retryPolicy && (
+        <RetryScheduleBanner maxAttempts={retryPolicy.maxAttempts} delays={retryPolicy.delays} />
+      )}
 
       {hasFailures && (
         <button

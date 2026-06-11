@@ -76,7 +76,9 @@ async function main() {
   pruneExpiredNonces().catch((err) => {
     logger.warn({ err }, "Startup nonce cleanup sweep failed");
   });
-  initWebhookSecretScheduler();
+  initWebhookSecretScheduler().catch((err) => {
+    logger.warn({ err }, "Webhook secret scheduler init failed");
+  });
   await initStorageCleanupSchedulerFromDb();
   scheduleCallbackRetryWorker();
 

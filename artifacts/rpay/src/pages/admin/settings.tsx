@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff, History, XCircle, HardDrive, RotateCcw, ShieldAlert } from "lucide-react";
+import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff, History, XCircle, HardDrive, RotateCcw, ShieldAlert, KeyRound } from "lucide-react";
 import { TestEmailHistoryPanel } from "@/components/test-email-history-panel";
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
@@ -426,6 +426,10 @@ export default function AdminSettings() {
   const [storageScheduleHour, setStorageScheduleHour] = useState<number>(3);
   const [storageScheduleInitialized, setStorageScheduleInitialized] = useState(false);
 
+  const [webhookSecretHour, setWebhookSecretHour] = useState<number>(9);
+  const [webhookSecretMinute, setWebhookSecretMinute] = useState<number>(0);
+  const [webhookSecretInitialized, setWebhookSecretInitialized] = useState(false);
+
   const { data: sigAlertData, isLoading: sigAlertLoading } = useQuery<{ threshold: number; windowHours: number; rateLimitHours: number }>({
     queryKey: ["/api/system-config/signature-failure-alert"],
     queryFn: () => apiGet("/system-config/signature-failure-alert"),
@@ -458,6 +462,32 @@ export default function AdminSettings() {
       qc.invalidateQueries({ queryKey: ["/api/system-config/signature-failure-alert"] });
     },
     onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to save signature failure alert settings")),
+  });
+
+  const { data: webhookSecretScheduleData, isLoading: webhookSecretScheduleLoading } = useQuery<{ hour: number; minute: number }>({
+    queryKey: ["/api/system-config/webhook-secret-schedule"],
+    queryFn: () => apiGet("/system-config/webhook-secret-schedule"),
+    onSuccess: (d: { hour: number; minute: number }) => {
+      if (!webhookSecretInitialized) {
+        setWebhookSecretHour(d.hour);
+        setWebhookSecretMinute(d.minute);
+        setWebhookSecretInitialized(true);
+      }
+    },
+  } as any);
+
+  const currentWebhookSecretHour = webhookSecretScheduleData?.hour ?? 9;
+  const currentWebhookSecretMinute = webhookSecretScheduleData?.minute ?? 0;
+  const webhookSecretScheduleUnchanged =
+    webhookSecretHour === currentWebhookSecretHour && webhookSecretMinute === currentWebhookSecretMinute;
+
+  const { mutate: saveWebhookSecretSchedule, isPending: savingWebhookSecretSchedule } = useMutation({
+    mutationFn: () => apiPut("/system-config/webhook-secret-schedule", { hour: webhookSecretHour, minute: webhookSecretMinute }),
+    onSuccess: () => {
+      toast.success("Webhook secret check schedule saved");
+      qc.invalidateQueries({ queryKey: ["/api/system-config/webhook-secret-schedule"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const { data: storageCleanupConfig, isLoading: storageConfigLoading } = useQuery<{ enabled: boolean; hour: number }>({
@@ -1593,6 +1623,104 @@ export default function AdminSettings() {
                   setSigAlertRateLimitHours(currentSigAlertRateLimitHours);
                 }}
                 disabled={savingSigAlert}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Webhook Secret Check Schedule */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-muted-foreground" />
+            <CardTitle className="text-base">Webhook Secret Check Schedule</CardTitle>
+          </div>
+          <CardDescription className="text-sm">
+            Configure the daily time at which the platform checks for overdue webhook secret rotations
+            and sends reminder notifications to merchants. Changes take effect immediately without a restart.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!webhookSecretScheduleLoading && (
+            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                Secret rotation check runs daily at{" "}
+                <strong>
+                  {String(currentWebhookSecretHour).padStart(2, "0")}:{String(currentWebhookSecretMinute).padStart(2, "0")}
+                </strong>{" "}
+                server time.
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="webhook-secret-hour" className="text-sm">Hour (0–23, server time)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="webhook-secret-hour"
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={webhookSecretHour}
+                  onChange={e => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v)) setWebhookSecretHour(Math.max(0, Math.min(23, v)));
+                  }}
+                  disabled={webhookSecretScheduleLoading}
+                  className="w-24"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="webhook-secret-minute" className="text-sm">Minute (0–59)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="webhook-secret-minute"
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={webhookSecretMinute}
+                  onChange={e => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v)) setWebhookSecretMinute(Math.max(0, Math.min(59, v)));
+                  }}
+                  disabled={webhookSecretScheduleLoading}
+                  className="w-24"
+                />
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Preview:{" "}
+            <strong className="text-foreground">
+              {String(webhookSecretHour).padStart(2, "0")}:{String(webhookSecretMinute).padStart(2, "0")}
+            </strong>{" "}
+            server time — the server runs a startup sweep on every boot regardless of this schedule.
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => saveWebhookSecretSchedule()}
+              disabled={savingWebhookSecretSchedule || webhookSecretScheduleLoading || webhookSecretScheduleUnchanged}
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              {savingWebhookSecretSchedule ? "Saving…" : "Save schedule"}
+            </Button>
+            {!webhookSecretScheduleUnchanged && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setWebhookSecretHour(currentWebhookSecretHour);
+                  setWebhookSecretMinute(currentWebhookSecretMinute);
+                }}
+                disabled={savingWebhookSecretSchedule}
               >
                 Cancel
               </Button>

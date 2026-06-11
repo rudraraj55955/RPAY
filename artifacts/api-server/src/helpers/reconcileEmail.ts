@@ -61,6 +61,25 @@ function formatAmount(val: string | number | null | undefined): string {
   return `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+export function buildSampleCsv(): string {
+  const headers = ["Item ID", "Merchant", "Status", "Amount", "Transaction UTR", "Settlement Ref", "Matched At"];
+  const now = new Date();
+  const fmt = (d: Date) => d.toISOString();
+  const rows = [
+    [1, "Acme Retail Pvt Ltd",    "matched",   "48500.00", "UTR2024061100001", "REF-20240611-001", fmt(new Date(now.getTime() - 3 * 86400_000))],
+    [2, "BlueStar Traders",       "matched",   "29750.00", "UTR2024061100002", "REF-20240611-002", fmt(new Date(now.getTime() - 2 * 86400_000))],
+    [3, "NovaPay Solutions",      "matched",   "91200.00", "UTR2024061100003", "REF-20240611-003", fmt(new Date(now.getTime() - 2 * 86400_000))],
+    [4, "Sunrise Merchants",      "matched",   "76370.00", "UTR2024061100004", "REF-20240611-004", fmt(new Date(now.getTime() - 1 * 86400_000))],
+    [5, "GreenPath Commerce",     "matched",   "12500.00", "UTR2024061100005", "REF-20240611-005", fmt(new Date(now.getTime() - 1 * 86400_000))],
+    [6, "Kartik Enterprises",     "unmatched", "18500.00", "",                 "",                 ""],
+    [7, "Delta Pay Hub",          "unmatched", "5250.00",  "UTR2024061100007", "",                 ""],
+  ];
+  const escaped = rows.map(row =>
+    row.map(v => escapeCsv(v as string | number)).join(",")
+  );
+  return [headers.join(","), ...escaped].join("\n");
+}
+
 export function buildEmailHtml(run: typeof reconciliationRunsTable.$inferSelect): string {
   const dateRange = `${run.dateFrom} to ${run.dateTo}`;
   const triggeredBy = run.triggeredBy === "auto" ? "Automatic (scheduled)" : "Manual";

@@ -3,7 +3,7 @@ import { db, systemSettingsTable, auditLogsTable, reconciliationRunsTable } from
 import { eq, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { sendMail, getSmtpConfig } from "../helpers/mailer";
-import { buildEmailHtml, buildUnmatchedAlertHtml } from "../helpers/reconcileEmail";
+import { buildEmailHtml, buildUnmatchedAlertHtml, buildSampleCsv } from "../helpers/reconcileEmail";
 
 const router = Router();
 router.use(requireAuth);
@@ -184,6 +184,7 @@ router.get("/reconciliation_alert_email/preview", (_req, res) => {
     matchedAmount: "312400.00",
     unmatchedAmount: "47250.00",
     status: "completed",
+    completedAt: today,
     createdBy: null,
     triggeredBy: "auto",
     notes: null,
@@ -193,6 +194,105 @@ router.get("/reconciliation_alert_email/preview", (_req, res) => {
   const html = buildUnmatchedAlertHtml(sampleRun);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(html);
+});
+
+// POST /api/settings/finance_report_email/send-sample
+router.post("/finance_report_email/send-sample", async (req, res, next) => {
+  const user = (req as any).user;
+  try {
+    const overrideTo: string | undefined =
+      typeof req.body?.to === "string" && req.body.to.trim() ? req.body.to.trim() : undefined;
+
+    let recipientRaw: string | null = overrideTo ?? null;
+
+    if (!recipientRaw) {
+      const rows = await db
+        .select()
+        .from(systemSettingsTable)
+        .where(eq(systemSettingsTable.key, "finance_report_email"));
+      recipientRaw = rows[0]?.value ?? null;
+    }
+
+    if (!recipientRaw) {
+      res.status(400).json({ error: "No recipient address — enter one below or save a finance report email first" });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (overrideTo && !emailRegex.test(overrideTo)) {
+      res.status(400).json({ error: "Invalid email address" });
+      return;
+    }
+
+    const recipients = recipientRaw.split(",").map(e => e.trim()).filter(e => e.length > 0);
+    if (recipients.length === 0) {
+      res.status(400).json({ error: "No valid recipient addresses configured" });
+      return;
+    }
+
+    const today = new Date();
+    const dateFrom = new Date(today);
+    dateFrom.setDate(today.getDate() - 7);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+    const sampleRun: typeof reconciliationRunsTable.$inferSelect = {
+      id: 42,
+      merchantId: null,
+      dateFrom: fmt(dateFrom),
+      dateTo: fmt(today),
+      runAt: today,
+      totalDeposits: 18,
+      totalMatched: 15,
+      totalUnmatched: 3,
+      totalSettlements: 16,
+      matchedAmount: "258320.00",
+      unmatchedAmount: "23750.00",
+      status: "completed",
+      completedAt: today,
+      createdBy: null,
+      triggeredBy: "auto",
+      notes: null,
+      createdAt: today,
+    };
+
+    const html = buildEmailHtml(sampleRun);
+    const csv = buildSampleCsv();
+    const filename = `sample-reconciliation-report-${fmt(today)}.csv`;
+    const subject = `[RasoKart] Sample Finance Report — ${fmt(dateFrom)} to ${fmt(today)} (preview)`;
+
+    const [primaryRecipient, ...ccRecipients] = recipients;
+
+    const sent = await sendMail({
+      to: primaryRecipient,
+      ...(ccRecipients.length > 0 ? { cc: ccRecipients.join(", ") } : {}),
+      subject,
+      html,
+      attachments: [{ filename, content: csv, contentType: "text/csv" }],
+    });
+
+    if (!sent) {
+      res.status(502).json({ error: "SMTP is not configured or failed to send — check your SMTP settings" });
+      return;
+    }
+
+    try {
+      await db.insert(auditLogsTable).values({
+        adminId: user.id,
+        adminEmail: user.email,
+        action: "sample_report_email_sent",
+        targetType: "system_config",
+        targetId: null,
+        details: JSON.stringify({ recipients, overrideUsed: Boolean(overrideTo) }),
+        ipAddress: req.ip ?? null,
+      });
+    } catch (auditErr) {
+      req.log.error({ err: auditErr }, "Failed to write audit log for sample_report_email_sent");
+    }
+
+    res.json({ ok: true, to: recipients.join(", ") });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // POST /api/settings/test-email

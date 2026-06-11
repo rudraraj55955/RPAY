@@ -109,6 +109,8 @@ export interface User {
   settlementStateEmails?: boolean;
   signatureFailureAlertEmails?: boolean;
   webhookFailureEmails?: boolean;
+  apiKeyGeneratedEmails?: boolean;
+  apiKeyRevokedEmails?: boolean;
   createdAt: string;
 }
 
@@ -2566,6 +2568,8 @@ export type UpdateMyPreferencesBody = {
   settlementStateEmails?: boolean;
   signatureFailureAlertEmails?: boolean;
   webhookFailureEmails?: boolean;
+  apiKeyGeneratedEmails?: boolean;
+  apiKeyRevokedEmails?: boolean;
 };
 
 export type ListMerchantsParams = {

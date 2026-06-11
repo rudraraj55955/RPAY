@@ -22,5 +22,7 @@ export interface User {
   settlementStateEmails?: boolean;
   signatureFailureAlertEmails?: boolean;
   webhookFailureEmails?: boolean;
+  apiKeyGeneratedEmails?: boolean;
+  apiKeyRevokedEmails?: boolean;
   createdAt: string;
 }

@@ -168,6 +168,10 @@ paths:
                   type: boolean
                 webhookFailureEmails:
                   type: boolean
+                apiKeyGeneratedEmails:
+                  type: boolean
+                apiKeyRevokedEmails:
+                  type: boolean
       responses:
         "200":
           description: Updated preferences
@@ -4835,6 +4839,10 @@ components:
         signatureFailureAlertEmails:
           type: boolean
         webhookFailureEmails:
+          type: boolean
+        apiKeyGeneratedEmails:
+          type: boolean
+        apiKeyRevokedEmails:
           type: boolean
         createdAt:
           type: string

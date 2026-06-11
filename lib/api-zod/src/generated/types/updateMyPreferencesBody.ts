@@ -12,4 +12,6 @@ export type UpdateMyPreferencesBody = {
   settlementStateEmails?: boolean;
   signatureFailureAlertEmails?: boolean;
   webhookFailureEmails?: boolean;
+  apiKeyGeneratedEmails?: boolean;
+  apiKeyRevokedEmails?: boolean;
 };

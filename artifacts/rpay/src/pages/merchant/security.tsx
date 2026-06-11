@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useListCallbackLogs, useListApiKeyHistory, useGetCallbackSecretHistory } from "@workspace/api-client-react";
+import { useListCallbackLogs, useListApiKeyHistory, useGetCallbackSecretHistory, useGetMe, useUpdateMyPreferences, getGetMeQueryKey } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   Shield,
   Search,
@@ -24,12 +25,15 @@ import {
   KeyRound,
   RotateCcw,
   AlertTriangle,
+  Bell,
+  Mail,
 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO, isAfter, isBefore, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ─── Date presets ────────────────────────────────────────────────────────────
 
@@ -249,6 +253,23 @@ function CredentialEventSkeletonRows() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function MerchantSecurity() {
+  const qc = useQueryClient();
+
+  // Security notification preferences
+  const { data: me } = useGetMe();
+  const apiKeyGeneratedEnabled = me?.apiKeyGeneratedEmails ?? true;
+  const apiKeyRevokedEnabled = me?.apiKeyRevokedEmails ?? true;
+
+  const { mutate: updatePrefs, isPending: savingPrefs } = useUpdateMyPreferences({
+    mutation: {
+      onSuccess: (updated) => {
+        toast.success("Notification preferences saved");
+        qc.setQueryData(getGetMeQueryKey(), updated);
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
+
   // Callback log state
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -766,6 +787,66 @@ export default function MerchantSecurity() {
                 <CredentialEventRow key={`${event.eventType}-${event.occurredAt}-${idx}`} event={event} />
               ))}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Security Notifications */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Bell className="w-4 h-4 text-muted-foreground" />
+            Security Notifications
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Choose which security events trigger an email alert to your registered address.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                <p className="text-sm font-medium">API key generated</p>
+              </div>
+              <p className="text-xs text-muted-foreground pl-5">
+                Receive an email whenever a new API key is created on your account.
+              </p>
+            </div>
+            <Switch
+              checked={apiKeyGeneratedEnabled}
+              onCheckedChange={val => updatePrefs({ data: { apiKeyGeneratedEmails: val } })}
+              disabled={savingPrefs || me === undefined}
+            />
+          </div>
+          {!apiKeyGeneratedEnabled && (
+            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              You will not be notified when a new API key is generated.
+            </p>
+          )}
+
+          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                <p className="text-sm font-medium">API key revoked</p>
+              </div>
+              <p className="text-xs text-muted-foreground pl-5">
+                Receive an email whenever an API key on your account is revoked.
+              </p>
+            </div>
+            <Switch
+              checked={apiKeyRevokedEnabled}
+              onCheckedChange={val => updatePrefs({ data: { apiKeyRevokedEmails: val } })}
+              disabled={savingPrefs || me === undefined}
+            />
+          </div>
+          {!apiKeyRevokedEnabled && (
+            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              You will not be notified when an API key is revoked.
+            </p>
           )}
         </CardContent>
       </Card>

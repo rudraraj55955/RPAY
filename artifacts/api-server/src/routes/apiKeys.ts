@@ -1,5 +1,5 @@
 import { Router, type Request } from "express";
-import { db, apiKeysTable, merchantsTable, credentialEventsTable } from "@workspace/db";
+import { db, apiKeysTable, merchantsTable, credentialEventsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import crypto from "crypto";
@@ -111,6 +111,14 @@ router.post("/", apiKeyCreateLimiter, async (req, res) => {
 
   // Fire-and-forget security email
   (async () => {
+    const [userPrefs] = await db
+      .select({ apiKeyGeneratedEmails: usersTable.apiKeyGeneratedEmails })
+      .from(usersTable)
+      .where(eq(usersTable.id, user.id))
+      .limit(1);
+
+    if (userPrefs?.apiKeyGeneratedEmails === false) return;
+
     const [merchant] = await db
       .select({ businessName: merchantsTable.businessName, email: merchantsTable.email })
       .from(merchantsTable)
@@ -160,6 +168,14 @@ router.delete("/:id", async (req, res) => {
 
   // Fire-and-forget security email
   (async () => {
+    const [userPrefs] = await db
+      .select({ apiKeyRevokedEmails: usersTable.apiKeyRevokedEmails })
+      .from(usersTable)
+      .where(eq(usersTable.id, user.id))
+      .limit(1);
+
+    if (userPrefs?.apiKeyRevokedEmails === false) return;
+
     const [merchant] = await db
       .select({ businessName: merchantsTable.businessName, email: merchantsTable.email })
       .from(merchantsTable)

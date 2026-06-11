@@ -115,6 +115,8 @@ router.get("/me", requireAuth, async (req, res, next) => {
         settlementStateEmails: usersTable.settlementStateEmails,
         signatureFailureAlertEmails: usersTable.signatureFailureAlertEmails,
         webhookFailureEmails: usersTable.webhookFailureEmails,
+        apiKeyGeneratedEmails: usersTable.apiKeyGeneratedEmails,
+        apiKeyRevokedEmails: usersTable.apiKeyRevokedEmails,
       })
       .from(usersTable)
       .where(eq(usersTable.id, user.id))
@@ -132,6 +134,8 @@ router.get("/me", requireAuth, async (req, res, next) => {
       settlementStateEmails: row?.settlementStateEmails ?? true,
       signatureFailureAlertEmails: row?.signatureFailureAlertEmails ?? true,
       webhookFailureEmails: row?.webhookFailureEmails ?? true,
+      apiKeyGeneratedEmails: row?.apiKeyGeneratedEmails ?? true,
+      apiKeyRevokedEmails: row?.apiKeyRevokedEmails ?? true,
       createdAt: user.createdAt,
     });
   } catch (err) {
@@ -143,7 +147,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
 router.put("/preferences", requireAuth, async (req, res, next) => {
   try {
     const user = (req as any).user;
-    const { reconciliationAlertEmails, planExpiryAlertEmails, settlementStateEmails, signatureFailureAlertEmails, webhookFailureEmails } = req.body;
+    const { reconciliationAlertEmails, planExpiryAlertEmails, settlementStateEmails, signatureFailureAlertEmails, webhookFailureEmails, apiKeyGeneratedEmails, apiKeyRevokedEmails } = req.body;
 
     const patch: Record<string, boolean> = {};
 
@@ -187,6 +191,22 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
       patch["webhookFailureEmails"] = webhookFailureEmails;
     }
 
+    if (apiKeyGeneratedEmails !== undefined) {
+      if (typeof apiKeyGeneratedEmails !== "boolean") {
+        res.status(400).json({ error: "apiKeyGeneratedEmails must be a boolean" });
+        return;
+      }
+      patch["apiKeyGeneratedEmails"] = apiKeyGeneratedEmails;
+    }
+
+    if (apiKeyRevokedEmails !== undefined) {
+      if (typeof apiKeyRevokedEmails !== "boolean") {
+        res.status(400).json({ error: "apiKeyRevokedEmails must be a boolean" });
+        return;
+      }
+      patch["apiKeyRevokedEmails"] = apiKeyRevokedEmails;
+    }
+
     if (Object.keys(patch).length === 0) {
       res.status(400).json({ error: "No valid preference fields provided" });
       return;
@@ -211,6 +231,8 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
       settlementStateEmails: updated.settlementStateEmails,
       signatureFailureAlertEmails: updated.signatureFailureAlertEmails,
       webhookFailureEmails: updated.webhookFailureEmails,
+      apiKeyGeneratedEmails: updated.apiKeyGeneratedEmails,
+      apiKeyRevokedEmails: updated.apiKeyRevokedEmails,
       createdAt: updated.createdAt,
     });
   } catch (err) {

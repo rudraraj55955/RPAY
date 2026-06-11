@@ -277,6 +277,13 @@ router.put("/:key", async (req, res, next) => {
 
     const normalized = (value === null || value === "") ? null : String(value).trim();
 
+    // Fetch old value before upsert so we can record what changed
+    const existing = await db
+      .select()
+      .from(systemSettingsTable)
+      .where(eq(systemSettingsTable.key, key));
+    const oldValue = existing[0]?.value ?? null;
+
     await db
       .insert(systemSettingsTable)
       .values({ key, value: normalized, updatedBy: user.id, updatedAt: new Date() })
@@ -284,6 +291,21 @@ router.put("/:key", async (req, res, next) => {
         target: systemSettingsTable.key,
         set: { value: normalized, updatedBy: user.id, updatedAt: new Date() },
       });
+
+    // Write audit log after successful save
+    try {
+      await db.insert(auditLogsTable).values({
+        adminId: user.id,
+        adminEmail: user.email,
+        action: "setting_updated",
+        targetType: "system_config",
+        targetId: null,
+        details: JSON.stringify({ key, oldValue, newValue: normalized }),
+        ipAddress: req.ip ?? null,
+      });
+    } catch (auditErr) {
+      req.log.error({ err: auditErr }, "Failed to write audit log for setting_updated");
+    }
 
     res.json({ key, value: normalized });
   } catch (err) {

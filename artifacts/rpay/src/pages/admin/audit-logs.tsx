@@ -21,7 +21,7 @@ import {
   CheckCircle2, XCircle, UserPlus, UserCog,
   Package, PencilLine, Trash2, ArrowRightLeft, CreditCard,
   Users, Loader2, QrCode, Landmark,
-  Clock, Mail, Plus, Ban, Send, History, ChevronDown, ChevronUp, AlertCircle,
+  Clock, Mail, Plus, Ban, Send, History, ChevronDown, ChevronUp, AlertCircle, Settings,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, parseISO } from "date-fns";
@@ -57,6 +57,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   virtual_account_updated:  { label: "VA Updated",            color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
   virtual_account_deleted:  { label: "VA Deleted",            color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
   test_email_sent:          { label: "Test Email Sent",       color: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
+  setting_updated:          { label: "Setting Updated",       color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
 };
 
 const ALL_ACTIONS = Object.keys(ACTION_LABELS);
@@ -811,6 +812,56 @@ function TestEmailSentDetails({ log }: { log: any }) {
   );
 }
 
+function SettingUpdatedDetails({ log }: { log: any }) {
+  let parsed: { key?: string; oldValue?: string | null; newValue?: string | null } = {};
+  try { if (log.details) parsed = JSON.parse(log.details); } catch { /* ignore */ }
+
+  const keyLabels: Record<string, string> = {
+    finance_report_email: "Finance Report Email",
+    reconciliation_schedule: "Reconciliation Schedule",
+  };
+
+  const keyLabel = parsed.key ? (keyLabels[parsed.key] ?? parsed.key) : "System setting";
+  const wasCleared = parsed.newValue === null || parsed.newValue === "";
+  const wasSet = parsed.oldValue === null || parsed.oldValue === "";
+
+  const subtitle = wasCleared
+    ? "Recipient list cleared"
+    : wasSet
+    ? "Value configured for the first time"
+    : "Value changed";
+
+  return (
+    <div className="space-y-3">
+      <SummaryCard
+        icon={<Settings className="w-5 h-5 text-amber-400" />}
+        title={`Updated: ${keyLabel}`}
+        subtitle={subtitle}
+        colorClass="bg-amber-500/10 border-amber-500/20"
+      />
+      <div className="rounded-lg bg-muted/20 p-3 space-y-1.5">
+        <DetailRow label="Setting" value={keyLabel} />
+        <DetailRow
+          label="Previous value"
+          value={
+            parsed.oldValue != null && parsed.oldValue !== ""
+              ? <span className="font-mono break-all">{parsed.oldValue}</span>
+              : <span className="text-muted-foreground italic">Not set</span>
+          }
+        />
+        <DetailRow
+          label="New value"
+          value={
+            parsed.newValue != null && parsed.newValue !== ""
+              ? <span className="font-mono break-all">{parsed.newValue}</span>
+              : <span className="text-muted-foreground italic">Cleared</span>
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
 function RawJsonDetails({ log }: { log: any }) {
   return (
     <div className="rounded-lg bg-muted/20 p-3">
@@ -874,6 +925,8 @@ function ActionDetails({ log }: { log: any }) {
       return <VirtualAccountDeletedDetails log={log} />;
     case "test_email_sent":
       return <TestEmailSentDetails log={log} />;
+    case "setting_updated":
+      return <SettingUpdatedDetails log={log} />;
     default:
       return <RawJsonDetails log={log} />;
   }

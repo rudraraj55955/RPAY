@@ -213,7 +213,14 @@ export default function MerchantDashboard() {
             title="Total Deposits"
             value={`₹${stats.totalDeposits.toLocaleString()}`}
             icon={<ArrowDownLeft className="w-4 h-4 text-emerald-500" />}
-            description={`₹${stats.totalBalance.toLocaleString()} available balance`}
+            description={(() => {
+              const reserved = stats.pendingSettlementAmount ?? 0;
+              const available = stats.totalBalance - reserved;
+              if (reserved > 0) {
+                return `₹${available.toLocaleString()} available · ₹${reserved.toLocaleString()} reserved`;
+              }
+              return `₹${stats.totalBalance.toLocaleString()} available balance`;
+            })()}
           />
           <StatCard
             title="Active QR Codes"

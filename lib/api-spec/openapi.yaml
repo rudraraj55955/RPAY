@@ -4839,6 +4839,8 @@ components:
           type: integer
         vaCount:
           type: integer
+        pendingSettlementAmount:
+          type: number
 
     SimulatePaymentInput:
       type: object

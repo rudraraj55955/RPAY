@@ -705,6 +705,7 @@ export interface DashboardStats {
   todayDepositAmount: number;
   qrCount: number;
   vaCount: number;
+  pendingSettlementAmount?: number;
 }
 
 export type SimulatePaymentInputSourceType = typeof SimulatePaymentInputSourceType[keyof typeof SimulatePaymentInputSourceType];

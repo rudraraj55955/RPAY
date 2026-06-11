@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, transactionsTable, merchantsTable, callbackLogsTable, qrCodesTable, virtualAccountsTable, reconciliationRunsTable } from "@workspace/db";
-import { eq, sql, and, gte, count, lte } from "drizzle-orm";
+import { db, transactionsTable, merchantsTable, callbackLogsTable, qrCodesTable, virtualAccountsTable, reconciliationRunsTable, settlementsTable } from "@workspace/db";
+import { eq, sql, and, gte, count, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
 const router = Router();
@@ -87,6 +87,18 @@ router.get("/stats", async (req, res, next) => {
     const totalDeposits = Number(depositStats?.total ?? 0);
     const totalWithdrawals = Number(withdrawalStats?.total ?? 0);
 
+    let pendingSettlementAmount: number | undefined;
+    if (!isAdmin && user.merchantId) {
+      const [psRow] = await db
+        .select({ total: sql<number>`COALESCE(SUM(CAST(${settlementsTable.amount} AS DECIMAL)), 0)` })
+        .from(settlementsTable)
+        .where(and(
+          eq(settlementsTable.merchantId, user.merchantId),
+          inArray(settlementsTable.status, ["pending", "processing"]),
+        ));
+      pendingSettlementAmount = Number(psRow?.total ?? 0);
+    }
+
     res.json({
       totalDeposits,
       totalWithdrawals,
@@ -100,6 +112,7 @@ router.get("/stats", async (req, res, next) => {
       todayDepositAmount: Number(todayDepositStats?.total ?? 0),
       qrCount,
       vaCount,
+      ...(pendingSettlementAmount !== undefined ? { pendingSettlementAmount } : {}),
     });
   } catch (err) {
     next(err);

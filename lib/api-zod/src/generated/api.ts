@@ -120,7 +120,8 @@ export const GetDashboardStatsResponse = zod.object({
   "todayDeposits": zod.number(),
   "todayDepositAmount": zod.number(),
   "qrCount": zod.number(),
-  "vaCount": zod.number()
+  "vaCount": zod.number(),
+  "pendingSettlementAmount": zod.number().optional()
 })
 
 

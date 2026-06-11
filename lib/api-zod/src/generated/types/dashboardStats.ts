@@ -19,4 +19,5 @@ export interface DashboardStats {
   todayDepositAmount: number;
   qrCount: number;
   vaCount: number;
+  pendingSettlementAmount?: number;
 }

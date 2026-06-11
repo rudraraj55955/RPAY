@@ -954,18 +954,34 @@ export default function MerchantWebhook() {
                         <p className="text-xs text-muted-foreground font-mono">{secretStatus.secretPrefix}</p>
                       )}
                       {secretStatus?.isSet && secretStatus.lastRotatedAt != null && (
-                        <p className="text-xs text-muted-foreground/70 mt-0.5">
-                          Last rotated: {format(new Date(secretStatus.lastRotatedAt), "dd MMM yyyy")}
-                          {" "}
-                          <span className="text-muted-foreground/50">
-                            ({formatDistanceToNow(new Date(secretStatus.lastRotatedAt), { addSuffix: true })})
-                          </span>
-                          {daysLeft != null && !isOverdue && !isWarningSoon && (
-                            <span className="ml-2 font-medium text-muted-foreground/60">
-                              · Rotation due in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+                        <div className="mt-1 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground/70">
+                              Last rotated {ageInDays === 0 ? "today" : `${ageInDays} day${ageInDays !== 1 ? "s" : ""} ago`}
                             </span>
+                            {isOverdue ? (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block" />
+                                Overdue
+                              </span>
+                            ) : isWarningSoon ? (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                                Rotation recommended
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                                Fresh
+                              </span>
+                            )}
+                          </div>
+                          {daysLeft != null && !isOverdue && !isWarningSoon && (
+                            <p className="text-[11px] text-muted-foreground/50">
+                              Rotation due in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+                            </p>
                           )}
-                        </p>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1007,11 +1023,11 @@ export default function MerchantWebhook() {
                   </div>
                 )}
                 {isOverdue && ageInDays != null && (
-                  <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                  <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-400">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-medium">Rotation overdue — </span>
-                      <span className="text-xs text-amber-400/80">
+                      <span className="text-xs text-rose-400/80">
                         This secret is {ageInDays} days old. Rotate it now to keep your integration secure.
                       </span>
                     </div>
@@ -1020,7 +1036,7 @@ export default function MerchantWebhook() {
                       size="sm"
                       onClick={handleRotateSecret}
                       disabled={rotateMutation.isPending}
-                      className="shrink-0 gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/60 hover:text-amber-300 h-7 px-2.5 text-xs"
+                      className="shrink-0 gap-1.5 border-rose-500/40 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/60 hover:text-rose-300 h-7 px-2.5 text-xs"
                     >
                       <RefreshCw className="w-3 h-3" />
                       Rotate now

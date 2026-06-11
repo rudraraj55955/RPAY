@@ -2906,7 +2906,10 @@ export const ListAuditReportScheduleLogsParams = zod.object({
 export const listAuditReportScheduleLogsQueryLimitDefault = 20;
 
 export const ListAuditReportScheduleLogsQueryParams = zod.object({
-  "limit": zod.coerce.number().default(listAuditReportScheduleLogsQueryLimitDefault)
+  "limit": zod.coerce.number().default(listAuditReportScheduleLogsQueryLimitDefault),
+  "status": zod.enum(['success', 'failed']).optional(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional()
 })
 
 export const ListAuditReportScheduleLogsResponse = zod.object({
@@ -2918,7 +2921,9 @@ export const ListAuditReportScheduleLogsResponse = zod.object({
   "success": zod.boolean(),
   "errorMessage": zod.string().nullish(),
   "isRetry": zod.boolean()
-}))
+})),
+  "total": zod.number(),
+  "failureCount": zod.number()
 })
 
 

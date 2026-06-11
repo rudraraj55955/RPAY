@@ -5,7 +5,11 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListAuditReportScheduleLogsStatus } from './listAuditReportScheduleLogsStatus';
 
 export type ListAuditReportScheduleLogsParams = {
 limit?: number;
+status?: ListAuditReportScheduleLogsStatus;
+dateFrom?: string;
+dateTo?: string;
 };

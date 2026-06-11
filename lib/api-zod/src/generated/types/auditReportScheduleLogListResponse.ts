@@ -9,4 +9,6 @@ import type { AuditReportScheduleLog } from './auditReportScheduleLog';
 
 export interface AuditReportScheduleLogListResponse {
   data: AuditReportScheduleLog[];
+  total: number;
+  failureCount: number;
 }

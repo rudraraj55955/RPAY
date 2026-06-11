@@ -7,6 +7,7 @@ import {
   getListAuditReportSchedulesQueryKey,
   useListAuditReportScheduleLogs,
   previewAuditReportEmail,
+  type ListAuditReportScheduleLogsParams,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -951,64 +952,144 @@ const FREQUENCY_LABELS: Record<string, string> = {
 };
 
 function ScheduleHistoryPanel({ scheduleId }: { scheduleId: number }) {
-  const { data, isLoading } = useListAuditReportScheduleLogs(scheduleId, { limit: 20 });
+  const [statusFilter, setStatusFilter] = useState<"all" | "success" | "failed">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const params: ListAuditReportScheduleLogsParams = { limit: 50 };
+  if (statusFilter !== "all") params.status = statusFilter;
+  if (dateFrom) params.dateFrom = dateFrom;
+  if (dateTo) params.dateTo = dateTo;
+
+  const { data, isLoading } = useListAuditReportScheduleLogs(scheduleId, params);
   const logs = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const failureCount = data?.failureCount ?? 0;
 
-  if (isLoading) {
-    return (
-      <div className="space-y-1.5 px-2 py-2">
-        {[1, 2, 3].map(i => <div key={i} className="h-8 bg-muted/20 rounded animate-pulse" />)}
-      </div>
-    );
-  }
-
-  if (logs.length === 0) {
-    return (
-      <div className="flex items-center gap-2 px-3 py-3 text-muted-foreground">
-        <History className="w-4 h-4 opacity-40" />
-        <span className="text-xs">No sends recorded yet — history will appear here after the first delivery.</span>
-      </div>
-    );
-  }
+  const hasFilters = statusFilter !== "all" || dateFrom !== "" || dateTo !== "";
 
   return (
-    <div className="divide-y divide-border/30">
-      {logs.map((log: any) => (
-        <div key={log.id} className="flex items-start gap-3 px-4 py-2.5">
-          <div className="mt-0.5 shrink-0">
-            {log.success
-              ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              : <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-            }
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-medium">
-                {format(new Date(log.sentAt), "MMM d, yyyy 'at' HH:mm")}
-              </span>
-              {log.success
-                ? (
-                  <span className="inline-flex items-center rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
-                    Delivered
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">
-                    Failed
-                  </span>
-                )
-              }
-              <span className="text-xs text-muted-foreground">
-                {log.rowCount.toLocaleString()} row{log.rowCount !== 1 ? "s" : ""}
-              </span>
-            </div>
-            {!log.success && log.errorMessage && (
-              <p className="text-xs text-rose-400/80 mt-0.5 truncate" title={log.errorMessage}>
-                {log.errorMessage}
-              </p>
-            )}
-          </div>
+    <div>
+      {/* Filter bar */}
+      <div className="px-4 py-2.5 border-b border-border/30 flex flex-wrap items-center gap-2">
+        <div className="flex items-center rounded-md border border-border/40 bg-muted/10 overflow-hidden text-[11px]">
+          {(["all", "success", "failed"] as const).map(v => (
+            <button
+              key={v}
+              onClick={() => setStatusFilter(v)}
+              className={`px-2.5 py-1 transition-colors ${
+                statusFilter === v
+                  ? v === "failed"
+                    ? "bg-rose-500/20 text-rose-400 font-medium"
+                    : v === "success"
+                    ? "bg-emerald-500/20 text-emerald-400 font-medium"
+                    : "bg-muted/30 text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {v === "all" ? "All" : v === "success" ? "Delivered" : "Failed"}
+            </button>
+          ))}
         </div>
-      ))}
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={e => setDateFrom(e.target.value)}
+          className="h-7 rounded-md border border-border/40 bg-muted/10 px-2 text-[11px] text-muted-foreground focus:outline-none focus:border-violet-500/50"
+          placeholder="From"
+          title="From date"
+        />
+        <span className="text-[10px] text-muted-foreground">–</span>
+        <input
+          type="date"
+          value={dateTo}
+          onChange={e => setDateTo(e.target.value)}
+          className="h-7 rounded-md border border-border/40 bg-muted/10 px-2 text-[11px] text-muted-foreground focus:outline-none focus:border-violet-500/50"
+          placeholder="To"
+          title="To date"
+        />
+        {hasFilters && (
+          <button
+            onClick={() => { setStatusFilter("all"); setDateFrom(""); setDateTo(""); }}
+            className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            <X className="w-3 h-3" /> Clear
+          </button>
+        )}
+      </div>
+
+      {/* Failure summary */}
+      {!isLoading && total > 0 && (
+        <div className={`px-4 py-2 flex items-center gap-2 text-xs border-b border-border/30 ${
+          failureCount > 0 ? "bg-rose-500/5" : "bg-emerald-500/5"
+        }`}>
+          {failureCount > 0 ? (
+            <>
+              <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span className="text-rose-400 font-medium">{failureCount} of {total} send{total !== 1 ? "s" : ""} failed</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="text-emerald-400 font-medium">All {total} send{total !== 1 ? "s" : ""} delivered successfully</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-1.5 px-2 py-2">
+          {[1, 2, 3].map(i => <div key={i} className="h-8 bg-muted/20 rounded animate-pulse" />)}
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="flex items-center gap-2 px-3 py-3 text-muted-foreground">
+          <History className="w-4 h-4 opacity-40" />
+          <span className="text-xs">
+            {hasFilters
+              ? "No sends match the current filters."
+              : "No sends recorded yet — history will appear here after the first delivery."}
+          </span>
+        </div>
+      ) : (
+        <div className="divide-y divide-border/30">
+          {logs.map((log: any) => (
+            <div key={log.id} className="flex items-start gap-3 px-4 py-2.5">
+              <div className="mt-0.5 shrink-0">
+                {log.success
+                  ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  : <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                }
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium">
+                    {format(new Date(log.sentAt), "MMM d, yyyy 'at' HH:mm")}
+                  </span>
+                  {log.success
+                    ? (
+                      <span className="inline-flex items-center rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                        Delivered
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-400">
+                        Failed
+                      </span>
+                    )
+                  }
+                  <span className="text-xs text-muted-foreground">
+                    {log.rowCount.toLocaleString()} row{log.rowCount !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                {!log.success && log.errorMessage && (
+                  <p className="text-xs text-rose-400/80 mt-0.5 truncate" title={log.errorMessage}>
+                    {log.errorMessage}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1640,6 +1640,8 @@ export interface AuditReportScheduleLog {
 
 export interface AuditReportScheduleLogListResponse {
   data: AuditReportScheduleLog[];
+  total: number;
+  failureCount: number;
 }
 
 export interface AdminAuditLog {
@@ -2624,7 +2626,18 @@ export const PreviewAuditReportEmailFrequency = {
 
 export type ListAuditReportScheduleLogsParams = {
 limit?: number;
+status?: ListAuditReportScheduleLogsStatus;
+dateFrom?: string;
+dateTo?: string;
 };
+
+export type ListAuditReportScheduleLogsStatus = typeof ListAuditReportScheduleLogsStatus[keyof typeof ListAuditReportScheduleLogsStatus];
+
+
+export const ListAuditReportScheduleLogsStatus = {
+  success: 'success',
+  failed: 'failed',
+} as const;
 
 export type ExportAdminAuditLogsCsvParams = {
 action?: string;

@@ -2991,6 +2991,17 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, default: 20 }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [success, failed]
+        - name: dateFrom
+          in: query
+          schema: { type: string }
+        - name: dateTo
+          in: query
+          schema: { type: string }
       responses:
         "200":
           description: List of send-log entries for the schedule
@@ -6304,12 +6315,16 @@ components:
 
     AuditReportScheduleLogListResponse:
       type: object
-      required: [data]
+      required: [data, total, failureCount]
       properties:
         data:
           type: array
           items:
             $ref: "#/components/schemas/AuditReportScheduleLog"
+        total:
+          type: integer
+        failureCount:
+          type: integer
 
     AdminAuditLog:
       type: object

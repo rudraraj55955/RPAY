@@ -262,7 +262,9 @@ router.get("/schedules/:id/logs", async (req, res) => {
   const id = parseInt(req.params['id'] as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const limitNum = Math.min(100, Math.max(1, parseInt((req.query as Record<string, string>)['limit'] ?? "20") || 20));
+  const q = req.query as Record<string, string>;
+  const limitNum = Math.min(100, Math.max(1, parseInt(q['limit'] ?? "20") || 20));
+  const { status, dateFrom, dateTo } = q;
 
   const [schedule] = await db
     .select({ id: scheduledAuditReportsTable.id })
@@ -271,10 +273,42 @@ router.get("/schedules/:id/logs", async (req, res) => {
 
   if (!schedule) { res.status(404).json({ error: "Schedule not found" }); return; }
 
+  // Date-range conditions (applied to both summary counts and data rows)
+  const dateConditions: any[] = [eq(scheduledAuditReportLogsTable.scheduleId, id)];
+  if (dateFrom) {
+    const from = new Date(dateFrom);
+    from.setUTCHours(0, 0, 0, 0);
+    if (!isNaN(from.getTime())) dateConditions.push(gte(scheduledAuditReportLogsTable.sentAt, from));
+  }
+  if (dateTo) {
+    const to = new Date(dateTo);
+    to.setUTCHours(23, 59, 59, 999);
+    if (!isNaN(to.getTime())) dateConditions.push(lte(scheduledAuditReportLogsTable.sentAt, to));
+  }
+  const dateWhere = and(...dateConditions);
+
+  // Summary counts: always over the date window only (ignoring status filter)
+  // so the banner "X of Y sends failed" always reflects the full picture for the period.
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(scheduledAuditReportLogsTable)
+    .where(dateWhere);
+
+  const [{ failureCount }] = await db
+    .select({ failureCount: count() })
+    .from(scheduledAuditReportLogsTable)
+    .where(and(...dateConditions, eq(scheduledAuditReportLogsTable.success, false)));
+
+  // Data rows: apply status filter on top of date conditions
+  const dataConditions: any[] = [...dateConditions];
+  if (status === "success") dataConditions.push(eq(scheduledAuditReportLogsTable.success, true));
+  else if (status === "failed") dataConditions.push(eq(scheduledAuditReportLogsTable.success, false));
+  const dataWhere = and(...dataConditions);
+
   const logs = await db
     .select()
     .from(scheduledAuditReportLogsTable)
-    .where(eq(scheduledAuditReportLogsTable.scheduleId, id))
+    .where(dataWhere)
     .orderBy(desc(scheduledAuditReportLogsTable.sentAt))
     .limit(limitNum);
 
@@ -283,6 +317,8 @@ router.get("/schedules/:id/logs", async (req, res) => {
       ...l,
       sentAt: l.sentAt.toISOString(),
     })),
+    total,
+    failureCount,
   });
 });
 

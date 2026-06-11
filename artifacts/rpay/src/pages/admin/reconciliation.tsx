@@ -973,6 +973,8 @@ export default function AdminReconciliation() {
   const [isExporting, setIsExporting] = useState(false);
   const [isPreviewingEmail, setIsPreviewingEmail] = useState(false);
   const [emailLogOpen, setEmailLogOpen] = useState(false);
+  const [reportEmailsOpen, setReportEmailsOpen] = useState(true);
+  const [alertEmailsOpen, setAlertEmailsOpen] = useState(true);
   const [historyPage, setHistoryPage] = useState(1);
   const [emailFailureBannerDismissed, setEmailFailureBannerDismissed] = useState(false);
   const [runNotes, setRunNotes] = useState("");
@@ -1770,6 +1772,8 @@ export default function AdminReconciliation() {
           {/* Email Delivery Log */}
           {(() => {
             const emailLogs: Array<{ id: number; emailType: string; recipients: string; status: string; errorMessage: string | null; sentAt: string }> = emailLogsQuery.data?.data ?? [];
+            const reportLogs = emailLogs.filter(l => l.emailType === "report");
+            const alertLogs = emailLogs.filter(l => l.emailType !== "report");
             const hasSent = emailLogs.some(l => l.status === "sent");
             const hasFailed = emailLogs.some(l => l.status === "failed");
             const indicatorIcon = hasFailed
@@ -1782,6 +1786,35 @@ export default function AdminReconciliation() {
               : hasSent
               ? <span className="text-emerald-400">All emails sent</span>
               : <span className="text-muted-foreground/50">No emails sent</span>;
+
+            function EmailLogEntry({ log }: { log: typeof emailLogs[0] }) {
+              return (
+                <div className={`rounded-md border px-3 py-2 text-xs ${
+                  log.status === "sent"
+                    ? "border-emerald-500/20 bg-emerald-500/5"
+                    : "border-red-500/20 bg-red-500/5"
+                }`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {log.status === "sent"
+                      ? <MailCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                      : <MailX className="w-3 h-3 text-red-400 shrink-0" />
+                    }
+                    <span className={`font-medium ${log.status === "sent" ? "text-emerald-400" : "text-red-400"}`}>
+                      {log.status === "sent" ? "Sent" : "Failed"}
+                    </span>
+                    <span className="text-muted-foreground/50 ml-auto whitespace-nowrap">
+                      {new Date(log.sentAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground/70 truncate">
+                    <span className="text-muted-foreground/40">To: </span>{log.recipients || "—"}
+                  </p>
+                  {log.errorMessage && (
+                    <p className="text-red-400/70 mt-1 italic">{log.errorMessage}</p>
+                  )}
+                </div>
+              );
+            }
 
             return (
               <div className="border border-border/50 rounded-md">
@@ -1798,91 +1831,115 @@ export default function AdminReconciliation() {
                   <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground ml-auto transition-transform ${emailLogOpen ? "rotate-180" : ""}`} />
                 </button>
                 {emailLogOpen && (
-                  <div className="border-t border-border/50 px-3 py-2.5 space-y-2">
+                  <div className="border-t border-border/50 px-3 py-2.5 space-y-3">
                     {emailLogsQuery.isLoading ? (
                       <p className="text-xs text-muted-foreground">Loading…</p>
-                    ) : emailLogs.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/50">No email sends recorded for this run.</p>
                     ) : (
-                      emailLogs.map(log => (
-                        <div key={log.id} className={`rounded-md border px-3 py-2 text-xs ${
-                          log.status === "sent"
-                            ? "border-emerald-500/20 bg-emerald-500/5"
-                            : "border-red-500/20 bg-red-500/5"
-                        }`}>
-                          <div className="flex items-center gap-2 mb-1">
-                            {log.status === "sent"
-                              ? <MailCheck className="w-3 h-3 text-emerald-400 shrink-0" />
-                              : <MailX className="w-3 h-3 text-red-400 shrink-0" />
-                            }
-                            <span className={`font-medium ${log.status === "sent" ? "text-emerald-400" : "text-red-400"}`}>
-                              {log.status === "sent" ? "Sent" : "Failed"}
-                            </span>
-                            <Badge className={`text-[10px] px-1.5 py-0 h-4 border ${
-                              log.emailType === "report"
-                                ? "bg-violet-500/10 text-violet-400 border-violet-500/30"
-                                : "bg-orange-500/10 text-orange-400 border-orange-500/30"
-                            }`}>
-                              {log.emailType === "report" ? "Report" : "Unmatched Alert"}
-                            </Badge>
-                            <span className="text-muted-foreground/50 ml-auto whitespace-nowrap">
-                              {new Date(log.sentAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          </div>
-                          <p className="text-muted-foreground/70 truncate">
-                            <span className="text-muted-foreground/40">To: </span>{log.recipients || "—"}
-                          </p>
-                          {log.errorMessage && (
-                            <p className="text-red-400/70 mt-1 italic">{log.errorMessage}</p>
+                      <>
+                        {/* Report Emails sub-section */}
+                        <div className="rounded-md border border-violet-500/20 overflow-hidden">
+                          <button
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-violet-500/5 transition-colors"
+                            onClick={() => setReportEmailsOpen(v => !v)}
+                          >
+                            <Mail className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                            <span className="font-medium text-violet-400">Report Emails</span>
+                            {reportLogs.length > 0 && (
+                              <Badge className="h-4 px-1.5 text-[10px] ml-0.5 bg-violet-500/10 text-violet-400 border border-violet-500/30">
+                                {reportLogs.length}
+                              </Badge>
+                            )}
+                            <ChevronDown className={`w-3 h-3 text-violet-400/60 ml-auto transition-transform ${reportEmailsOpen ? "rotate-180" : ""}`} />
+                          </button>
+                          {reportEmailsOpen && (
+                            <div className="border-t border-violet-500/20 px-3 py-2 space-y-2">
+                              {reportLogs.length === 0 ? (
+                                <p className="text-xs text-muted-foreground/50">No report emails sent for this run.</p>
+                              ) : (
+                                reportLogs.map(log => <EmailLogEntry key={log.id} log={log} />)
+                              )}
+                              {(() => {
+                                const lastReport = reportLogs[0];
+                                const showResend = !lastReport || lastReport.status === "failed";
+                                if (!showResend) return null;
+                                return (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="w-full h-7 text-xs gap-1.5 border-violet-500/30 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+                                    onClick={() => resendEmailMutation.mutate()}
+                                    disabled={resendEmailMutation.isPending}
+                                  >
+                                    {resendEmailMutation.isPending
+                                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                                      : <Mail className="w-3 h-3" />
+                                    }
+                                    {resendEmailMutation.isPending ? "Sending…" : "Resend Report Email"}
+                                  </Button>
+                                );
+                              })()}
+                            </div>
                           )}
                         </div>
-                      ))
-                    )}
-                    {(() => {
-                      const reportLogs = emailLogs.filter(l => l.emailType === "report");
-                      const lastReport = reportLogs[0];
-                      const showResend = !lastReport || lastReport.status === "failed";
-                      if (!showResend) return null;
-                      return (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full h-7 text-xs gap-1.5 border-violet-500/30 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
-                          onClick={() => resendEmailMutation.mutate()}
-                          disabled={resendEmailMutation.isPending}
-                        >
-                          {resendEmailMutation.isPending
-                            ? <Loader2 className="w-3 h-3 animate-spin" />
-                            : <Mail className="w-3 h-3" />
-                          }
-                          {resendEmailMutation.isPending ? "Sending…" : "Resend Report Email"}
-                        </Button>
-                      );
-                    })()}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="w-full">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full h-7 text-xs gap-1.5 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300 disabled:pointer-events-none"
-                            onClick={() => resendAlertMutation.mutate()}
-                            disabled={resendAlertMutation.isPending || (selectedRun?.totalUnmatched ?? 0) === 0}
+
+                        {/* Unmatched Alert Emails sub-section */}
+                        <div className="rounded-md border border-orange-500/20 overflow-hidden">
+                          <button
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-orange-500/5 transition-colors"
+                            onClick={() => setAlertEmailsOpen(v => !v)}
                           >
-                            {resendAlertMutation.isPending
-                              ? <Loader2 className="w-3 h-3 animate-spin" />
-                              : <AlertTriangle className="w-3 h-3" />
-                            }
-                            {resendAlertMutation.isPending ? "Sending…" : "Re-send Alert Email"}
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      {(selectedRun?.totalUnmatched ?? 0) === 0 && (
-                        <TooltipContent side="bottom">
-                          No unmatched items — nothing to alert about
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
+                            <AlertTriangle className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                            <span className="font-medium text-orange-400">Unmatched Alert Emails</span>
+                            {alertLogs.length > 0 && (
+                              <Badge className="h-4 px-1.5 text-[10px] ml-0.5 bg-orange-500/10 text-orange-400 border border-orange-500/30">
+                                {alertLogs.length}
+                              </Badge>
+                            )}
+                            <ChevronDown className={`w-3 h-3 text-orange-400/60 ml-auto transition-transform ${alertEmailsOpen ? "rotate-180" : ""}`} />
+                          </button>
+                          {alertEmailsOpen && (
+                            <div className="border-t border-orange-500/20 px-3 py-2 space-y-2">
+                              {alertLogs.length === 0 ? (
+                                <p className="text-xs text-muted-foreground/50">No alert emails sent for this run.</p>
+                              ) : (
+                                alertLogs.map(log => <EmailLogEntry key={log.id} log={log} />)
+                              )}
+                              {(() => {
+                                const lastAlert = alertLogs[0];
+                                const showResend = !lastAlert || lastAlert.status === "failed";
+                                if (!showResend) return null;
+                                return (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="w-full">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="w-full h-7 text-xs gap-1.5 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300 disabled:pointer-events-none"
+                                          onClick={() => resendAlertMutation.mutate()}
+                                          disabled={resendAlertMutation.isPending || (selectedRun?.totalUnmatched ?? 0) === 0}
+                                        >
+                                          {resendAlertMutation.isPending
+                                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                                            : <AlertTriangle className="w-3 h-3" />
+                                          }
+                                          {resendAlertMutation.isPending ? "Sending…" : "Re-send Alert Email"}
+                                        </Button>
+                                      </span>
+                                    </TooltipTrigger>
+                                    {(selectedRun?.totalUnmatched ?? 0) === 0 && (
+                                      <TooltipContent side="bottom">
+                                        No unmatched items — nothing to alert about
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
+                                );
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

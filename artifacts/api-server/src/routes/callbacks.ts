@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, callbackLogsTable, qrCodesTable, apiKeysTable, merchantsTable, transactionsTable, qrPaymentEventsTable, credentialEventsTable, signatureFailureAlertLogsTable } from "@workspace/db";
-import { eq, and, count, countDistinct, sql, gte, isNull, like, asc, desc } from "drizzle-orm";
+import { eq, and, count, countDistinct, sql, gte, lte, isNull, like, asc, desc } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { requireApiKey, verifyCallbackSignature } from "../middlewares/callbackAuth";
 import { logger } from "../lib/logger";
@@ -437,7 +437,7 @@ const REJECTION_REASON_PATTERNS: Record<string, string> = {
 // GET /api/callbacks
 router.get("/", async (req, res) => {
   const user = (req as any).user;
-  const { status, qrCodeId, signatureVerified, rejectionReason, merchantId, eventType, page = "1", limit = "20" } = req.query as Record<string, string>;
+  const { status, qrCodeId, signatureVerified, rejectionReason, merchantId, eventType, from, to, page = "1", limit = "20" } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
@@ -457,6 +457,14 @@ router.get("/", async (req, res) => {
     conditions.push(like(callbackLogsTable.responseBody, REJECTION_REASON_PATTERNS[rejectionReason]));
   }
   if (eventType) conditions.push(eq(callbackLogsTable.eventType, eventType));
+  if (from) {
+    const fromDate = new Date(from);
+    if (!isNaN(fromDate.getTime())) conditions.push(gte(callbackLogsTable.createdAt, fromDate));
+  }
+  if (to) {
+    const toDate = new Date(to);
+    if (!isNaN(toDate.getTime())) conditions.push(lte(callbackLogsTable.createdAt, toDate));
+  }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   const [{ total }] = await db.select({ total: count() }).from(callbackLogsTable).where(where);

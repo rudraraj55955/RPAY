@@ -33,6 +33,14 @@ merchantId?: number;
  * Filter logs by event type stored on the callback log row
  */
 eventType?: ListCallbackLogsEventType;
+/**
+ * ISO 8601 datetime — return logs created at or after this timestamp
+ */
+from?: Date;
+/**
+ * ISO 8601 datetime — return logs created at or before this timestamp
+ */
+to?: Date;
 page?: number;
 limit?: number;
 };

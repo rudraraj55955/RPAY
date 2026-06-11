@@ -4,15 +4,46 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { EventTypeBadge } from "@/components/ui/event-type-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertTriangle, ChevronDown, ChevronRight, RefreshCw, RotateCcw, ShieldAlert, Users, X, Bell, Mail } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { AlertTriangle, CalendarRange, ChevronDown, ChevronRight, RefreshCw, RotateCcw, ShieldAlert, Users, X, Bell, Mail } from "lucide-react";
+import { format, formatDistanceToNow, sub, type Duration } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/utils";
+
+type DatePreset = "1h" | "6h" | "24h" | "7d" | "custom" | "all";
+
+const DATE_PRESETS: { value: DatePreset; label: string }[] = [
+  { value: "all", label: "All time" },
+  { value: "1h", label: "Last 1h" },
+  { value: "6h", label: "Last 6h" },
+  { value: "24h", label: "Last 24h" },
+  { value: "7d", label: "Last 7d" },
+  { value: "custom", label: "Custom range" },
+];
+
+function computePresetRange(preset: Exclude<DatePreset, "all" | "custom">): { from: string; to: string } {
+  const now = new Date();
+  const durations: Record<string, Duration> = {
+    "1h": { hours: 1 },
+    "6h": { hours: 6 },
+    "24h": { hours: 24 },
+    "7d": { days: 7 },
+  };
+  return { from: sub(now, durations[preset]).toISOString(), to: now.toISOString() };
+}
+
+function toLocalDatetimeValue(iso: string | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 type RejectionCategory = "stale_timestamp" | "replay_detected" | "bad_signature" | "missing_header" | null;
 
@@ -326,6 +357,11 @@ export default function AdminCallbacks() {
   const [eventTypeFilter, setEventTypeFilter] = useState("all");
   const [merchantIdFilter, setMerchantIdFilter] = useState<number | undefined>(undefined);
   const [merchantNameFilter, setMerchantNameFilter] = useState<string | undefined>(undefined);
+  const [datePreset, setDatePreset] = useState<DatePreset>("all");
+  const [presetFrom, setPresetFrom] = useState<string | undefined>(undefined);
+  const [presetTo, setPresetTo] = useState<string | undefined>(undefined);
+  const [customFrom, setCustomFrom] = useState<string | undefined>(undefined);
+  const [customTo, setCustomTo] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [breakdownExpanded, setBreakdownExpanded] = useState(false);
 
@@ -333,15 +369,33 @@ export default function AdminCallbacks() {
   const rejectionReasonParam = rejectionReason === "all" ? undefined : (rejectionReason as any);
   const eventTypeParam = eventTypeFilter === "all" ? undefined : (eventTypeFilter as ListCallbackLogsEventType);
 
+  const fromParam = datePreset === "custom" ? customFrom : presetFrom;
+  const toParam = datePreset === "custom" ? customTo : presetTo;
+
   const { data, isLoading } = useListCallbackLogs({
     status: status as any,
     signatureVerified: sigVerifiedParam,
     rejectionReason: rejectionReasonParam,
     eventType: eventTypeParam,
     merchantId: merchantIdFilter,
+    from: fromParam,
+    to: toParam,
     page,
     limit: 20,
   });
+
+  function selectPreset(preset: DatePreset) {
+    setDatePreset(preset);
+    setPage(1);
+    if (preset === "all" || preset === "custom") {
+      setPresetFrom(undefined);
+      setPresetTo(undefined);
+    } else {
+      const { from, to } = computePresetRange(preset);
+      setPresetFrom(from);
+      setPresetTo(to);
+    }
+  }
 
   const { data: adminStats } = useGetAdminCallbackStats();
 
@@ -448,52 +502,110 @@ export default function AdminCallbacks() {
 
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-            <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="success">Success</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
-                <SelectItem value="pending_retry">Pending Retry</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={sigVerified} onValueChange={v => { setSigVerified(v); setPage(1); }}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Signatures</SelectItem>
-                <SelectItem value="verified">Sig. Verified</SelectItem>
-                <SelectItem value="failed">Sig. Failed</SelectItem>
-                <SelectItem value="none">No Signature</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={rejectionReason} onValueChange={v => { setRejectionReason(v); setPage(1); }}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Rejection Reasons" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Rejection Reasons</SelectItem>
-                <SelectItem value="stale_timestamp">Stale timestamp</SelectItem>
-                <SelectItem value="replay_detected">Replay detected</SelectItem>
-                <SelectItem value="bad_signature">Bad signature</SelectItem>
-                <SelectItem value="missing_header">Missing header</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={eventTypeFilter} onValueChange={v => { setEventTypeFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Event Types" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Event Types</SelectItem>
-                {EVENT_TYPE_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {merchantIdFilter != null && merchantNameFilter && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-sm text-rose-400">
-                <span className="font-medium">{merchantNameFilter}</span>
-                <button onClick={clearMerchantFilter} className="hover:text-rose-300 transition-colors ml-1" aria-label="Clear merchant filter">
-                  <X className="w-3.5 h-3.5" />
-                </button>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+              <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="success">Success</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="pending_retry">Pending Retry</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sigVerified} onValueChange={v => { setSigVerified(v); setPage(1); }}>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Signatures</SelectItem>
+                  <SelectItem value="verified">Sig. Verified</SelectItem>
+                  <SelectItem value="failed">Sig. Failed</SelectItem>
+                  <SelectItem value="none">No Signature</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={rejectionReason} onValueChange={v => { setRejectionReason(v); setPage(1); }}>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Rejection Reasons" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Rejection Reasons</SelectItem>
+                  <SelectItem value="stale_timestamp">Stale timestamp</SelectItem>
+                  <SelectItem value="replay_detected">Replay detected</SelectItem>
+                  <SelectItem value="bad_signature">Bad signature</SelectItem>
+                  <SelectItem value="missing_header">Missing header</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={eventTypeFilter} onValueChange={v => { setEventTypeFilter(v); setPage(1); }}>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Event Types" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Event Types</SelectItem>
+                  {EVENT_TYPE_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {merchantIdFilter != null && merchantNameFilter && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-sm text-rose-400">
+                  <span className="font-medium">{merchantNameFilter}</span>
+                  <button onClick={clearMerchantFilter} className="hover:text-rose-300 transition-colors ml-1" aria-label="Clear merchant filter">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 flex-wrap items-start sm:items-center">
+              <div className="flex items-center gap-1.5">
+                <CalendarRange className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-sm text-muted-foreground font-medium shrink-0">Time range:</span>
               </div>
-            )}
+              <div className="flex gap-1.5 flex-wrap">
+                {DATE_PRESETS.map(preset => (
+                  <button
+                    key={preset.value}
+                    onClick={() => selectPreset(preset.value)}
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border ${
+                      datePreset === preset.value
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/40 text-muted-foreground border-border hover:bg-muted/70 hover:text-foreground"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              {datePreset === "custom" && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Input
+                    type="datetime-local"
+                    className="h-8 text-xs w-[200px]"
+                    value={toLocalDatetimeValue(customFrom)}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setCustomFrom(v ? new Date(v).toISOString() : undefined);
+                      setPage(1);
+                    }}
+                  />
+                  <span className="text-xs text-muted-foreground">to</span>
+                  <Input
+                    type="datetime-local"
+                    className="h-8 text-xs w-[200px]"
+                    value={toLocalDatetimeValue(customTo)}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setCustomTo(v ? new Date(v).toISOString() : undefined);
+                      setPage(1);
+                    }}
+                  />
+                  {(customFrom || customTo) && (
+                    <button
+                      onClick={() => { setCustomFrom(undefined); setCustomTo(undefined); setPage(1); }}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Clear custom date range"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">

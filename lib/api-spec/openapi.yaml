@@ -1772,6 +1772,18 @@ paths:
             type: string
             enum: [payment.received, payment.success, payment.failed, payment.pending]
           description: Filter logs by event type stored on the callback log row
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 datetime — return logs created at or after this timestamp
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 datetime — return logs created at or before this timestamp
         - name: page
           in: query
           schema:

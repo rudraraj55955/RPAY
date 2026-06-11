@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Separator } from "@/components/ui/separator";
 import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
 import { useMonitoringRefresh } from "@/hooks/use-monitoring-refresh";
-import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash, RefreshCw, Loader2, Building2, CreditCard, FileText, Info, Plus, Link2, Zap, Pencil, AlertTriangle, Sparkles, Bookmark, BookmarkCheck, Trash2, TrendingUp, CheckCircle2, Clock } from "lucide-react";
+import { Search, X, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle, Hash, RefreshCw, Loader2, Building2, CreditCard, FileText, Info, Plus, Link2, Zap, Pencil, AlertTriangle, Sparkles, Bookmark, BookmarkCheck, Trash2, TrendingUp, CheckCircle2, Clock, ChevronUp, ChevronDown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
@@ -830,6 +830,24 @@ export default function AdminTransactions() {
     setDragOverId(null);
   };
 
+  const moveFilter = async (id: number, direction: "up" | "down") => {
+    const idx = orderedFilters.findIndex(f => f.id === id);
+    if (idx === -1) return;
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= orderedFilters.length) return;
+    const reordered = [...orderedFilters];
+    const [moved] = reordered.splice(idx, 1);
+    reordered.splice(newIdx, 0, moved!);
+    setOrderedFilters(reordered);
+    try {
+      await reorderSavedFiltersMutation({ data: { ids: reordered.map(f => f.id) } });
+      await qc.invalidateQueries({ queryKey: ["/api/saved-filters"] });
+    } catch {
+      setOrderedFilters(orderedFilters);
+      toast.error("Failed to save filter order");
+    }
+  };
+
   // Inline rename state
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -1173,6 +1191,22 @@ export default function AdminTransactions() {
                     >
                       <BookmarkCheck className="w-3 h-3 shrink-0" />
                       {saved.name}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); moveFilter(saved.id, "up"); }}
+                      disabled={orderedFilters.indexOf(saved) === 0}
+                      className="rounded-full p-0.5 text-violet-400/50 hover:text-violet-200 hover:bg-violet-500/10 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed"
+                      aria-label={`Move "${saved.name}" left`}
+                    >
+                      <ChevronUp className="w-2.5 h-2.5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); moveFilter(saved.id, "down"); }}
+                      disabled={orderedFilters.indexOf(saved) === orderedFilters.length - 1}
+                      className="rounded-full p-0.5 text-violet-400/50 hover:text-violet-200 hover:bg-violet-500/10 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed"
+                      aria-label={`Move "${saved.name}" right`}
+                    >
+                      <ChevronDown className="w-2.5 h-2.5" />
                     </button>
                     <button
                       onClick={() => startRename(saved)}

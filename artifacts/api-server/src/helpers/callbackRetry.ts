@@ -245,7 +245,7 @@ export async function scheduleCallbackRetry(
   const globalConfig = await loadWebhookRetryConfig();
 
   const maxTotalAttempts = overrideMaxRetries != null
-    ? overrideMaxRetries + 1
+    ? Math.min(overrideMaxRetries + 1, globalConfig.maxAttempts)
     : globalConfig.maxAttempts;
 
   if (attempts >= maxTotalAttempts) {
@@ -387,8 +387,10 @@ export async function processPendingRetries(): Promise<void> {
       } else {
         const webhookMaxRetries = webhookCfg?.maxRetries;
         if (webhookMaxRetries != null) {
-          // webhookMaxRetries = number of retries; total cap = maxRetries + 1
-          reachedCap = newAttempts > webhookMaxRetries;
+          // Clamp per-webhook retries to the global cap so a bad stored value
+          // cannot silently exceed the admin-configured maximum.
+          const effectiveMax = Math.min(webhookMaxRetries + 1, globalConfig.maxAttempts);
+          reachedCap = newAttempts >= effectiveMax;
         } else {
           // No per-webhook config — use DB-configured global maxAttempts
           reachedCap = newAttempts >= globalConfig.maxAttempts;

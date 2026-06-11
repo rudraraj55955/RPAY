@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, webhooksTable, callbackLogsTable, callbackLogAttemptsTable } from "@workspace/db";
 import { and, eq, isNull, lt, or, sql, asc } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { fireCallback, recordAttempt, TEST_RETRY_DELAY_SECONDS } from "../helpers/callbackRetry";
 import crypto from "crypto";
 import dns from "dns";
@@ -577,6 +577,16 @@ router.put("/", async (req, res) => {
       .returning();
   }
   res.json(webhook);
+});
+
+// POST /api/webhooks/logs/backfill — admin-only one-time backfill of event_type from request_body JSON
+router.post("/logs/backfill", requireAdmin, async (req, res) => {
+  const result = await db.execute(
+    sql`UPDATE callback_logs SET event_type = (request_body)::json->>'event' WHERE event_type IS NULL AND request_body IS NOT NULL`
+  );
+  const rowsUpdated = (result as any).rowCount ?? 0;
+  req.log.info({ rowsUpdated }, "webhook_event_type_backfill_complete");
+  res.json({ rowsUpdated });
 });
 
 export default router;

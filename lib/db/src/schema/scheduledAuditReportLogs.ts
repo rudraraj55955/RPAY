@@ -11,6 +11,7 @@ export const scheduledAuditReportLogsTable = pgTable("scheduled_audit_report_log
   success: boolean("success").notNull(),
   errorMessage: text("error_message"),
   isRetry: boolean("is_retry").notNull().default(false),
+  retryAttempt: integer("retry_attempt").notNull().default(0),
 });
 
 export type ScheduledAuditReportLog = typeof scheduledAuditReportLogsTable.$inferSelect;

@@ -4,7 +4,16 @@ import { eq, and, sql, desc } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendMail } from "./mailer";
 
+const MAX_RETRY_ATTEMPTS = 3;
+
+const RETRY_DELAYS_MS = [
+  5 * 60 * 1000,
+  15 * 60 * 1000,
+  60 * 60 * 1000,
+];
+
 let scheduledTask: ScheduledTask | null = null;
+let retryTask: ScheduledTask | null = null;
 
 function escapeCsv(val: string | number | null | undefined): string {
   if (val === null || val === undefined) return "";
@@ -112,7 +121,15 @@ function isDue(frequency: string, lastSentAt: Date | null): boolean {
   }
 }
 
-export async function sendScheduledReport(schedule: typeof scheduledAuditReportsTable.$inferSelect, isRetry = false): Promise<boolean> {
+export function getRetryDelayMs(retryAttempt: number): number {
+  return RETRY_DELAYS_MS[retryAttempt] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1]!;
+}
+
+export async function sendScheduledReport(
+  schedule: typeof scheduledAuditReportsTable.$inferSelect,
+  isRetry = false,
+  retryAttempt = 0,
+): Promise<boolean> {
   const { dateFrom, dateTo } = getDateRange(schedule.frequency);
   const sentAt = new Date();
 
@@ -160,6 +177,7 @@ export async function sendScheduledReport(schedule: typeof scheduledAuditReports
     success: sent,
     errorMessage,
     isRetry,
+    retryAttempt,
   });
 
   if (sent) {
@@ -167,9 +185,9 @@ export async function sendScheduledReport(schedule: typeof scheduledAuditReports
       .update(scheduledAuditReportsTable)
       .set({ lastSentAt: sentAt, updatedAt: new Date() })
       .where(eq(scheduledAuditReportsTable.id, schedule.id));
-    logger.info({ scheduleId: schedule.id, recipientEmail: schedule.recipientEmail, rowCount: rows.length, isRetry }, "Scheduled audit report sent");
+    logger.info({ scheduleId: schedule.id, recipientEmail: schedule.recipientEmail, rowCount: rows.length, isRetry, retryAttempt }, "Scheduled audit report sent");
   } else {
-    logger.warn({ scheduleId: schedule.id, errorMessage, isRetry }, "Scheduled audit report send failed");
+    logger.warn({ scheduleId: schedule.id, errorMessage, isRetry, retryAttempt }, "Scheduled audit report send failed");
     throw new Error(errorMessage ?? "Send failed");
   }
   return sent;
@@ -182,33 +200,10 @@ async function runDueReports(): Promise<void> {
       .from(scheduledAuditReportsTable)
       .where(eq(scheduledAuditReportsTable.isActive, true));
 
-    const sentInThisRun = new Set<number>();
-
     for (const schedule of active) {
       if (isDue(schedule.frequency, schedule.lastSentAt)) {
-        sentInThisRun.add(schedule.id);
         await sendScheduledReport(schedule).catch(err => {
           logger.error({ err, scheduleId: schedule.id }, "Failed to send scheduled audit report");
-        });
-      }
-    }
-
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-
-    for (const schedule of active) {
-      if (sentInThisRun.has(schedule.id)) continue;
-
-      const [latestLog] = await db
-        .select()
-        .from(scheduledAuditReportLogsTable)
-        .where(eq(scheduledAuditReportLogsTable.scheduleId, schedule.id))
-        .orderBy(desc(scheduledAuditReportLogsTable.sentAt))
-        .limit(1);
-
-      if (latestLog && !latestLog.success && latestLog.sentAt >= twoHoursAgo) {
-        logger.info({ scheduleId: schedule.id }, "Retrying recently-failed scheduled audit report");
-        await sendScheduledReport(schedule, true).catch(err => {
-          logger.error({ err, scheduleId: schedule.id }, "Retry of scheduled audit report also failed");
         });
       }
     }
@@ -217,11 +212,64 @@ async function runDueReports(): Promise<void> {
   }
 }
 
+export async function runAutoRetries(): Promise<void> {
+  try {
+    const active = await db
+      .select()
+      .from(scheduledAuditReportsTable)
+      .where(eq(scheduledAuditReportsTable.isActive, true));
+
+    for (const schedule of active) {
+      const [latestLog] = await db
+        .select()
+        .from(scheduledAuditReportLogsTable)
+        .where(eq(scheduledAuditReportLogsTable.scheduleId, schedule.id))
+        .orderBy(desc(scheduledAuditReportLogsTable.sentAt))
+        .limit(1);
+
+      if (!latestLog || latestLog.success) continue;
+
+      const nextAttempt = latestLog.retryAttempt + 1;
+      if (nextAttempt > MAX_RETRY_ATTEMPTS) {
+        logger.info(
+          { scheduleId: schedule.id, retryAttempt: latestLog.retryAttempt },
+          "Scheduled audit report reached max retry attempts — no further automatic retries",
+        );
+        continue;
+      }
+
+      const delayMs = getRetryDelayMs(latestLog.retryAttempt);
+      const eligibleAfter = new Date(latestLog.sentAt.getTime() + delayMs);
+
+      if (new Date() < eligibleAfter) continue;
+
+      logger.info(
+        { scheduleId: schedule.id, nextAttempt, delayMs },
+        "Auto-retrying failed scheduled audit report",
+      );
+
+      await sendScheduledReport(schedule, true, nextAttempt).catch(err => {
+        logger.error({ err, scheduleId: schedule.id, nextAttempt }, "Auto-retry of scheduled audit report also failed");
+      });
+    }
+  } catch (err) {
+    logger.error({ err }, "Audit report auto-retry run failed");
+  }
+}
+
 export function initAuditReportScheduler(): void {
   if (scheduledTask) {
     scheduledTask.stop();
     scheduledTask = null;
   }
+  if (retryTask) {
+    retryTask.stop();
+    retryTask = null;
+  }
+
   scheduledTask = cron.schedule("0 * * * *", runDueReports);
   logger.info("Audit report scheduler registered (runs every hour)");
+
+  retryTask = cron.schedule("*/5 * * * *", runAutoRetries);
+  logger.info("Audit report auto-retry scheduler registered (runs every 5 minutes)");
 }

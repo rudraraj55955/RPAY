@@ -2,7 +2,9 @@ import { Router } from "express";
 import { db, auditLogsTable, scheduledAuditReportsTable, scheduledAuditReportLogsTable, credentialEventsTable, merchantsTable } from "@workspace/db";
 import { eq, ilike, and, count, sql, or, gte, lte, desc, getTableColumns } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
-import { sendScheduledReport, buildEmailHtml, getDateRange } from "../helpers/auditReportScheduler";
+import { sendScheduledReport, buildEmailHtml, getDateRange, getRetryDelayMs } from "../helpers/auditReportScheduler";
+
+const MAX_RETRY_ATTEMPTS = 3;
 
 const router = Router();
 router.use(requireAuth);
@@ -350,6 +352,18 @@ router.get("/schedules", async (req, res) => {
         ORDER BY sent_at DESC
         LIMIT 1
       )`,
+      lastRetryAttempt: sql<number | null>`(
+        SELECT retry_attempt FROM ${scheduledAuditReportLogsTable}
+        WHERE schedule_id = ${scheduledAuditReportsTable.id}
+        ORDER BY sent_at DESC
+        LIMIT 1
+      )`,
+      lastSentAtFromLog: sql<string | null>`(
+        SELECT sent_at FROM ${scheduledAuditReportLogsTable}
+        WHERE schedule_id = ${scheduledAuditReportsTable.id}
+        ORDER BY sent_at DESC
+        LIMIT 1
+      )`,
       sendCount: sql<number>`(
         SELECT COUNT(*) FROM ${scheduledAuditReportLogsTable}
         WHERE schedule_id = ${scheduledAuditReportsTable.id}
@@ -364,15 +378,25 @@ router.get("/schedules", async (req, res) => {
     .orderBy(scheduledAuditReportsTable.createdAt);
 
   res.json({
-    data: rows.map(r => ({
-      ...serializeSchedule(r),
-      lastSendStatus: deriveLastSendStatus(r.lastSuccess),
-      lastErrorMessage: r.lastErrorMessage ?? null,
-      sendCount: Number(r.sendCount),
-      successCount: Number(r.successCount),
-      currentRetryAttempt: 0,
-      retryInProgress: false,
-    })),
+    data: rows.map(r => {
+      const currentRetryAttempt = r.lastRetryAttempt != null ? Number(r.lastRetryAttempt) : 0;
+      const nextAttempt = currentRetryAttempt + 1;
+      let retryInProgress = false;
+      if (r.lastSuccess === false && r.lastSentAtFromLog && nextAttempt <= MAX_RETRY_ATTEMPTS) {
+        const lastFailedAt = new Date(r.lastSentAtFromLog).getTime();
+        const delayMs = getRetryDelayMs(currentRetryAttempt);
+        retryInProgress = Date.now() < lastFailedAt + delayMs;
+      }
+      return {
+        ...serializeSchedule(r),
+        lastSendStatus: deriveLastSendStatus(r.lastSuccess),
+        lastErrorMessage: r.lastErrorMessage ?? null,
+        sendCount: Number(r.sendCount),
+        successCount: Number(r.successCount),
+        currentRetryAttempt,
+        retryInProgress,
+      };
+    }),
   });
 });
 

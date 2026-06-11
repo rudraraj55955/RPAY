@@ -18,7 +18,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, ChevronDown, ChevronRight, Clock, Plus, CalendarRange, X } from "lucide-react";
-import { getApiErrorMessage } from "@/lib/utils";
+import { getApiErrorMessage, isRateLimitError } from "@/lib/utils";
+import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
 import { format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 const DATE_PRESETS = [
@@ -105,6 +106,7 @@ export default function MerchantSettlements() {
   const [reqAmount, setReqAmount] = useState("");
   const [reqNote, setReqNote] = useState("");
   const [reqError, setReqError] = useState("");
+  const { isRateLimited, secondsLeft, trigger: triggerRateLimit, clear: clearRateLimit } = useRateLimit();
   const [dateFrom, setDateFrom] = useState(() => loadLastDateRange().from);
   const [dateTo, setDateTo] = useState(() => loadLastDateRange().to);
 
@@ -221,9 +223,15 @@ export default function MerchantSettlements() {
         setReqAmount("");
         setReqNote("");
         setReqError("");
+        clearRateLimit();
       },
       onError: (err: unknown) => {
-        setReqError(getApiErrorMessage(err, "Failed to submit request"));
+        if (isRateLimitError(err)) {
+          triggerRateLimit();
+          setReqError("");
+        } else {
+          setReqError(getApiErrorMessage(err, "Failed to submit request"));
+        }
       },
     },
   });
@@ -280,7 +288,7 @@ export default function MerchantSettlements() {
           <Button
             size="sm"
             disabled={!!inFlightSettlement}
-            onClick={() => { setRequestOpen(true); setReqError(""); }}
+            onClick={() => { setRequestOpen(true); setReqError(""); clearRateLimit(); }}
             title={inFlightSettlement ? "A settlement request is already in progress" : undefined}
           >
             <Plus className="w-4 h-4 mr-1" /> Request Settlement
@@ -623,9 +631,11 @@ export default function MerchantSettlements() {
               <p className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-md px-3 py-2">{reqError}</p>
             )}
 
+            <RateLimitBanner secondsLeft={secondsLeft} />
+
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setRequestOpen(false)}>Cancel</Button>
-              <Button onClick={handleSubmitRequest} disabled={createMutation.isPending}>
+              <Button variant="outline" onClick={() => { setRequestOpen(false); clearRateLimit(); }}>Cancel</Button>
+              <Button onClick={handleSubmitRequest} disabled={createMutation.isPending || isRateLimited}>
                 {createMutation.isPending ? "Submitting..." : "Submit Request"}
               </Button>
             </div>

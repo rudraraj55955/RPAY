@@ -9,12 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Copy, Trash2, Eye, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { getApiErrorMessage } from "@/lib/utils";
+import { getApiErrorMessage, isRateLimitError } from "@/lib/utils";
+import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
 import { format } from "date-fns";
 
 export default function MerchantApiKeys() {
   const qc = useQueryClient();
   const [newKey, setNewKey] = useState<{ apiKey: string; secretKey: string } | null>(null);
+  const { isRateLimited, secondsLeft, trigger: triggerRateLimit } = useRateLimit();
 
   const { data: keys, isLoading } = useListApiKeys();
   const generateMutation = useGenerateApiKey();
@@ -26,7 +28,13 @@ export default function MerchantApiKeys() {
         setNewKey({ apiKey: key.apiKey, secretKey: key.secretKey });
         qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() });
       },
-      onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to generate API key")),
+      onError: (err: unknown) => {
+        if (isRateLimitError(err)) {
+          triggerRateLimit();
+        } else {
+          toast.error(getApiErrorMessage(err, "Failed to generate API key"));
+        }
+      },
     });
   };
 
@@ -47,13 +55,15 @@ export default function MerchantApiKeys() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-3xl font-bold tracking-tight">API Keys</h1><p className="text-muted-foreground mt-1">Manage your integration credentials</p></div>
-        <Button onClick={handleGenerate} disabled={generateMutation.isPending}><Plus className="w-4 h-4 mr-2" />Generate Key</Button>
+        <Button onClick={handleGenerate} disabled={generateMutation.isPending || isRateLimited}><Plus className="w-4 h-4 mr-2" />Generate Key</Button>
       </div>
 
       <Alert className="border-amber-500/30 bg-amber-500/5">
         <AlertTriangle className="w-4 h-4 text-amber-500" />
         <AlertDescription className="text-amber-200/80">Keep your secret key safe. Never expose it in client-side code or public repositories.</AlertDescription>
       </Alert>
+
+      <RateLimitBanner secondsLeft={secondsLeft} />
 
       <Card>
         <CardContent className="p-0">

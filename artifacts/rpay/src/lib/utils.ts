@@ -10,6 +10,10 @@ export function cn(...inputs: ClassValue[]) {
  * HTTP 429 (rate limit) errors are surfaced with a clear, actionable message.
  * All other errors fall back to the server-provided message or the supplied default.
  */
+export function isRateLimitError(err: unknown): boolean {
+  return !!(err && typeof err === "object" && (err as Record<string, unknown>)["status"] === 429);
+}
+
 export function getApiErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object") {
     const e = err as Record<string, unknown>;

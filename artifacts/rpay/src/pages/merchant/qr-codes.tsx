@@ -20,7 +20,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight, ScanLine, Zap, X } from "lucide-react";
 import { toast } from "sonner";
-import { getApiErrorMessage } from "@/lib/utils";
+import { getApiErrorMessage, isRateLimitError } from "@/lib/utils";
+import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
 import { format, formatDistanceToNow } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -323,6 +324,7 @@ export default function MerchantQrCodes() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
+  const { isRateLimited: createRateLimited, secondsLeft: createSecondsLeft, trigger: triggerCreateRateLimit, clear: clearCreateRateLimit } = useRateLimit();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [downloadQr, setDownloadQr] = useState<QrRow | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -410,10 +412,15 @@ export default function MerchantQrCodes() {
           toast.success("QR code created");
           setShowCreate(false);
           setForm({ amount: "", orderId: "", expiresAt: "", callbackUrl: "", merchantReference: "" });
+          clearCreateRateLimit();
           invalidate();
         },
         onError: (err: unknown) => {
-          toast.error(getApiErrorMessage(err, "Failed to create QR code"));
+          if (isRateLimitError(err)) {
+            triggerCreateRateLimit();
+          } else {
+            toast.error(getApiErrorMessage(err, "Failed to create QR code"));
+          }
         },
       }
     );
@@ -790,9 +797,14 @@ export default function MerchantQrCodes() {
               </div>
             </div>
           </div>
+          {createRateLimited && (
+            <div className="px-0 pb-2">
+              <RateLimitBanner secondsLeft={createSecondsLeft} />
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createMutation.isPending || !hasProvider}>
+            <Button variant="outline" onClick={() => { setShowCreate(false); clearCreateRateLimit(); }}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={createMutation.isPending || !hasProvider || createRateLimited}>
               {createMutation.isPending ? "Creating..." : "Generate QR"}
             </Button>
           </DialogFooter>

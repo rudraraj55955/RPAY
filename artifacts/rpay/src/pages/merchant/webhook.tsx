@@ -1237,17 +1237,23 @@ onError: () => toast.error("Failed to send test event"),
                       {secretStatus?.isSet && secretStatus.secretPrefix && (
                         <p className="text-xs text-muted-foreground font-mono">{secretStatus.secretPrefix}</p>
                       )}
-                      {secretStatus?.isSet && secretStatus.lastRotatedAt != null && (
+                      {secretStatus?.isSet && (
                         <p className="text-xs text-muted-foreground/70 mt-0.5">
-                          Last rotated: {format(new Date(secretStatus.lastRotatedAt), "dd MMM yyyy")}
-                          {" "}
-                          <span className="text-muted-foreground/50">
-                            ({formatDistanceToNow(new Date(secretStatus.lastRotatedAt), { addSuffix: true })})
-                          </span>
-                          {daysLeft != null && !isOverdue && !isWarningSoon && (
-                            <span className="ml-2 font-medium text-muted-foreground/60">
-                              · Rotation due in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
-                            </span>
+                          {secretStatus.lastRotatedAt != null ? (
+                            <>
+                              Last rotated: {format(new Date(secretStatus.lastRotatedAt), "dd MMM yyyy, HH:mm")}
+                              {" "}
+                              <span className="text-muted-foreground/50">
+                                ({formatDistanceToNow(new Date(secretStatus.lastRotatedAt), { addSuffix: true })})
+                              </span>
+                              {daysLeft != null && !isOverdue && !isWarningSoon && (
+                                <span className="ml-2 font-medium text-muted-foreground/60">
+                                  · Rotation due in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground/50">Last rotated: Never</span>
                           )}
                         </p>
                       )}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, getGetWebhookLogsQueryKey, useSendWebhookTest, useRetryWebhookLog } from "@workspace/api-client-react";
+import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, getGetWebhookLogsQueryKey, useSendWebhookTest, useRetryWebhookLog, WebhookTestRequestEventType } from "@workspace/api-client-react";
 import type { CallbackLog } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, RotateCcw, ShieldOff, Shield, FlaskRound } from "lucide-react";
 import { formatDistanceToNow, format, differenceInDays } from "date-fns";
 
@@ -315,6 +316,7 @@ export default function MerchantWebhook() {
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [selectedLog, setSelectedLog] = useState<CallbackLog | null>(null);
   const [retryingId, setRetryingId] = useState<number | null>(null);
+  const [testEventType, setTestEventType] = useState<WebhookTestRequestEventType>(WebhookTestRequestEventType.paymentsuccess);
 
   useEffect(() => {
     if (config) {
@@ -343,7 +345,7 @@ export default function MerchantWebhook() {
       return;
     }
     setTestResult(null);
-    testMutation.mutate(undefined, {
+    testMutation.mutate({ data: { eventType: testEventType } }, {
       onSuccess: (data) => {
         setTestResult(data);
         if (data.delivered) {
@@ -456,25 +458,43 @@ export default function MerchantWebhook() {
           <Save className="w-4 h-4 mr-2" />
           {updateMutation.isPending ? "Saving..." : "Save Configuration"}
         </Button>
-        <Button
-          variant="outline"
-          onClick={handleSendTest}
-          disabled={testMutation.isPending || !url.trim()}
-          className="w-full sm:w-auto gap-2"
-          title={!url.trim() ? "Configure and save a webhook URL first" : undefined}
-        >
-          {testMutation.isPending ? (
-            <>
-              <Zap className="w-4 h-4 animate-pulse" />
-              Sending test…
-            </>
-          ) : (
-            <>
-              <FlaskConical className="w-4 h-4" />
-              Send test event
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Select
+            value={testEventType}
+            onValueChange={(v) => setTestEventType(v as WebhookTestRequestEventType)}
+            disabled={testMutation.isPending || !url.trim()}
+          >
+            <SelectTrigger className="w-[190px] h-9 text-xs font-mono">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {EVENTS.map(event => (
+                <SelectItem key={event.id} value={event.id} className="text-xs">
+                  <span className="font-mono">{event.id}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            onClick={handleSendTest}
+            disabled={testMutation.isPending || !url.trim()}
+            className="gap-2 h-9"
+            title={!url.trim() ? "Configure and save a webhook URL first" : undefined}
+          >
+            {testMutation.isPending ? (
+              <>
+                <Zap className="w-4 h-4 animate-pulse" />
+                Sending…
+              </>
+            ) : (
+              <>
+                <FlaskConical className="w-4 h-4" />
+                Send test
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {testResult && (

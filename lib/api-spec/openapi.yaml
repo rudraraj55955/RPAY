@@ -1283,11 +1283,18 @@ paths:
       tags: [webhooks]
       summary: Send a test webhook event
       description: |
-        Fires a sample `payment.success` payload to the merchant's configured webhook URL.
+        Fires a sample payload for the specified event type to the merchant's configured
+        webhook URL. Defaults to `payment.success` when no `eventType` is provided.
         If the merchant has set a webhook signing secret, the payload is signed with
         HMAC-SHA256 and the `X-Signature` header is included.
         Returns the HTTP status and truncated response body so the merchant can verify
         their endpoint is reachable and accepting signed payloads correctly.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookTestRequest"
       responses:
         "200":
           description: Test delivery result (regardless of remote response code)
@@ -4302,6 +4309,20 @@ components:
           type: ["string", "null"]
         createdAt:
           type: string
+
+    WebhookTestRequest:
+      type: object
+      properties:
+        eventType:
+          type: string
+          enum:
+            - payment.success
+            - payment.failed
+            - payment.pending
+            - withdrawal.approved
+            - withdrawal.rejected
+            - settlement.processed
+          description: The event type to use for the test payload. Defaults to `payment.success`.
 
     WebhookTestResult:
       type: object

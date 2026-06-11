@@ -240,6 +240,8 @@ export * from './virtualAccountUpdateInputStatus';
 export * from './visibilityRuleUpdateInput';
 export * from './webhookConfig';
 export * from './webhookConfigInput';
+export * from './webhookTestRequest';
+export * from './webhookTestRequestEventType';
 export * from './webhookTestResult';
 export * from './withdrawal';
 export * from './withdrawalInput';

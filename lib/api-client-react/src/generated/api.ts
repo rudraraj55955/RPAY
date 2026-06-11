@@ -185,6 +185,7 @@ import type {
   VisibilityRuleUpdateInput,
   WebhookConfig,
   WebhookConfigInput,
+  WebhookTestRequest,
   WebhookTestResult,
   Withdrawal,
   WithdrawalInput,
@@ -3995,7 +3996,8 @@ export const getSendWebhookTestUrl = () => {
 }
 
 /**
- * Fires a sample `payment.success` payload to the merchant's configured webhook URL.
+ * Fires a sample payload for the specified event type to the merchant's configured
+webhook URL. Defaults to `payment.success` when no `eventType` is provided.
 If the merchant has set a webhook signing secret, the payload is signed with
 HMAC-SHA256 and the `X-Signature` header is included.
 Returns the HTTP status and truncated response body so the merchant can verify
@@ -4003,14 +4005,15 @@ their endpoint is reachable and accepting signed payloads correctly.
 
  * @summary Send a test webhook event
  */
-export const sendWebhookTest = async ( options?: RequestInit): Promise<WebhookTestResult> => {
+export const sendWebhookTest = async (webhookTestRequest?: WebhookTestRequest, options?: RequestInit): Promise<WebhookTestResult> => {
 
   return customFetch<WebhookTestResult>(getSendWebhookTestUrl(),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      webhookTestRequest,)
   }
 );}
 
@@ -4018,8 +4021,8 @@ export const sendWebhookTest = async ( options?: RequestInit): Promise<WebhookTe
 
 
 export const getSendWebhookTestMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendWebhookTest>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof sendWebhookTest>>, TError,void, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendWebhookTest>>, TError,{data?: BodyType<WebhookTestRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendWebhookTest>>, TError,{data?: BodyType<WebhookTestRequest>}, TContext> => {
 
 const mutationKey = ['sendWebhookTest'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -4031,10 +4034,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendWebhookTest>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendWebhookTest>>, {data?: BodyType<WebhookTestRequest>}> = (props) => {
+          const {data} = props ?? {};
 
-
-          return  sendWebhookTest(requestOptions)
+          return  sendWebhookTest(data,requestOptions)
         }
 
 
@@ -4045,18 +4048,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type SendWebhookTestMutationResult = NonNullable<Awaited<ReturnType<typeof sendWebhookTest>>>
-
+    export type SendWebhookTestMutationBody = BodyType<WebhookTestRequest> | undefined
     export type SendWebhookTestMutationError = ErrorType<void>
 
     /**
  * @summary Send a test webhook event
  */
 export const useSendWebhookTest = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendWebhookTest>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendWebhookTest>>, TError,{data?: BodyType<WebhookTestRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof sendWebhookTest>>,
         TError,
-        void,
+        {data?: BodyType<WebhookTestRequest>},
         TContext
       > => {
       return useMutation(getSendWebhookTestMutationOptions(options));

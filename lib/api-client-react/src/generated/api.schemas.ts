@@ -382,6 +382,26 @@ export interface WebhookConfig {
   createdAt?: string;
 }
 
+/**
+ * The event type to use for the test payload. Defaults to `payment.success`.
+ */
+export type WebhookTestRequestEventType = typeof WebhookTestRequestEventType[keyof typeof WebhookTestRequestEventType];
+
+
+export const WebhookTestRequestEventType = {
+  paymentsuccess: 'payment.success',
+  paymentfailed: 'payment.failed',
+  paymentpending: 'payment.pending',
+  withdrawalapproved: 'withdrawal.approved',
+  withdrawalrejected: 'withdrawal.rejected',
+  settlementprocessed: 'settlement.processed',
+} as const;
+
+export interface WebhookTestRequest {
+  /** The event type to use for the test payload. Defaults to `payment.success`. */
+  eventType?: WebhookTestRequestEventType;
+}
+
 export interface WebhookTestResult {
   /** True if the remote server responded with 2xx */
   delivered: boolean;

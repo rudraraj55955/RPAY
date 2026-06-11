@@ -207,7 +207,126 @@ router.post("/logs/:id/retry", async (req, res) => {
   res.json({ success: ok, delivered: ok, log: updated });
 });
 
-// POST /api/webhooks/test — send a test payment.success event to the merchant's webhook URL
+const SUPPORTED_TEST_EVENTS = [
+  "payment.success",
+  "payment.failed",
+  "payment.pending",
+  "withdrawal.approved",
+  "withdrawal.rejected",
+  "settlement.processed",
+] as const;
+
+type SupportedTestEvent = typeof SUPPORTED_TEST_EVENTS[number];
+
+function buildTestPayload(eventType: SupportedTestEvent, merchantId: number): object {
+  const ts = new Date().toISOString();
+  const txnId = "txn_test_" + crypto.randomBytes(8).toString("hex");
+  const orderId = "order_test_" + crypto.randomBytes(6).toString("hex");
+
+  switch (eventType) {
+    case "payment.success":
+      return {
+        event: "payment.success",
+        test: true,
+        timestamp: ts,
+        data: {
+          transactionId: txnId,
+          amount: 1000,
+          currency: "INR",
+          status: "success",
+          merchantId,
+          orderId,
+          description: "Test event from RasoKart webhook tester",
+        },
+      };
+
+    case "payment.failed":
+      return {
+        event: "payment.failed",
+        test: true,
+        timestamp: ts,
+        data: {
+          transactionId: txnId,
+          amount: 1000,
+          currency: "INR",
+          status: "failed",
+          merchantId,
+          orderId,
+          failureReason: "Insufficient funds",
+          description: "Test event from RasoKart webhook tester",
+        },
+      };
+
+    case "payment.pending":
+      return {
+        event: "payment.pending",
+        test: true,
+        timestamp: ts,
+        data: {
+          transactionId: txnId,
+          amount: 1000,
+          currency: "INR",
+          status: "pending",
+          merchantId,
+          orderId,
+          description: "Test event from RasoKart webhook tester",
+        },
+      };
+
+    case "withdrawal.approved":
+      return {
+        event: "withdrawal.approved",
+        test: true,
+        timestamp: ts,
+        data: {
+          withdrawalId: "wdr_test_" + crypto.randomBytes(8).toString("hex"),
+          amount: 5000,
+          currency: "INR",
+          status: "approved",
+          merchantId,
+          bankAccount: "XXXX1234",
+          utr: "UTR" + crypto.randomBytes(6).toString("hex").toUpperCase(),
+          description: "Test event from RasoKart webhook tester",
+        },
+      };
+
+    case "withdrawal.rejected":
+      return {
+        event: "withdrawal.rejected",
+        test: true,
+        timestamp: ts,
+        data: {
+          withdrawalId: "wdr_test_" + crypto.randomBytes(8).toString("hex"),
+          amount: 5000,
+          currency: "INR",
+          status: "rejected",
+          merchantId,
+          rejectionReason: "Bank account verification pending",
+          description: "Test event from RasoKart webhook tester",
+        },
+      };
+
+    case "settlement.processed":
+      return {
+        event: "settlement.processed",
+        test: true,
+        timestamp: ts,
+        data: {
+          settlementId: "stl_test_" + crypto.randomBytes(8).toString("hex"),
+          amount: 25000,
+          currency: "INR",
+          status: "processed",
+          merchantId,
+          periodFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+          periodTo: new Date().toISOString().slice(0, 10),
+          transactionCount: 42,
+          description: "Test event from RasoKart webhook tester",
+        },
+      };
+  }
+}
+
+// POST /api/webhooks/test — send a test event to the merchant's webhook URL
 router.post("/test", async (req, res) => {
   const user = (req as any).user;
   const merchantId = user.role === "merchant" ? user.merchantId! : undefined;
@@ -215,6 +334,13 @@ router.post("/test", async (req, res) => {
     res.status(403).json({ error: "Merchants only" });
     return;
   }
+
+  const rawEventType = (req.body?.eventType as string | undefined) ?? "payment.success";
+  if (!SUPPORTED_TEST_EVENTS.includes(rawEventType as SupportedTestEvent)) {
+    res.status(400).json({ error: `Unsupported event type. Must be one of: ${SUPPORTED_TEST_EVENTS.join(", ")}` });
+    return;
+  }
+  const eventType = rawEventType as SupportedTestEvent;
 
   const [webhook] = await db
     .select()
@@ -237,27 +363,13 @@ router.post("/test", async (req, res) => {
     return;
   }
 
-  const payload = {
-    event: "payment.success",
-    test: true,
-    timestamp: new Date().toISOString(),
-    data: {
-      transactionId: "txn_test_" + crypto.randomBytes(8).toString("hex"),
-      amount: 1000,
-      currency: "INR",
-      status: "success",
-      merchantId,
-      orderId: "order_test_" + crypto.randomBytes(6).toString("hex"),
-      description: "Test event from RasoKart webhook tester",
-    },
-  };
-
+  const payload = buildTestPayload(eventType, merchantId);
   const body = JSON.stringify(payload);
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "User-Agent": "RasoKart-Webhooks/1.0",
-    "X-RasoKart-Event": "payment.success",
+    "X-RasoKart-Event": eventType,
     "X-RasoKart-Delivery": crypto.randomUUID(),
   };
 

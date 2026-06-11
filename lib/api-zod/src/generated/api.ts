@@ -1249,7 +1249,8 @@ export const RetryWebhookLogResponse = zod.object({
 
 
 /**
- * Fires a sample `payment.success` payload to the merchant's configured webhook URL.
+ * Fires a sample payload for the specified event type to the merchant's configured
+webhook URL. Defaults to `payment.success` when no `eventType` is provided.
 If the merchant has set a webhook signing secret, the payload is signed with
 HMAC-SHA256 and the `X-Signature` header is included.
 Returns the HTTP status and truncated response body so the merchant can verify
@@ -1257,6 +1258,10 @@ their endpoint is reachable and accepting signed payloads correctly.
 
  * @summary Send a test webhook event
  */
+export const SendWebhookTestBody = zod.object({
+  "eventType": zod.enum(['payment.success', 'payment.failed', 'payment.pending', 'withdrawal.approved', 'withdrawal.rejected', 'settlement.processed']).optional().describe('The event type to use for the test payload. Defaults to `payment.success`.')
+})
+
 export const SendWebhookTestResponse = zod.object({
   "delivered": zod.boolean().describe('True if the remote server responded with 2xx'),
   "httpStatus": zod.number().nullable().describe('HTTP status code returned by the remote endpoint, or null if the request failed to connect'),

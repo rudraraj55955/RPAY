@@ -91,6 +91,8 @@ export interface User {
   planExpiryAlertEmails?: boolean;
   settlementStateEmails?: boolean;
   signatureFailureAlertEmails?: boolean;
+  /** @nullable */
+  passwordUpdatedAt?: string | null;
   createdAt: string;
 }
 

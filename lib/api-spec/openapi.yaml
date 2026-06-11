@@ -4585,6 +4585,8 @@ components:
           type: boolean
         signatureFailureAlertEmails:
           type: boolean
+        passwordUpdatedAt:
+          type: ["string", "null"]
         createdAt:
           type: string
 

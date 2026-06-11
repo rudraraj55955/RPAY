@@ -114,6 +114,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
         planExpiryAlertEmails: usersTable.planExpiryAlertEmails,
         settlementStateEmails: usersTable.settlementStateEmails,
         signatureFailureAlertEmails: usersTable.signatureFailureAlertEmails,
+        passwordUpdatedAt: usersTable.passwordUpdatedAt,
       })
       .from(usersTable)
       .where(eq(usersTable.id, user.id))
@@ -130,6 +131,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
       planExpiryAlertEmails: row?.planExpiryAlertEmails ?? true,
       settlementStateEmails: row?.settlementStateEmails ?? true,
       signatureFailureAlertEmails: row?.signatureFailureAlertEmails ?? true,
+      passwordUpdatedAt: row?.passwordUpdatedAt ?? null,
       createdAt: user.createdAt,
     });
   } catch (err) {

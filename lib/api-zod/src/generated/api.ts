@@ -38,6 +38,7 @@ export const LoginResponse = zod.object({
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
   "signatureFailureAlertEmails": zod.boolean().optional(),
+  "passwordUpdatedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 })
@@ -71,6 +72,7 @@ export const GetMeResponse = zod.object({
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
   "signatureFailureAlertEmails": zod.boolean().optional(),
+  "passwordUpdatedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -97,6 +99,7 @@ export const UpdateMyPreferencesResponse = zod.object({
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
   "signatureFailureAlertEmails": zod.boolean().optional(),
+  "passwordUpdatedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -1852,6 +1855,7 @@ export const ListUsersResponse = zod.object({
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
   "signatureFailureAlertEmails": zod.boolean().optional(),
+  "passwordUpdatedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -1897,6 +1901,7 @@ export const UpdateUserResponse = zod.object({
   "planExpiryAlertEmails": zod.boolean().optional(),
   "settlementStateEmails": zod.boolean().optional(),
   "signatureFailureAlertEmails": zod.boolean().optional(),
+  "passwordUpdatedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 

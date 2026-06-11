@@ -2642,6 +2642,10 @@ rejectionReason?: string;
  * Filter by whether merchants have a callback secret configured. "true" = secret set, "false" = no secret.
  */
 callbackSecretSet?: ListMerchantsCallbackSecretSet;
+/**
+ * When "true", returns only merchants whose callback secret has not been rotated within SECRET_ROTATION_OVERDUE_DAYS (90 days), or has never been set.
+ */
+secretOverdue?: ListMerchantsSecretOverdue;
 };
 
 export type ListMerchantsStatus = typeof ListMerchantsStatus[keyof typeof ListMerchantsStatus];
@@ -2674,6 +2678,13 @@ export type GetAdminMerchantCredentialEventsParams = {
 page?: number;
 limit?: number;
 };
+
+export type ListMerchantsSecretOverdue = typeof ListMerchantsSecretOverdue[keyof typeof ListMerchantsSecretOverdue];
+
+
+export const ListMerchantsSecretOverdue = {
+  true: 'true',
+} as const;
 
 export type ListInvoicesParams = {
 merchantId?: number;

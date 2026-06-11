@@ -80,6 +80,10 @@ export default function AdminMerchants() {
     if (v === "true" || v === "false") return v;
     return "";
   });
+  const [secretOverdueFilter, setSecretOverdueFilter] = useState<"" | "true">(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("secretOverdue") === "true" ? "true" : "";
+  });
   const [page, setPage] = useState(1);
   const [rejectId, setRejectId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -172,7 +176,7 @@ export default function AdminMerchants() {
   const [bulkUndoSecondsLeft, setBulkUndoSecondsLeft] = useState(0);
   const [bulkUndoUsed, setBulkUndoUsed] = useState(false);
 
-  const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined, callbackSecretSet: callbackSecretFilter as any || undefined });
+  const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined, callbackSecretSet: callbackSecretFilter as any || undefined, secretOverdue: secretOverdueFilter as any || undefined });
   const { data: plans } = useListPlans();
   const { data: currentMerchantPlan, isLoading: planLoading } = useGetMerchantPlan(
     assignPlanMerchant?.id ?? 0,
@@ -771,7 +775,7 @@ export default function AdminMerchants() {
 
   const handleSelectAllPages = async () => {
     try {
-      const allData = await listMerchants({ status: status as any, search, page: 1, limit: total, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined });
+      const allData = await listMerchants({ status: status as any, search, page: 1, limit: total, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined, callbackSecretSet: callbackSecretFilter as any || undefined, secretOverdue: secretOverdueFilter as any || undefined });
       setSelected(new Set(allData.data.map(m => m.id)));
       setSelectAllMode(true);
     } catch {
@@ -903,6 +907,17 @@ export default function AdminMerchants() {
             >
               <KeyRound className="w-3.5 h-3.5" />
               Secret Set
+            </button>
+            <button
+              onClick={() => { setSecretOverdueFilter(secretOverdueFilter === "true" ? "" : "true"); setPage(1); clearSelection(); }}
+              className={`px-3 py-1.5 rounded-md text-sm transition-colors border flex items-center gap-1.5 ${
+                secretOverdueFilter === "true"
+                  ? "bg-rose-500/20 text-rose-400 border-rose-500/40"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-transparent"
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              Secret Overdue
             </button>
           </div>
         </div>
@@ -1132,23 +1147,19 @@ export default function AdminMerchants() {
                       )}
                       {merchant.callbackSecretSet && merchant.callbackSecretUpdatedAt && (() => {
                         const ageDays = Math.floor((now - new Date(merchant.callbackSecretUpdatedAt).getTime()) / 86400000);
-                        if (ageDays < 75) return null;
                         const isRed = ageDays >= 90;
+                        const isAmber = ageDays >= 75 && ageDays < 90;
                         return (
-                          <button
-                            type="button"
-                            title={`Secret last rotated ${ageDays} days ago — ${isRed ? "rotation overdue" : "rotation due soon"}`}
-                            onClick={() => openAssignPlan(merchant.id, merchant.businessName, merchant.callbackTimestampWindowSeconds)}
-                            className="text-left"
+                          <span
+                            title={`Secret last rotated ${ageDays} day${ageDays !== 1 ? "s" : ""} ago${isRed ? " — rotation overdue" : isAmber ? " — rotation due soon" : ""}`}
+                            className={`text-xs ${isRed ? "text-rose-400" : isAmber ? "text-amber-400" : "text-muted-foreground"}`}
                           >
-                            <Badge
-                              variant="outline"
-                              className={`text-xs py-0 gap-1 cursor-pointer ${isRed ? "text-rose-400 border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20" : "text-amber-400 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20"}`}
-                            >
-                              <Clock className="w-3 h-3" />
-                              {ageDays}d old
-                            </Badge>
-                          </button>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 shrink-0" />
+                              {ageDays === 0 ? "today" : `${ageDays}d ago`}
+                              {isRed && <span className="font-semibold">(overdue)</span>}
+                            </span>
+                          </span>
                         );
                       })()}
                     </div>

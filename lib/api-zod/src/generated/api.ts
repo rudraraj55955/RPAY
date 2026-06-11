@@ -153,7 +153,8 @@ export const ListMerchantsQueryParams = zod.object({
   "limit": zod.coerce.number().optional(),
   "expiryStatus": zod.enum(['expiring', 'expired']).optional(),
   "rejectionReason": zod.coerce.string().optional(),
-  "callbackSecretSet": zod.enum(['true', 'false']).optional().describe('Filter by whether merchants have a callback secret configured. \"true\" = secret set, \"false\" = no secret.')
+  "callbackSecretSet": zod.enum(['true', 'false']).optional().describe('Filter by whether merchants have a callback secret configured. \"true\" = secret set, \"false\" = no secret.'),
+  "secretOverdue": zod.enum(['true']).optional().describe('When \"true\", returns only merchants whose callback secret has not been rotated within SECRET_ROTATION_OVERDUE_DAYS (90 days), or has never been set.')
 })
 
 export const ListMerchantsResponse = zod.object({

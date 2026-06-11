@@ -61,7 +61,7 @@ async function logPlanHistory(opts: {
 
 // GET /api/merchants
 router.get("/", requireAdmin, async (req, res) => {
-  const { status, search, page = "1", limit = "20", expiryStatus, rejectionReason, callbackSecretSet } = req.query as Record<string, string>;
+  const { status, search, page = "1", limit = "20", expiryStatus, rejectionReason, callbackSecretSet, secretOverdue } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
@@ -85,6 +85,14 @@ router.get("/", requireAdmin, async (req, res) => {
     conditions.push(isNotNull(merchantsTable.callbackSecret));
   } else if (callbackSecretSet === "false") {
     conditions.push(sql`${merchantsTable.callbackSecret} IS NULL`);
+  }
+
+  const SECRET_ROTATION_OVERDUE_DAYS = 90;
+  if (secretOverdue === "true") {
+    const overdueThreshold = new Date(now.getTime() - SECRET_ROTATION_OVERDUE_DAYS * 86400000);
+    conditions.push(
+      sql`(${merchantsTable.callbackSecretUpdatedAt} IS NULL OR ${merchantsTable.callbackSecretUpdatedAt} < ${overdueThreshold})`
+    );
   }
 
   const planConditions = [];

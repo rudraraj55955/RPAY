@@ -7,6 +7,7 @@
  */
 import type { ListMerchantsCallbackSecretSet } from './listMerchantsCallbackSecretSet';
 import type { ListMerchantsExpiryStatus } from './listMerchantsExpiryStatus';
+import type { ListMerchantsSecretOverdue } from './listMerchantsSecretOverdue';
 import type { ListMerchantsStatus } from './listMerchantsStatus';
 
 export type ListMerchantsParams = {
@@ -20,4 +21,8 @@ rejectionReason?: string;
  * Filter by whether merchants have a callback secret configured. "true" = secret set, "false" = no secret.
  */
 callbackSecretSet?: ListMerchantsCallbackSecretSet;
+/**
+ * When "true", returns only merchants whose callback secret has not been rotated within SECRET_ROTATION_OVERDUE_DAYS (90 days), or has never been set.
+ */
+secretOverdue?: ListMerchantsSecretOverdue;
 };

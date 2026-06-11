@@ -135,6 +135,7 @@ export * from './listMerchantFilterPresets200';
 export * from './listMerchantsCallbackSecretSet';
 export * from './listMerchantsExpiryStatus';
 export * from './listMerchantsParams';
+export * from './listMerchantsSecretOverdue';
 export * from './listMerchantsStatus';
 export * from './listMySecurityActivityParams';
 export * from './listNotificationsIsRead';

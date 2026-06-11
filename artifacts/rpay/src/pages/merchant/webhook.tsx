@@ -169,7 +169,15 @@ def webhook():
 
 function WebhookTestPanel({ result, onDismiss, onRetry, isRetrying }: { result: TestResult; onDismiss: () => void; onRetry?: () => void; isRetrying?: boolean }) {
   const [showVerifyGuide, setShowVerifyGuide] = useState(false);
-  const [activeTab, setActiveTab] = useState<"node" | "python">("node");
+  const [activeTab, setActiveTab] = useState<"node" | "python">(() => {
+    const stored = localStorage.getItem("rasokart_webhook_snippet_lang");
+    return stored === "python" ? "python" : "node";
+  });
+
+  const handleTabChange = (tab: "node" | "python") => {
+    setActiveTab(tab);
+    localStorage.setItem("rasokart_webhook_snippet_lang", tab);
+  };
 
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -350,13 +358,13 @@ function WebhookTestPanel({ result, onDismiss, onRetry, isRetrying }: { result: 
               <div className="space-y-2">
                 <div className="flex items-center gap-1 border-b border-border/20 pb-1">
                   <button
-                    onClick={() => setActiveTab("node")}
+                    onClick={() => handleTabChange("node")}
                     className={`text-xs px-2 py-0.5 rounded transition-colors ${activeTab === "node" ? "bg-emerald-500/20 text-emerald-300" : "text-muted-foreground/50 hover:text-muted-foreground/80"}`}
                   >
                     Node.js
                   </button>
                   <button
-                    onClick={() => setActiveTab("python")}
+                    onClick={() => handleTabChange("python")}
                     className={`text-xs px-2 py-0.5 rounded transition-colors ${activeTab === "python" ? "bg-emerald-500/20 text-emerald-300" : "text-muted-foreground/50 hover:text-muted-foreground/80"}`}
                   >
                     Python

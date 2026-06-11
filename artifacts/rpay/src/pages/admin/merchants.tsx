@@ -107,6 +107,15 @@ export default function AdminMerchants() {
     | null
   >(null);
 
+  // Single-action result summary state
+  const [singleActionResult, setSingleActionResult] = useState<{
+    open: boolean;
+    title: string;
+    merchantName: string;
+    newStatus: string;
+    timestamp: string;
+  } | null>(null);
+
   const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined });
   const { data: plans } = useListPlans();
   const { data: currentMerchantPlan, isLoading: planLoading } = useGetMerchantPlan(
@@ -186,21 +195,30 @@ export default function AdminMerchants() {
 
   const handleApprove = (id: number) => {
     approveMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Merchant approved"); qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() }); },
+      onSuccess: (merchant) => {
+        qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+        setSingleActionResult({ open: true, title: "Merchant Approved", merchantName: merchant.businessName, newStatus: merchant.status, timestamp: new Date().toISOString() });
+      },
       onError: () => toast.error("Failed to approve merchant"),
     });
   };
 
   const handleSuspend = (id: number) => {
     merchantSuspendMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Merchant suspended"); qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() }); },
+      onSuccess: (merchant) => {
+        qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+        setSingleActionResult({ open: true, title: "Merchant Suspended", merchantName: merchant.businessName, newStatus: merchant.status, timestamp: new Date().toISOString() });
+      },
       onError: () => toast.error("Failed to suspend merchant"),
     });
   };
 
   const handleUnsuspend = (id: number) => {
     merchantUnsuspendMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Merchant reinstated"); qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() }); },
+      onSuccess: (merchant) => {
+        qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+        setSingleActionResult({ open: true, title: "Merchant Reinstated", merchantName: merchant.businessName, newStatus: merchant.status, timestamp: new Date().toISOString() });
+      },
       onError: () => toast.error("Failed to unsuspend merchant"),
     });
   };
@@ -208,10 +226,10 @@ export default function AdminMerchants() {
   const handleReject = () => {
     if (!rejectId || !rejectReason.trim()) return;
     rejectMutation.mutate({ id: rejectId, data: { reason: rejectReason } }, {
-      onSuccess: () => {
-        toast.success("Merchant rejected");
+      onSuccess: (merchant) => {
         setRejectId(null); setRejectReason("");
         qc.invalidateQueries({ queryKey: getListMerchantsQueryKey() });
+        setSingleActionResult({ open: true, title: "Merchant Rejected", merchantName: merchant.businessName, newStatus: merchant.status, timestamp: new Date().toISOString() });
       },
       onError: () => toast.error("Failed to reject merchant"),
     });
@@ -1616,6 +1634,30 @@ export default function AdminMerchants() {
                 </Button>
               );
             })()}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Single-Action Result Summary Dialog */}
+      <Dialog open={singleActionResult?.open ?? false} onOpenChange={(open) => setSingleActionResult(prev => prev ? { ...prev, open } : null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+              {singleActionResult?.title}
+            </DialogTitle>
+            <DialogDescription>
+              {singleActionResult?.timestamp && format(new Date(singleActionResult.timestamp), "PPpp")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-between px-3 py-3 rounded-md bg-muted/40 border border-border/50">
+            <span className="font-medium text-sm">{singleActionResult?.merchantName}</span>
+            {singleActionResult?.newStatus && (
+              <StatusBadge status={singleActionResult.newStatus} />
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setSingleActionResult(prev => prev ? { ...prev, open: false } : null)}>Dismiss</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

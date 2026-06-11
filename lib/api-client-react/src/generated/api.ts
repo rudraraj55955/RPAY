@@ -103,6 +103,7 @@ import type {
   ListSavedFilters200,
   ListSettlementsParams,
   ListTransactionsParams,
+  ListUploadedObjects200,
   ListUsersParams,
   ListVaBalanceAuditParams,
   ListVirtualAccountsParams,
@@ -13091,6 +13092,83 @@ export const useMarkNotificationRead = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getMarkNotificationReadMutationOptions(options));
     }
+
+export const getListUploadedObjectsUrl = () => {
+
+
+
+
+  return `/api/storage/uploaded-objects`
+}
+
+/**
+ * @summary List previously uploaded objects for the authenticated merchant
+ */
+export const listUploadedObjects = async ( options?: RequestInit): Promise<ListUploadedObjects200> => {
+
+  return customFetch<ListUploadedObjects200>(getListUploadedObjectsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListUploadedObjectsQueryKey = () => {
+    return [
+    `/api/storage/uploaded-objects`
+    ] as const;
+    }
+
+
+export const getListUploadedObjectsQueryOptions = <TData = Awaited<ReturnType<typeof listUploadedObjects>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUploadedObjects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListUploadedObjectsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUploadedObjects>>> = ({ signal }) => listUploadedObjects({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUploadedObjects>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListUploadedObjectsQueryResult = NonNullable<Awaited<ReturnType<typeof listUploadedObjects>>>
+export type ListUploadedObjectsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary List previously uploaded objects for the authenticated merchant
+ */
+
+export function useListUploadedObjects<TData = Awaited<ReturnType<typeof listUploadedObjects>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUploadedObjects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListUploadedObjectsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getRequestUploadUrlUrl = () => {
 

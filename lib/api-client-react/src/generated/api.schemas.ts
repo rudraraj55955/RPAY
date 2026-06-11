@@ -2177,6 +2177,17 @@ export interface QrCleanupConfig {
   retentionDays: number;
 }
 
+export interface UploadedObjectEntry {
+  /** Normalized object path (e.g. /objects/uploads/uuid). */
+  objectPath: string;
+  /** MIME type of the uploaded file. */
+  contentType: string;
+  /** SHA-256 hex digest of the file contents (if recorded). */
+  contentHash?: string;
+  /** When the object was first uploaded. */
+  createdAt: string;
+}
+
 export interface UploadUrlRequest {
   /**
      * Original file name.
@@ -2731,6 +2742,10 @@ export type GetReconciliationRunEmailLogs200 = {
 
 export type ResendReconciliationReportEmail200 = {
   ok?: boolean;
+};
+
+export type ListUploadedObjects200 = {
+  data: UploadedObjectEntry[];
 };
 
 export type ListSavedFilters200 = {

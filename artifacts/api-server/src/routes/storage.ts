@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import rateLimit from "express-rate-limit";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -32,6 +32,32 @@ const ALLOWED_IMAGE_TYPES = new Set([
 ]);
 
 const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024;
+
+/**
+ * GET /storage/uploaded-objects
+ *
+ * Returns the authenticated merchant's upload history, newest-first.
+ */
+router.get("/storage/uploaded-objects", requireAuth, async (req: Request, res: Response) => {
+  const merchantId = (req as Request & { user?: { id: number } }).user?.id ?? 0;
+  try {
+    const rows = await db
+      .select({
+        objectPath: uploadedObjectsTable.objectPath,
+        contentType: uploadedObjectsTable.contentType,
+        contentHash: uploadedObjectsTable.contentHash,
+        createdAt: uploadedObjectsTable.createdAt,
+      })
+      .from(uploadedObjectsTable)
+      .where(eq(uploadedObjectsTable.merchantId, merchantId))
+      .orderBy(desc(uploadedObjectsTable.createdAt));
+
+    res.json({ data: rows });
+  } catch (error) {
+    req.log.error({ err: error }, "Error listing uploaded objects");
+    res.status(500).json({ error: "Failed to list uploaded objects" });
+  }
+});
 
 /**
  * POST /storage/uploads/request-url

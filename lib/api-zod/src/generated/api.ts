@@ -4013,6 +4013,19 @@ export const MarkNotificationReadResponse = zod.object({
 
 
 /**
+ * @summary List previously uploaded objects for the authenticated merchant
+ */
+export const ListUploadedObjectsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "objectPath": zod.string().describe('Normalized object path (e.g. \/objects\/uploads\/uuid).'),
+  "contentType": zod.string().describe('MIME type of the uploaded file.'),
+  "contentHash": zod.string().optional().describe('SHA-256 hex digest of the file contents (if recorded).'),
+  "createdAt": zod.coerce.date().describe('When the object was first uploaded.')
+}))
+})
+
+
+/**
  * @summary Request a presigned URL for file upload
  */
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { useUpdateMerchantBranding } from "@workspace/api-client-react";
+import { useUpdateMerchantBranding, useListUploadedObjects } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Palette, ImageIcon, Save, Eye, RotateCcw, CheckCircle2, TriangleAlert, Upload, X, Loader2 } from "lucide-react";
+import { Palette, ImageIcon, Save, Eye, RotateCcw, CheckCircle2, TriangleAlert, Upload, X, Loader2, History, Check } from "lucide-react";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 
 const PRESET_COLORS = [
   { label: "Indigo", value: "#6366f1" },
@@ -26,6 +27,87 @@ function isValidHex(v: string) {
   return /^#[0-9a-f]{3,8}$/i.test(v);
 }
 
+function UploadHistoryPanel({
+  base,
+  currentUrl,
+  onSelect,
+}: {
+  base: string;
+  currentUrl: string;
+  onSelect: (url: string) => void;
+}) {
+  const { data, isLoading, isError } = useListUploadedObjects();
+  const items = data?.data ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Loading upload history…
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <p className="text-xs text-muted-foreground py-2">
+        Could not load upload history.
+      </p>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground py-2">
+        No previous uploads found.
+      </p>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+      {items.map((item) => {
+        const servedUrl = `${base}/api/storage${item.objectPath}`;
+        const isActive = currentUrl === servedUrl;
+        return (
+          <button
+            key={item.objectPath}
+            type="button"
+            title={`Uploaded ${formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}`}
+            onClick={() => onSelect(servedUrl)}
+            className={`relative group rounded-lg border p-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              isActive
+                ? "border-primary bg-primary/10"
+                : "border-border/50 hover:border-primary/50 bg-muted/20 hover:bg-muted/40"
+            }`}
+          >
+            <img
+              src={servedUrl}
+              alt="Previous upload"
+              className="h-10 w-full object-contain rounded"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+                (e.target as HTMLImageElement).nextElementSibling?.removeAttribute("style");
+              }}
+            />
+            <span
+              className="text-xs text-muted-foreground hidden"
+              style={{ display: "none" }}
+            >
+              No preview
+            </span>
+            {isActive && (
+              <span className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-0.5">
+                <Check className="w-2.5 h-2.5" />
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function MerchantBranding() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -37,6 +119,7 @@ export default function MerchantBranding() {
   const [savedLogoUrl, setSavedLogoUrl] = useState<string | null>(null);
   const [savedLogoError, setSavedLogoError] = useState(false);
   const [isReplacing, setIsReplacing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -50,7 +133,9 @@ export default function MerchantBranding() {
       const servedUrl = `${base}/api/storage${response.objectPath}`;
       setLogoUrl(servedUrl);
       setLogoError(false);
+      setShowHistory(false);
       toast.success("Logo uploaded");
+      qc.invalidateQueries({ queryKey: ["listUploadedObjects"] });
     },
     onError: () => toast.error("Logo upload failed"),
   });
@@ -91,6 +176,7 @@ export default function MerchantBranding() {
           setSavedLogoUrl(newSaved);
           setSavedLogoError(false);
           setIsReplacing(false);
+          setShowHistory(false);
           if (!newSaved) setLogoError(false);
         },
         onError: () => toast.error("Failed to save branding"),
@@ -109,6 +195,12 @@ export default function MerchantBranding() {
     if (!file) return;
     uploadFile(file);
     e.target.value = "";
+  }
+
+  function handleSelectHistoryItem(url: string) {
+    setLogoUrl(url);
+    setLogoError(false);
+    setShowHistory(false);
   }
 
   const accent = brandColor && isValidHex(brandColor) ? brandColor : null;
@@ -185,7 +277,7 @@ export default function MerchantBranding() {
               {/* Upload button */}
               <div className="space-y-2">
                 <Label>Upload Logo File</Label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <Button
                     type="button"
                     variant="outline"
@@ -199,6 +291,16 @@ export default function MerchantBranding() {
                     ) : (
                       <><Upload className="w-4 h-4" /> Choose File</>
                     )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={`gap-2 ${showHistory ? "border-primary text-primary" : ""}`}
+                    onClick={() => setShowHistory(v => !v)}
+                  >
+                    <History className="w-4 h-4" />
+                    Previous Uploads
                   </Button>
                   {logoUrl && (
                     <Button
@@ -217,7 +319,7 @@ export default function MerchantBranding() {
                       variant="ghost"
                       size="sm"
                       className="gap-1 text-muted-foreground"
-                      onClick={() => { setLogoUrl(savedLogoUrl ?? ""); setLogoError(false); setIsReplacing(false); }}
+                      onClick={() => { setLogoUrl(savedLogoUrl ?? ""); setLogoError(false); setIsReplacing(false); setShowHistory(false); }}
                     >
                       Cancel
                     </Button>
@@ -234,6 +336,21 @@ export default function MerchantBranding() {
                   PNG, SVG, WebP, or JPEG. Max display height is 40 px.
                 </p>
               </div>
+
+              {/* Upload history panel */}
+              {showHistory && (
+                <div className="space-y-2 border border-border/50 rounded-lg p-3 bg-muted/10">
+                  <div className="flex items-center gap-2 mb-1">
+                    <History className="w-3.5 h-3.5 text-muted-foreground" />
+                    <p className="text-xs font-medium text-muted-foreground">Previously uploaded files — click to use</p>
+                  </div>
+                  <UploadHistoryPanel
+                    base={base}
+                    currentUrl={logoUrl}
+                    onSelect={handleSelectHistoryItem}
+                  />
+                </div>
+              )}
 
               {/* URL fallback */}
               <div className="space-y-2">

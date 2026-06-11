@@ -83,6 +83,18 @@ function CallbackRow({ log }: { log: any }) {
     <Collapsible open={open} onOpenChange={setOpen}>
       <TableRow className="cursor-pointer" onClick={() => setOpen(!open)}>
         <TableCell>{open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</TableCell>
+        <TableCell onClick={e => e.stopPropagation()}>
+          {log.merchantId ? (
+            <a
+              href={`/admin/merchants?search=${encodeURIComponent(log.merchantName ?? String(log.merchantId))}`}
+              className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
+            >
+              {log.merchantName ?? `#${log.merchantId}`}
+            </a>
+          ) : (
+            <span className="text-muted-foreground text-sm">—</span>
+          )}
+        </TableCell>
         <TableCell className="max-w-[200px] truncate text-sm font-mono">{log.url}</TableCell>
         <TableCell>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -123,7 +135,7 @@ function CallbackRow({ log }: { log: any }) {
       </TableRow>
       <CollapsibleContent asChild>
         <TableRow>
-          <TableCell colSpan={9} className="bg-muted/20 pb-4">
+          <TableCell colSpan={10} className="bg-muted/20 pb-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2 pt-2">
               {rejectionCategory && (
                 <div className="md:col-span-2 flex items-center gap-3 p-3 rounded-lg bg-background/50 border border-border/50">
@@ -213,6 +225,7 @@ export default function AdminCallbacks() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8"></TableHead>
+                <TableHead>Merchant</TableHead>
                 <TableHead>URL</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>HTTP</TableHead>
@@ -225,9 +238,9 @@ export default function AdminCallbacks() {
             </TableHeader>
             <TableBody>
               {isLoading ? Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>{Array.from({ length: 9 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
+                <TableRow key={i}>{Array.from({ length: 10 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
               )) : data?.data?.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-10">No callback logs found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-10">No callback logs found</TableCell></TableRow>
               ) : data?.data?.map(log => <CallbackRow key={log.id} log={log} />)}
             </TableBody>
           </Table>

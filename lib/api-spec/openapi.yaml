@@ -4774,6 +4774,9 @@ components:
         signatureVerified:
           type: ["boolean", "null"]
           description: HMAC signature verification result — true if passed, false if rejected, null if no secret is configured
+        merchantName:
+          type: ["string", "null"]
+          description: Business name of the merchant this callback belongs to
         isTest:
           type: boolean
           description: true if this delivery was triggered by a merchant test event, not a real payment

@@ -52,7 +52,10 @@ const PLAN_SUB_STATUS_COLOR: Record<string, string> = {
 export default function AdminMerchants() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("search") ?? "";
+  });
   const [status, setStatus] = useState("all");
   const [expiryStatus, setExpiryStatus] = useState<"" | "expiring" | "expired">("");
   const [rejectionReasonFilter, setRejectionReasonFilter] = useState("");

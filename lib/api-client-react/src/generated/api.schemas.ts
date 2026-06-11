@@ -582,6 +582,11 @@ export interface CallbackLog {
      * @nullable
      */
   signatureVerified?: boolean | null;
+  /**
+     * Business name of the merchant this callback belongs to
+     * @nullable
+     */
+  merchantName?: string | null;
   /** true if this delivery was triggered by a merchant test event, not a real payment */
   isTest?: boolean;
   createdAt: string;

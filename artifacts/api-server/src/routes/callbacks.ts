@@ -305,9 +305,33 @@ router.get("/", async (req, res) => {
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   const [{ total }] = await db.select({ total: count() }).from(callbackLogsTable).where(where);
-  const data = await db.select().from(callbackLogsTable).where(where).limit(limitNum).offset(offset).orderBy(sql`${callbackLogsTable.createdAt} DESC`);
+  const rows = await db
+    .select({
+      id: callbackLogsTable.id,
+      merchantId: callbackLogsTable.merchantId,
+      qrCodeId: callbackLogsTable.qrCodeId,
+      transactionId: callbackLogsTable.transactionId,
+      url: callbackLogsTable.url,
+      status: callbackLogsTable.status,
+      httpStatus: callbackLogsTable.httpStatus,
+      requestBody: callbackLogsTable.requestBody,
+      responseBody: callbackLogsTable.responseBody,
+      attempts: callbackLogsTable.attempts,
+      nextRetryAt: callbackLogsTable.nextRetryAt,
+      lastAttemptAt: callbackLogsTable.lastAttemptAt,
+      signatureVerified: callbackLogsTable.signatureVerified,
+      isTest: callbackLogsTable.isTest,
+      createdAt: callbackLogsTable.createdAt,
+      merchantName: merchantsTable.businessName,
+    })
+    .from(callbackLogsTable)
+    .leftJoin(merchantsTable, eq(callbackLogsTable.merchantId, merchantsTable.id))
+    .where(where)
+    .limit(limitNum)
+    .offset(offset)
+    .orderBy(sql`${callbackLogsTable.createdAt} DESC`);
 
-  res.json({ data, total, page: pageNum, limit: limitNum });
+  res.json({ data: rows, total, page: pageNum, limit: limitNum });
 });
 
 export default router;

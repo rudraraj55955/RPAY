@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff } from "lucide-react";
+import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff, History, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, type AdminAuditLog } from "@workspace/api-client-react";
 
 async function apiGet(path: string) {
   const res = await fetch(`/api${path}`, {
@@ -213,6 +213,16 @@ export default function AdminSettings() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const [testHistoryFilter, setTestHistoryFilter] = useState<"all" | "success" | "failed">("all");
+
+  const TEST_EMAIL_HISTORY_PARAMS = { action: "test_email_sent", limit: 20 } as const;
+
+  const { data: testEmailHistory, isLoading: historyLoading } = useQuery({
+    queryKey: getListAdminAuditLogsQueryKey(TEST_EMAIL_HISTORY_PARAMS),
+    queryFn: () => apiGet(`/audit-logs?action=test_email_sent&limit=20`),
+    staleTime: 0,
+  });
+
   const [previewingEmail, setPreviewingEmail] = useState(false);
   const [previewingAlertEmail, setPreviewingAlertEmail] = useState(false);
 
@@ -267,6 +277,9 @@ export default function AdminSettings() {
     },
     onSuccess: (res: { to: string }) => toast.success(`Test email sent to ${res.to} — check your inbox`),
     onError: (err: Error) => toast.error(`Test email failed: ${err.message}`),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: getListAdminAuditLogsQueryKey(TEST_EMAIL_HISTORY_PARAMS) });
+    },
   });
 
   const { mutate: saveSchedule, isPending: savingSchedule } = useMutation({
@@ -763,6 +776,111 @@ export default function AdminSettings() {
                 Cancel
               </Button>
             )}
+          </div>
+
+          {/* Test-email send history */}
+          <div className="border-t border-border/50 pt-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <History className="w-3.5 h-3.5 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">Test email history</p>
+              </div>
+              <div className="flex items-center gap-1">
+                {(["all", "success", "failed"] as const).map(f => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setTestHistoryFilter(f)}
+                    className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                      testHistoryFilter === f
+                        ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                        : "text-muted-foreground hover:text-foreground border border-transparent"
+                    }`}
+                  >
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {historyLoading && (
+              <p className="text-xs text-muted-foreground">Loading history…</p>
+            )}
+
+            {!historyLoading && (() => {
+              const allRows: AdminAuditLog[] = testEmailHistory?.data ?? [];
+              const filteredRows = allRows.filter((row: AdminAuditLog) => {
+                let parsed: { success?: boolean } = {};
+                try { parsed = JSON.parse(row.details ?? "{}"); } catch {}
+                if (testHistoryFilter === "success") return parsed.success === true;
+                if (testHistoryFilter === "failed") return parsed.success === false;
+                return true;
+              });
+
+              if (filteredRows.length === 0) {
+                return (
+                  <p className="text-xs text-muted-foreground italic">
+                    {testHistoryFilter === "all"
+                      ? "No test emails have been sent yet."
+                      : `No ${testHistoryFilter} entries found.`}
+                  </p>
+                );
+              }
+
+              return (
+                <div className="space-y-1.5">
+                  {filteredRows.map((row: AdminAuditLog) => {
+                    let details: { recipients?: string[]; success?: boolean; error?: string } = {};
+                    try { details = JSON.parse(row.details ?? "{}"); } catch {}
+                    const success = details.success === true;
+                    const recipients = details.recipients ?? [];
+                    const recipientLabel = recipients.length > 0
+                      ? recipients.join(", ")
+                      : "unknown recipient";
+                    const errorLabel = details.error
+                      ? details.error.replace(/_/g, " ")
+                      : null;
+
+                    return (
+                      <div
+                        key={row.id}
+                        className={`flex items-start gap-2.5 rounded-md border px-3 py-2 text-xs ${
+                          success
+                            ? "border-emerald-500/20 bg-emerald-500/5"
+                            : "border-red-500/20 bg-red-500/5"
+                        }`}
+                      >
+                        {success ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-400" />
+                        ) : (
+                          <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-400" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-medium truncate ${success ? "text-emerald-400" : "text-red-400"}`}>
+                            {recipientLabel}
+                          </p>
+                          {!success && errorLabel && (
+                            <p className="text-muted-foreground mt-0.5">{errorLabel}</p>
+                          )}
+                        </div>
+                        <time
+                          dateTime={row.createdAt}
+                          className="shrink-0 text-muted-foreground tabular-nums"
+                          title={new Date(row.createdAt).toLocaleString()}
+                        >
+                          {new Date(row.createdAt).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </time>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>

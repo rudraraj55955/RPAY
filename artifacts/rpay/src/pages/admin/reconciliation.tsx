@@ -761,7 +761,12 @@ export default function AdminReconciliation() {
 
   const [dateFrom, setDateFrom] = useState(thirtyDaysAgo);
   const [dateTo, setDateTo] = useState(today);
-  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const runParam = params.get("run");
+    const parsed = runParam ? parseInt(runParam, 10) : NaN;
+    return isNaN(parsed) ? null : parsed;
+  });
   const [resolveItem, setResolveItem] = useState<any | null>(null);
   const [exportFilter, setExportFilter] = useState<"all" | "matched" | "unmatched_deposit" | "unmatched_settlement">("all");
   const [csvExportFilter, setCsvExportFilter] = useState<"all" | "matched" | "unmatched">("all");
@@ -770,6 +775,20 @@ export default function AdminReconciliation() {
   const [historyPage, setHistoryPage] = useState(1);
   const [emailFailureBannerDismissed, setEmailFailureBannerDismissed] = useState(false);
   const HISTORY_PAGE_SIZE = 15;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (selectedRunId != null) {
+      params.set("run", String(selectedRunId));
+    } else {
+      params.delete("run");
+    }
+    const newSearch = params.toString();
+    const newUrl = newSearch
+      ? `${window.location.pathname}?${newSearch}`
+      : window.location.pathname;
+    history.replaceState(null, "", newUrl);
+  }, [selectedRunId]);
 
   const schedulerQuery = useQuery({
     queryKey: ["/api/reconciliation/scheduler-status"],
@@ -1045,7 +1064,7 @@ export default function AdminReconciliation() {
                       const meta = STATUS_META[run.status] ?? STATUS_META.complete;
                       const lastEmail = run.lastEmail as { sentAt: string; status: string; recipients: string } | null;
                       return (
-                        <tr key={run.id} className="hover:bg-muted/30 transition-colors">
+                        <tr key={run.id} className="group hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5 font-medium">
                               #{run.id}
@@ -1109,14 +1128,32 @@ export default function AdminReconciliation() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 gap-1 text-xs"
-                              onClick={() => setSelectedRunId(run.id)}
-                            >
-                              Details <ChevronRight className="w-3 h-3" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Copy link to this run"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                onClick={() => {
+                                  const url = `${window.location.origin}/admin/reconciliation?run=${run.id}`;
+                                  navigator.clipboard.writeText(url).then(() => {
+                                    toast.success("Link copied to clipboard");
+                                  }).catch(() => {
+                                    toast.error("Failed to copy link");
+                                  });
+                                }}
+                              >
+                                <Link2 className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 gap-1 text-xs"
+                                onClick={() => setSelectedRunId(run.id)}
+                              >
+                                Details <ChevronRight className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );

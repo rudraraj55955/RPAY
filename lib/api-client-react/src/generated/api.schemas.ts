@@ -2536,6 +2536,12 @@ export interface SignatureFailureAlertHistoryResponse {
 
 export interface WebhookRetriesConfig {
   /**
+     * Total maximum delivery attempts (1 initial + retries). Default is 4 (1 initial + 3 retries).
+     * @minimum 1
+     * @maximum 10
+     */
+  maxAttempts: number;
+  /**
      * Delay in seconds before the first retry (after the 1st failure).
      * @minimum 0
      */

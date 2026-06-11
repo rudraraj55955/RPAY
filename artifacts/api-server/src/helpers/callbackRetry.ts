@@ -1,4 +1,4 @@
-import { db, callbackLogsTable, usersTable, notificationsTable, webhooksTable } from "@workspace/db";
+import { db, callbackLogsTable, usersTable, notificationsTable, webhooksTable, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
 import { eq, and, lte, sql, inArray, desc, ne } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { createNotification, createBulkNotifications } from "./notifications";
@@ -91,7 +91,12 @@ async function notifyAdminsOfWebhookFailure(merchantId: number, url: string, att
   );
 }
 
-const MAX_ATTEMPTS = 4; // 1 initial + 3 retries (default when no per-webhook config)
+const DEFAULT_MAX_ATTEMPTS = parseInt(SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS]);
+const DEFAULT_DELAYS_SECONDS = [
+  parseInt(SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1]),
+  parseInt(SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2]),
+  parseInt(SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3]),
+];
 
 const FAILURE_ALERT_WINDOW_HOURS = 6;
 
@@ -181,21 +186,61 @@ export async function checkAndSendWebhookFailureAlert(
   }
 }
 
-function getNextRetryDelay(attempts: number): number {
-  // attempts is the number of attempts already made (including the just-failed one)
-  // Retry schedule: 30s, 5min, 30min
-  switch (attempts) {
-    case 1: return 30 * 1000;          // 30 seconds after 1st failure
-    case 2: return 5 * 60 * 1000;      // 5 minutes after 2nd failure
-    case 3: return 30 * 60 * 1000;     // 30 minutes after 3rd failure
-    default: return 0;
+export interface WebhookRetryConfig {
+  maxAttempts: number;
+  delaysMs: number[]; // per-retry delays in milliseconds (index 0 = after 1st failure)
+}
+
+export async function loadWebhookRetryConfig(): Promise<WebhookRetryConfig> {
+  const keys = [
+    SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS,
+    SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1,
+    SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2,
+    SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3,
+  ];
+
+  const rows = await db
+    .select()
+    .from(systemConfigTable)
+    .where(inArray(systemConfigTable.key, keys));
+
+  const map = new Map(rows.map((r) => [r.key, r.value]));
+
+  const maxAttempts = parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS]);
+  const delay1s = parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1]);
+  const delay2s = parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2]);
+  const delay3s = parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3]);
+
+  return {
+    maxAttempts,
+    delaysMs: [delay1s * 1000, delay2s * 1000, delay3s * 1000],
+  };
+}
+
+function getNextRetryDelayFromConfig(attempts: number, config: WebhookRetryConfig): number {
+  // attempts = number of attempts already made (including the just-failed one)
+  // index 0 = delay after attempt 1, index 1 = delay after attempt 2, etc.
+  const idx = attempts - 1;
+  if (idx >= 0 && idx < config.delaysMs.length) {
+    return config.delaysMs[idx]!;
   }
+  // Fall back to the last configured delay for any extra retries
+  return config.delaysMs[config.delaysMs.length - 1] ?? DEFAULT_DELAYS_SECONDS[DEFAULT_DELAYS_SECONDS.length - 1]! * 1000;
 }
 
 export async function scheduleCallbackRetry(logId: number, attempts: number, overrideMaxRetries?: number): Promise<void> {
-  // overrideMaxRetries = number of retries (not total attempts), so total cap = maxRetries + 1.
-  // Falls back to MAX_ATTEMPTS (total) when no per-webhook config is provided.
-  const maxTotalAttempts = overrideMaxRetries != null ? overrideMaxRetries + 1 : MAX_ATTEMPTS;
+  // overrideMaxRetries = per-webhook number of retries (not total attempts); total cap = maxRetries + 1.
+  // When no per-webhook override, fall back to the DB-configured global maxAttempts.
+  let maxTotalAttempts: number;
+  let config: WebhookRetryConfig;
+
+  if (overrideMaxRetries != null) {
+    maxTotalAttempts = overrideMaxRetries + 1;
+    config = await loadWebhookRetryConfig();
+  } else {
+    config = await loadWebhookRetryConfig();
+    maxTotalAttempts = config.maxAttempts;
+  }
 
   if (attempts >= maxTotalAttempts) {
     await db
@@ -205,7 +250,7 @@ export async function scheduleCallbackRetry(logId: number, attempts: number, ove
     return;
   }
 
-  const delayMs = getNextRetryDelay(attempts);
+  const delayMs = getNextRetryDelayFromConfig(attempts, config);
   const nextRetryAt = new Date(Date.now() + delayMs);
 
   await db
@@ -255,6 +300,9 @@ export async function processPendingRetries(): Promise<void> {
 
   logger.info({ count: pending.length }, "Processing pending callback retries");
 
+  // Load the global retry config (DB-configured) once for the whole batch.
+  const globalConfig = await loadWebhookRetryConfig();
+
   // Load per-merchant webhook maxRetries for all unique merchants in this batch.
   const merchantIds = [...new Set(pending.map(l => l.merchantId))];
   const webhookRows = await db
@@ -296,18 +344,18 @@ export async function processPendingRetries(): Promise<void> {
       );
 
       // Live deliveries respect the per-webhook maxRetries (number of retries allowed).
-      // Test deliveries and logs without a webhook config fall back to MAX_ATTEMPTS (total).
+      // Test deliveries and logs without a per-webhook config fall back to the DB-configured global maxAttempts.
       let reachedCap: boolean;
       if (log.isTest) {
-        reachedCap = newAttempts >= MAX_ATTEMPTS;
+        reachedCap = newAttempts >= globalConfig.maxAttempts;
       } else {
         const webhookMaxRetries = webhookMaxRetriesMap.get(log.merchantId);
         if (webhookMaxRetries != null) {
           // webhookMaxRetries = number of retries; total cap = maxRetries + 1
           reachedCap = newAttempts > webhookMaxRetries;
         } else {
-          // No webhook config found for this merchant — use default
-          reachedCap = newAttempts >= MAX_ATTEMPTS;
+          // No per-webhook config — use DB-configured global maxAttempts
+          reachedCap = newAttempts >= globalConfig.maxAttempts;
         }
       }
 
@@ -339,7 +387,7 @@ export async function processPendingRetries(): Promise<void> {
           });
         }
       } else {
-        const delayMs = getNextRetryDelay(newAttempts);
+        const delayMs = getNextRetryDelayFromConfig(newAttempts, globalConfig);
         const nextRetryAt = new Date(Date.now() + delayMs);
 
         await db

@@ -8013,8 +8013,13 @@ components:
 
     WebhookRetriesConfig:
       type: object
-      required: [delay1, delay2, delay3]
+      required: [maxAttempts, delay1, delay2, delay3]
       properties:
+        maxAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Total maximum delivery attempts (1 initial + retries). Default is 4 (1 initial + 3 retries).
         delay1:
           type: integer
           minimum: 0

@@ -200,6 +200,7 @@ export default function AdminSettings() {
   const [auditLogRetentionDays, setAuditLogRetentionDays] = useState<number>(90);
   const [auditLogRetentionInitialized, setAuditLogRetentionInitialized] = useState(false);
 
+  const [retryMaxAttempts, setRetryMaxAttempts] = useState<number>(4);
   const [retryDelay1, setRetryDelay1] = useState<number>(300);
   const [retryDelay2, setRetryDelay2] = useState<number>(900);
   const [retryDelay3, setRetryDelay3] = useState<number>(3600);
@@ -542,11 +543,12 @@ export default function AdminSettings() {
     },
   } as any);
 
-  const { data: webhookRetriesData, isLoading: webhookRetriesLoading } = useQuery<{ delay1: number; delay2: number; delay3: number }>({
+  const { data: webhookRetriesData, isLoading: webhookRetriesLoading } = useQuery<{ maxAttempts: number; delay1: number; delay2: number; delay3: number }>({
     queryKey: ["/api/system-config/webhook-retries"],
     queryFn: () => apiGet("/system-config/webhook-retries"),
-    onSuccess: (d: { delay1: number; delay2: number; delay3: number }) => {
+    onSuccess: (d: { maxAttempts: number; delay1: number; delay2: number; delay3: number }) => {
       if (!retryInitialized) {
+        setRetryMaxAttempts(d.maxAttempts);
         setRetryDelay1(d.delay1);
         setRetryDelay2(d.delay2);
         setRetryDelay3(d.delay3);
@@ -569,16 +571,17 @@ export default function AdminSettings() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const currentRetryMaxAttempts = webhookRetriesData?.maxAttempts ?? 4;
   const currentRetryDelay1 = webhookRetriesData?.delay1 ?? 300;
   const currentRetryDelay2 = webhookRetriesData?.delay2 ?? 900;
   const currentRetryDelay3 = webhookRetriesData?.delay3 ?? 3600;
-  const retryUnchanged = retryDelay1 === currentRetryDelay1 && retryDelay2 === currentRetryDelay2 && retryDelay3 === currentRetryDelay3;
+  const retryUnchanged = retryMaxAttempts === currentRetryMaxAttempts && retryDelay1 === currentRetryDelay1 && retryDelay2 === currentRetryDelay2 && retryDelay3 === currentRetryDelay3;
   const retryOrderWarning = retryDelay1 > retryDelay2 || retryDelay2 > retryDelay3;
 
   const { mutate: saveRetry, isPending: savingRetry } = useMutation({
-    mutationFn: () => apiPut("/system-config/webhook-retries", { delay1: retryDelay1, delay2: retryDelay2, delay3: retryDelay3 }),
+    mutationFn: () => apiPut("/system-config/webhook-retries", { maxAttempts: retryMaxAttempts, delay1: retryDelay1, delay2: retryDelay2, delay3: retryDelay3 }),
     onSuccess: () => {
-      toast.success("Webhook retry delays saved");
+      toast.success("Webhook retry schedule saved");
       qc.invalidateQueries({ queryKey: ["/api/system-config/webhook-retries"] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -1588,11 +1591,11 @@ export default function AdminSettings() {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <RotateCcw className="w-4 h-4 text-muted-foreground" />
-            <CardTitle className="text-base">Webhook Retries</CardTitle>
+            <CardTitle className="text-base">Webhook Retry Schedule</CardTitle>
           </div>
           <CardDescription className="text-sm">
-            Configure how long the system waits before each retry attempt when a webhook delivery fails.
-            Delays must be non-decreasing to ensure a proper backoff schedule.
+            Configure the maximum number of delivery attempts and the backoff delays between retries.
+            Delay values must be non-decreasing. Changes take effect on the next retry cycle.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1606,10 +1609,36 @@ export default function AdminSettings() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="retry-delay-1" className="text-sm">After 1st failure</Label>
-              <div className="flex items-center gap-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="retry-max-attempts" className="text-sm">Max delivery attempts</Label>
+            <Input
+              id="retry-max-attempts"
+              type="number"
+              min={1}
+              max={10}
+              value={retryMaxAttempts}
+              onChange={e => {
+                const v = parseInt(e.target.value);
+                if (!isNaN(v)) setRetryMaxAttempts(Math.min(10, Math.max(1, v)));
+              }}
+              disabled={webhookRetriesLoading}
+              className="max-w-[10rem]"
+            />
+            <p className="text-xs text-muted-foreground">
+              Total attempts including the initial delivery (1–10). Default is 4 (1 initial + 3 retries).
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium text-foreground">Retry delays (seconds)</p>
+            <p className="text-xs text-muted-foreground">
+              Wait time before each retry after a failed delivery. Only the first{" "}
+              <strong>{Math.max(0, retryMaxAttempts - 1)}</strong>{" "}
+              {retryMaxAttempts - 1 === 1 ? "delay" : "delays"} will be used.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="retry-delay-1" className="text-sm text-muted-foreground">After 1st failure</Label>
                 <Input
                   id="retry-delay-1"
                   type="number"
@@ -1623,11 +1652,8 @@ export default function AdminSettings() {
                   className="w-full"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">seconds</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="retry-delay-2" className="text-sm">After 2nd failure</Label>
-              <div className="flex items-center gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="retry-delay-2" className="text-sm text-muted-foreground">After 2nd failure</Label>
                 <Input
                   id="retry-delay-2"
                   type="number"
@@ -1641,11 +1667,8 @@ export default function AdminSettings() {
                   className="w-full"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">seconds</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="retry-delay-3" className="text-sm">After 3rd failure</Label>
-              <div className="flex items-center gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="retry-delay-3" className="text-sm text-muted-foreground">After 3rd failure</Label>
                 <Input
                   id="retry-delay-3"
                   type="number"
@@ -1659,7 +1682,6 @@ export default function AdminSettings() {
                   className="w-full"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">seconds</p>
             </div>
           </div>
 
@@ -1677,6 +1699,7 @@ export default function AdminSettings() {
                 size="sm"
                 variant="ghost"
                 onClick={() => {
+                  setRetryMaxAttempts(currentRetryMaxAttempts);
                   setRetryDelay1(currentRetryDelay1);
                   setRetryDelay2(currentRetryDelay2);
                   setRetryDelay3(currentRetryDelay3);

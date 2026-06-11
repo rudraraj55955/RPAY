@@ -426,6 +426,7 @@ router.post("/test-email-retention/run", async (req, res, next) => {
 router.get("/webhook-retries", async (req, res, next) => {
   try {
     const keys = [
+      SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS,
       SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1,
       SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2,
       SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3,
@@ -439,6 +440,7 @@ router.get("/webhook-retries", async (req, res, next) => {
     const map = new Map(rows.map((r) => [r.key, r.value]));
 
     res.json({
+      maxAttempts: parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS]),
       delay1: parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1]),
       delay2: parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2]),
       delay3: parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3]),
@@ -452,7 +454,17 @@ router.get("/webhook-retries", async (req, res, next) => {
 router.put("/webhook-retries", async (req, res, next) => {
   try {
     const user = (req as any).user;
-    const { delay1, delay2, delay3 } = req.body;
+    const { maxAttempts, delay1, delay2, delay3 } = req.body;
+
+    if (typeof maxAttempts !== "number" || !Number.isInteger(maxAttempts)) {
+      res.status(400).json({ error: "maxAttempts must be an integer" });
+      return;
+    }
+
+    if (maxAttempts < 1 || maxAttempts > 10) {
+      res.status(400).json({ error: "maxAttempts must be between 1 and 10" });
+      return;
+    }
 
     if (
       typeof delay1 !== "number" ||
@@ -484,6 +496,7 @@ router.put("/webhook-retries", async (req, res, next) => {
     }
 
     const entries = [
+      { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS, value: String(maxAttempts), updatedByEmail: user.email },
       { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1, value: String(delay1), updatedByEmail: user.email },
       { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2, value: String(delay2), updatedByEmail: user.email },
       { key: SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3, value: String(delay3), updatedByEmail: user.email },
@@ -505,13 +518,56 @@ router.put("/webhook-retries", async (req, res, next) => {
       action: "system_config_updated",
       targetType: "system_config",
       targetId: null,
-      details: JSON.stringify({ section: "webhook_retries", delay1, delay2, delay3 }),
+      details: JSON.stringify({ section: "webhook_retries", maxAttempts, delay1, delay2, delay3 }),
       ipAddress: (req as any).ip ?? null,
     });
 
-    req.log.info({ delay1, delay2, delay3 }, "Webhook retry delays config updated");
+    req.log.info({ maxAttempts, delay1, delay2, delay3 }, "Webhook retry config updated");
 
-    res.json({ delay1, delay2, delay3 });
+    res.json({ maxAttempts, delay1, delay2, delay3 });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/system-config/webhook-retry-policy
+router.get("/webhook-retry-policy", async (req, res, next) => {
+  try {
+    const keys = [
+      SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS,
+      SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1,
+      SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2,
+      SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3,
+    ];
+
+    const rows = await db
+      .select()
+      .from(systemConfigTable)
+      .where(inArray(systemConfigTable.key, keys));
+
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+
+    const maxAttempts = parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS]);
+    const delay1 = parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_1]);
+    const delay2 = parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_2]);
+    const delay3 = parseInt(map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_DELAY_3]);
+
+    const retries = maxAttempts - 1;
+    const allDelays = [delay1, delay2, delay3];
+
+    function formatDelay(secs: number): string {
+      if (secs < 60) return `${secs}s`;
+      if (secs < 3600) return `${Math.round(secs / 60)}m`;
+      return `${Math.round(secs / 3600)}h`;
+    }
+
+    const delays = Array.from({ length: retries }, (_, i) => ({
+      attempt: i + 1,
+      delaySeconds: allDelays[i] ?? allDelays[allDelays.length - 1] ?? delay3,
+      label: formatDelay(allDelays[i] ?? allDelays[allDelays.length - 1] ?? delay3),
+    }));
+
+    res.json({ maxAttempts, initialAttempt: 1, retries, delays });
   } catch (err) {
     next(err);
   }

@@ -171,6 +171,7 @@ export * from './merchantFeaturesRecord';
 export * from './merchantFilterPreset';
 export * from './merchantFilterPresetPayload';
 export * from './merchantFilterPresetPresetType';
+export * from './merchantFilterPresetReorderInput';
 export * from './merchantListResponse';
 export * from './merchantPlan';
 export * from './merchantPlanWithDetails';

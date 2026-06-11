@@ -4677,6 +4677,37 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /merchant/filter-presets/reorder:
+    patch:
+      operationId: reorderMerchantFilterPresets
+      tags: [merchant-filter-presets]
+      summary: Update the sort order of the current merchant's filter presets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantFilterPresetReorderInput'
+      responses:
+        '200':
+          description: Order updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /merchant/filter-presets:
     get:
       operationId: listMerchantFilterPresets
@@ -8097,7 +8128,7 @@ components:
 
     MerchantFilterPreset:
       type: object
-      required: [id, merchantId, name, presetType, payload, createdAt]
+      required: [id, merchantId, name, presetType, payload, sortOrder, createdAt]
       properties:
         id:
           type: integer
@@ -8111,9 +8142,21 @@ components:
         payload:
           type: object
           additionalProperties: true
+        sortOrder:
+          type: integer
         createdAt:
           type: string
           format: date-time
+
+    MerchantFilterPresetReorderInput:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+          description: Preset IDs in the desired new order
 
     CreateMerchantFilterPresetInput:
       type: object

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, merchantFilterPresetsTable, merchantsTable } from "@workspace/db";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, max } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
 const router = Router();
@@ -13,6 +13,7 @@ function mapPreset(row: typeof merchantFilterPresetsTable.$inferSelect) {
     name: row.name,
     presetType: row.presetType,
     payload: row.payload,
+    sortOrder: row.sortOrder,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -27,7 +28,7 @@ router.get("/", async (req, res, next) => {
     }
     const rows = await db.select().from(merchantFilterPresetsTable)
       .where(eq(merchantFilterPresetsTable.merchantId, user.merchantId))
-      .orderBy(asc(merchantFilterPresetsTable.createdAt));
+      .orderBy(asc(merchantFilterPresetsTable.sortOrder), asc(merchantFilterPresetsTable.id));
     res.json({ data: rows.map(mapPreset) });
   } catch (err) {
     next(err);
@@ -71,14 +72,57 @@ router.post("/", async (req, res, next) => {
       return;
     }
 
+    // Place new presets at the end (max sortOrder + 1)
+    const [maxRow] = await db.select({ maxSort: max(merchantFilterPresetsTable.sortOrder) })
+      .from(merchantFilterPresetsTable)
+      .where(eq(merchantFilterPresetsTable.merchantId, user.merchantId));
+    const nextSort = (maxRow?.maxSort ?? -1) + 1;
+
     const [inserted] = await db.insert(merchantFilterPresetsTable).values({
       merchantId: user.merchantId,
       name: name.trim(),
       presetType,
       payload,
+      sortOrder: nextSort,
     }).returning();
 
     res.status(201).json(mapPreset(inserted!));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/merchant/filter-presets/reorder
+router.patch("/reorder", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (!user.merchantId) {
+      res.status(403).json({ error: "Merchant account required" });
+      return;
+    }
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.some(id => typeof id !== "number")) {
+      res.status(400).json({ error: "ids must be an array of numbers" });
+      return;
+    }
+    if (ids.length === 0) {
+      res.json({ message: "Order updated" });
+      return;
+    }
+
+    // Update sortOrder for each ID — only update presets belonging to this merchant
+    await Promise.all(
+      (ids as number[]).map((id, index) =>
+        db.update(merchantFilterPresetsTable)
+          .set({ sortOrder: index })
+          .where(and(
+            eq(merchantFilterPresetsTable.id, id),
+            eq(merchantFilterPresetsTable.merchantId, user.merchantId),
+          ))
+      )
+    );
+
+    res.json({ message: "Order updated" });
   } catch (err) {
     next(err);
   }

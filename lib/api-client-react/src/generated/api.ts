@@ -131,6 +131,7 @@ import type {
   MerchantFeaturesListResponse,
   MerchantFeaturesRecord,
   MerchantFilterPreset,
+  MerchantFilterPresetReorderInput,
   MerchantListResponse,
   MerchantPlan,
   MerchantPlanWithDetails,
@@ -14725,6 +14726,77 @@ export function useListStorageCleanupRuns<TData = Awaited<ReturnType<typeof list
 
 
 
+
+export const getReorderMerchantFilterPresetsUrl = () => {
+
+
+
+
+  return `/api/merchant/filter-presets/reorder`
+}
+
+/**
+ * @summary Update the sort order of the current merchant's filter presets
+ */
+export const reorderMerchantFilterPresets = async (merchantFilterPresetReorderInput: MerchantFilterPresetReorderInput, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getReorderMerchantFilterPresetsUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      merchantFilterPresetReorderInput,)
+  }
+);}
+
+
+
+
+export const getReorderMerchantFilterPresetsMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderMerchantFilterPresets>>, TError,{data: BodyType<MerchantFilterPresetReorderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reorderMerchantFilterPresets>>, TError,{data: BodyType<MerchantFilterPresetReorderInput>}, TContext> => {
+
+const mutationKey = ['reorderMerchantFilterPresets'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reorderMerchantFilterPresets>>, {data: BodyType<MerchantFilterPresetReorderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  reorderMerchantFilterPresets(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReorderMerchantFilterPresetsMutationResult = NonNullable<Awaited<ReturnType<typeof reorderMerchantFilterPresets>>>
+    export type ReorderMerchantFilterPresetsMutationBody = BodyType<MerchantFilterPresetReorderInput>
+    export type ReorderMerchantFilterPresetsMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update the sort order of the current merchant's filter presets
+ */
+export const useReorderMerchantFilterPresets = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderMerchantFilterPresets>>, TError,{data: BodyType<MerchantFilterPresetReorderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reorderMerchantFilterPresets>>,
+        TError,
+        {data: BodyType<MerchantFilterPresetReorderInput>},
+        TContext
+      > => {
+      return useMutation(getReorderMerchantFilterPresetsMutationOptions(options));
+    }
 
 export const getListMerchantFilterPresetsUrl = () => {
 

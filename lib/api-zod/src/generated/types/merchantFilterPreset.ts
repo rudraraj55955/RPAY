@@ -14,5 +14,6 @@ export interface MerchantFilterPreset {
   name: string;
   presetType: MerchantFilterPresetPresetType;
   payload: MerchantFilterPresetPayload;
+  sortOrder: number;
   createdAt: Date;
 }

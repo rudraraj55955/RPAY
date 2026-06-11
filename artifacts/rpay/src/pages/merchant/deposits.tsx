@@ -485,6 +485,17 @@ export default function MerchantDeposits() {
     storeSavedFilters(updated);
   };
 
+  const moveSavedFilter = (id: string, direction: "left" | "right") => {
+    const idx = savedFilters.findIndex(f => f.id === id);
+    if (idx === -1) return;
+    const newIdx = direction === "left" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= savedFilters.length) return;
+    const updated = [...savedFilters];
+    [updated[idx], updated[newIdx]] = [updated[newIdx]!, updated[idx]!];
+    setSavedFilters(updated);
+    storeSavedFilters(updated);
+  };
+
   const hasSmartFilter = smartFilter !== null;
   const isCurrentFilterSaved = hasSmartFilter && savedFilters.some(
     f => f.rawInput === smartInput && JSON.stringify(f.filter) === JSON.stringify(smartFilter)
@@ -557,6 +568,17 @@ export default function MerchantDeposits() {
 
   const deleteCustomDatePreset = (id: string) => {
     const updated = customDatePresets.filter(p => p.id !== id);
+    setCustomDatePresets(updated);
+    storeCustomDatePresets(updated);
+  };
+
+  const moveCustomDatePreset = (id: string, direction: "left" | "right") => {
+    const idx = customDatePresets.findIndex(p => p.id === id);
+    if (idx === -1) return;
+    const newIdx = direction === "left" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= customDatePresets.length) return;
+    const updated = [...customDatePresets];
+    [updated[idx], updated[newIdx]] = [updated[newIdx]!, updated[idx]!];
     setCustomDatePresets(updated);
     storeCustomDatePresets(updated);
   };
@@ -897,22 +919,40 @@ export default function MerchantDeposits() {
           {savedFilters.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <span className="text-xs text-muted-foreground font-medium">Saved:</span>
-              {savedFilters.map(saved => (
+              {savedFilters.map((saved, idx) => (
                 <span
                   key={saved.id}
-                  className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2.5 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
+                  className="group inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/8 px-2 py-0.5 text-xs font-medium text-violet-300 hover:border-violet-500/60 transition-colors"
                 >
                   <button
                     onClick={() => applySavedFilter(saved)}
-                    className="flex items-center gap-1 hover:text-violet-100 transition-colors"
+                    className="flex items-center gap-1 pl-0.5 hover:text-violet-100 transition-colors"
                     title={`Apply: ${saved.rawInput}`}
                   >
                     <BookmarkCheck className="w-3 h-3 shrink-0" />
                     {saved.name}
                   </button>
                   <button
+                    onClick={() => moveSavedFilter(saved.id, "left")}
+                    disabled={idx === 0}
+                    className="p-0.5 text-violet-400/50 hover:text-violet-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
+                    aria-label={`Move "${saved.name}" left`}
+                    title="Move left"
+                  >
+                    <ChevronLeft className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => moveSavedFilter(saved.id, "right")}
+                    disabled={idx === savedFilters.length - 1}
+                    className="p-0.5 text-violet-400/50 hover:text-violet-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
+                    aria-label={`Move "${saved.name}" right`}
+                    title="Move right"
+                  >
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                  <button
                     onClick={() => deleteSavedFilter(saved.id)}
-                    className="ml-0.5 rounded-full p-0.5 text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                    className="p-0.5 rounded-full text-violet-400/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
                     aria-label={`Delete saved filter "${saved.name}"`}
                   >
                     <Trash2 className="w-2.5 h-2.5" />
@@ -1343,7 +1383,7 @@ export default function MerchantDeposits() {
                   {preset.label}
                 </Button>
               ))}
-              {customDatePresets.map(preset => (
+              {customDatePresets.map((preset, idx) => (
                 <span
                   key={preset.id}
                   className={`group inline-flex items-center gap-1 rounded-md border text-xs font-medium transition-colors ${
@@ -1359,6 +1399,24 @@ export default function MerchantDeposits() {
                   >
                     <CalendarRange className="w-3 h-3 shrink-0" />
                     {preset.name}
+                  </button>
+                  <button
+                    onClick={() => moveCustomDatePreset(preset.id, "left")}
+                    disabled={idx === 0}
+                    className="p-0.5 text-sky-400/50 hover:text-sky-200 transition-colors opacity-0 group-hover:opacity-100 h-8 flex items-center disabled:pointer-events-none disabled:opacity-0"
+                    aria-label={`Move "${preset.name}" left`}
+                    title="Move left"
+                  >
+                    <ChevronLeft className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => moveCustomDatePreset(preset.id, "right")}
+                    disabled={idx === customDatePresets.length - 1}
+                    className="p-0.5 text-sky-400/50 hover:text-sky-200 transition-colors opacity-0 group-hover:opacity-100 h-8 flex items-center disabled:pointer-events-none disabled:opacity-0"
+                    aria-label={`Move "${preset.name}" right`}
+                    title="Move right"
+                  >
+                    <ChevronRight className="w-3 h-3" />
                   </button>
                   <button
                     onClick={() => deleteCustomDatePreset(preset.id)}

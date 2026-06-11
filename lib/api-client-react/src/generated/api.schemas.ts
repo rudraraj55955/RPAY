@@ -2490,7 +2490,13 @@ export interface MerchantFilterPreset {
   name: string;
   presetType: MerchantFilterPresetPresetType;
   payload: MerchantFilterPresetPayload;
+  sortOrder: number;
   createdAt: string;
+}
+
+export interface MerchantFilterPresetReorderInput {
+  /** Preset IDs in the desired new order */
+  ids: number[];
 }
 
 export type CreateMerchantFilterPresetInputPresetType = typeof CreateMerchantFilterPresetInputPresetType[keyof typeof CreateMerchantFilterPresetInputPresetType];

@@ -7,6 +7,7 @@ export const merchantFilterPresetsTable = pgTable("merchant_filter_presets", {
   name: text("name").notNull(),
   presetType: text("preset_type").notNull(),
   payload: jsonb("payload").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("merchant_filter_presets_merchant_idx").on(table.merchantId),

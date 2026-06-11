@@ -4500,6 +4500,18 @@ export const ListStorageCleanupRunsResponse = zod.object({
 
 
 /**
+ * @summary Update the sort order of the current merchant's filter presets
+ */
+export const ReorderMerchantFilterPresetsBody = zod.object({
+  "ids": zod.array(zod.number()).describe('Preset IDs in the desired new order')
+})
+
+export const ReorderMerchantFilterPresetsResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary List all filter presets for the current merchant
  */
 export const ListMerchantFilterPresetsResponse = zod.object({
@@ -4509,6 +4521,7 @@ export const ListMerchantFilterPresetsResponse = zod.object({
   "name": zod.string(),
   "presetType": zod.enum(['combined', 'smart', 'date']),
   "payload": zod.record(zod.string(), zod.unknown()),
+  "sortOrder": zod.number(),
   "createdAt": zod.coerce.date()
 }))
 })

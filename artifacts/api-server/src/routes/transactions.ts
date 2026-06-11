@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { db, transactionsTable, merchantsTable, qrCodesTable, virtualAccountsTable, ledgerEntriesTable, auditLogsTable, merchantConnectionsTable, paymentLinksTable } from "@workspace/db";
-import { eq, ilike, and, count, sql, gte, lte, or, inArray } from "drizzle-orm";
+import { db, transactionsTable, merchantsTable, qrCodesTable, virtualAccountsTable, ledgerEntriesTable, auditLogsTable, merchantConnectionsTable, paymentLinksTable, usersTable } from "@workspace/db";
+import { eq, ilike, and, count, sql, gte, lte, or, inArray, sum } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { maybeNotifyProviderLimit, maybeNotifyProviderLimitReset } from "../helpers/providerLimitNotifier";
 
 const router = Router();
 router.use(requireAuth);
@@ -27,6 +28,55 @@ async function expirePaymentLinks() {
     WHERE max_payments IS NOT NULL AND status = 'active'
       AND (SELECT COUNT(*) FROM transactions WHERE payment_link_id = payment_links.id) >= max_payments
   `);
+}
+
+/**
+ * Fire-and-forget: after a deposit is recorded as 'success', check whether
+ * the associated provider connection has crossed 80% or 100% of its monthly
+ * limit and create the appropriate notification (with email) if so.
+ * Safe to call concurrently — dedup is enforced at the DB level.
+ */
+async function checkProviderLimitAfterDeposit(merchantId: number, connectionId: number | null): Promise<void> {
+  if (connectionId == null) return;
+
+  const [connRows, merchantRows] = await Promise.all([
+    db
+      .select({ provider: merchantConnectionsTable.provider, monthlyLimit: merchantConnectionsTable.monthlyLimit, isActive: merchantConnectionsTable.isActive })
+      .from(merchantConnectionsTable)
+      .where(eq(merchantConnectionsTable.id, connectionId))
+      .limit(1),
+    db
+      .select({ userId: usersTable.id, email: usersTable.email, businessName: merchantsTable.businessName })
+      .from(usersTable)
+      .innerJoin(merchantsTable, eq(usersTable.merchantId, merchantsTable.id))
+      .where(eq(merchantsTable.id, merchantId))
+      .limit(1),
+  ]);
+
+  const conn = connRows[0];
+  const merchant = merchantRows[0];
+  if (!conn || !conn.isActive || Number(conn.monthlyLimit) <= 0 || !merchant) return;
+
+  const [usageRow] = await db
+    .select({ total: sum(transactionsTable.amount) })
+    .from(transactionsTable)
+    .where(
+      and(
+        eq(transactionsTable.merchantId, merchantId),
+        eq(transactionsTable.connectionId, connectionId),
+        eq(transactionsTable.type, "deposit"),
+        eq(transactionsTable.status, "success"),
+        sql`date_trunc('month', ${transactionsTable.createdAt}) = date_trunc('month', now())`
+      )
+    );
+
+  const monthlyUsed = Number(usageRow?.total ?? 0);
+  const monthlyLimit = Number(conn.monthlyLimit);
+
+  await Promise.all([
+    maybeNotifyProviderLimit(merchant.userId, conn.provider, monthlyUsed, monthlyLimit, merchant.email, merchant.businessName ?? ""),
+    maybeNotifyProviderLimitReset(merchant.userId, conn.provider, monthlyLimit),
+  ]);
 }
 
 // GET /api/transactions
@@ -218,6 +268,13 @@ router.post("/", requireAdmin, async (req, res, next) => {
       ipAddress: req.ip ?? null,
     }).catch(() => {});
 
+    // Check provider limits whenever a successful deposit is recorded
+    if (status === "success" && type === "deposit") {
+      checkProviderLimitAfterDeposit(merchant.id, tx.connectionId ?? null).catch((err) => {
+        req.log.warn({ err }, "Provider limit check after admin deposit failed");
+      });
+    }
+
     res.status(201).json({ ...tx, amount: Number(tx.amount), merchantName: merchant.businessName ?? null });
   } catch (err) {
     next(err);
@@ -377,6 +434,13 @@ router.post("/simulate", async (req, res, next) => {
         }
 
         return resolved;
+      });
+    }
+
+    // Check provider limits whenever a simulated deposit resolves as success
+    if (finalStatus === "success") {
+      checkProviderLimitAfterDeposit(user.merchantId, finalTx.connectionId ?? null).catch((err) => {
+        req.log.warn({ err }, "Provider limit check after simulated deposit failed");
       });
     }
 
@@ -574,6 +638,13 @@ router.put("/:id", requireAdmin, async (req, res, next) => {
       .leftJoin(merchantsTable, eq(transactionsTable.merchantId, merchantsTable.id))
       .where(eq(transactionsTable.id, id))
       .limit(1);
+
+    // Check provider limits when a transaction is updated to success+deposit
+    if (row.transaction.status === "success" && row.transaction.type === "deposit") {
+      checkProviderLimitAfterDeposit(row.transaction.merchantId, row.transaction.connectionId ?? null).catch((err) => {
+        req.log.warn({ err }, "Provider limit check after transaction status update failed");
+      });
+    }
 
     res.json({ ...row.transaction, amount: Number(row.transaction.amount), merchantName: row.merchantName ?? null });
   } catch (err) {

@@ -2,7 +2,8 @@
  * Shared provider-limit notification + email logic.
  *
  * Used by:
- *  - GET /api/connections (immediate check on dashboard load)
+ *  - POST/PUT /api/transactions (after every successful deposit — primary trigger)
+ *  - GET /api/connections (secondary safety-net on dashboard load)
  *  - providerLimitScheduler (hourly background scan for all merchants)
  *
  * Deduplication is enforced at the DB level via the partial unique index

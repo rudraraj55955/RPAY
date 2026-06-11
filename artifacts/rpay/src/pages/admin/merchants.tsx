@@ -869,6 +869,97 @@ export default function AdminMerchants() {
         )}
       </div>
 
+      {/* Filter chips */}
+      {(!!search || status !== "all" || !!expiryStatus || !!rejectionReasonFilter || !!callbackSecretFilter) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium">Filters:</span>
+          {!!search && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              Search: {search}
+              <button
+                onClick={() => handleSearchChange("")}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-sky-500/20 transition-colors"
+                aria-label="Clear search filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {status !== "all" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              Status: {status.charAt(0).toUpperCase() + status.slice(1)}
+              <button
+                onClick={() => handleStatusChange("all")}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-sky-500/20 transition-colors"
+                aria-label="Clear status filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {expiryStatus === "expiring" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
+              Expiring Soon
+              <button
+                onClick={() => handleExpiryChange("")}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-amber-500/20 transition-colors"
+                aria-label="Clear expiry filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {expiryStatus === "expired" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/10 px-3 py-1 text-xs font-medium text-rose-300">
+              Expired Plan
+              <button
+                onClick={() => handleExpiryChange("")}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-rose-500/20 transition-colors"
+                aria-label="Clear expiry filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {!!rejectionReasonFilter && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              Reason: {rejectionReasonFilter}
+              <button
+                onClick={() => handleRejectionReasonFilterChange("")}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-sky-500/20 transition-colors"
+                aria-label="Clear rejection reason filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {callbackSecretFilter === "false" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/10 px-3 py-1 text-xs font-medium text-rose-300">
+              No Secret
+              <button
+                onClick={() => { setCallbackSecretFilter(""); setPage(1); }}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-rose-500/20 transition-colors"
+                aria-label="Clear callback secret filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {callbackSecretFilter === "true" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+              Secret Set
+              <button
+                onClick={() => { setCallbackSecretFilter(""); setPage(1); }}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-emerald-500/20 transition-colors"
+                aria-label="Clear callback secret filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Bulk action toolbar */}
       {selected.size > 0 && (
         <div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">

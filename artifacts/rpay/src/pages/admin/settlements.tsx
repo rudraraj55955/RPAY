@@ -712,6 +712,61 @@ export default function AdminSettlements() {
         </div>
       )}
 
+      {/* Regular filter chips */}
+      {(!!search || (status !== "all" && !smartFilter?.settlementStatus) || (!smartFilter?.dateFrom && !!dateFrom) || (!smartFilter?.dateTo && !!dateTo)) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium">Filters:</span>
+          {!!search && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              Merchant: {search}
+              <button
+                onClick={() => handleSearchChange("")}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-sky-500/20 transition-colors"
+                aria-label="Clear search filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {status !== "all" && !smartFilter?.settlementStatus && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              Status: {status.charAt(0).toUpperCase() + status.slice(1)}
+              <button
+                onClick={() => handleStatusChange("all")}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-sky-500/20 transition-colors"
+                aria-label="Clear status filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {!smartFilter?.dateFrom && !!dateFrom && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              From: {dateFrom}
+              <button
+                onClick={() => { setDateFrom(""); setPage(1); clearSelection(); }}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-sky-500/20 transition-colors"
+                aria-label="Clear date from filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {!smartFilter?.dateTo && !!dateTo && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              To: {dateTo}
+              <button
+                onClick={() => { setDateTo(""); setPage(1); clearSelection(); }}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-sky-500/20 transition-colors"
+                aria-label="Clear date to filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Filter summary bar */}
       {anyFilterActive && (
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">

@@ -479,6 +479,49 @@ export default function AdminDeposits() {
         </div>
       )}
 
+      {/* Regular filter chips */}
+      {(!!search || !!merchantId || (status !== "all" && !smartFilter?.txStatus)) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium">Filters:</span>
+          {!!search && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              Search: {search}
+              <button
+                onClick={() => { setSearch(""); setPage(1); }}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-sky-500/20 transition-colors"
+                aria-label="Clear search filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {!!merchantId && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              Merchant #{merchantId}
+              <button
+                onClick={() => { setMerchantId(""); setPage(1); }}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-sky-500/20 transition-colors"
+                aria-label="Clear merchant filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {status !== "all" && !smartFilter?.txStatus && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              Status: {status.charAt(0).toUpperCase() + status.slice(1)}
+              <button
+                onClick={() => { setStatus("all"); setPage(1); }}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-sky-500/20 transition-colors"
+                aria-label="Clear status filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Filter summary bar */}
       {anyFilterActive && (
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">

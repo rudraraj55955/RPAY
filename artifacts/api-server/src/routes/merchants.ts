@@ -48,12 +48,13 @@ function buildPlanResponse(mp: typeof merchantPlansTable.$inferSelect, plan: typ
 
 async function logPlanHistory(opts: {
   merchantId: number; fromPlanId: number | null; toPlanId: number | null;
-  action: string; adminId?: number; adminEmail?: string; notes?: string;
+  action: string; adminId?: number; adminEmail?: string; notes?: string; expiresAt?: Date | null;
 }) {
   await db.insert(planHistoryTable).values({
     merchantId: opts.merchantId, fromPlanId: opts.fromPlanId ?? null,
     toPlanId: opts.toPlanId ?? null, action: opts.action,
     assignedBy: opts.adminId ?? null, adminEmail: opts.adminEmail ?? null, notes: opts.notes ?? null,
+    expiresAt: opts.expiresAt ?? null,
   });
 }
 
@@ -397,7 +398,7 @@ router.get("/:id/plan/history", requireAdmin, async (req, res) => {
     .leftJoin(plansTable, eq(planHistoryTable.toPlanId, plansTable.id))
     .where(eq(planHistoryTable.merchantId, id))
     .orderBy(desc(planHistoryTable.createdAt)).limit(50);
-  res.json(rows.map(r => ({ ...r.h, toPlanName: r.toPlan?.name ?? null, createdAt: r.h.createdAt.toISOString() })));
+  res.json(rows.map(r => ({ ...r.h, toPlanName: r.toPlan?.name ?? null, createdAt: r.h.createdAt.toISOString(), expiresAt: r.h.expiresAt?.toISOString() ?? null })));
 });
 
 // POST /api/merchants/bulk-reject
@@ -711,7 +712,7 @@ router.post("/:id/assign-plan", requireAdmin, async (req, res) => {
   }
 
   const action = fromPlanId === null ? "assigned" : fromPlanId === planId ? "renewed" : planId > fromPlanId ? "upgraded" : "downgraded";
-  await logPlanHistory({ merchantId: id, fromPlanId, toPlanId: planId, action, adminId: user.id, adminEmail: user.email, notes });
+  await logPlanHistory({ merchantId: id, fromPlanId, toPlanId: planId, action, adminId: user.id, adminEmail: user.email, notes, expiresAt: expiresAtDate });
   await db.insert(auditLogsTable).values({
     adminId: user.id, adminEmail: user.email, action: `plan_${action}`,
     targetType: "merchant", targetId: id,
@@ -743,7 +744,7 @@ router.post("/:id/plan/upgrade", requireAdmin, async (req, res) => {
   } else {
     [result] = await db.insert(merchantPlansTable).values({ merchantId: id, planId, assignedBy: user.id, expiresAt: expiresAtDate ?? undefined }).returning();
   }
-  await logPlanHistory({ merchantId: id, fromPlanId, toPlanId: planId, action: "upgraded", adminId: user.id, adminEmail: user.email, notes });
+  await logPlanHistory({ merchantId: id, fromPlanId, toPlanId: planId, action: "upgraded", adminId: user.id, adminEmail: user.email, notes, expiresAt: expiresAtDate });
   res.json({ ...result, planName: plan.name, expiresAt: result.expiresAt ?? null });
 });
 
@@ -768,7 +769,7 @@ router.post("/:id/plan/downgrade", requireAdmin, async (req, res) => {
   } else {
     [result] = await db.insert(merchantPlansTable).values({ merchantId: id, planId, assignedBy: user.id, expiresAt: expiresAtDate ?? undefined }).returning();
   }
-  await logPlanHistory({ merchantId: id, fromPlanId, toPlanId: planId, action: "downgraded", adminId: user.id, adminEmail: user.email, notes });
+  await logPlanHistory({ merchantId: id, fromPlanId, toPlanId: planId, action: "downgraded", adminId: user.id, adminEmail: user.email, notes, expiresAt: expiresAtDate });
   res.json({ ...result, planName: plan.name, expiresAt: result.expiresAt ?? null });
 });
 

@@ -449,6 +449,7 @@ export const GetMerchantPlanHistoryResponseItem = zod.object({
   "adminEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "businessName": zod.string().nullish(),
+  "expiresAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const GetMerchantPlanHistoryResponse = zod.array(GetMerchantPlanHistoryResponseItem)
@@ -2089,6 +2090,7 @@ export const GetMyPlanHistoryResponseItem = zod.object({
   "adminEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "businessName": zod.string().nullish(),
+  "expiresAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const GetMyPlanHistoryResponse = zod.array(GetMyPlanHistoryResponseItem)
@@ -2115,6 +2117,7 @@ export const ListPlanHistoryResponse = zod.object({
   "adminEmail": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "businessName": zod.string().nullish(),
+  "expiresAt": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),

@@ -1044,6 +1044,8 @@ export interface PlanHistory {
   notes?: string | null;
   /** @nullable */
   businessName?: string | null;
+  /** @nullable */
+  expiresAt?: string | null;
   createdAt: string;
 }
 

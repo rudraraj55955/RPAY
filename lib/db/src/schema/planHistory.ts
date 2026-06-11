@@ -9,6 +9,7 @@ export const planHistoryTable = pgTable("plan_history", {
   assignedBy: integer("assigned_by"),
   adminEmail: text("admin_email"),
   notes: text("notes"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

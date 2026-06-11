@@ -5525,6 +5525,8 @@ components:
           type: ["string", "null"]
         businessName:
           type: ["string", "null"]
+        expiresAt:
+          type: ["string", "null"]
         createdAt:
           type: string
 

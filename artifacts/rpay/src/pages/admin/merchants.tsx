@@ -2151,6 +2151,11 @@ export default function AdminMerchants() {
                         <span className="text-muted-foreground ml-auto">{formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}</span>
                       </div>
                       {entry.adminEmail && <p className="text-muted-foreground">by {entry.adminEmail}</p>}
+                      {entry.expiresAt && (
+                        <p className="text-muted-foreground">
+                          expires {format(new Date(entry.expiresAt), "dd MMM yyyy")}
+                        </p>
+                      )}
                       {entry.notes && <p className="text-muted-foreground italic">"{entry.notes}"</p>}
                     </div>
                   </div>

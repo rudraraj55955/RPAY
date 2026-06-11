@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, ChevronDown, RotateCcw, ShieldOff, Shield, FlaskRound, X, BarChart2 } from "lucide-react";
+import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, ChevronDown, RotateCcw, ShieldOff, Shield, FlaskRound, X, BarChart2, Calendar } from "lucide-react";
 import { formatDistanceToNow, format, differenceInDays } from "date-fns";
 import { SIG_VERIFIED_KEY } from "./callbacks";
 
@@ -500,7 +500,15 @@ export default function MerchantWebhook() {
   const { data: config, isLoading } = useGetWebhookConfig();
   const { data: secretStatus, isLoading: secretLoading } = useGetCallbackSecret();
   const [eventTypeFilter, setEventTypeFilter] = useState<string | null>(null);
-  const logsParams = { limit: 20, ...(eventTypeFilter != null ? { eventType: eventTypeFilter } : {}) };
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const hasDateFilter = fromDate !== "" || toDate !== "";
+  const logsParams = {
+    limit: 50,
+    ...(eventTypeFilter != null ? { eventType: eventTypeFilter } : {}),
+    ...(fromDate ? { from: new Date(fromDate).toISOString() } : {}),
+    ...(toDate ? { to: new Date(toDate).toISOString() } : {}),
+  };
   const { data: logsData, isLoading: logsLoading } = useGetWebhookLogs(logsParams, {
     query: { queryKey: getGetWebhookLogsQueryKey(logsParams) },
   });
@@ -761,13 +769,50 @@ onError: () => toast.error("Failed to send test event"),
       {/* Recent Deliveries */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" />
-            <CardTitle>Recent Deliveries</CardTitle>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary" />
+              <CardTitle>Recent Deliveries</CardTitle>
+            </div>
           </div>
-          <CardDescription>Last 10 webhook delivery attempts to your endpoint</CardDescription>
+          <CardDescription>
+            {hasDateFilter
+              ? "Showing deliveries in the selected window"
+              : "Last 50 webhook delivery attempts to your endpoint"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Date range filter */}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-muted-foreground shrink-0">From</label>
+              <input
+                type="datetime-local"
+                value={fromDate}
+                onChange={e => setFromDate(e.target.value)}
+                className="h-7 rounded border border-border/50 bg-muted/30 px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 [color-scheme:dark]"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-muted-foreground shrink-0">To</label>
+              <input
+                type="datetime-local"
+                value={toDate}
+                onChange={e => setToDate(e.target.value)}
+                className="h-7 rounded border border-border/50 bg-muted/30 px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 [color-scheme:dark]"
+              />
+            </div>
+            {hasDateFilter && (
+              <button
+                onClick={() => { setFromDate(""); setToDate(""); }}
+                className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-medium text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/50 transition-colors"
+              >
+                <X className="w-3 h-3" />
+                Clear
+              </button>
+            )}
+          </div>
           {/* Event type filter pills */}
           <div className="flex items-center gap-1.5 flex-wrap mb-4 pb-3 border-b border-border/40">
             <button

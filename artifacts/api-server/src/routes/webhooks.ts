@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, webhooksTable, callbackLogsTable, auditLogsTable } from "@workspace/db";
-import { count, eq, sql } from "drizzle-orm";
+import { and, count, eq, gte, lte, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { fireCallback } from "../helpers/callbackRetry";
 import crypto from "crypto";
@@ -131,11 +131,24 @@ router.get("/logs", async (req, res) => {
   }
 
   const limitNum = Math.min(50, Math.max(1, parseInt((req.query['limit'] as string) || "10")));
+  const fromRaw = req.query['from'] as string | undefined;
+  const toRaw = req.query['to'] as string | undefined;
+  const eventTypeFilter = req.query['eventType'] as string | undefined;
+
+  const fromDate = fromRaw ? new Date(fromRaw) : null;
+  const toDate = toRaw ? new Date(toRaw) : null;
+
+  const conditions = [
+    eq(callbackLogsTable.merchantId, merchantId),
+    ...(fromDate && !isNaN(fromDate.getTime()) ? [gte(callbackLogsTable.createdAt, fromDate)] : []),
+    ...(toDate && !isNaN(toDate.getTime()) ? [lte(callbackLogsTable.createdAt, toDate)] : []),
+    ...(eventTypeFilter ? [eq(callbackLogsTable.eventType, eventTypeFilter)] : []),
+  ];
 
   const data = await db
     .select()
     .from(callbackLogsTable)
-    .where(eq(callbackLogsTable.merchantId, merchantId))
+    .where(and(...conditions))
     .orderBy(sql`${callbackLogsTable.createdAt} DESC`)
     .limit(limitNum);
 

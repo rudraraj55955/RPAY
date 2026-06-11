@@ -1373,6 +1373,23 @@ paths:
             minimum: 1
             maximum: 50
           description: Number of recent log entries to return (default 10, max 50)
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 timestamp — only include logs at or after this time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 timestamp — only include logs at or before this time
+        - name: eventType
+          in: query
+          schema:
+            type: string
+          description: Filter by event type (e.g. payment.success)
       responses:
         "200":
           description: Recent webhook delivery logs

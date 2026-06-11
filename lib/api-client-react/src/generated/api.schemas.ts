@@ -2609,6 +2609,18 @@ export type GetWebhookLogsParams = {
  * @maximum 50
  */
 limit?: number;
+/**
+ * ISO 8601 timestamp — only include logs at or after this time
+ */
+from?: string;
+/**
+ * ISO 8601 timestamp — only include logs at or before this time
+ */
+to?: string;
+/**
+ * Filter by event type (e.g. payment.success)
+ */
+eventType?: string;
 };
 
 export type GetWebhookLogAttempts200 = {

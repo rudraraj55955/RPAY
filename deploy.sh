@@ -72,7 +72,7 @@ log "Dependencies installed"
 # Step 3 — Push DB schema (idempotent)
 # ─────────────────────────────────────────────
 step "3/7  Push DB schema"
-pnpm --filter @workspace/db run push
+(cd "$APP_DIR/lib/db" && pnpm run push)
 log "Schema up to date"
 
 # ─────────────────────────────────────────────

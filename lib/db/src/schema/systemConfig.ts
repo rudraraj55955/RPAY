@@ -16,6 +16,8 @@ export const SYSTEM_CONFIG_KEYS = {
   RECONCILIATION_ENABLED: "reconciliation_enabled",
   RECONCILIATION_LOOKBACK_PRESETS: "reconciliation_lookback_presets",
   QR_CLEANUP_RETENTION_DAYS: "qr_cleanup_retention_days",
+  STORAGE_CLEANUP_ENABLED: "storage_cleanup_enabled",
+  STORAGE_CLEANUP_HOUR: "storage_cleanup_hour",
 } as const;
 
 export const SYSTEM_CONFIG_DEFAULTS = {
@@ -24,4 +26,6 @@ export const SYSTEM_CONFIG_DEFAULTS = {
   [SYSTEM_CONFIG_KEYS.RECONCILIATION_LOOKBACK_DAYS]: "1",
   [SYSTEM_CONFIG_KEYS.RECONCILIATION_ENABLED]: "true",
   [SYSTEM_CONFIG_KEYS.QR_CLEANUP_RETENTION_DAYS]: "30",
+  [SYSTEM_CONFIG_KEYS.STORAGE_CLEANUP_ENABLED]: "true",
+  [SYSTEM_CONFIG_KEYS.STORAGE_CLEANUP_HOUR]: "3",
 } as const;

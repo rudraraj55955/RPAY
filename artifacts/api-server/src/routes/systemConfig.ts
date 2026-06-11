@@ -4,6 +4,7 @@ import { inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { rescheduleFromDb, getNextRunTime } from "../helpers/reconScheduler";
 import { loadQrCleanupRetentionDays } from "../helpers/qrCleanupScheduler";
+import { loadStorageCleanupConfig, rescheduleStorageCleanupFromDb } from "../helpers/storageCleanupScheduler";
 import { sql } from "drizzle-orm";
 
 const router = Router();
@@ -330,6 +331,74 @@ router.put("/qr-cleanup", async (req, res, next) => {
     req.log.info({ retentionDays }, "QR cleanup retention config updated");
 
     res.json({ retentionDays });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/system-config/storage-cleanup
+router.get("/storage-cleanup", async (req, res, next) => {
+  try {
+    const config = await loadStorageCleanupConfig();
+    res.json(config);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/system-config/storage-cleanup
+router.put("/storage-cleanup", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { enabled, hour } = req.body;
+
+    if (typeof hour !== "number" || !Number.isInteger(hour)) {
+      res.status(400).json({ error: "hour must be an integer" });
+      return;
+    }
+
+    if (hour < 0 || hour > 23) {
+      res.status(400).json({ error: "hour must be between 0 and 23" });
+      return;
+    }
+
+    if (enabled !== undefined && typeof enabled !== "boolean") {
+      res.status(400).json({ error: "enabled must be a boolean" });
+      return;
+    }
+
+    const enabledValue = enabled !== undefined ? enabled : true;
+
+    const entries = [
+      { key: SYSTEM_CONFIG_KEYS.STORAGE_CLEANUP_ENABLED, value: String(enabledValue), updatedByEmail: user.email },
+      { key: SYSTEM_CONFIG_KEYS.STORAGE_CLEANUP_HOUR, value: String(hour), updatedByEmail: user.email },
+    ];
+
+    for (const entry of entries) {
+      await db
+        .insert(systemConfigTable)
+        .values(entry)
+        .onConflictDoUpdate({
+          target: systemConfigTable.key,
+          set: { value: entry.value, updatedByEmail: entry.updatedByEmail, updatedAt: sql`now()` },
+        });
+    }
+
+    await rescheduleStorageCleanupFromDb();
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id,
+      adminEmail: user.email,
+      action: "system_config_updated",
+      targetType: "system_config",
+      targetId: null,
+      details: JSON.stringify({ section: "storage_cleanup", enabled: enabledValue, hour }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ enabled: enabledValue, hour }, "Storage cleanup schedule config updated");
+
+    res.json({ enabled: enabledValue, hour });
   } catch (err) {
     next(err);
   }

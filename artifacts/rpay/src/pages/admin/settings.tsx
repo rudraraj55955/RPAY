@@ -384,6 +384,36 @@ export default function AdminSettings() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const [storageScheduleEnabled, setStorageScheduleEnabled] = useState<boolean>(true);
+  const [storageScheduleHour, setStorageScheduleHour] = useState<number>(3);
+  const [storageScheduleInitialized, setStorageScheduleInitialized] = useState(false);
+
+  const { data: storageCleanupConfig, isLoading: storageConfigLoading } = useQuery<{ enabled: boolean; hour: number }>({
+    queryKey: ["/api/system-config/storage-cleanup"],
+    queryFn: () => apiGet("/system-config/storage-cleanup"),
+    onSuccess: (d: { enabled: boolean; hour: number }) => {
+      if (!storageScheduleInitialized) {
+        setStorageScheduleEnabled(d.enabled);
+        setStorageScheduleHour(d.hour);
+        setStorageScheduleInitialized(true);
+      }
+    },
+  } as any);
+
+  const currentStorageEnabled = storageCleanupConfig?.enabled ?? true;
+  const currentStorageHour = storageCleanupConfig?.hour ?? 3;
+  const storageScheduleUnchanged =
+    storageScheduleEnabled === currentStorageEnabled && storageScheduleHour === currentStorageHour;
+
+  const { mutate: saveStorageSchedule, isPending: savingStorageSchedule } = useMutation({
+    mutationFn: () => apiPut("/system-config/storage-cleanup", { enabled: storageScheduleEnabled, hour: storageScheduleHour }),
+    onSuccess: () => {
+      toast.success("Storage cleanup schedule saved");
+      qc.invalidateQueries({ queryKey: ["/api/system-config/storage-cleanup"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const [cleanupResult, setCleanupResult] = useState<{ totalScanned: number; deleted: number; errors: number } | null>(null);
   const { mutate: runCleanup, isPending: runningCleanup } = useRunStorageCleanup({
     mutation: {
@@ -1370,37 +1400,121 @@ export default function AdminSettings() {
             database rows. It is safe to run at any time.
           </p>
 
-          {cleanupResult && (
-            <div className={`flex items-start gap-2 text-xs rounded-md px-3 py-2 border ${
-              cleanupResult.errors > 0
-                ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
-                : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-            }`}>
-              {cleanupResult.errors > 0
-                ? <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                : <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-              <span>
-                Scanned <strong>{cleanupResult.totalScanned}</strong> record{cleanupResult.totalScanned !== 1 ? "s" : ""} —{" "}
-                deleted <strong>{cleanupResult.deleted}</strong>{cleanupResult.deleted !== 1 ? "" : " file"}
-                {cleanupResult.errors > 0 && (
-                  <>, <span className="text-red-400">{cleanupResult.errors} failed</span></>
-                )}
-                {cleanupResult.deleted === 0 && cleanupResult.errors === 0 && " — storage is clean"}
-                .
-              </span>
+          {/* Auto-schedule */}
+          <div className="border border-border/50 rounded-lg p-4 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-foreground">Automatic nightly cleanup</p>
+                <p className="text-xs text-muted-foreground">
+                  Run the orphan cleanup job automatically every night at the configured hour.
+                </p>
+              </div>
+              <Switch
+                checked={storageScheduleEnabled}
+                onCheckedChange={setStorageScheduleEnabled}
+                disabled={storageConfigLoading}
+              />
             </div>
-          )}
 
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { setCleanupResult(null); runCleanup(); }}
-              disabled={runningCleanup}
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-              {runningCleanup ? "Running…" : "Run cleanup"}
-            </Button>
+            {!storageConfigLoading && currentStorageEnabled && (
+              <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Auto-cleanup runs nightly at <strong>{String(currentStorageHour).padStart(2, "0")}:00</strong> server time.</span>
+              </div>
+            )}
+            {!storageConfigLoading && !currentStorageEnabled && (
+              <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>Auto-cleanup is <strong>disabled</strong>. Orphaned files will only be removed by running cleanup manually.</span>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="storage-cleanup-hour" className="text-sm">Run at hour (0–23, server time)</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="storage-cleanup-hour"
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={storageScheduleHour}
+                  onChange={e => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v)) setStorageScheduleHour(Math.max(0, Math.min(23, v)));
+                  }}
+                  disabled={storageConfigLoading}
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {String(storageScheduleHour).padStart(2, "0")}:00 server time
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => saveStorageSchedule()}
+                disabled={savingStorageSchedule || storageConfigLoading || storageScheduleUnchanged}
+              >
+                <Save className="w-3.5 h-3.5 mr-1.5" />
+                {savingStorageSchedule ? "Saving…" : "Save schedule"}
+              </Button>
+              {!storageScheduleUnchanged && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setStorageScheduleEnabled(currentStorageEnabled);
+                    setStorageScheduleHour(currentStorageHour);
+                  }}
+                  disabled={savingStorageSchedule}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Manual run */}
+          <div className="border-t border-border/50 pt-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-foreground mb-0.5">Run immediately</p>
+              <p className="text-xs text-muted-foreground">Trigger a cleanup run right now without waiting for the next scheduled time.</p>
+            </div>
+
+            {cleanupResult && (
+              <div className={`flex items-start gap-2 text-xs rounded-md px-3 py-2 border ${
+                cleanupResult.errors > 0
+                  ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                  : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+              }`}>
+                {cleanupResult.errors > 0
+                  ? <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  : <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                <span>
+                  Scanned <strong>{cleanupResult.totalScanned}</strong> record{cleanupResult.totalScanned !== 1 ? "s" : ""} —{" "}
+                  deleted <strong>{cleanupResult.deleted}</strong>{cleanupResult.deleted !== 1 ? "" : " file"}
+                  {cleanupResult.errors > 0 && (
+                    <>, <span className="text-red-400">{cleanupResult.errors} failed</span></>
+                  )}
+                  {cleanupResult.deleted === 0 && cleanupResult.errors === 0 && " — storage is clean"}
+                  .
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setCleanupResult(null); runCleanup(); }}
+                disabled={runningCleanup}
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                {runningCleanup ? "Running…" : "Run cleanup now"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -12,6 +12,7 @@ import { initPlanExpiryScheduler } from "./helpers/planExpiryScheduler";
 import { initPlanRenewalScheduler } from "./helpers/planRenewalScheduler";
 import { initNonceCleanupScheduler, pruneExpiredNonces } from "./helpers/nonceCleanupScheduler";
 import { initWebhookSecretScheduler } from "./helpers/webhookSecretScheduler";
+import { initStorageCleanupSchedulerFromDb } from "./helpers/storageCleanupScheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -69,6 +70,7 @@ async function main() {
     logger.warn({ err }, "Startup nonce cleanup sweep failed");
   });
   initWebhookSecretScheduler();
+  await initStorageCleanupSchedulerFromDb();
   scheduleCallbackRetryWorker();
 
   // Startup sweep: immediately scan all active connections so merchants receive

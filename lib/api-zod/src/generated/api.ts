@@ -1638,6 +1638,8 @@ export const ListCallbackLogsQueryParams = zod.object({
   "signatureVerified": zod.enum(['all', 'verified', 'failed', 'none']).optional().describe('Filter by signature verification outcome. \"verified\" = passed, \"failed\" = rejected, \"none\" = no secret configured'),
   "rejectionReason": zod.enum(['stale_timestamp', 'replay_detected', 'bad_signature', 'missing_header']).optional().describe('Filter failed logs by the specific rejection reason stored in responseBody. \"stale_timestamp\" = X-Timestamp outside ±window, \"replay_detected\" = duplicate nonce, \"bad_signature\" = HMAC mismatch, \"missing_header\" = required header absent.\n'),
   "eventType": zod.enum(['payment.received', 'payment.success', 'payment.failed', 'payment.pending']).optional().describe('Filter logs by webhook event type'),
+  "dateFrom": zod.date().optional().describe('Include only logs with createdAt on or after this date (YYYY-MM-DD, inclusive)'),
+  "dateTo": zod.date().optional().describe('Include only logs with createdAt on or before this date (YYYY-MM-DD, inclusive end of day)'),
   "page": zod.coerce.number().optional(),
   "limit": zod.coerce.number().optional()
 })

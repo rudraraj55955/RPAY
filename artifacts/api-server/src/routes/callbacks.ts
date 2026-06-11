@@ -443,7 +443,7 @@ router.get("/:id/attempts", async (req, res) => {
 // GET /api/callbacks
 router.get("/", async (req, res) => {
   const user = (req as any).user;
-  const { status, qrCodeId, signatureVerified, rejectionReason, eventType, page = "1", limit = "20" } = req.query as Record<string, string>;
+  const { status, qrCodeId, signatureVerified, rejectionReason, eventType, dateFrom, dateTo, page = "1", limit = "20" } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
@@ -459,6 +459,16 @@ router.get("/", async (req, res) => {
     conditions.push(like(callbackLogsTable.responseBody, REJECTION_REASON_PATTERNS[rejectionReason]));
   }
   if (eventType) conditions.push(eq(callbackLogsTable.eventType, eventType));
+  if (dateFrom) {
+    const fromDate = new Date(dateFrom);
+    fromDate.setHours(0, 0, 0, 0);
+    conditions.push(gte(callbackLogsTable.createdAt, fromDate));
+  }
+  if (dateTo) {
+    const toDate = new Date(dateTo);
+    toDate.setHours(23, 59, 59, 999);
+    conditions.push(lte(callbackLogsTable.createdAt, toDate));
+  }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   const [{ total }] = await db.select({ total: count() }).from(callbackLogsTable).where(where);

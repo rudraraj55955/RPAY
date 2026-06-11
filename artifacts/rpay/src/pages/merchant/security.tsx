@@ -31,7 +31,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO, isAfter, isBefore, startOfDay, endOfDay } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -376,11 +376,14 @@ export default function MerchantSecurity() {
   const { data: rawData, isLoading: logsLoading } = useListCallbackLogs({
     status: status === "all" ? undefined : (status as any),
     signatureVerified: sigFilter === "all" ? undefined : (sigFilter as any),
-    limit: 200,
-    page: 1,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    limit: 20,
+    page,
   });
 
   const allLogs = rawData?.data ?? [];
+  const serverTotal = rawData?.total ?? 0;
 
   const filteredLogs = allLogs.filter(log => {
     if (search) {
@@ -390,21 +393,13 @@ export default function MerchantSecurity() {
       const matchQr = log.qrCodeId != null ? String(log.qrCodeId).includes(q) : false;
       if (!matchId && !matchEvent && !matchQr) return false;
     }
-    if (dateFrom) {
-      const from = startOfDay(parseISO(dateFrom));
-      if (isBefore(parseISO(log.createdAt), from)) return false;
-    }
-    if (dateTo) {
-      const to = endOfDay(parseISO(dateTo));
-      if (isAfter(parseISO(log.createdAt), to)) return false;
-    }
     return true;
   });
 
   const PAGE_SIZE = 20;
-  const totalFiltered = filteredLogs.length;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
-  const pageSlice = filteredLogs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalFiltered = search ? filteredLogs.length : serverTotal;
+  const totalPages = Math.max(1, Math.ceil(serverTotal / PAGE_SIZE));
+  const pageSlice = filteredLogs;
 
   const successCount = filteredLogs.filter(l => l.status === "success").length;
   const failedCount = filteredLogs.filter(l => l.status === "failed").length;

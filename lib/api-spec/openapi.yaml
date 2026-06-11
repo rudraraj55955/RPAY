@@ -1673,6 +1673,18 @@ paths:
             type: string
             enum: [payment.received, payment.success, payment.failed, payment.pending]
           description: Filter logs by webhook event type
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Include only logs with createdAt on or after this date (YYYY-MM-DD, inclusive)
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Include only logs with createdAt on or before this date (YYYY-MM-DD, inclusive end of day)
         - name: page
           in: query
           schema:

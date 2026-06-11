@@ -2748,6 +2748,14 @@ rejectionReason?: ListCallbackLogsRejectionReason;
  * Filter logs by webhook event type
  */
 eventType?: ListCallbackLogsEventType;
+/**
+ * Include only logs with createdAt on or after this date (YYYY-MM-DD, inclusive)
+ */
+dateFrom?: string;
+/**
+ * Include only logs with createdAt on or before this date (YYYY-MM-DD, inclusive end of day)
+ */
+dateTo?: string;
 page?: number;
 limit?: number;
 };

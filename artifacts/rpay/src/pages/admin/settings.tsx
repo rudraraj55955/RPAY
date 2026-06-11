@@ -353,6 +353,21 @@ export default function AdminSettings() {
   const sampleReportToTrimmed = sampleReportTo.trim();
   const sampleReportToInvalid = sampleReportToTrimmed.length > 0 && !EMAIL_REGEX.test(sampleReportToTrimmed);
 
+  const [retryingLogId, setRetryingLogId] = useState<number | null>(null);
+
+  const { mutate: retryFinanceEmail } = useMutation({
+    mutationFn: (logId: number) => {
+      setRetryingLogId(logId);
+      return apiPost(`/settings/finance_report_email/logs/${logId}/resend`);
+    },
+    onSuccess: (res: { to: string }) => toast.success(`Email re-sent to ${res.to}`),
+    onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to resend email")),
+    onSettled: () => {
+      setRetryingLogId(null);
+      qc.invalidateQueries({ queryKey: ["/api/settings/finance_report_email/logs"] });
+    },
+  });
+
   const { mutate: saveSchedule, isPending: savingSchedule } = useMutation({
     mutationFn: () => apiPut("/settings/reconciliation_schedule", { value: scheduleMode }),
     onSuccess: () => {
@@ -1330,18 +1345,32 @@ export default function AdminSettings() {
                             </p>
                           )}
                         </div>
-                        <time
-                          dateTime={entry.sentAt}
-                          className="shrink-0 text-muted-foreground tabular-nums"
-                          title={new Date(entry.sentAt).toLocaleString()}
-                        >
-                          {new Date(entry.sentAt).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </time>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {!success && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs border-red-500/30 hover:border-red-400/60 hover:bg-red-500/10 text-red-400 hover:text-red-300"
+                              disabled={retryingLogId === entry.id}
+                              onClick={() => retryFinanceEmail(entry.id)}
+                            >
+                              <RotateCcw className={`w-3 h-3 mr-1 ${retryingLogId === entry.id ? "animate-spin" : ""}`} />
+                              {retryingLogId === entry.id ? "Sending…" : "Retry"}
+                            </Button>
+                          )}
+                          <time
+                            dateTime={entry.sentAt}
+                            className="text-muted-foreground tabular-nums"
+                            title={new Date(entry.sentAt).toLocaleString()}
+                          >
+                            {new Date(entry.sentAt).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </time>
+                        </div>
                       </div>
                     );
                   })}

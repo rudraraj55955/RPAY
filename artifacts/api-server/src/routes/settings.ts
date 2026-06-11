@@ -3,7 +3,7 @@ import { db, systemSettingsTable, auditLogsTable, reconciliationRunsTable, recon
 import { eq, inArray, desc } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { sendMail, getSmtpConfig } from "../helpers/mailer";
-import { buildEmailHtml, buildUnmatchedAlertHtml, buildSampleCsv } from "../helpers/reconcileEmail";
+import { buildEmailHtml, buildUnmatchedAlertHtml, buildSampleCsv, buildRunCsv } from "../helpers/reconcileEmail";
 
 const router = Router();
 router.use(requireAuth);
@@ -497,6 +497,148 @@ router.get("/finance_report_email/logs", async (_req, res, next) => {
       .limit(10);
 
     res.json({ data: logs });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/settings/finance_report_email/logs/:id/resend — re-sends a failed finance report email
+router.post("/finance_report_email/logs/:id/resend", async (req, res, next) => {
+  const user = (req as any).user;
+  try {
+    const logId = parseInt(req.params['id'] as string, 10);
+    if (isNaN(logId)) {
+      res.status(400).json({ error: "Invalid log ID" });
+      return;
+    }
+
+    const [logEntry] = await db
+      .select()
+      .from(reconciliationEmailLogsTable)
+      .where(eq(reconciliationEmailLogsTable.id, logId))
+      .limit(1);
+
+    if (!logEntry) {
+      res.status(404).json({ error: "Log entry not found" });
+      return;
+    }
+
+    if (logEntry.status !== "failed") {
+      res.status(400).json({ error: "Only failed log entries can be retried" });
+      return;
+    }
+
+    const recipients = logEntry.recipients
+      .split(",")
+      .map(e => e.trim())
+      .filter(e => e.length > 0);
+
+    if (recipients.length === 0) {
+      res.status(400).json({ error: "No recipients found in the original log entry" });
+      return;
+    }
+
+    const [primaryRecipient, ...ccRecipients] = recipients;
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+    let html: string;
+    let csv: string;
+    let filename: string;
+    let subject: string;
+    let emailType: string;
+
+    if (logEntry.emailType === "sample_report" || logEntry.runId === 0) {
+      const today = new Date();
+      const dateFrom = new Date(today);
+      dateFrom.setDate(today.getDate() - 7);
+
+      const sampleRun: typeof reconciliationRunsTable.$inferSelect = {
+        id: 42,
+        merchantId: null,
+        dateFrom: fmt(dateFrom),
+        dateTo: fmt(today),
+        runAt: today,
+        totalDeposits: 18,
+        totalMatched: 15,
+        totalUnmatched: 3,
+        totalSettlements: 16,
+        matchedAmount: "258320.00",
+        unmatchedAmount: "23750.00",
+        status: "completed",
+        completedAt: today,
+        createdBy: null,
+        triggeredBy: "auto",
+        notes: null,
+        createdAt: today,
+      };
+
+      html = buildEmailHtml(sampleRun);
+      csv = buildSampleCsv();
+      filename = `sample-reconciliation-report-${fmt(today)}.csv`;
+      subject = `[RasoKart] Sample Finance Report — ${fmt(dateFrom)} to ${fmt(today)} (preview)`;
+      emailType = "sample_report";
+    } else {
+      const [run] = await db
+        .select()
+        .from(reconciliationRunsTable)
+        .where(eq(reconciliationRunsTable.id, logEntry.runId))
+        .limit(1);
+
+      if (!run) {
+        res.status(404).json({ error: `Reconciliation run #${logEntry.runId} not found` });
+        return;
+      }
+
+      html = buildEmailHtml(run);
+      csv = await buildRunCsv(logEntry.runId);
+      filename = `reconciliation-run-${logEntry.runId}-${run.dateFrom}-to-${run.dateTo}.csv`;
+      subject = `[RasoKart] Reconciliation Report — Run #${logEntry.runId} (${run.dateFrom} to ${run.dateTo})`;
+      emailType = "report";
+    }
+
+    const sent = await sendMail({
+      to: primaryRecipient,
+      ...(ccRecipients.length > 0 ? { cc: ccRecipients.join(", ") } : {}),
+      subject,
+      html,
+      attachments: [{ filename, content: csv, contentType: "text/csv" }],
+    });
+
+    if (!sent) {
+      await db.insert(reconciliationEmailLogsTable).values({
+        runId: logEntry.runId,
+        emailType,
+        recipients: recipients.join(", "),
+        status: "failed",
+        errorMessage: "SMTP not configured or send failed",
+      });
+      res.status(502).json({ error: "SMTP is not configured or failed to send — check your SMTP settings" });
+      return;
+    }
+
+    await db.insert(reconciliationEmailLogsTable).values({
+      runId: logEntry.runId,
+      emailType,
+      recipients: recipients.join(", "),
+      status: "sent",
+      errorMessage: null,
+    });
+
+    try {
+      await db.insert(auditLogsTable).values({
+        adminId: user.id,
+        adminEmail: user.email,
+        action: "finance_report_email_resent",
+        targetType: "system_config",
+        targetId: null,
+        details: JSON.stringify({ originalLogId: logId, emailType, recipients }),
+        ipAddress: req.ip ?? null,
+      });
+    } catch (auditErr) {
+      req.log.error({ err: auditErr }, "Failed to write audit log for finance_report_email_resent");
+    }
+
+    res.json({ ok: true, to: recipients.join(", ") });
   } catch (err) {
     next(err);
   }

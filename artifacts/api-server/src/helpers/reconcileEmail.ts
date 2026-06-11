@@ -13,7 +13,7 @@ function escapeCsv(val: string | number | null | undefined): string {
   return str;
 }
 
-async function buildRunCsv(runId: number): Promise<string> {
+export async function buildRunCsv(runId: number): Promise<string> {
   const items = await db
     .select({
       item: reconciliationItemsTable,

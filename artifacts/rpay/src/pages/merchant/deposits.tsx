@@ -37,6 +37,10 @@ import {
   Bookmark,
   BookmarkCheck,
   Layers,
+  Pencil,
+  ChevronLeft,
+  ChevronRight,
+  Check,
 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, startOfDay, endOfDay, parseISO, isValid } from "date-fns";
 import { toast } from "sonner";
@@ -344,6 +348,9 @@ export default function MerchantDeposits() {
   const [saveCombinedPresetNameError, setSaveCombinedPresetNameError] = useState("");
   const saveCombinedPresetNameRef = useRef<HTMLInputElement>(null);
 
+  const [renamingCombinedPresetId, setRenamingCombinedPresetId] = useState<string | null>(null);
+  const [renameCombinedValue, setRenameCombinedValue] = useState("");
+
   useEffect(() => {
     if (showSaveDatePreset) {
       setTimeout(() => saveDatePresetNameRef.current?.focus(), 50);
@@ -577,6 +584,47 @@ export default function MerchantDeposits() {
 
   const deleteCombinedPreset = (id: string) => {
     const updated = allCombinedPresets.filter(p => p.id !== id);
+    setAllCombinedPresets(updated);
+    storeCombinedPresets(updated);
+  };
+
+  const startRenameCombinedPreset = (preset: CombinedPreset) => {
+    setRenamingCombinedPresetId(preset.id);
+    setRenameCombinedValue(preset.name);
+  };
+
+  const confirmRenameCombinedPreset = () => {
+    if (!renamingCombinedPresetId) return;
+    const trimmed = renameCombinedValue.trim();
+    if (trimmed) {
+      const updated = allCombinedPresets.map(p =>
+        p.id === renamingCombinedPresetId ? { ...p, name: trimmed } : p
+      );
+      setAllCombinedPresets(updated);
+      storeCombinedPresets(updated);
+    }
+    setRenamingCombinedPresetId(null);
+    setRenameCombinedValue("");
+  };
+
+  const cancelRenameCombinedPreset = () => {
+    setRenamingCombinedPresetId(null);
+    setRenameCombinedValue("");
+  };
+
+  const moveCombinedPreset = (id: string, direction: "left" | "right") => {
+    const depositIndices = allCombinedPresets
+      .map((p, i) => ({ p, i }))
+      .filter(({ p }) => p.type === "deposit")
+      .map(({ i }) => i);
+    const posInDeposits = depositIndices.findIndex(idx => allCombinedPresets[idx]!.id === id);
+    if (posInDeposits === -1) return;
+    const newPos = direction === "left" ? posInDeposits - 1 : posInDeposits + 1;
+    if (newPos < 0 || newPos >= depositIndices.length) return;
+    const updated = [...allCombinedPresets];
+    const idxA = depositIndices[posInDeposits]!;
+    const idxB = depositIndices[newPos]!;
+    [updated[idxA], updated[idxB]] = [updated[idxB]!, updated[idxA]!];
     setAllCombinedPresets(updated);
     storeCombinedPresets(updated);
   };
@@ -1065,36 +1113,99 @@ export default function MerchantDeposits() {
                 <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
                   <Layers className="w-3 h-3" />Presets:
                 </span>
-                {combinedPresets.map(preset => (
-                  <span
-                    key={preset.id}
-                    className={`group inline-flex items-center gap-1 rounded-full border text-xs font-medium transition-colors ${
-                      isCombinedPresetActive(preset)
-                        ? "border-teal-500/60 bg-teal-500/15 text-teal-200"
-                        : "border-teal-500/30 bg-teal-500/8 text-teal-300 hover:border-teal-500/60"
-                    }`}
-                  >
-                    <button
-                      onClick={() => applyCombinedPreset(preset)}
-                      className="flex items-center gap-1 px-2.5 py-1 hover:text-teal-100 transition-colors"
-                      title={buildCombinedPresetLabel(preset)}
+                {combinedPresets.map((preset, idx) =>
+                  renamingCombinedPresetId === preset.id ? (
+                    <span
+                      key={preset.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-teal-500/60 bg-teal-500/15 text-teal-200 px-2 py-0.5 text-xs font-medium"
                     >
                       <Layers className="w-3 h-3 shrink-0" />
-                      {preset.name}
-                      {preset.source === "transactions" && (
-                        <span className="text-[10px] opacity-50 font-normal">(Transactions)</span>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => deleteCombinedPreset(preset.id)}
-                      className="pr-1.5 text-teal-400/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-full transition-colors opacity-0 group-hover:opacity-100 py-1 flex items-center"
-                      aria-label={`Remove preset "${preset.name}"`}
-                      title="Remove this preset"
+                      <input
+                        className="bg-transparent border-none outline-none text-teal-100 w-24 min-w-0 text-xs"
+                        value={renameCombinedValue}
+                        onChange={e => setRenameCombinedValue(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") confirmRenameCombinedPreset();
+                          if (e.key === "Escape") cancelRenameCombinedPreset();
+                        }}
+                        onBlur={confirmRenameCombinedPreset}
+                        maxLength={40}
+                        autoFocus
+                      />
+                      <button
+                        onClick={confirmRenameCombinedPreset}
+                        className="text-teal-400 hover:text-teal-100 transition-colors p-0.5"
+                        aria-label="Confirm rename"
+                        title="Save name"
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                      <button
+                        onMouseDown={e => { e.preventDefault(); cancelRenameCombinedPreset(); }}
+                        className="text-teal-400/50 hover:text-rose-400 transition-colors p-0.5"
+                        aria-label="Cancel rename"
+                        title="Cancel"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : (
+                    <span
+                      key={preset.id}
+                      className={`group inline-flex items-center gap-1 rounded-full border text-xs font-medium transition-colors ${
+                        isCombinedPresetActive(preset)
+                          ? "border-teal-500/60 bg-teal-500/15 text-teal-200"
+                          : "border-teal-500/30 bg-teal-500/8 text-teal-300 hover:border-teal-500/60"
+                      }`}
                     >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
+                      <button
+                        onClick={() => applyCombinedPreset(preset)}
+                        className="flex items-center gap-1 pl-2.5 py-1 hover:text-teal-100 transition-colors"
+                        title={buildCombinedPresetLabel(preset)}
+                      >
+                        <Layers className="w-3 h-3 shrink-0" />
+                        {preset.name}
+                        {preset.source === "transactions" && (
+                          <span className="text-[10px] opacity-50 font-normal">(Transactions)</span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => moveCombinedPreset(preset.id, "left")}
+                        disabled={idx === 0}
+                        className="py-1 px-0.5 text-teal-400/50 hover:text-teal-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
+                        aria-label={`Move "${preset.name}" left`}
+                        title="Move left"
+                      >
+                        <ChevronLeft className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => moveCombinedPreset(preset.id, "right")}
+                        disabled={idx === combinedPresets.length - 1}
+                        className="py-1 px-0.5 text-teal-400/50 hover:text-teal-200 transition-colors opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
+                        aria-label={`Move "${preset.name}" right`}
+                        title="Move right"
+                      >
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => startRenameCombinedPreset(preset)}
+                        className="py-1 px-0.5 text-teal-400/50 hover:text-teal-200 transition-colors opacity-0 group-hover:opacity-100"
+                        aria-label={`Rename "${preset.name}"`}
+                        title="Rename"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => deleteCombinedPreset(preset.id)}
+                        className="pr-1.5 pl-0.5 text-teal-400/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-full transition-colors opacity-0 group-hover:opacity-100 py-1 flex items-center"
+                        aria-label={`Remove preset "${preset.name}"`}
+                        title="Remove this preset"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )
+                )}
               </div>
             )}
             <div className="flex flex-col sm:flex-row gap-3 flex-wrap">

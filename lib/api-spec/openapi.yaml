@@ -5357,6 +5357,12 @@ components:
           type: ["string", "null"]
         isRevoked:
           type: boolean
+        ipAddress:
+          type: ["string", "null"]
+          description: Masked IP address of the actor who performed the action
+        actorEmail:
+          type: ["string", "null"]
+          description: Email of the actor who performed the action
 
     CredentialEventList:
       type: object
@@ -7709,13 +7715,19 @@ components:
       properties:
         eventType:
           type: string
-          enum: [key_generated, key_revoked, secret_rotated]
+          enum: [key_generated, key_revoked, secret_rotated, api_key_generated, api_key_revoked]
         keyPrefix:
           type: ["string", "null"]
           description: Key prefix for key_generated/key_revoked events; null for secret_rotated
         occurredAt:
           type: string
           description: ISO timestamp of when the event occurred
+        ipAddress:
+          type: ["string", "null"]
+          description: Masked IP address of the actor who performed the action
+        actorEmail:
+          type: ["string", "null"]
+          description: Email of the actor who performed the action
 
     StorageCleanupRun:
       type: object

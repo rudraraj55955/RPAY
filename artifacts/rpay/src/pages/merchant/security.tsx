@@ -142,7 +142,7 @@ function buildCsvText(data: any[]): string {
 
 // ─── Credential event helpers ─────────────────────────────────────────────────
 
-type CredentialEventType = "secret_rotated" | "api_key_created" | "api_key_revoked" | "key_generated" | "key_revoked";
+type CredentialEventType = "secret_rotated" | "api_key_created" | "api_key_revoked" | "api_key_generated" | "key_generated" | "key_revoked" | "callback_secret_rotated";
 
 interface LocalCredEvent {
   eventType: CredentialEventType;
@@ -150,17 +150,21 @@ interface LocalCredEvent {
   keyPrefix?: string | null;
   description?: string | null;
   isRevoked?: boolean;
+  ipAddress?: string | null;
+  actorEmail?: string | null;
 }
 
 function credentialEventMeta(eventType: CredentialEventType) {
   switch (eventType) {
     case "secret_rotated":
+    case "callback_secret_rotated":
       return {
         icon: <RotateCcw className="w-4 h-4" />,
         label: "Secret Rotated",
         badgeClass: "bg-amber-500/10 text-amber-400 border-amber-500/20",
       };
     case "api_key_created":
+    case "api_key_generated":
     case "key_generated":
       return {
         icon: <KeyRound className="w-4 h-4" />,
@@ -205,9 +209,16 @@ function CredentialEventRow({ event }: { event: LocalCredEvent }) {
           )}
         </div>
         <p className="text-sm text-muted-foreground">{event.description}</p>
-        <p className="text-xs text-muted-foreground/50 mt-1">
-          {format(new Date(event.occurredAt), "dd MMM yyyy 'at' HH:mm")}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1">
+          <p className="text-xs text-muted-foreground/50">
+            {format(new Date(event.occurredAt), "dd MMM yyyy 'at' HH:mm")}
+          </p>
+          {event.ipAddress && (
+            <p className="text-xs text-muted-foreground/50 font-mono">
+              IP: {event.ipAddress}
+            </p>
+          )}
+        </div>
       </div>
       <span className="text-xs text-muted-foreground/40 shrink-0 pt-0.5 hidden sm:block">
         {format(new Date(event.occurredAt), "dd MMM yyyy")}

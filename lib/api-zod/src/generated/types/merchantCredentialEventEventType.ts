@@ -13,4 +13,6 @@ export const MerchantCredentialEventEventType = {
   key_generated: 'key_generated',
   key_revoked: 'key_revoked',
   secret_rotated: 'secret_rotated',
+  api_key_generated: 'api_key_generated',
+  api_key_revoked: 'api_key_revoked',
 } as const;

@@ -15,4 +15,14 @@ export interface CredentialEvent {
   /** @nullable */
   description?: string | null;
   isRevoked?: boolean;
+  /**
+     * Masked IP address of the actor who performed the action
+     * @nullable
+     */
+  ipAddress?: string | null;
+  /**
+     * Email of the actor who performed the action
+     * @nullable
+     */
+  actorEmail?: string | null;
 }

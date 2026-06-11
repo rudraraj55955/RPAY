@@ -16,4 +16,14 @@ export interface MerchantCredentialEvent {
   keyPrefix?: string | null;
   /** ISO timestamp of when the event occurred */
   occurredAt: string;
+  /**
+     * Masked IP address of the actor who performed the action
+     * @nullable
+     */
+  ipAddress?: string | null;
+  /**
+     * Email of the actor who performed the action
+     * @nullable
+     */
+  actorEmail?: string | null;
 }

@@ -568,6 +568,16 @@ export interface CredentialEvent {
   /** @nullable */
   description?: string | null;
   isRevoked?: boolean;
+  /**
+     * Masked IP address of the actor who performed the action
+     * @nullable
+     */
+  ipAddress?: string | null;
+  /**
+     * Email of the actor who performed the action
+     * @nullable
+     */
+  actorEmail?: string | null;
 }
 
 export interface CredentialEventList {
@@ -2396,6 +2406,8 @@ export const MerchantCredentialEventEventType = {
   key_generated: 'key_generated',
   key_revoked: 'key_revoked',
   secret_rotated: 'secret_rotated',
+  api_key_generated: 'api_key_generated',
+  api_key_revoked: 'api_key_revoked',
 } as const;
 
 export interface MerchantCredentialEvent {
@@ -2407,6 +2419,16 @@ export interface MerchantCredentialEvent {
   keyPrefix?: string | null;
   /** ISO timestamp of when the event occurred */
   occurredAt: string;
+  /**
+     * Masked IP address of the actor who performed the action
+     * @nullable
+     */
+  ipAddress?: string | null;
+  /**
+     * Email of the actor who performed the action
+     * @nullable
+     */
+  actorEmail?: string | null;
 }
 
 export interface StorageCleanupRun {

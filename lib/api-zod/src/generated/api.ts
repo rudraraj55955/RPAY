@@ -855,9 +855,11 @@ export const ListMerchantCredentialEventsQueryParams = zod.object({
 })
 
 export const ListMerchantCredentialEventsResponseItem = zod.object({
-  "eventType": zod.enum(['key_generated', 'key_revoked', 'secret_rotated']),
+  "eventType": zod.enum(['key_generated', 'key_revoked', 'secret_rotated', 'api_key_generated', 'api_key_revoked']),
   "keyPrefix": zod.string().nullish().describe('Key prefix for key_generated\/key_revoked events; null for secret_rotated'),
-  "occurredAt": zod.string().describe('ISO timestamp of when the event occurred')
+  "occurredAt": zod.string().describe('ISO timestamp of when the event occurred'),
+  "ipAddress": zod.string().nullish().describe('Masked IP address of the actor who performed the action'),
+  "actorEmail": zod.string().nullish().describe('Email of the actor who performed the action')
 })
 export const ListMerchantCredentialEventsResponse = zod.array(ListMerchantCredentialEventsResponseItem)
 
@@ -1334,7 +1336,9 @@ export const ListApiKeyHistoryResponse = zod.object({
   "occurredAt": zod.coerce.date(),
   "keyPrefix": zod.string().nullish(),
   "description": zod.string().nullish(),
-  "isRevoked": zod.boolean().optional()
+  "isRevoked": zod.boolean().optional(),
+  "ipAddress": zod.string().nullish().describe('Masked IP address of the actor who performed the action'),
+  "actorEmail": zod.string().nullish().describe('Email of the actor who performed the action')
 }))
 })
 
@@ -1680,7 +1684,9 @@ export const GetCallbackSecretHistoryResponse = zod.object({
   "occurredAt": zod.coerce.date(),
   "keyPrefix": zod.string().nullish(),
   "description": zod.string().nullish(),
-  "isRevoked": zod.boolean().optional()
+  "isRevoked": zod.boolean().optional(),
+  "ipAddress": zod.string().nullish().describe('Masked IP address of the actor who performed the action'),
+  "actorEmail": zod.string().nullish().describe('Email of the actor who performed the action')
 }))
 })
 

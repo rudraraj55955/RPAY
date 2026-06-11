@@ -2058,6 +2058,16 @@ export default function AdminMerchants() {
                             </span>
                           </div>
                           <p className="text-muted-foreground/60">{format(new Date(ev.occurredAt), "dd MMM yyyy, HH:mm")}</p>
+                          {(ev.actorEmail || ev.ipAddress) && (
+                            <div className="flex flex-wrap gap-x-3 mt-0.5 text-muted-foreground/50">
+                              {ev.actorEmail && (
+                                <span className="truncate">{ev.actorEmail}</span>
+                              )}
+                              {ev.ipAddress && (
+                                <span className="font-mono">IP: {ev.ipAddress}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

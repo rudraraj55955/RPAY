@@ -1,9 +1,9 @@
 import { Router, type Request } from "express";
 import { db, apiKeysTable, merchantsTable, credentialEventsTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import crypto from "crypto";
-import { sendApiKeyGeneratedEmail, sendApiKeyRevokedEmail } from "../helpers/apiKeyEmail";
+import { sendApiKeyGeneratedEmail, sendApiKeyRevokedEmail, maskIp } from "../helpers/apiKeyEmail";
 import { makeRateLimiter } from "../helpers/makeRateLimiter";
 
 const apiKeyCreateLimiter = makeRateLimiter({
@@ -32,7 +32,7 @@ router.get("/", async (req, res) => {
   res.json(keys);
 });
 
-// GET /api/api-keys/history — credential event history derived from API keys
+// GET /api/api-keys/history — credential event history from credential_events table
 router.get("/history", async (req, res) => {
   const user = (req as any).user;
   if (user.role !== "merchant") {
@@ -40,25 +40,36 @@ router.get("/history", async (req, res) => {
     return;
   }
 
-  const keys = await db
+  const rows = await db
     .select({
-      id: apiKeysTable.id,
-      keyPrefix: apiKeysTable.keyPrefix,
-      isActive: apiKeysTable.isActive,
-      createdAt: apiKeysTable.createdAt,
+      eventType: credentialEventsTable.eventType,
+      keyPrefix: credentialEventsTable.keyPrefix,
+      ipAddress: credentialEventsTable.ipAddress,
+      actorEmail: credentialEventsTable.actorEmail,
+      createdAt: credentialEventsTable.createdAt,
     })
-    .from(apiKeysTable)
-    .where(eq(apiKeysTable.merchantId, user.merchantId))
-    .orderBy(desc(apiKeysTable.createdAt));
+    .from(credentialEventsTable)
+    .where(
+      and(
+        eq(credentialEventsTable.merchantId, user.merchantId),
+        inArray(credentialEventsTable.eventType, ["api_key_generated", "api_key_revoked"])
+      )
+    )
+    .orderBy(desc(credentialEventsTable.createdAt));
 
-  const events = keys.map(k => ({
-    type: k.isActive ? "api_key_created" : "api_key_revoked",
-    occurredAt: k.createdAt.toISOString(),
-    keyPrefix: k.keyPrefix,
-    description: k.isActive
-      ? `API key generated (${k.keyPrefix})`
-      : `API key revoked (${k.keyPrefix})`,
-    isRevoked: !k.isActive,
+  const events = rows.map(r => ({
+    eventType: r.eventType,
+    occurredAt: r.createdAt.toISOString(),
+    keyPrefix: r.keyPrefix ?? null,
+    description: r.eventType === "api_key_generated"
+      ? `API key generated (${r.keyPrefix})`
+      : r.eventType === "api_key_revoked"
+      ? `API key revoked (${r.keyPrefix})`
+      : r.eventType === "callback_secret_rotated"
+      ? "Callback signing secret rotated"
+      : r.eventType,
+    ipAddress: r.ipAddress ? maskIp(r.ipAddress) : null,
+    actorEmail: r.actorEmail ?? null,
   }));
 
   res.json({ data: events });

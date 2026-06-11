@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { db, merchantsTable, usersTable, merchantPlansTable, plansTable, planHistoryTable, auditLogsTable, invoicesTable, apiKeysTable } from "@workspace/db";
-import { eq, ilike, and, or, count, sql, desc, lt, lte, gte, isNotNull } from "drizzle-orm";
+import { db, merchantsTable, usersTable, merchantPlansTable, plansTable, planHistoryTable, auditLogsTable, invoicesTable, apiKeysTable, credentialEventsTable } from "@workspace/db";
+import { eq, ilike, and, or, count, sql, desc, lt, lte, gte, isNotNull, inArray } from "drizzle-orm";
+import { maskIp } from "../helpers/apiKeyEmail";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { getMerchantPlanUsage } from "../helpers/planLimits";
 import { sendRejectionEmail } from "../helpers/rejectionEmail";
@@ -907,41 +908,46 @@ router.get("/:id/credential-events", requireAdmin, async (req, res) => {
     return;
   }
 
-  const events: Array<{ eventType: string; keyPrefix: string | null; occurredAt: string }> = [];
+  // Map filter param to DB event type values
+  const eventTypeMap: Record<string, string[]> = {
+    key_generated: ["api_key_generated"],
+    key_revoked: ["api_key_revoked"],
+    secret_rotated: ["callback_secret_rotated"],
+  };
+  const dbEventTypes = eventType && eventTypeMap[eventType] ? eventTypeMap[eventType] : null;
 
-  if (!eventType || eventType === "key_generated") {
-    const generated = await db.select({
-      keyPrefix: apiKeysTable.keyPrefix,
-      createdAt: apiKeysTable.createdAt,
-    }).from(apiKeysTable).where(eq(apiKeysTable.merchantId, merchantId));
-
-    for (const row of generated) {
-      events.push({ eventType: "key_generated", keyPrefix: row.keyPrefix, occurredAt: row.createdAt.toISOString() });
-    }
+  const conditions = [eq(credentialEventsTable.merchantId, merchantId)];
+  if (dbEventTypes) {
+    conditions.push(inArray(credentialEventsTable.eventType, dbEventTypes));
+  } else {
+    // Exclude any future unknown event types by filtering to known ones only
+    conditions.push(inArray(credentialEventsTable.eventType, ["api_key_generated", "api_key_revoked", "callback_secret_rotated"]));
   }
 
-  if (!eventType || eventType === "key_revoked") {
-    const revoked = await db.select({
-      keyPrefix: apiKeysTable.keyPrefix,
-      revokedAt: apiKeysTable.revokedAt,
-    }).from(apiKeysTable).where(
-      and(eq(apiKeysTable.merchantId, merchantId), isNotNull(apiKeysTable.revokedAt))
-    );
+  const rows = await db.select({
+    eventType: credentialEventsTable.eventType,
+    keyPrefix: credentialEventsTable.keyPrefix,
+    ipAddress: credentialEventsTable.ipAddress,
+    actorEmail: credentialEventsTable.actorEmail,
+    createdAt: credentialEventsTable.createdAt,
+  })
+    .from(credentialEventsTable)
+    .where(and(...conditions))
+    .orderBy(desc(credentialEventsTable.createdAt));
 
-    for (const row of revoked) {
-      if (row.revokedAt) {
-        events.push({ eventType: "key_revoked", keyPrefix: row.keyPrefix, occurredAt: row.revokedAt.toISOString() });
-      }
-    }
-  }
-
-  if (!eventType || eventType === "secret_rotated") {
-    if (merchant.callbackSecretUpdatedAt) {
-      events.push({ eventType: "secret_rotated", keyPrefix: null, occurredAt: merchant.callbackSecretUpdatedAt.toISOString() });
-    }
-  }
-
-  events.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+  const events = rows.map(r => {
+    const displayType =
+      r.eventType === "api_key_generated" ? "key_generated"
+      : r.eventType === "api_key_revoked" ? "key_revoked"
+      : "secret_rotated";
+    return {
+      eventType: displayType,
+      keyPrefix: r.keyPrefix ?? null,
+      occurredAt: r.createdAt.toISOString(),
+      ipAddress: r.ipAddress ? maskIp(r.ipAddress) : null,
+      actorEmail: r.actorEmail ?? null,
+    };
+  });
 
   res.json(events);
 });

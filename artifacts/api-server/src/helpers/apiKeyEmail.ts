@@ -85,7 +85,7 @@ export async function sendApiKeyRevokedEmail(opts: {
   }
 }
 
-function maskIp(ip: string): string {
+export function maskIp(ip: string): string {
   if (!ip) return "Unknown";
   const v4 = ip.match(/^(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}$/);
   if (v4) return `${v4[1]}.*.* `;

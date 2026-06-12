@@ -1190,15 +1190,20 @@ export default function MerchantSecurity() {
               ))}
             </div>
           )}
-          {secTotalPages > 1 && (
+          {secEventsData != null && (
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/40">
               <p className="text-xs text-muted-foreground">
-                Showing {((secPage - 1) * SEC_PAGE_SIZE) + 1}–{Math.min(secPage * SEC_PAGE_SIZE, secTotal)} of {secTotal}
+                {secTotal.toLocaleString()} total event{secTotal !== 1 ? "s" : ""}
               </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setSecPage(p => Math.max(1, p - 1))} disabled={secPage === 1}>Previous</Button>
-                <Button variant="outline" size="sm" onClick={() => setSecPage(p => Math.min(secTotalPages, p + 1))} disabled={secPage === secTotalPages}>Next</Button>
-              </div>
+              {secTotalPages > 1 && (
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">Page {secPage} of {secTotalPages}</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setSecPage(p => Math.max(1, p - 1))} disabled={secPage === 1}>Previous</Button>
+                    <Button variant="outline" size="sm" onClick={() => setSecPage(p => Math.min(secTotalPages, p + 1))} disabled={secPage === secTotalPages}>Next</Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

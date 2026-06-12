@@ -36,6 +36,13 @@ export const SYSTEM_CONFIG_KEYS = {
   EKQR_ENABLED: "ekqr_enabled",
   EKQR_WEBHOOK_SECRET: "ekqr_webhook_secret",
   WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS: "webhook_failure_alert_cooldown_hours",
+  EKQR_SYNC_ENABLED: "ekqr_sync_enabled",
+  EKQR_SYNC_STALE_MINUTES: "ekqr_sync_stale_minutes",
+  EKQR_SYNC_STUCK_THRESHOLD: "ekqr_sync_stuck_threshold",
+  EKQR_SYNC_ALERT_COOLDOWN_HOURS: "ekqr_sync_alert_cooldown_hours",
+  EKQR_SYNC_LAST_RUN_AT: "ekqr_sync_last_run_at",
+  EKQR_SYNC_LAST_SYNCED: "ekqr_sync_last_synced",
+  EKQR_SYNC_LAST_STUCK: "ekqr_sync_last_stuck",
 } as const;
 
 export const SYSTEM_CONFIG_DEFAULTS = {
@@ -54,4 +61,8 @@ export const SYSTEM_CONFIG_DEFAULTS = {
   [SYSTEM_CONFIG_KEYS.AUDIT_REPORT_LOG_RETENTION_DAYS]: "90",
   [SYSTEM_CONFIG_KEYS.EKQR_ENABLED]: "false",
   [SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS]: "1",
+  [SYSTEM_CONFIG_KEYS.EKQR_SYNC_ENABLED]: "true",
+  [SYSTEM_CONFIG_KEYS.EKQR_SYNC_STALE_MINUTES]: "15",
+  [SYSTEM_CONFIG_KEYS.EKQR_SYNC_STUCK_THRESHOLD]: "10",
+  [SYSTEM_CONFIG_KEYS.EKQR_SYNC_ALERT_COOLDOWN_HOURS]: "4",
 } as const;

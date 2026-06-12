@@ -2509,6 +2509,7 @@ export default function AdminSettings() {
                                 Cooldown active
                               </span>
                             )}
+                          </div>
                           <button
                             className="hover:text-foreground transition-colors"
                             title={`Filter by ${merchantName ?? `Merchant #${entry.merchantId}`}`}

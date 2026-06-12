@@ -15,6 +15,7 @@ import { initRateLimitCleanupScheduler } from "./helpers/rateLimitCleanupSchedul
 import { initTestEmailRetentionScheduler } from "./helpers/testEmailRetentionScheduler";
 import { initAuditReportRetentionScheduler } from "./helpers/auditReportRetentionScheduler";
 import { initDormantMerchantScheduler, runDormantMerchantScan } from "./helpers/dormantMerchantScheduler";
+import { initEkqrSyncScheduler } from "./helpers/ekqrSyncScheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -70,6 +71,7 @@ async function main() {
   initTestEmailRetentionScheduler();
   initAuditReportRetentionScheduler();
   initDormantMerchantScheduler();
+  initEkqrSyncScheduler();
   scheduleCallbackRetryWorker();
 
   // Startup sweep: immediately scan all active connections so merchants receive

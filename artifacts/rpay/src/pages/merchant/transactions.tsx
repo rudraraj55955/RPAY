@@ -599,7 +599,7 @@ export default function MerchantTransactions() {
 
   useCrossTabSync([
     {
-      key: SAVED_FILTERS_KEY,
+      key: ALL_SAVED_FILTERS_KEY,
       onUpdate: (raw) => {
         try { setSavedFilters(raw ? (JSON.parse(raw) as SavedFilter[]) : []); }
         catch { setSavedFilters([]); }

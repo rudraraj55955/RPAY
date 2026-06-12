@@ -2681,7 +2681,8 @@ export default function AdminSettings() {
 
           <p className="text-xs text-muted-foreground">
             Assign EKQR to merchants via{" "}
-            <a href="/admin/providers" className="underline underline-offset-2">Payment Providers → Provider Visibility</a>.
+            <a href="/admin/providers" className="underline underline-offset-2 text-teal-400 hover:text-teal-300">Payment Providers → EKQR Settings</a>
+            {" "}· Inline config panel available directly from the providers table.
           </p>
         </CardContent>
       </Card>

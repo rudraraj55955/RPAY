@@ -38,6 +38,7 @@ type AdminQrRow = {
   status: string;
   scanCount: number;
   ekqrOrderId?: string | null;
+  ekqrPaymentUrl?: string | null;
   createdAt: string;
 };
 
@@ -142,24 +143,23 @@ function PaymentActivity({ qrId }: { qrId: number }) {
 
 function AdminInlineQrRow({ qr }: { qr: AdminQrRow }) {
   const [copied, setCopied] = useState(false);
-  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [syncResult, setSyncResult] = useState<{ qrStatus: string; parsed: Record<string, unknown> } | null>(null);
+  const qc = useQueryClient();
   const syncMutation = useSyncEkqrQrStatus();
 
   const handleSync = useCallback(() => {
     setSyncResult(null);
     syncMutation.mutate({ id: qr.id }, {
-      onSuccess: (res) => {
-        const status = (res as any)?.parsed?.data?.status ?? (res as any)?.qrStatus ?? "unknown";
-        setSyncResult(`EKQR status: ${status}`);
-        toast.success(`EKQR sync — ${status}`);
+      onSuccess: (res: any) => {
+        setSyncResult({ qrStatus: res?.qrStatus ?? "unknown", parsed: res?.parsed ?? {} });
+        toast.success(`EKQR sync complete — status: ${res?.qrStatus ?? "unknown"}`);
+        qc.invalidateQueries({ queryKey: ["/api/qr-codes"] });
       },
       onError: (err: any) => {
-        const msg = err?.message ?? "Sync failed";
-        setSyncResult(`Error: ${msg}`);
-        toast.error(msg);
+        toast.error(err?.message ?? "EKQR sync failed");
       },
     });
-  }, [qr.id, syncMutation]);
+  }, [qr.id, syncMutation, qc]);
 
   const handleDownload = useCallback(() => {
     const canvas = document.querySelector(`#admin-qr-inline-${qr.id} canvas`) as HTMLCanvasElement | null;
@@ -279,6 +279,24 @@ function AdminInlineQrRow({ qr }: { qr: AdminQrRow }) {
             </div>
             {syncResult && (
               <p className="text-xs text-yellow-400/80 mt-2 font-mono">{syncResult}</p>
+            )}
+
+            {syncResult && (
+              <div className="mt-2 rounded-md border border-teal-500/25 bg-teal-500/8 px-3 py-2.5 space-y-1">
+                <p className="text-xs font-semibold text-teal-400 uppercase tracking-wide">EKQR Sync Result</p>
+                <p className="text-xs text-muted-foreground">
+                  Status: <span className="font-mono text-foreground">{syncResult.qrStatus}</span>
+                </p>
+                <pre className="text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap max-h-32">
+                  {JSON.stringify(syncResult.parsed, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {qr.ekqrOrderId && !syncResult && (
+              <p className="text-xs text-muted-foreground mt-1">
+                EKQR Order ID: <span className="font-mono text-teal-400">{qr.ekqrOrderId}</span>
+              </p>
             )}
 
             <PaymentActivity qrId={qr.id} />

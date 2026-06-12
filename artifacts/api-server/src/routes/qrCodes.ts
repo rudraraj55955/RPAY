@@ -556,11 +556,13 @@ router.post("/:id/ekqr-sync", async (req, res) => {
   logger.info({ qrId: id, ekqrOrderId: qr.ekqrOrderId, status: parsed.data?.status }, "EKQR status sync");
 
   // Auto-update QR status if EKQR confirms payment
-  if (parsed.status && parsed.data?.status?.toUpperCase() === "SUCCESS" && qr.status === "active") {
-    await db.update(qrCodesTable).set({ status: "used" }).where(eq(qrCodesTable.id, id));
+  const ekqrConfirmed = parsed.status === true && parsed.data?.status?.toUpperCase() === "SUCCESS";
+  const newStatus = ekqrConfirmed && qr.status === "active" ? "used" : qr.status;
+  if (newStatus !== qr.status) {
+    await db.update(qrCodesTable).set({ status: newStatus }).where(eq(qrCodesTable.id, id));
   }
 
-  res.json({ raw, parsed, qrStatus: qr.status });
+  res.json({ raw, parsed, qrStatus: newStatus });
 });
 
 export default router;

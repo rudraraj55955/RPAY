@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useListProviders, useCreateProvider, useUpdateProvider, useDeleteProvider, useSetProviderVisibility, useBulkSetProviderVisibility, getProviderMerchantVisibility, getGetProviderMerchantVisibilityQueryKey, useListMerchants } from "@workspace/api-client-react";
+import { useListProviders, useCreateProvider, useUpdateProvider, useDeleteProvider, useSetProviderVisibility, useBulkSetProviderVisibility, getProviderMerchantVisibility, getGetProviderMerchantVisibilityQueryKey, useListMerchants, useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, getGetEkqrConfigQueryKey } from "@workspace/api-client-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { getToken } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { Link } from "wouter";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Eye, Users, Globe, RefreshCw, Search, GripVertical, Megaphone, Settings } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff, Users, Globe, RefreshCw, Search, GripVertical, Megaphone, Settings, Zap, FlaskConical, Save, CheckCircle2, AlertCircle, Copy } from "lucide-react";
 import { RateLimitBanner, useRateLimit } from "@/components/ui/rate-limit-banner";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
@@ -71,6 +71,43 @@ export default function AdminProviders() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // EKQR Settings Sheet
+  const [ekqrSheetOpen, setEkqrSheetOpen] = useState(false);
+  const [ekqrApiKey, setEkqrApiKey] = useState("");
+  const [ekqrEnabled, setEkqrEnabled] = useState(true);
+  const [showEkqrKey, setShowEkqrKey] = useState(false);
+  const [ekqrTestResult, setEkqrTestResult] = useState<{ ok: boolean; msg: string; raw?: string } | null>(null);
+  const [ekqrRawOpen, setEkqrRawOpen] = useState(false);
+
+  const { data: ekqrConfig, isLoading: ekqrLoading } = useGetEkqrConfig();
+  const { mutate: saveEkqrConfig, isPending: savingEkqr } = useUpdateEkqrConfig({
+    mutation: {
+      onSuccess: () => {
+        toast.success("EKQR settings saved");
+        setEkqrApiKey("");
+        qc.invalidateQueries({ queryKey: getGetEkqrConfigQueryKey() });
+      },
+      onError: () => toast.error("Failed to save EKQR settings"),
+    },
+  });
+  const { mutate: testEkqr, isPending: testingEkqr } = useTestEkqrConnection({
+    mutation: {
+      onSuccess: (res: any) => {
+        setEkqrTestResult({ ok: res.ok, msg: res.msg ?? "", raw: res.raw });
+      },
+      onError: () => setEkqrTestResult({ ok: false, msg: "Test request failed" }),
+    },
+  });
+
+  const currentEkqrEnabled = ekqrConfig?.enabled ?? true;
+  const ekqrUnchanged = ekqrApiKey === "" && ekqrEnabled === currentEkqrEnabled;
+
+  useEffect(() => {
+    if (ekqrConfig != null) {
+      setEkqrEnabled(ekqrConfig.enabled ?? true);
+    }
+  }, [ekqrConfig?.enabled]);
 
   // Broadcast dialog
   const [broadcastOpen, setBroadcastOpen] = useState(false);
@@ -446,11 +483,15 @@ export default function AdminProviders() {
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
                           {p.slug === "ekqr" && (
-                            <Link href="/admin/settings">
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-teal-400 hover:text-teal-300" title="EKQR Settings">
-                                <Settings className="w-3.5 h-3.5" />
-                              </Button>
-                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-teal-400 hover:text-teal-300"
+                              title="EKQR Gateway Settings"
+                              onClick={() => setEkqrSheetOpen(true)}
+                            >
+                              <Settings className="w-3.5 h-3.5" />
+                            </Button>
                           )}
                           <Button variant="ghost" size="icon" className="h-7 w-7" title="Manage visibility" onClick={() => { setVisDrawer(p); setSelectedMerchants(new Set()); setMerchantSearch(""); }}>
                             <Eye className="w-3.5 h-3.5" />
@@ -742,6 +783,155 @@ export default function AdminProviders() {
               </div>
             </>
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* EKQR Settings Sheet */}
+      <Sheet open={ekqrSheetOpen} onOpenChange={open => { setEkqrSheetOpen(open); if (!open) { setEkqrTestResult(null); setEkqrRawOpen(false); } }}>
+        <SheetContent className="sm:max-w-[500px] overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-yellow-400" />
+              EKQR / UPI Gateway Settings
+            </SheetTitle>
+            <SheetDescription>
+              Configure the global EKQR API key and gateway status.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-5">
+            {/* Webhook URL */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Webhook URL</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-muted/50 border border-border/50 rounded px-3 py-2 font-mono truncate">
+                  https://rasokart.com/api/payment/webhook
+                </code>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => {
+                    navigator.clipboard.writeText("https://rasokart.com/api/payment/webhook");
+                    toast.success("Webhook URL copied");
+                  }}
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Configure this URL in your EKQR dashboard to receive payment notifications.</p>
+            </div>
+
+            {/* Enable/disable */}
+            <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/10">
+              <div>
+                <p className="text-sm font-medium">Enable EKQR Gateway</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Merchants with an EKQR connection will use this gateway for QR payments
+                </p>
+              </div>
+              <Switch
+                checked={ekqrEnabled}
+                onCheckedChange={setEkqrEnabled}
+                disabled={ekqrLoading}
+              />
+            </div>
+
+            {/* API Key */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">API Key</Label>
+              {ekqrConfig?.apiKeySet && ekqrApiKey === "" && (
+                <p className="text-xs text-muted-foreground">
+                  Current key: <span className="font-mono">{ekqrConfig.apiKeyMasked ?? "••••••••"}</span>
+                  {" — "}enter a new key below to replace it
+                </p>
+              )}
+              <div className="relative">
+                <Input
+                  type={showEkqrKey ? "text" : "password"}
+                  placeholder={ekqrConfig?.apiKeySet ? "Enter new API key to replace…" : "Enter EKQR API key"}
+                  value={ekqrApiKey}
+                  onChange={e => setEkqrApiKey(e.target.value)}
+                  className="h-8 text-xs pr-9 font-mono"
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowEkqrKey(v => !v)}
+                >
+                  {showEkqrKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Test result */}
+            {ekqrTestResult && (
+              <div className={`rounded-md px-3 py-2.5 space-y-1.5 ${ekqrTestResult.ok ? "bg-emerald-500/10 border border-emerald-500/25" : "bg-destructive/10 border border-destructive/25"}`}>
+                <div className="flex items-center gap-2">
+                  {ekqrTestResult.ok
+                    ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    : <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0" />}
+                  <span className={`text-xs font-medium ${ekqrTestResult.ok ? "text-emerald-400" : "text-destructive"}`}>
+                    {ekqrTestResult.ok ? "Connection successful" : ekqrTestResult.msg}
+                  </span>
+                </div>
+                {ekqrTestResult.raw && (
+                  <div>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                      onClick={() => setEkqrRawOpen(v => !v)}
+                    >
+                      {ekqrRawOpen ? "Hide" : "Show"} raw response
+                    </button>
+                    {ekqrRawOpen && (
+                      <pre className="mt-1.5 text-xs bg-background/50 rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap border border-border/40">
+                        {(() => { try { return JSON.stringify(JSON.parse(ekqrTestResult.raw!), null, 2); } catch { return ekqrTestResult.raw; } })()}
+                      </pre>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <Button
+                size="sm"
+                onClick={() => saveEkqrConfig({ data: { ...(ekqrApiKey ? { apiKey: ekqrApiKey } : {}), enabled: ekqrEnabled } })}
+                disabled={savingEkqr || ekqrLoading || ekqrUnchanged}
+              >
+                <Save className="w-3.5 h-3.5 mr-1.5" />
+                {savingEkqr ? "Saving…" : "Save"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setEkqrTestResult(null); setEkqrRawOpen(false); testEkqr(); }}
+                disabled={testingEkqr || ekqrLoading || !ekqrConfig?.apiKeySet}
+              >
+                <FlaskConical className="w-3.5 h-3.5 mr-1.5" />
+                {testingEkqr ? "Testing…" : "Test Connection"}
+              </Button>
+              {!ekqrUnchanged && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setEkqrApiKey(""); setEkqrEnabled(currentEkqrEnabled); setEkqrTestResult(null); }}
+                  disabled={savingEkqr}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+
+            <p className="text-xs text-muted-foreground border-t border-border/40 pt-4">
+              Full EKQR configuration also available in{" "}
+              <a href="/admin/settings" className="underline underline-offset-2 text-teal-400 hover:text-teal-300">
+                Settings → EKQR / UPI Gateway
+              </a>.
+            </p>
+          </div>
         </SheetContent>
       </Sheet>
     </div>

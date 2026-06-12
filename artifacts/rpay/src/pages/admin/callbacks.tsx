@@ -357,10 +357,28 @@ function CallbackRow({ log }: { log: any }) {
                   <span className="text-xs text-muted-foreground font-mono">{log.responseBody}</span>
                 </div>
               )}
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Request Body</p>
-                <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">{log.requestBody ? JSON.stringify(JSON.parse(log.requestBody), null, 2) : "—"}</pre>
-              </div>
+              {(() => {
+                let reqParsed: Record<string, unknown> | null = null;
+                let isEkqr = false;
+                try { if (log.requestBody) { reqParsed = JSON.parse(log.requestBody); isEkqr = reqParsed?.provider === "ekqr"; } } catch {}
+                const prettyReq = reqParsed ? JSON.stringify(reqParsed, null, 2) : (log.requestBody || "—");
+                return isEkqr ? (
+                  <div className="md:col-span-2">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <p className="text-xs font-medium text-teal-400 uppercase tracking-wider">EKQR Raw Payload</p>
+                      <span className="inline-flex items-center gap-1 rounded border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-teal-400">provider: ekqr</span>
+                      {!!reqParsed?.event && <span className="text-xs text-muted-foreground font-mono">{String(reqParsed.event)}</span>}
+                      {!!reqParsed?.amount && <span className="text-xs font-mono text-emerald-400">₹{String(reqParsed.amount)}</span>}
+                    </div>
+                    <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-teal-500/20 whitespace-pre-wrap max-h-48">{prettyReq}</pre>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Request Body</p>
+                    <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">{prettyReq}</pre>
+                  </div>
+                );
+              })()}
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Response Body</p>
                 <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">{log.responseBody ? (() => { try { return JSON.stringify(JSON.parse(log.responseBody), null, 2); } catch { return log.responseBody; } })() : "—"}</pre>

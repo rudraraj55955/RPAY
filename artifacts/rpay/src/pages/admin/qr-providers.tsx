@@ -295,6 +295,25 @@ export default function AdminQrProviders() {
               <Label className="text-xs text-muted-foreground">Monthly Limit (₹, 0 = no limit)</Label>
               <Input type="number" value={form.monthlyLimit} onChange={e => setForm(f => ({ ...f, monthlyLimit: e.target.value }))} placeholder="0" />
             </div>
+            {form.provider === "ekqr" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">API Key Override (optional)</Label>
+                <Input
+                  type="password"
+                  placeholder="Leave blank to use the global EKQR API key"
+                  value={form.credentials}
+                  onChange={e => setForm(f => ({ ...f, credentials: e.target.value }))}
+                  className="h-8 text-xs font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  If empty, the global key from{" "}
+                  <a href="/admin/providers" className="underline underline-offset-2 text-teal-400">
+                    Payment Providers → EKQR Settings
+                  </a>{" "}
+                  is used for this merchant.
+                </p>
+              </div>
+            )}
             <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-muted/10">
               <Switch checked={form.isActive} onCheckedChange={v => setForm(f => ({ ...f, isActive: v }))} />
               <p className="text-sm">Active</p>

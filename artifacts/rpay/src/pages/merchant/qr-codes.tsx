@@ -8,7 +8,8 @@ import {
   useGetQrCodeActivity,
   useGetQrCodeStats,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { getToken } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight, ScanLine, Zap } from "lucide-react";
+import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight, ScanLine, Zap, RotateCw } from "lucide-react";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
@@ -37,6 +38,8 @@ type QrRow = {
   status: string;
   scanCount: number;
   createdAt: string;
+  ekqrOrderId?: string | null;
+  ekqrPaymentUrl?: string | null;
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -148,6 +151,30 @@ function PaymentActivity({ qrId }: { qrId: number }) {
 
 function InlineQrRow({ qr }: { qr: QrRow }) {
   const [copied, setCopied] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ qrStatus: string; parsed: Record<string, unknown> } | null>(null);
+  const qc = useQueryClient();
+
+  const syncMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/qr-codes/${id}/ekqr-sync`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Sync failed" }));
+        throw new Error(err.error ?? "Sync failed");
+      }
+      return res.json() as Promise<{ raw: string; parsed: Record<string, unknown>; qrStatus: string }>;
+    },
+    onSuccess: (data) => {
+      setSyncResult({ qrStatus: data.qrStatus, parsed: data.parsed });
+      toast.success(`EKQR sync complete — status: ${data.qrStatus}`);
+      qc.invalidateQueries({ queryKey: ["/api/qr-codes"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message ?? "EKQR sync failed");
+    },
+  });
 
   const handleDownload = useCallback(() => {
     const canvas = document.querySelector(`#qr-inline-${qr.id} canvas`) as HTMLCanvasElement | null;
@@ -219,7 +246,35 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
               <Button size="sm" variant="outline" onClick={handleCopyLink} className="h-7 text-xs px-3 flex-1 sm:flex-none">
                 <Link2 className="w-3.5 h-3.5 mr-1.5" />{copied ? "Copied!" : "Copy Link"}
               </Button>
+              {qr.ekqrOrderId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => syncMutation.mutate(qr.id)}
+                  disabled={syncMutation.isPending}
+                  className="h-7 text-xs px-3 flex-1 sm:flex-none border-teal-500/40 text-teal-400 hover:bg-teal-500/10 hover:text-teal-300"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+                  {syncMutation.isPending ? "Syncing…" : "Sync Status"}
+                </Button>
+              )}
             </div>
+
+            {syncResult && (
+              <div className="mt-2 rounded-md border border-teal-500/25 bg-teal-500/8 px-3 py-2.5 space-y-1">
+                <p className="text-xs font-semibold text-teal-400 uppercase tracking-wide">EKQR Status</p>
+                <p className="text-xs text-muted-foreground">
+                  Payment status: <span className="font-mono text-foreground">{syncResult.qrStatus}</span>
+                </p>
+              </div>
+            )}
+
+            {qr.ekqrOrderId && !syncResult && (
+              <p className="text-xs text-muted-foreground mt-1">
+                EKQR Order: <span className="font-mono text-teal-400">{qr.ekqrOrderId}</span>
+              </p>
+            )}
+
             <PaymentActivity qrId={qr.id} />
           </div>
         </div>

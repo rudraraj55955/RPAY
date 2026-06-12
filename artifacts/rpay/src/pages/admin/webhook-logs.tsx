@@ -161,8 +161,19 @@ function getHttpBadgeText(code: number | null): { text: string; className: strin
   return { text: String(code), className: `font-mono text-xs font-semibold ${color}` };
 }
 
+function detectEkqrPayload(requestBody: string | null): { isEkqr: boolean; parsed: Record<string, unknown> | null } {
+  if (!requestBody) return { isEkqr: false, parsed: null };
+  try {
+    const obj = JSON.parse(requestBody);
+    return { isEkqr: obj?.provider === "ekqr", parsed: obj };
+  } catch {
+    return { isEkqr: false, parsed: null };
+  }
+}
+
 function WebhookRow({ log }: { log: any }) {
   const [open, setOpen] = useState(false);
+  const [rawExpanded, setRawExpanded] = useState(false);
 
   const tryParse = (s: string | null) => {
     if (!s) return null;
@@ -170,6 +181,7 @@ function WebhookRow({ log }: { log: any }) {
   };
 
   const { text: httpText, className: httpClass } = getHttpBadgeText(log.httpStatus);
+  const { isEkqr, parsed: ekqrParsed } = detectEkqrPayload(log.requestBody);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -182,7 +194,14 @@ function WebhookRow({ log }: { log: any }) {
         <TableCell className="font-mono text-xs text-muted-foreground">#{log.id}</TableCell>
         <TableCell className="text-xs text-muted-foreground">#{log.merchantId}</TableCell>
         <TableCell className="max-w-[200px]">
-          <span className="font-mono text-xs truncate block" title={log.url}>{log.url}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-xs truncate block" title={log.url}>{log.url}</span>
+            {isEkqr && (
+              <span className="shrink-0 inline-flex items-center gap-1 rounded border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-teal-400">
+                EKQR
+              </span>
+            )}
+          </div>
         </TableCell>
         <TableCell><span className={httpClass}>{httpText}</span></TableCell>
         <TableCell>
@@ -200,13 +219,42 @@ function WebhookRow({ log }: { log: any }) {
         <TableRow>
           <TableCell colSpan={9} className="bg-muted/20 pb-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2 pt-2">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Request</p>
-                <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">
-                  {tryParse(log.requestBody) || "—"}
-                </pre>
-              </div>
-              <div>
+              {isEkqr ? (
+                <div className="md:col-span-2">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <p className="text-xs font-medium text-teal-400 uppercase tracking-wider">EKQR Raw Payload</p>
+                    <span className="inline-flex items-center gap-1 rounded border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-teal-400">
+                      provider: ekqr
+                    </span>
+                    <button
+                      type="button"
+                      className="ml-auto text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                      onClick={e => { e.stopPropagation(); setRawExpanded(v => !v); }}
+                    >
+                      {rawExpanded ? "Collapse" : "Expand full JSON"}
+                    </button>
+                  </div>
+                  {ekqrParsed && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2 text-xs">
+                      {!!ekqrParsed.event && <div><span className="text-muted-foreground">Event: </span><span className="font-mono text-foreground">{String(ekqrParsed.event)}</span></div>}
+                      {!!ekqrParsed.amount && <div><span className="text-muted-foreground">Amount: </span><span className="font-mono text-emerald-400">₹{String(ekqrParsed.amount)}</span></div>}
+                      {!!(ekqrParsed.orderId ?? ekqrParsed.order_id) && <div><span className="text-muted-foreground">Order: </span><span className="font-mono text-foreground">{String(ekqrParsed.orderId ?? ekqrParsed.order_id)}</span></div>}
+                      {!!(ekqrParsed.transactionId ?? ekqrParsed.transaction_id) && <div><span className="text-muted-foreground">Txn: </span><span className="font-mono text-blue-400">{String(ekqrParsed.transactionId ?? ekqrParsed.transaction_id)}</span></div>}
+                    </div>
+                  )}
+                  <pre className={`text-xs bg-background/50 rounded p-3 overflow-x-auto border border-teal-500/20 whitespace-pre-wrap ${rawExpanded ? "" : "max-h-32"}`}>
+                    {tryParse(log.requestBody) || "—"}
+                  </pre>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Request</p>
+                  <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">
+                    {tryParse(log.requestBody) || "—"}
+                  </pre>
+                </div>
+              )}
+              <div className={isEkqr ? "" : ""}>
                 <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Response</p>
                 <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">
                   {tryParse(log.responseBody) || "—"}

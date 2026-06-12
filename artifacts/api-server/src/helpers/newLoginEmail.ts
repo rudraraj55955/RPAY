@@ -16,12 +16,15 @@ export async function sendNewLoginAlertEmail(opts: {
   businessName: string;
   loginIp: string;
   loginAt: Date;
+  trustToken: string;
 }): Promise<void> {
-  const { to, businessName, loginIp, loginAt } = opts;
+  const { to, businessName, loginIp, loginAt, trustToken } = opts;
 
   const formattedDate = loginAt.toUTCString();
   const maskedIp = maskIp(loginIp);
-  const securityUrl = `${process.env["APP_URL"] ?? "https://rasokart.com"}/merchant/security`;
+  const appUrl = process.env["APP_URL"] ?? "https://rasokart.com";
+  const securityUrl = `${appUrl}/merchant/security`;
+  const trustUrl = `${appUrl}/api/auth/trust-ip?token=${encodeURIComponent(trustToken)}`;
 
   const detailRows = [
     { label: "IP address", value: escapeHtml(maskedIp) },
@@ -87,6 +90,17 @@ export async function sendNewLoginAlertEmail(opts: {
                 </tr>
               </table>
 
+              <!-- Action buttons -->
+              <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+                <tr>
+                  <td style="background:#22c55e;border-radius:6px;padding:12px 24px;">
+                    <a href="${trustUrl}" style="color:#fff;font-size:14px;font-weight:600;text-decoration:none;">
+                      ✓ This Was Me — Trust This IP
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
               <table cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
                 <tr>
                   <td style="background:#f97316;border-radius:6px;padding:12px 24px;">
@@ -96,6 +110,10 @@ export async function sendNewLoginAlertEmail(opts: {
                   </td>
                 </tr>
               </table>
+
+              <p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.6;">
+                Clicking "Trust This IP" will stop future login alerts from this IP address. You can manage trusted IPs from your security settings at any time.
+              </p>
 
               <p style="margin:0;font-size:14px;color:#9ca3af;line-height:1.6;">
                 If you did not perform this login, please contact <a href="mailto:support@rasokart.com" style="color:#f97316;text-decoration:none;">support@rasokart.com</a> immediately and change your password.

@@ -41,3 +41,4 @@ export * from "./webhookFailureAlertLogs";
 export * from "./storageCleanupRuns";
 export * from "./ekqrWebhookLogs";
 export * from "./cleanupRunHistory";
+export * from "./merchantTrustedIps";

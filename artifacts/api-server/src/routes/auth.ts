@@ -1,8 +1,9 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, merchantsTable, credentialEventsTable } from "@workspace/db";
+import jwt from "jsonwebtoken";
+import { db, usersTable, merchantsTable, credentialEventsTable, merchantTrustedIpsTable } from "@workspace/db";
 import { dbRateLimitStore } from "../lib/rateLimitStore";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { generateToken, requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
 import { makeRateLimiter } from "../helpers/makeRateLimiter";
@@ -10,12 +11,24 @@ import { sendNewLoginAlertEmail } from "../helpers/newLoginEmail";
 
 const router = Router();
 
+const JWT_SECRET = process.env.SESSION_SECRET || "rasokart-secret-key-change-in-production";
+
 const loginLimiter = makeRateLimiter({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   store: dbRateLimitStore,
   message: { error: "Too many login attempts. Please try again later." },
 });
+
+function generateTrustToken(userId: number, ip: string): string {
+  return jwt.sign({ purpose: "trust-ip", userId, ip }, JWT_SECRET, { expiresIn: "7d" });
+}
+
+interface TrustTokenPayload {
+  purpose: string;
+  userId: number;
+  ip: string;
+}
 
 // POST /api/auth/login
 router.post("/login", loginLimiter, async (req, res, next) => {
@@ -67,20 +80,37 @@ router.post("/login", loginLimiter, async (req, res, next) => {
       const isNewIp = loginIp !== null && loginIp !== user.lastSeenIp;
 
       if (isNewIp && user.loginAlertEmails) {
-        const [merchant] = await db
-          .select({ businessName: merchantsTable.businessName })
-          .from(merchantsTable)
-          .where(eq(merchantsTable.id, user.merchantId))
-          .limit(1);
-        if (merchant) {
-          sendNewLoginAlertEmail({
-            to: user.email,
-            businessName: merchant.businessName,
-            loginIp,
-            loginAt: new Date(),
-          }).catch((err: unknown) => {
-            req.log.warn({ err, userId: user.id }, "Failed to send new login alert email");
-          });
+        const isTrusted = await db
+          .select({ id: merchantTrustedIpsTable.id })
+          .from(merchantTrustedIpsTable)
+          .where(
+            and(
+              eq(merchantTrustedIpsTable.userId, user.id),
+              eq(merchantTrustedIpsTable.ipAddress, loginIp!),
+            ),
+          )
+          .limit(1)
+          .then(rows => rows.length > 0)
+          .catch(() => false);
+
+        if (!isTrusted) {
+          const [merchant] = await db
+            .select({ businessName: merchantsTable.businessName })
+            .from(merchantsTable)
+            .where(eq(merchantsTable.id, user.merchantId))
+            .limit(1);
+          if (merchant) {
+            const trustToken = generateTrustToken(user.id, loginIp!);
+            sendNewLoginAlertEmail({
+              to: user.email,
+              businessName: merchant.businessName,
+              loginIp: loginIp!,
+              loginAt: new Date(),
+              trustToken,
+            }).catch((err: unknown) => {
+              req.log.warn({ err, userId: user.id }, "Failed to send new login alert email");
+            });
+          }
         }
       }
 
@@ -108,6 +138,91 @@ router.post("/login", loginLimiter, async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+});
+
+// GET /api/auth/trust-ip?token=<jwt>
+router.get("/trust-ip", async (req, res) => {
+  const { token } = req.query as { token?: string };
+
+  const appUrl = process.env["APP_URL"] ?? "https://rasokart.com";
+
+  function htmlPage(success: boolean, message: string): string {
+    const color = success ? "#22c55e" : "#ef4444";
+    const icon = success ? "✓" : "✗";
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${success ? "IP Trusted" : "Invalid Link"} — RasoKart</title>
+</head>
+<body style="margin:0;padding:0;background:#0f0f0f;font-family:'Segoe UI',Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+  <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:48px 40px;max-width:480px;width:100%;text-align:center;">
+    <span style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;display:block;margin-bottom:32px;">Raso<span style="color:#f97316;">Kart</span></span>
+    <div style="width:56px;height:56px;border-radius:50%;background:${color}22;border:2px solid ${color};display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:24px;color:${color};">${icon}</div>
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#f1f1f1;">${success ? "IP Address Trusted" : "Invalid or Expired Link"}</h1>
+    <p style="margin:0 0 32px;font-size:14px;color:#9ca3af;line-height:1.6;">${message}</p>
+    <a href="${appUrl}/merchant/security" style="display:inline-block;background:#f97316;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:6px;">Go to Security Settings</a>
+  </div>
+</body>
+</html>`;
+  }
+
+  if (!token) {
+    res.status(400).send(htmlPage(false, "No trust token was provided. This link may be incomplete."));
+    return;
+  }
+
+  let payload: TrustTokenPayload;
+  try {
+    payload = jwt.verify(token, JWT_SECRET) as TrustTokenPayload;
+  } catch {
+    res.status(400).send(htmlPage(false, "This link has expired or is invalid. Links are valid for 7 days after the login alert is sent."));
+    return;
+  }
+
+  if (payload.purpose !== "trust-ip" || !payload.userId || !payload.ip) {
+    res.status(400).send(htmlPage(false, "This link is not valid for trusting an IP address."));
+    return;
+  }
+
+  const [user] = await db
+    .select({ id: usersTable.id, merchantId: usersTable.merchantId, role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.id, payload.userId))
+    .limit(1)
+    .catch(() => []);
+
+  if (!user || user.role !== "merchant" || !user.merchantId) {
+    res.status(400).send(htmlPage(false, "The account associated with this link could not be found."));
+    return;
+  }
+
+  try {
+    const existing = await db
+      .select({ id: merchantTrustedIpsTable.id })
+      .from(merchantTrustedIpsTable)
+      .where(
+        and(
+          eq(merchantTrustedIpsTable.userId, user.id),
+          eq(merchantTrustedIpsTable.ipAddress, payload.ip),
+        ),
+      )
+      .limit(1);
+
+    if (existing.length === 0) {
+      await db.insert(merchantTrustedIpsTable).values({
+        userId: user.id,
+        merchantId: user.merchantId,
+        ipAddress: payload.ip,
+      });
+    }
+
+    res.send(htmlPage(true, "This IP address has been added to your trusted list. You will no longer receive login alerts when signing in from this location."));
+  } catch (err) {
+    logger.warn({ err, userId: user.id, ip: payload.ip }, "Failed to insert trusted IP");
+    res.status(500).send(htmlPage(false, "An error occurred while saving your trusted IP. Please try again or contact support."));
   }
 });
 

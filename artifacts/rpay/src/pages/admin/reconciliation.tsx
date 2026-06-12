@@ -238,6 +238,148 @@ function ResolvedCard({ item }: { item: any }) {
   );
 }
 
+interface SendReportDialogProps {
+  runId: number;
+  onClose: () => void;
+  onSent: () => void;
+}
+
+function SendReportDialog({ runId, onClose, onSent }: SendReportDialogProps) {
+  const [recipientInput, setRecipientInput] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [inputError, setInputError] = useState("");
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function parseAndAddEmails(raw: string) {
+    const parts = raw.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+    const valid: string[] = [];
+    const invalid: string[] = [];
+    for (const p of parts) {
+      if (emailRegex.test(p)) {
+        if (!tags.includes(p) && !valid.includes(p)) valid.push(p);
+      } else {
+        invalid.push(p);
+      }
+    }
+    if (invalid.length > 0) {
+      setInputError(`Invalid: ${invalid.join(", ")}`);
+    } else {
+      setInputError("");
+    }
+    if (valid.length > 0) setTags(prev => [...prev, ...valid]);
+    return valid;
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === "," || e.key === " ") {
+      e.preventDefault();
+      const added = parseAndAddEmails(recipientInput);
+      if (added.length > 0 || !recipientInput.trim()) setRecipientInput("");
+    } else if (e.key === "Backspace" && !recipientInput) {
+      setTags(prev => prev.slice(0, -1));
+    }
+  }
+
+  function handleBlur() {
+    if (recipientInput.trim()) parseAndAddEmails(recipientInput);
+  }
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      const all = [...tags];
+      const pending = recipientInput.trim();
+      if (pending && emailRegex.test(pending) && !all.includes(pending)) all.push(pending);
+      return apiPost(`/reconciliation/runs/${runId}/send-report`, { recipients: all });
+    },
+    onSuccess: () => {
+      toast.success("Report sent successfully");
+      onSent();
+      onClose();
+    },
+    onError: (err: any) => toast.error(`Send failed: ${err.message}`),
+  });
+
+  const pendingValid = recipientInput.trim() && emailRegex.test(recipientInput.trim()) && !tags.includes(recipientInput.trim());
+  const canSend = (tags.length > 0 || pendingValid) && !mutation.isPending;
+
+  return (
+    <Dialog open onOpenChange={open => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Mail className="w-4 h-4 text-violet-400" />
+            Send Reconciliation Report
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-sm">
+            <p className="text-muted-foreground text-xs">
+              Run <span className="text-foreground font-medium">#{runId}</span> — a formatted summary with the full CSV report will be emailed to the addresses below.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Recipient email(s)</Label>
+            <div
+              className="flex flex-wrap gap-1.5 min-h-[2.25rem] rounded-md border border-input bg-background px-2 py-1.5 cursor-text focus-within:ring-1 focus-within:ring-ring"
+              onClick={e => (e.currentTarget.querySelector("input") as HTMLInputElement | null)?.focus()}
+            >
+              {tags.map(tag => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 bg-violet-500/15 text-violet-300 text-xs rounded px-1.5 py-0.5 border border-violet-500/30"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    className="opacity-60 hover:opacity-100 ml-0.5"
+                    onClick={() => setTags(prev => prev.filter(t => t !== tag))}
+                    aria-label={`Remove ${tag}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <input
+                className="flex-1 min-w-[140px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+                placeholder={tags.length === 0 ? "e.g. finance@company.com, cfo@company.com" : "Add another…"}
+                value={recipientInput}
+                onChange={e => { setRecipientInput(e.target.value); setInputError(""); }}
+                onKeyDown={handleKeyDown}
+                onBlur={handleBlur}
+              />
+            </div>
+            {inputError ? (
+              <p className="text-[10px] text-red-400">{inputError}</p>
+            ) : (
+              <p className="text-[10px] text-muted-foreground/60">Separate multiple addresses with a comma, space, or Enter.</p>
+            )}
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" className="flex-1" onClick={onClose} disabled={mutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 gap-2 bg-violet-600 hover:bg-violet-700 text-white"
+              disabled={!canSend}
+              onClick={() => mutation.mutate()}
+            >
+              {mutation.isPending ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
+              ) : (
+                <><Mail className="w-3.5 h-3.5" /> Send Report</>
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 type ResolutionType = "linked_transaction" | "linked_settlement" | "excluded";
 
 interface ResolveDialogProps {
@@ -778,6 +920,7 @@ export default function AdminReconciliation() {
   const [forceResendAlertConfirmOpen, setForceResendAlertConfirmOpen] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [emailFailureBannerDismissed, setEmailFailureBannerDismissed] = useState(false);
+  const [sendReportRunId, setSendReportRunId] = useState<number | null>(null);
   const HISTORY_PAGE_SIZE = 15;
 
   // Sync selectedRunId back to ?run= URL param so the browser URL stays consistent
@@ -1268,6 +1411,15 @@ export default function AdminReconciliation() {
                               </Tooltip>
                               <Button
                                 variant="ghost"
+                                size="icon"
+                                aria-label="Send report by email"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity text-muted-foreground hover:text-violet-400"
+                                onClick={() => setSendReportRunId(run.id)}
+                              >
+                                <Mail className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 className="h-7 gap-1 text-xs"
                                 onClick={() => setSelectedRunId(run.id)}
@@ -1717,6 +1869,15 @@ export default function AdminReconciliation() {
           item={resolveItem}
           onClose={() => setResolveItem(null)}
           onResolved={handleResolved}
+        />
+      )}
+
+      {/* Send Report Dialog */}
+      {sendReportRunId != null && (
+        <SendReportDialog
+          runId={sendReportRunId}
+          onClose={() => setSendReportRunId(null)}
+          onSent={() => qc.invalidateQueries({ queryKey: ["/api/reconciliation/runs"] })}
         />
       )}
 

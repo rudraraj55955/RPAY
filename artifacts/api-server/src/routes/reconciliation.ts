@@ -4,7 +4,8 @@ import { eq, and, gte, lte, inArray, sql, count, or, isNull, isNotNull, gt, desc
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { runReconciliation } from "../helpers/reconcileEngine";
 import { loadReconConfig } from "../helpers/reconScheduler";
-import { sendReconciliationReportEmail, notifyAdminsOfUnmatchedItems } from "../helpers/reconcileEmail";
+import { sendReconciliationReportEmail, notifyAdminsOfUnmatchedItems, buildEmailHtml, buildRunCsv } from "../helpers/reconcileEmail";
+import { sendMail } from "../helpers/mailer";
 
 const router = Router();
 router.use(requireAuth);
@@ -292,6 +293,82 @@ router.patch("/items/:id/resolve", async (req, res, next) => {
     });
 
     res.json({ ...updated, amount: Number(updated.amount) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/reconciliation/runs/:id/send-report
+router.post("/runs/:id/send-report", async (req, res, next) => {
+  try {
+    const runId = parseInt(req.params['id'] as string);
+    const user = (req as any).user;
+    const { recipients } = req.body;
+
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      res.status(400).json({ error: "recipients must be a non-empty array of email addresses" });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const cleaned = recipients.map((r: string) => String(r).trim()).filter(r => r.length > 0);
+    const invalid = cleaned.filter(r => !emailRegex.test(r));
+    if (invalid.length > 0) {
+      res.status(400).json({ error: `Invalid email address(es): ${invalid.join(", ")}` });
+      return;
+    }
+
+    const [run] = await db.select().from(reconciliationRunsTable).where(eq(reconciliationRunsTable.id, runId)).limit(1);
+    if (!run) { res.status(404).json({ error: "Run not found" }); return; }
+
+    const csv = await buildRunCsv(runId);
+    const html = buildEmailHtml(run);
+    const filename = `reconciliation-run-${runId}-${run.dateFrom}-to-${run.dateTo}.csv`;
+    const subject = `[RasoKart] Reconciliation Report — Run #${runId} (${run.dateFrom} to ${run.dateTo})`;
+    const recipientStr = cleaned.join(", ");
+
+    const [primaryRecipient, ...ccRecipients] = cleaned;
+
+    let delivered = false;
+    let sendError: string | null = null;
+
+    try {
+      delivered = await sendMail({
+        to: primaryRecipient,
+        ...(ccRecipients.length > 0 ? { cc: ccRecipients.join(", ") } : {}),
+        subject,
+        html,
+        attachments: [{ filename, content: csv, contentType: "text/csv" }],
+      });
+    } catch (sendErr) {
+      sendError = String(sendErr);
+      req.log.error({ err: sendErr, runId }, "Failed to send manual reconciliation report email");
+    }
+
+    await db.insert(reconciliationEmailLogsTable).values({
+      runId,
+      emailType: "report",
+      recipients: recipientStr,
+      status: delivered ? "sent" : "failed",
+      errorMessage: delivered ? null : (sendError ?? "SMTP not configured or delivery rejected"),
+    });
+
+    if (!delivered) {
+      res.status(500).json({ error: sendError ?? "Email could not be delivered — check SMTP configuration" });
+      return;
+    }
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id,
+      adminEmail: user.email,
+      action: "reconciliation_report_emailed",
+      targetType: "reconciliation_run",
+      targetId: runId,
+      details: JSON.stringify({ runId, recipients: recipientStr }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

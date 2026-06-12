@@ -13,7 +13,7 @@ function escapeCsv(val: string | number | null | undefined): string {
   return str;
 }
 
-async function buildRunCsv(runId: number): Promise<string> {
+export async function buildRunCsv(runId: number): Promise<string> {
   const items = await db
     .select({
       item: reconciliationItemsTable,
@@ -105,6 +105,10 @@ export function buildEmailHtml(run: typeof reconciliationRunsTable.$inferSelect)
           <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600;">${dateRange}</td>
         </tr>
         <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Status</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600; color: ${run.status === 'complete' ? '#4ade80' : run.status === 'failed' ? '#f87171' : '#60a5fa'};">${run.status.charAt(0).toUpperCase() + run.status.slice(1)}</td>
+        </tr>
+        <tr style="background: #111;">
           <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Triggered By</td>
           <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px;">${triggeredBy}</td>
         </tr>

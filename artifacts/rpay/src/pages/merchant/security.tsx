@@ -502,11 +502,63 @@ export default function MerchantSecurity() {
   // Known login IPs
   const { data: knownIpsData, isLoading: knownIpsLoading } = useListKnownLoginIps();
 
-  function handleExportCsv() {
-    if (!filteredLogs.length && !secPageSlice.length) return;
+  const [exportingSecEvents, setExportingSecEvents] = useState(false);
+
+  async function fetchAllSecurityEvents(params: { eventType?: string; dateFrom?: string; dateTo?: string }): Promise<LocalSecurityEvent[]> {
+    const token = localStorage.getItem("rasokart_token");
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const results: LocalSecurityEvent[] = [];
+    let fetchPage = 1;
+    const FETCH_LIMIT = 200;
+    while (true) {
+      const qp = new URLSearchParams({ limit: String(FETCH_LIMIT), page: String(fetchPage) });
+      if (params.eventType && params.eventType !== "all") qp.set("eventType", params.eventType);
+      if (params.dateFrom) qp.set("dateFrom", params.dateFrom);
+      if (params.dateTo) qp.set("dateTo", params.dateTo);
+      const res = await fetch(`/api/security/events?${qp}`, { headers });
+      if (!res.ok) throw new Error("Failed to fetch security events");
+      const json = await res.json();
+      results.push(...(json.data as LocalSecurityEvent[]));
+      if (results.length >= json.total || json.data.length < FETCH_LIMIT) break;
+      fetchPage++;
+    }
+    return results;
+  }
+
+  async function fetchAllCallbackLogs(params: { status?: string; signatureVerified?: string; dateFrom?: string; dateTo?: string }): Promise<any[]> {
+    const token = localStorage.getItem("rasokart_token");
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const results: any[] = [];
+    let fetchPage = 1;
+    const FETCH_LIMIT = 200;
+    while (true) {
+      const qp = new URLSearchParams({ limit: String(FETCH_LIMIT), page: String(fetchPage) });
+      if (params.status && params.status !== "all") qp.set("status", params.status);
+      if (params.signatureVerified && params.signatureVerified !== "all") qp.set("signatureVerified", params.signatureVerified);
+      if (params.dateFrom) qp.set("dateFrom", params.dateFrom);
+      if (params.dateTo) qp.set("dateTo", params.dateTo);
+      const res = await fetch(`/api/callbacks?${qp}`, { headers });
+      if (!res.ok) throw new Error("Failed to fetch callback logs");
+      const json = await res.json();
+      results.push(...json.data);
+      if (results.length >= json.total || json.data.length < FETCH_LIMIT) break;
+      fetchPage++;
+    }
+    return results;
+  }
+
+  async function handleExportCsv() {
     setExporting(true);
     try {
-      const csv = buildUnifiedCsvText(filteredLogs, secPageSlice);
+      const [allSecEvents, allCallbackLogs] = await Promise.all([
+        fetchAllSecurityEvents({ eventType: secEventType, dateFrom: secDateFrom, dateTo: secDateTo }),
+        fetchAllCallbackLogs({ status, signatureVerified: sigFilter, dateFrom, dateTo }),
+      ]);
+      if (!allCallbackLogs.length && !allSecEvents.length) {
+        toast.info("No records to export");
+        return;
+      }
+      const csv = buildUnifiedCsvText(allCallbackLogs, allSecEvents);
       const lines = csv.split("\n").filter(l => l.trim() !== "");
       const rowCount = Math.max(0, lines.length - 1);
       setLastExportCount(rowCount);
@@ -519,6 +571,40 @@ export default function MerchantSecurity() {
       toast.error("Export failed");
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function handleExportSecEventsCsv() {
+    setExportingSecEvents(true);
+    try {
+      const allSecEvents = await fetchAllSecurityEvents({ eventType: secEventType, dateFrom: secDateFrom, dateTo: secDateTo });
+      if (!allSecEvents.length) {
+        toast.info("No events to export");
+        return;
+      }
+      const header = ["ID", "Event Type", "Actor Email", "Key Prefix", "IP Address", "Date"];
+      const rows = [
+        header,
+        ...allSecEvents.map(ev => [
+          String(ev.id),
+          ev.eventType,
+          ev.actorEmail ?? "",
+          ev.keyPrefix ?? "",
+          ev.ipAddress ?? "",
+          ev.occurredAt,
+        ]),
+      ];
+      const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+      const rowCount = allSecEvents.length;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      a.download = `credential-events-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      toast.success(`Exported ${rowCount} event${rowCount !== 1 ? "s" : ""}`);
+    } catch {
+      toast.error("Export failed");
+    } finally {
+      setExportingSecEvents(false);
     }
   }
 
@@ -1097,6 +1183,18 @@ export default function MerchantSecurity() {
                 Clear
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportSecEventsCsv}
+              disabled={exportingSecEvents || secTotal === 0}
+              className="h-7 text-xs border-sky-500/30 text-sky-400 hover:bg-sky-500/10 hover:text-sky-300 hover:border-sky-500/50 gap-1.5"
+            >
+              {exportingSecEvents
+                ? <Loader2 className="w-3 h-3 animate-spin" />
+                : <FileDown className="w-3 h-3" />}
+              {exportingSecEvents ? "Exporting…" : "Export CSV"}
+            </Button>
           </div>
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-1.5">

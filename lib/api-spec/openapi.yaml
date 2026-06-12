@@ -7624,6 +7624,9 @@ components:
         ekqrOrderId:
           type: ["string", "null"]
           description: EKQR client_txn_id if this QR was created via EKQR
+        ekqrPaymentUrl:
+          type: ["string", "null"]
+          description: EKQR hosted payment URL returned by create_order (for non-UPI clients)
         createdAt:
           type: string
         updatedAt:

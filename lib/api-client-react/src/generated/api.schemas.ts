@@ -1540,6 +1540,11 @@ export interface QrCode {
      * @nullable
      */
   ekqrOrderId?: string | null;
+  /**
+     * EKQR hosted payment URL returned by create_order (for non-UPI clients)
+     * @nullable
+     */
+  ekqrPaymentUrl?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

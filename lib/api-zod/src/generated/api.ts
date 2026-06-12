@@ -2703,6 +2703,7 @@ export const ListQrCodesResponse = zod.object({
   "status": zod.enum(['active', 'inactive', 'expired', 'used']),
   "scanCount": zod.number().describe('Number of times this QR code was used for a payment'),
   "ekqrOrderId": zod.string().nullish().describe('EKQR client_txn_id if this QR was created via EKQR'),
+  "ekqrPaymentUrl": zod.string().nullish().describe('EKQR hosted payment URL returned by create_order (for non-UPI clients)'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })),
@@ -2801,6 +2802,7 @@ export const GetQrCodeResponse = zod.object({
   "status": zod.enum(['active', 'inactive', 'expired', 'used']),
   "scanCount": zod.number().describe('Number of times this QR code was used for a payment'),
   "ekqrOrderId": zod.string().nullish().describe('EKQR client_txn_id if this QR was created via EKQR'),
+  "ekqrPaymentUrl": zod.string().nullish().describe('EKQR hosted payment URL returned by create_order (for non-UPI clients)'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -2835,6 +2837,7 @@ export const UpdateQrCodeResponse = zod.object({
   "status": zod.enum(['active', 'inactive', 'expired', 'used']),
   "scanCount": zod.number().describe('Number of times this QR code was used for a payment'),
   "ekqrOrderId": zod.string().nullish().describe('EKQR client_txn_id if this QR was created via EKQR'),
+  "ekqrPaymentUrl": zod.string().nullish().describe('EKQR hosted payment URL returned by create_order (for non-UPI clients)'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })

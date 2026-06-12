@@ -341,7 +341,7 @@ router.get("/export", async (req, res) => {
     return s;
   }
 
-  const header = ["ID", "Admin Email", "Admin ID", "Action", "Target Type", "Target ID", "IP Address", "Timestamp"];
+  const header = ["ID", "Actor Email", "Admin ID", "Action", "Target Type", "Target ID", "IP Address", "Timestamp"];
   const csvRows = rows.map(r => [
     escapeCsv(String(r.id)),
     escapeCsv(r.adminEmail),

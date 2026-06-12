@@ -310,7 +310,10 @@ function CallbackRow({ log, activeQrFilter, onFilterByQr, initialOpen, onDeepLin
                 <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">{tryParse(log.requestBody) || "—"}</pre>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Response</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Response</p>
+                  <CopyButton text={tryParse(log.responseBody)} label="Copy response" />
+                </div>
                 <pre className="text-xs bg-background/50 rounded p-3 overflow-x-auto border border-border/50 whitespace-pre-wrap">{tryParse(log.responseBody) || "—"}</pre>
               </div>
             </div>

@@ -197,12 +197,36 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
 
   const isExpired = qr.expiresAt ? new Date(qr.expiresAt) < new Date() : false;
 
+  const [copiedEkqr, setCopiedEkqr] = useState(false);
+
+  const handleCopyEkqrLink = useCallback(() => {
+    if (!qr.ekqrPaymentUrl) return;
+    navigator.clipboard.writeText(qr.ekqrPaymentUrl).then(() => {
+      setCopiedEkqr(true);
+      toast.success("EKQR payment link copied to clipboard");
+      setTimeout(() => setCopiedEkqr(false), 2000);
+    });
+  }, [qr.ekqrPaymentUrl]);
+
   return (
     <TableRow className="bg-muted/30 border-t-0">
       <TableCell colSpan={9} className="py-4 px-6">
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start">
-          <div id={`qr-inline-${qr.id}`} className="bg-white p-3 rounded-xl shrink-0 mx-auto sm:mx-0">
-            <QRCodeCanvas value={qr.payload} size={120} level="H" includeMargin />
+          <div className="flex flex-col sm:flex-row gap-4 items-start shrink-0 mx-auto sm:mx-0">
+            <div className="flex flex-col items-center gap-1.5">
+              <div id={`qr-inline-${qr.id}`} className="bg-white p-3 rounded-xl">
+                <QRCodeCanvas value={qr.payload} size={120} level="H" includeMargin />
+              </div>
+              <span className="text-xs text-muted-foreground">UPI QR</span>
+            </div>
+            {qr.ekqrPaymentUrl && (
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="bg-white p-3 rounded-xl border-2 border-teal-500/40">
+                  <QRCodeCanvas value={qr.ekqrPaymentUrl} size={120} level="H" includeMargin />
+                </div>
+                <span className="text-xs text-teal-400 font-medium">EKQR Payment Link</span>
+              </div>
+            )}
           </div>
           <div className="flex-1 min-w-0 w-full">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm mb-3">
@@ -246,6 +270,11 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
               <Button size="sm" variant="outline" onClick={handleCopyLink} className="h-7 text-xs px-3 flex-1 sm:flex-none">
                 <Link2 className="w-3.5 h-3.5 mr-1.5" />{copied ? "Copied!" : "Copy Link"}
               </Button>
+              {qr.ekqrPaymentUrl && (
+                <Button size="sm" variant="outline" onClick={handleCopyEkqrLink} className="h-7 text-xs px-3 flex-1 sm:flex-none border-teal-500/40 text-teal-400 hover:bg-teal-500/10 hover:text-teal-300">
+                  <Link2 className="w-3.5 h-3.5 mr-1.5" />{copiedEkqr ? "Copied!" : "Copy EKQR Link"}
+                </Button>
+              )}
               {qr.ekqrOrderId && (
                 <Button
                   size="sm"
@@ -732,7 +761,14 @@ export default function MerchantQrCodes() {
                         </div>
                       ) : <span className="text-muted-foreground">Never</span>}
                     </TableCell>
-                    <TableCell>{statusBadge(qr.status)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {statusBadge(qr.status)}
+                        {(qr as any).ekqrOrderId && (
+                          <Badge className="text-xs bg-teal-500/15 text-teal-400 border-teal-500/20 hover:bg-teal-500/20 py-0 px-1.5">EKQR</Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                         <ScanLine className="w-3.5 h-3.5" />

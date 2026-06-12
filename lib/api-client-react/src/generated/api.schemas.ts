@@ -1964,6 +1964,8 @@ export interface AuditReportScheduleLog {
   isRetry: boolean;
   /** 0 = initial send, 1–3 = automatic retry attempts */
   retryAttempt: number;
+  /** true when the retry was triggered manually by an admin via "Retry Now" */
+  isManualRetry: boolean;
   /** @nullable */
   deliveryCycleId?: string | null;
 }
@@ -1983,6 +1985,8 @@ export interface AuditReportScheduleLogWithSchedule {
   isRetry: boolean;
   /** 0 = initial send, 1–3 = automatic retry attempts */
   retryAttempt: number;
+  /** true when the retry was triggered manually by an admin via "Retry Now" */
+  isManualRetry: boolean;
   /** @nullable */
   deliveryCycleId?: string | null;
   scheduleEmail: string;

@@ -911,7 +911,7 @@ router.post("/schedules/:id/send", async (req, res) => {
   const retryAttempt = isRetry ? latestLog.retryAttempt + 1 : 0;
 
   try {
-    await sendScheduledReport(schedule, isRetry, retryAttempt);
+    await sendScheduledReport(schedule, isRetry, retryAttempt, true);
   } catch {
     res.status(502).json({ error: "Email delivery failed. Check mailer configuration." });
     return;

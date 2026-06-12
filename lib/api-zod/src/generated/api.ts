@@ -3262,6 +3262,7 @@ export const ListAllAuditReportScheduleLogsResponse = zod.object({
   "errorMessage": zod.string().nullish(),
   "isRetry": zod.boolean(),
   "retryAttempt": zod.number().describe('0 = initial send, 1–3 = automatic retry attempts'),
+  "isManualRetry": zod.boolean().describe('true when the retry was triggered manually by an admin via \"Retry Now\"'),
   "deliveryCycleId": zod.string().nullish(),
   "scheduleEmail": zod.string(),
   "scheduleFrequency": zod.string()
@@ -3292,6 +3293,7 @@ export const ListAuditReportScheduleLogsResponse = zod.object({
   "errorMessage": zod.string().nullish(),
   "isRetry": zod.boolean(),
   "retryAttempt": zod.number().describe('0 = initial send, 1–3 = automatic retry attempts'),
+  "isManualRetry": zod.boolean().describe('true when the retry was triggered manually by an admin via \"Retry Now\"'),
   "deliveryCycleId": zod.string().nullish()
 }))
 })

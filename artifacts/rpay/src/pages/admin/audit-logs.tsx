@@ -1104,7 +1104,9 @@ function ScheduleHistoryPanel({
                 {attempts.map((log) => {
                   const attemptLabel = !log.isRetry
                     ? "Initial send"
-                    : `Retry #${log.retryAttempt}`;
+                    : log.isManualRetry
+                      ? `Manual retry #${log.retryAttempt}`
+                      : `Auto-retry #${log.retryAttempt}`;
                   return (
                     <div key={log.id} className="flex items-start gap-2.5 px-3 py-2">
                       <div className="mt-0.5 shrink-0">
@@ -1115,13 +1117,18 @@ function ScheduleHistoryPanel({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          {log.isRetry ? (
-                            <span className="inline-flex items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">
+                          {!log.isRetry ? (
+                            <span className="inline-flex items-center rounded border border-border/40 bg-muted/20 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                              {attemptLabel}
+                            </span>
+                          ) : log.isManualRetry ? (
+                            <span className="inline-flex items-center gap-1 rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-400">
                               <RefreshCw className="w-2 h-2" />
                               {attemptLabel}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center rounded border border-border/40 bg-muted/20 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                            <span className="inline-flex items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">
+                              <RefreshCw className="w-2 h-2" />
                               {attemptLabel}
                             </span>
                           )}

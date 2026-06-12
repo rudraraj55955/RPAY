@@ -154,6 +154,7 @@ export async function sendScheduledReport(
   schedule: typeof scheduledAuditReportsTable.$inferSelect,
   isRetry = false,
   retryAttempt = 0,
+  isManualRetry = false,
 ): Promise<boolean> {
   const { dateFrom, dateTo } = getDateRange(schedule.frequency);
   const sentAt = new Date();
@@ -216,6 +217,7 @@ export async function sendScheduledReport(
     errorMessage,
     isRetry,
     retryAttempt,
+    isManualRetry: isRetry ? isManualRetry : false,
     deliveryCycleId,
   });
 

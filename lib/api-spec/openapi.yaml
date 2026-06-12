@@ -7839,7 +7839,7 @@ components:
 
     AuditReportScheduleLog:
       type: object
-      required: [id, scheduleId, sentAt, rowCount, success, isRetry, retryAttempt]
+      required: [id, scheduleId, sentAt, rowCount, success, isRetry, retryAttempt, isManualRetry]
       properties:
         id:
           type: integer
@@ -7858,6 +7858,9 @@ components:
         retryAttempt:
           type: integer
           description: 0 = initial send, 1–3 = automatic retry attempts
+        isManualRetry:
+          type: boolean
+          description: true when the retry was triggered manually by an admin via "Retry Now"
         deliveryCycleId:
           type: ["string", "null"]
 
@@ -7872,7 +7875,7 @@ components:
 
     AuditReportScheduleLogWithSchedule:
       type: object
-      required: [id, scheduleId, sentAt, rowCount, success, isRetry, retryAttempt, scheduleEmail, scheduleFrequency]
+      required: [id, scheduleId, sentAt, rowCount, success, isRetry, retryAttempt, isManualRetry, scheduleEmail, scheduleFrequency]
       properties:
         id:
           type: integer
@@ -7891,6 +7894,9 @@ components:
         retryAttempt:
           type: integer
           description: 0 = initial send, 1–3 = automatic retry attempts
+        isManualRetry:
+          type: boolean
+          description: true when the retry was triggered manually by an admin via "Retry Now"
         deliveryCycleId:
           type: ["string", "null"]
         scheduleEmail:

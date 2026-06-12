@@ -216,6 +216,8 @@ import type {
   ReorderMerchantSavedFiltersInput,
   ResendReconciliationAlertEmail200,
   ResendReconciliationReportEmail200,
+  ResetWebhookFailureAlertCooldown200,
+  ResetWebhookFailureAlertCooldownParams,
   RetryCallback200,
   RetryWebhookLog200,
   RunLedgerBackfill200,
@@ -16682,6 +16684,83 @@ export const useClearWebhookFailureAlertHistory = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getClearWebhookFailureAlertHistoryMutationOptions(options));
+    }
+
+export const getResetWebhookFailureAlertCooldownUrl = (params?: ResetWebhookFailureAlertCooldownParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/system-config/webhook-failure-alert/reset-cooldown?${stringifiedParams}` : `/api/system-config/webhook-failure-alert/reset-cooldown`
+}
+
+/**
+ * @summary Reset webhook failure alert cooldown for a specific merchant or globally (admin only)
+ */
+export const resetWebhookFailureAlertCooldown = async (params?: ResetWebhookFailureAlertCooldownParams, options?: RequestInit): Promise<ResetWebhookFailureAlertCooldown200> => {
+
+  return customFetch<ResetWebhookFailureAlertCooldown200>(getResetWebhookFailureAlertCooldownUrl(params),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getResetWebhookFailureAlertCooldownMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetWebhookFailureAlertCooldown>>, TError,{params?: ResetWebhookFailureAlertCooldownParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetWebhookFailureAlertCooldown>>, TError,{params?: ResetWebhookFailureAlertCooldownParams}, TContext> => {
+
+const mutationKey = ['resetWebhookFailureAlertCooldown'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetWebhookFailureAlertCooldown>>, {params?: ResetWebhookFailureAlertCooldownParams}> = (props) => {
+          const {params} = props ?? {};
+
+          return  resetWebhookFailureAlertCooldown(params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetWebhookFailureAlertCooldownMutationResult = NonNullable<Awaited<ReturnType<typeof resetWebhookFailureAlertCooldown>>>
+
+    export type ResetWebhookFailureAlertCooldownMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Reset webhook failure alert cooldown for a specific merchant or globally (admin only)
+ */
+export const useResetWebhookFailureAlertCooldown = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetWebhookFailureAlertCooldown>>, TError,{params?: ResetWebhookFailureAlertCooldownParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetWebhookFailureAlertCooldown>>,
+        TError,
+        {params?: ResetWebhookFailureAlertCooldownParams},
+        TContext
+      > => {
+      return useMutation(getResetWebhookFailureAlertCooldownMutationOptions(options));
     }
 
 export const getGetSignatureFailureAlertHistoryUrl = (params?: GetSignatureFailureAlertHistoryParams,) => {

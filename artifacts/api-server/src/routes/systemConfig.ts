@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable, signatureFailureAlertLogsTable, webhookFailureAlertLogsTable, storageCleanupRunsTable, uploadedObjectsTable, merchantsTable } from "@workspace/db";
 import { ekqrCreateOrder, ekqrClientTxnId } from "../helpers/ekqr";
-import { inArray, desc, count, sql, eq } from "drizzle-orm";
+import { inArray, desc, count, sql, eq, and } from "drizzle-orm";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { rescheduleFromDb, getNextRunTime } from "../helpers/reconScheduler";
@@ -762,6 +762,55 @@ router.get("/webhook-failure-alert-history", async (req, res, next) => {
     ]);
 
     res.json({ data: rows, total });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/system-config/webhook-failure-alert/reset-cooldown
+router.post("/webhook-failure-alert/reset-cooldown", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const merchantIdRaw = req.query['merchantId'] as string | undefined;
+    const merchantId = merchantIdRaw ? parseInt(merchantIdRaw) || null : null;
+
+    if (merchantIdRaw !== undefined && merchantId === null) {
+      res.status(400).json({ error: "merchantId must be a valid integer" });
+      return;
+    }
+
+    let deleted: number;
+
+    if (merchantId !== null) {
+      const rows = await db
+        .delete(webhookFailureAlertLogsTable)
+        .where(eq(webhookFailureAlertLogsTable.merchantId, merchantId))
+        .returning({ id: webhookFailureAlertLogsTable.id });
+      deleted = rows.length;
+    } else {
+      const rows = await db
+        .delete(webhookFailureAlertLogsTable)
+        .returning({ id: webhookFailureAlertLogsTable.id });
+      deleted = rows.length;
+    }
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id,
+      adminEmail: user.email,
+      action: "system_config_updated",
+      targetType: "system_config",
+      targetId: merchantId,
+      details: JSON.stringify({
+        section: "webhook_failure_alert_cooldown_reset",
+        merchantId: merchantId ?? null,
+        deleted,
+      }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ merchantId, deleted }, "Webhook failure alert cooldown reset");
+
+    res.json({ reset: true, merchantId: merchantId ?? null, deleted });
   } catch (err) {
     next(err);
   }

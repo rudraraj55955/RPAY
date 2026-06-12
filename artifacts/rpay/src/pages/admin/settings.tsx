@@ -10,7 +10,7 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, useTestEkqrWebhook, getGetEkqrConfigQueryKey, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, useTestEkqrWebhook, getGetEkqrConfigQueryKey, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -780,6 +780,28 @@ export default function AdminSettings() {
         void refetchWebhookAlertGlobal();
       },
       onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to clear history")),
+    },
+  });
+
+  const [resetCooldownMerchantId, setResetCooldownMerchantId] = useState<number | "all" | null>(null);
+
+  const { mutate: resetWebhookCooldown, isPending: resettingWebhookCooldown } = useResetWebhookFailureAlertCooldown({
+    mutation: {
+      onSuccess: (res, vars) => {
+        const mid = vars.params?.merchantId;
+        if (mid != null) {
+          toast.success(`Cooldown reset for Merchant #${mid} — next failure will trigger a fresh alert`);
+        } else {
+          toast.success("All webhook failure alert cooldowns reset");
+        }
+        qc.invalidateQueries({ queryKey: getGetWebhookFailureAlertHistoryQueryKey() });
+        void refetchWebhookAlertHistory();
+        setResetCooldownMerchantId(null);
+      },
+      onError: (err: unknown) => {
+        toast.error(getApiErrorMessage(err, "Failed to reset cooldown"));
+        setResetCooldownMerchantId(null);
+      },
     },
   });
 
@@ -2408,9 +2430,24 @@ export default function AdminSettings() {
                 <Button
                   size="sm"
                   variant="outline"
+                  onClick={() => {
+                    setResetCooldownMerchantId("all");
+                    resetWebhookCooldown({});
+                  }}
+                  disabled={resettingWebhookCooldown || clearingWebhookAlertHistory}
+                  title="Clear all cooldown entries so every merchant can receive a fresh alert on their next failure"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                  {resettingWebhookCooldown && resetCooldownMerchantId === "all" ? "Resetting…" : "Reset All Cooldowns"}
+                </Button>
+              )}
+              {webhookAlertGlobalCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
                   className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
                   onClick={() => clearWebhookAlertHistory()}
-                  disabled={clearingWebhookAlertHistory}
+                  disabled={clearingWebhookAlertHistory || resettingWebhookCooldown}
                   title="Clears all history across all merchants"
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-1.5" />
@@ -2421,7 +2458,7 @@ export default function AdminSettings() {
           </div>
           <CardDescription className="text-sm">
             A record of every webhook permanent failure alert email dispatched to admins. Tracks which merchant's webhook failed, the URL, attempt count, and which admins were notified.
-            Duplicate alerts for the same merchant are suppressed for {currentWebhookAlertCooldownHours === 1 ? "1 hour" : `${currentWebhookAlertCooldownHours} hours`} after each sent alert.
+            Duplicate alerts for the same merchant are suppressed for {currentWebhookAlertCooldownHours === 1 ? "1 hour" : `${currentWebhookAlertCooldownHours} hours`} after each sent alert. Use "Reset cooldown" on any entry to immediately re-arm alerts for that merchant.
             {webhookAlertMerchantFilter != null && (
               <span className="ml-1 text-primary">
                 — filtered to {webhookAlertMerchantMap.get(webhookAlertMerchantFilter) ?? `Merchant #${webhookAlertMerchantFilter}`}
@@ -2461,16 +2498,17 @@ export default function AdminSettings() {
                         <span className="text-sm font-medium">
                           {new Date(entry.sentAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
                         </span>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          {inCooldown && (
-                            <span
-                              className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-amber-400"
-                              title={`Cooldown active — new alerts for this merchant are suppressed until ${new Date(cooldownExpiresAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
-                            >
-                              <Clock className="w-3 h-3 shrink-0" />
-                              Cooldown active
-                            </span>
-                          )}
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            {inCooldown && (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-amber-400"
+                                title={`Cooldown active — new alerts for this merchant are suppressed until ${new Date(cooldownExpiresAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
+                              >
+                                <Clock className="w-3 h-3 shrink-0" />
+                                Cooldown active
+                              </span>
+                            )}
                           <button
                             className="hover:text-foreground transition-colors"
                             title={`Filter by ${merchantName ?? `Merchant #${entry.merchantId}`}`}
@@ -2485,6 +2523,20 @@ export default function AdminSettings() {
                           <span>{entry.attemptCount} attempt{entry.attemptCount !== 1 ? "s" : ""}</span>
                           <span>{entry.recipientCount} recipient{entry.recipientCount !== 1 ? "s" : ""}</span>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => {
+                            setResetCooldownMerchantId(entry.merchantId);
+                            resetWebhookCooldown({ params: { merchantId: entry.merchantId } });
+                          }}
+                          disabled={resettingWebhookCooldown || clearingWebhookAlertHistory}
+                          title={`Clear cooldown for Merchant #${entry.merchantId} so the next failure triggers a fresh alert email`}
+                        >
+                          <RotateCcw className="w-3 h-3 mr-1" />
+                          {resettingWebhookCooldown && resetCooldownMerchantId === entry.merchantId ? "Resetting…" : "Reset cooldown"}
+                        </Button>
                       </div>
                       <p className="text-xs text-muted-foreground font-mono break-all">{entry.failedUrl}</p>
                       {inCooldown && (

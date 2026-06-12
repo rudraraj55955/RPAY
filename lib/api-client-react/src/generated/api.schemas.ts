@@ -3800,6 +3800,19 @@ export type ClearWebhookFailureAlertHistory200 = {
   cleared: boolean;
 };
 
+export type ResetWebhookFailureAlertCooldownParams = {
+/**
+ * Merchant ID whose cooldown should be cleared. If omitted, resets cooldown for all merchants.
+ */
+merchantId?: number;
+};
+
+export type ResetWebhookFailureAlertCooldown200 = {
+  reset: boolean;
+  merchantId?: number | null;
+  deleted: number;
+};
+
 export type GetSignatureFailureAlertHistoryParams = {
 /**
  * @minimum 1

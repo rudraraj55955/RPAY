@@ -290,6 +290,8 @@ export * from './renewPlanInput';
 export * from './reorderMerchantSavedFiltersInput';
 export * from './resendReconciliationAlertEmail200';
 export * from './resendReconciliationReportEmail200';
+export * from './resetWebhookFailureAlertCooldown200';
+export * from './resetWebhookFailureAlertCooldownParams';
 export * from './retryCallback200';
 export * from './retryWebhookLog200';
 export * from './runLedgerBackfill200';

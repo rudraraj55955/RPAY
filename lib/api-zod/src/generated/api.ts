@@ -4999,6 +4999,20 @@ export const ClearWebhookFailureAlertHistoryResponse = zod.object({
 
 
 /**
+ * @summary Reset webhook failure alert cooldown for a specific merchant or globally (admin only)
+ */
+export const ResetWebhookFailureAlertCooldownQueryParams = zod.object({
+  "merchantId": zod.coerce.number().optional().describe('Merchant ID whose cooldown should be cleared. If omitted, resets cooldown for all merchants.')
+})
+
+export const ResetWebhookFailureAlertCooldownResponse = zod.object({
+  "reset": zod.boolean(),
+  "merchantId": zod.number().nullish(),
+  "deleted": zod.number()
+})
+
+
+/**
  * @summary Get signature failure alert send history (admin only)
  */
 export const getSignatureFailureAlertHistoryQueryLimitDefault = 50;

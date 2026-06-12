@@ -5123,6 +5123,34 @@ paths:
                   cleared:
                     type: boolean
 
+  /system-config/webhook-failure-alert/reset-cooldown:
+    post:
+      operationId: resetWebhookFailureAlertCooldown
+      tags: [system-config]
+      summary: Reset webhook failure alert cooldown for a specific merchant or globally (admin only)
+      parameters:
+        - name: merchantId
+          in: query
+          schema:
+            type: integer
+          description: Merchant ID whose cooldown should be cleared. If omitted, resets cooldown for all merchants.
+      responses:
+        "200":
+          description: Cooldown reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reset, deleted]
+                properties:
+                  reset:
+                    type: boolean
+                  merchantId:
+                    type: integer
+                    nullable: true
+                  deleted:
+                    type: integer
+
   /system-config/signature-failure-alert-history:
     get:
       operationId: getSignatureFailureAlertHistory

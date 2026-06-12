@@ -7749,7 +7749,7 @@ components:
 
     AuditReportSchedule:
       type: object
-      required: [id, frequency, recipientEmail, isActive, maxRetryAttempts, retryBackoffMinutes, consecutiveFailures, autoPauseAfterFailures, lastSendStatus, sendCount, successCount, retryInProgress, currentRetryAttempt, createdAt, updatedAt, nextRetryAt]
+      required: [id, frequency, recipientEmail, isActive, maxRetryAttempts, retryBackoffMinutes, consecutiveFailures, autoPauseAfterFailures, lastSendStatus, sendCount, successCount, retryInProgress, currentRetryAttempt, createdAt, updatedAt, nextRetryAt, lastDeliveryAttempts]
       properties:
         id:
           type: integer
@@ -7792,6 +7792,9 @@ components:
         autoPauseAfterFailures:
           type: integer
           description: The schedule is automatically set to inactive (paused) when consecutiveFailures reaches this threshold.
+        lastDeliveryAttempts:
+          type: integer
+          description: Total number of send attempts (initial + retries) for the most recent delivery cycle. 0 if the schedule has never been sent, 1 if the last delivery succeeded or failed on the first try, >1 if retries were needed.
         createdAt:
           type: string
         updatedAt:

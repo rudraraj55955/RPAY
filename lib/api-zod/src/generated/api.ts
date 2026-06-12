@@ -3199,6 +3199,7 @@ export const ListAuditReportSchedulesResponse = zod.object({
   "nextRetryAt": zod.string().nullable().describe('ISO timestamp of the next scheduled retry attempt (lastLogSentAt + retryBackoffMinutes). Null when no retry is pending.'),
   "consecutiveFailures": zod.number().describe('Number of consecutive delivery failures since the last successful send (reset to 0 on success).'),
   "autoPauseAfterFailures": zod.number().describe('The schedule is automatically set to inactive (paused) when consecutiveFailures reaches this threshold.'),
+  "lastDeliveryAttempts": zod.number().describe('Total number of send attempts (initial + retries) for the most recent delivery cycle. 0 if the schedule has never been sent, 1 if the last delivery succeeded or failed on the first try, >1 if retries were needed.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }))
@@ -3238,6 +3239,7 @@ export const SendAuditReportNowResponse = zod.object({
   "nextRetryAt": zod.string().nullable().describe('ISO timestamp of the next scheduled retry attempt (lastLogSentAt + retryBackoffMinutes). Null when no retry is pending.'),
   "consecutiveFailures": zod.number().describe('Number of consecutive delivery failures since the last successful send (reset to 0 on success).'),
   "autoPauseAfterFailures": zod.number().describe('The schedule is automatically set to inactive (paused) when consecutiveFailures reaches this threshold.'),
+  "lastDeliveryAttempts": zod.number().describe('Total number of send attempts (initial + retries) for the most recent delivery cycle. 0 if the schedule has never been sent, 1 if the last delivery succeeded or failed on the first try, >1 if retries were needed.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -3330,6 +3332,7 @@ export const UpdateAuditReportScheduleResponse = zod.object({
   "nextRetryAt": zod.string().nullable().describe('ISO timestamp of the next scheduled retry attempt (lastLogSentAt + retryBackoffMinutes). Null when no retry is pending.'),
   "consecutiveFailures": zod.number().describe('Number of consecutive delivery failures since the last successful send (reset to 0 on success).'),
   "autoPauseAfterFailures": zod.number().describe('The schedule is automatically set to inactive (paused) when consecutiveFailures reaches this threshold.'),
+  "lastDeliveryAttempts": zod.number().describe('Total number of send attempts (initial + retries) for the most recent delivery cycle. 0 if the schedule has never been sent, 1 if the last delivery succeeded or failed on the first try, >1 if retries were needed.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })

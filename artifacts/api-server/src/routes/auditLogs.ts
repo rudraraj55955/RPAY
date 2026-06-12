@@ -637,9 +637,11 @@ router.get("/schedules", async (req, res) => {
         }
       }
       const retriesExhausted = r.lastSuccess === false && currentRetryAttempt >= MAX_RETRY_ATTEMPTS;
+      const lastSendStatus = deriveLastSendStatus(r.lastSuccess);
+      const lastDeliveryAttempts = lastSendStatus === "none" ? 0 : currentRetryAttempt + 1;
       return {
         ...serializeSchedule(r),
-        lastSendStatus: deriveLastSendStatus(r.lastSuccess),
+        lastSendStatus,
         lastErrorMessage: r.lastErrorMessage ?? null,
         sendCount: Number(r.sendCount),
         successCount: Number(r.successCount),
@@ -648,6 +650,7 @@ router.get("/schedules", async (req, res) => {
         retryInProgress,
         nextRetryAt,
         retriesExhausted,
+        lastDeliveryAttempts,
       };
     }),
   });

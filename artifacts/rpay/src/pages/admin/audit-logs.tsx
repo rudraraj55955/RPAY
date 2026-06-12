@@ -1234,6 +1234,21 @@ function ScheduleRow({
                 Never sent
               </span>
             )}
+            {s.lastDeliveryAttempts > 1 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 cursor-default">
+                      <RotateCcw className="w-2.5 h-2.5" />
+                      {s.lastDeliveryAttempts} attempts
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    The last delivery required {s.lastDeliveryAttempts} attempts ({s.lastDeliveryAttempts - 1} retr{s.lastDeliveryAttempts - 1 === 1 ? "y" : "ies"} after the initial send).
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${
               s.isActive
                 ? "bg-violet-500/10 text-violet-400 border-violet-500/20"

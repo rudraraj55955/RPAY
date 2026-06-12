@@ -2230,8 +2230,9 @@ function SecurityEventsPanel() {
       {total > 20 && (
         <div className="flex items-center justify-between px-6 py-4 border-t border-border/40">
           <span className="text-sm text-muted-foreground">{total} total events</span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
+            <span className="text-sm text-muted-foreground px-1">Page {page} of {Math.ceil(total / 20)}</span>
             <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total}>Next</Button>
           </div>
         </div>
@@ -3208,8 +3209,9 @@ export default function AdminAuditLogs() {
           {total > 20 && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">{total} total events</span>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
+                <span className="text-sm text-muted-foreground px-1">Page {page} of {Math.ceil(total / 20)}</span>
                 <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total}>Next</Button>
               </div>
             </div>

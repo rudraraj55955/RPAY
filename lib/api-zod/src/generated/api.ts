@@ -4794,7 +4794,8 @@ export const getWebhookFailureAlertHistoryQueryLimitMax = 200;
 
 
 export const GetWebhookFailureAlertHistoryQueryParams = zod.object({
-  "limit": zod.coerce.number().min(1).max(getWebhookFailureAlertHistoryQueryLimitMax).default(getWebhookFailureAlertHistoryQueryLimitDefault)
+  "limit": zod.coerce.number().min(1).max(getWebhookFailureAlertHistoryQueryLimitMax).default(getWebhookFailureAlertHistoryQueryLimitDefault),
+  "merchantId": zod.coerce.number().optional().describe('Filter results to a specific merchant')
 })
 
 export const GetWebhookFailureAlertHistoryResponse = zod.object({

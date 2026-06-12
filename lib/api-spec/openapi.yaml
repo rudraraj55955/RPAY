@@ -4894,6 +4894,11 @@ paths:
             minimum: 1
             maximum: 200
             default: 50
+        - name: merchantId
+          in: query
+          schema:
+            type: integer
+          description: Filter results to a specific merchant
       responses:
         "200":
           description: List of webhook failure alert log entries

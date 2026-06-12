@@ -12,4 +12,8 @@ export type GetWebhookFailureAlertHistoryParams = {
  * @maximum 200
  */
 limit?: number;
+/**
+ * Filter results to a specific merchant
+ */
+merchantId?: number;
 };

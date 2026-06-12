@@ -606,14 +606,21 @@ router.get("/webhook-retry-policy", async (req, res, next) => {
 router.get("/webhook-failure-alert-history", async (req, res, next) => {
   try {
     const limit = Math.min(parseInt((req.query['limit'] as string) || "50") || 50, 200);
+    const merchantIdRaw = req.query['merchantId'] as string | undefined;
+    const merchantId = merchantIdRaw ? parseInt(merchantIdRaw) || null : null;
+
+    const whereClause = merchantId != null
+      ? eq(webhookFailureAlertLogsTable.merchantId, merchantId)
+      : undefined;
 
     const [rows, [{ total }]] = await Promise.all([
       db
         .select()
         .from(webhookFailureAlertLogsTable)
+        .where(whereClause)
         .orderBy(desc(webhookFailureAlertLogsTable.sentAt))
         .limit(limit),
-      db.select({ total: count() }).from(webhookFailureAlertLogsTable),
+      db.select({ total: count() }).from(webhookFailureAlertLogsTable).where(whereClause),
     ]);
 
     res.json({ data: rows, total });

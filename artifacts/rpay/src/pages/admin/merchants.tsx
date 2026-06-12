@@ -16,8 +16,10 @@ import {
   useListCallbackLogs, useRetryCallback, useGetWebhookLogAttempts,
   useGetAdminMerchantWebhookConfig,
   useUpdateMerchantWebhookMaxRetries,
+  useGetWebhookFailureAlertHistory,
   getListMerchantsQueryKey,
   listMerchants,
+  type WebhookFailureAlertLogEntry,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -319,6 +321,11 @@ export default function AdminMerchants() {
     assignPlanMerchant?.id ?? 0,
     { query: { enabled: !!assignPlanMerchant, queryKey: ["getAdminMerchantWebhookConfig", assignPlanMerchant?.id ?? 0], retry: false } }
   );
+  const { data: merchantWebhookAlertHistory, isLoading: webhookAlertHistoryLoading } = useGetWebhookFailureAlertHistory(
+    { merchantId: assignPlanMerchant?.id ?? 0, limit: 50 },
+    { query: { enabled: !!assignPlanMerchant, queryKey: ["getWebhookFailureAlertHistory", "merchant", assignPlanMerchant?.id ?? 0] } }
+  );
+  const merchantWebhookAlerts: WebhookFailureAlertLogEntry[] = merchantWebhookAlertHistory?.data ?? [];
   const { data: credentialEvents, isLoading: credEventsLoading } = useListMerchantCredentialEvents(
     assignPlanMerchant?.id ?? 0,
     credEventFilter ? { eventType: credEventFilter } : undefined,
@@ -2367,6 +2374,53 @@ export default function AdminMerchants() {
                       {updateWebhookMaxRetriesMutation.isPending ? <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</> : "Save"}
                     </Button>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Webhook Failure Alerts */}
+            <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-muted-foreground shrink-0" />
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Webhook Failure Alerts</p>
+                {merchantWebhookAlerts.length > 0 && (
+                  <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                    {merchantWebhookAlerts.length} alert{merchantWebhookAlerts.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              {webhookAlertHistoryLoading ? (
+                <div className="space-y-2">
+                  {[1, 2].map(i => (
+                    <div key={i} className="animate-pulse h-14 rounded-lg bg-muted/30" />
+                  ))}
+                </div>
+              ) : merchantWebhookAlerts.length === 0 ? (
+                <div className="flex flex-col items-center gap-1.5 py-4 text-center">
+                  <AlertTriangle className="w-5 h-5 text-muted-foreground/30" />
+                  <p className="text-xs text-muted-foreground">No webhook failure alerts sent for this merchant.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {merchantWebhookAlerts.map((entry) => (
+                    <div key={entry.id} className="rounded-lg border border-border/50 bg-muted/5 px-3 py-2.5 space-y-1">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-medium">
+                          {new Date(entry.sentAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                        </span>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{entry.attemptCount} attempt{entry.attemptCount !== 1 ? "s" : ""}</span>
+                          <span>{entry.recipientCount} recipient{entry.recipientCount !== 1 ? "s" : ""}</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground font-mono break-all">{entry.failedUrl}</p>
+                      {entry.recipientEmails.length > 0 && (
+                        <p className="text-[11px] text-muted-foreground/70">
+                          Sent to: {entry.recipientEmails.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

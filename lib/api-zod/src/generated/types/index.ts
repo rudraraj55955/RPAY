@@ -103,6 +103,7 @@ export * from './ekqrTestWebhookResultSyntheticPayload';
 export * from './ekqrWebhookLog';
 export * from './ekqrWebhookLogListResponse';
 export * from './ekqrWebhookLogProcessingResult';
+export * from './ekqrWebhookStats';
 export * from './errorResponse';
 export * from './expiryCheckResult';
 export * from './exportAdminAuditLogsCsvParams';

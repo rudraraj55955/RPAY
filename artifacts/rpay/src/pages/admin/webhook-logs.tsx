@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useListCallbackLogs, useGetWebhookLogAttempts, useGetWebhookRetryPolicy, useListEkqrWebhookLogs } from "@workspace/api-client-react";
 import type { CallbackLogAttempt, WebhookRetryPolicy } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -492,11 +492,15 @@ function EkqrWebhookLogsTab() {
 }
 
 export default function AdminWebhookLogs() {
+  const search_ = useSearch();
+  const params = new URLSearchParams(search_);
+  const initialTab = params.get("tab") === "ekqr" ? "ekqr" : "outgoing";
+
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [sigVerified, setSigVerified] = useState("all");
   const [page, setPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<"outgoing" | "ekqr">("outgoing");
+  const [activeTab, setActiveTab] = useState<"outgoing" | "ekqr">(initialTab);
 
   const sigVerifiedParam = sigVerified === "all" ? undefined : (sigVerified as any);
 

@@ -5354,6 +5354,17 @@ export const TestEkqrWebhookResponse = zod.object({
 
 
 /**
+ * @summary Get EKQR webhook stats for the last 24 hours (admin only)
+ */
+export const GetEkqrWebhookStatsResponse = zod.object({
+  "received": zod.number().describe('Total EKQR webhooks received in the window'),
+  "credited": zod.number().describe('Count of webhooks with processingResult = credited'),
+  "errorCount": zod.number().describe('Count of webhooks with processingResult = error'),
+  "windowHours": zod.number().describe('The time window in hours used for this summary')
+})
+
+
+/**
  * @summary List EKQR incoming webhook log entries (admin only)
  */
 export const listEkqrWebhookLogsQueryPageDefault = 1;

@@ -2989,6 +2989,17 @@ export interface EkqrSyncResult {
   qrStatus: string;
 }
 
+export interface EkqrWebhookStats {
+  /** Total EKQR webhooks received in the window */
+  received: number;
+  /** Count of webhooks with processingResult = credited */
+  credited: number;
+  /** Count of webhooks with processingResult = error */
+  errorCount: number;
+  /** The time window in hours used for this summary */
+  windowHours: number;
+}
+
 export type EkqrWebhookLogProcessingResult = typeof EkqrWebhookLogProcessingResult[keyof typeof EkqrWebhookLogProcessingResult];
 
 

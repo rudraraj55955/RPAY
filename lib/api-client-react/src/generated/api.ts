@@ -86,6 +86,7 @@ import type {
   EkqrTestResult,
   EkqrTestWebhookResult,
   EkqrWebhookLogListResponse,
+  EkqrWebhookStats,
   ErrorResponse,
   ExpiryCheckResult,
   ExportAdminAuditLogsCsvParams,
@@ -18383,6 +18384,83 @@ export const useTestEkqrWebhook = <TError = ErrorType<void>,
       > => {
       return useMutation(getTestEkqrWebhookMutationOptions(options));
     }
+
+export const getGetEkqrWebhookStatsUrl = () => {
+
+
+
+
+  return `/api/ekqr/webhook-stats`
+}
+
+/**
+ * @summary Get EKQR webhook stats for the last 24 hours (admin only)
+ */
+export const getEkqrWebhookStats = async ( options?: RequestInit): Promise<EkqrWebhookStats> => {
+
+  return customFetch<EkqrWebhookStats>(getGetEkqrWebhookStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEkqrWebhookStatsQueryKey = () => {
+    return [
+    `/api/ekqr/webhook-stats`
+    ] as const;
+    }
+
+
+export const getGetEkqrWebhookStatsQueryOptions = <TData = Awaited<ReturnType<typeof getEkqrWebhookStats>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEkqrWebhookStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEkqrWebhookStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEkqrWebhookStats>>> = ({ signal }) => getEkqrWebhookStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEkqrWebhookStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEkqrWebhookStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getEkqrWebhookStats>>>
+export type GetEkqrWebhookStatsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get EKQR webhook stats for the last 24 hours (admin only)
+ */
+
+export function useGetEkqrWebhookStats<TData = Awaited<ReturnType<typeof getEkqrWebhookStats>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEkqrWebhookStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEkqrWebhookStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListEkqrWebhookLogsUrl = (params?: ListEkqrWebhookLogsParams,) => {
   const normalizedParams = new URLSearchParams();

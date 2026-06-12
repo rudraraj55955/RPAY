@@ -6,6 +6,29 @@ import { requireAuth, requireAdmin } from "../middlewares/auth";
 const router = Router();
 router.use(requireAuth, requireAdmin);
 
+// GET /api/ekqr/webhook-stats
+router.get("/webhook-stats", async (req, res, next) => {
+  try {
+    const windowHours = 24;
+    const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+
+    const [receivedRow, creditedRow, errorRow] = await Promise.all([
+      db.select({ total: count() }).from(ekqrWebhookLogsTable).where(gte(ekqrWebhookLogsTable.receivedAt, since)),
+      db.select({ total: count() }).from(ekqrWebhookLogsTable).where(and(gte(ekqrWebhookLogsTable.receivedAt, since), eq(ekqrWebhookLogsTable.processingResult, "credited"))),
+      db.select({ total: count() }).from(ekqrWebhookLogsTable).where(and(gte(ekqrWebhookLogsTable.receivedAt, since), eq(ekqrWebhookLogsTable.processingResult, "error"))),
+    ]);
+
+    res.json({
+      received: receivedRow[0]?.total ?? 0,
+      credited: creditedRow[0]?.total ?? 0,
+      errorCount: errorRow[0]?.total ?? 0,
+      windowHours,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/ekqr/webhook-logs
 router.get("/webhook-logs", async (req, res, next) => {
   try {

@@ -1,7 +1,7 @@
-import { useGetDashboardStats, useGetDashboardChart, useGetDashboardMerchantVolumes, useGetDashboardNotifications, useGetDashboardRisk, useGetDashboardReconSummary, useGetDashboardProviderVolumes, useGetGithubSyncStatus, useGetDashboardWebhookHealth } from "@workspace/api-client-react";
+import { useGetDashboardStats, useGetDashboardChart, useGetDashboardMerchantVolumes, useGetDashboardNotifications, useGetDashboardRisk, useGetDashboardReconSummary, useGetDashboardProviderVolumes, useGetGithubSyncStatus, useGetDashboardWebhookHealth, useGetEkqrWebhookStats } from "@workspace/api-client-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDownLeft, ArrowUpRight, Activity, Clock, Store, AlertTriangle, Bell, TrendingDown, ShieldAlert, ChevronRight, CheckCircle2, XCircle, GitCompareArrows, Zap, Github, Webhook } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Activity, Clock, Store, AlertTriangle, Bell, TrendingDown, ShieldAlert, ChevronRight, CheckCircle2, XCircle, GitCompareArrows, Zap, Github, Webhook, Radio } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend } from "recharts";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const { data: providerVolumes, isLoading: pvLoading } = useGetDashboardProviderVolumes();
   const { data: githubSync } = useGetGithubSyncStatus();
   const { data: webhookHealth } = useGetDashboardWebhookHealth();
+  const { data: ekqrStats } = useGetEkqrWebhookStats();
 
   return (
     <div className="space-y-6">
@@ -165,6 +166,44 @@ export default function AdminDashboard() {
                       ) : (
                         <p className="text-sm font-semibold text-emerald-400">All webhooks healthy — no failures</p>
                       )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span>View logs</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        );
+      })()}
+
+      {ekqrStats && (() => {
+        const hasErrors = ekqrStats.errorCount > 0;
+        const errorRate = ekqrStats.received > 0
+          ? ((ekqrStats.errorCount / ekqrStats.received) * 100).toFixed(1)
+          : "0.0";
+        return (
+          <Link href="/admin/webhook-logs?tab=ekqr">
+            <Card className={`cursor-pointer transition-all hover:border-border/80 ${hasErrors ? "border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10" : "border-teal-500/30 bg-teal-500/5 hover:bg-teal-500/10"}`}>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${hasErrors ? "bg-rose-500/15" : "bg-teal-500/15"}`}>
+                      <Radio className={`w-4 h-4 ${hasErrors ? "text-rose-400" : "text-teal-400"}`} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">EKQR Incoming — Last 24h</p>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-sm font-semibold">{ekqrStats.received} received</span>
+                        <span className="text-xs text-emerald-400 font-medium">{ekqrStats.credited} credited</span>
+                        {hasErrors ? (
+                          <span className="text-xs text-rose-400 font-medium">{ekqrStats.errorCount} error{ekqrStats.errorCount !== 1 ? "s" : ""} ({errorRate}%)</span>
+                        ) : (
+                          <span className="text-xs text-teal-400 font-medium">0 errors</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">

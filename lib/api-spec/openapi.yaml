@@ -5784,6 +5784,25 @@ paths:
         "403":
           description: Forbidden
 
+  /ekqr/webhook-stats:
+    get:
+      operationId: getEkqrWebhookStats
+      tags: [system-config]
+      summary: Get EKQR webhook stats for the last 24 hours (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: EKQR webhook counts for the last 24 hours
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EkqrWebhookStats"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
   /ekqr/webhook-logs:
     get:
       operationId: listEkqrWebhookLogs
@@ -9683,6 +9702,23 @@ components:
         qrStatus:
           type: string
           description: Current QR code status in RasoKart
+
+    EkqrWebhookStats:
+      type: object
+      required: [received, credited, errorCount, windowHours]
+      properties:
+        received:
+          type: integer
+          description: Total EKQR webhooks received in the window
+        credited:
+          type: integer
+          description: Count of webhooks with processingResult = credited
+        errorCount:
+          type: integer
+          description: Count of webhooks with processingResult = error
+        windowHours:
+          type: integer
+          description: The time window in hours used for this summary
 
     EkqrWebhookLog:
       type: object

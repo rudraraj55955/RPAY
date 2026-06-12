@@ -10,7 +10,7 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, useTestEkqrWebhook, getGetEkqrConfigQueryKey, useGetQrCleanupHistory, useGetVaCleanupHistory, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, useTestEkqrWebhook, getGetEkqrConfigQueryKey, useGetQrCleanupHistory, useGetVaCleanupHistory, useListMerchants, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -219,6 +219,7 @@ export default function AdminSettings() {
 
   const [webhookAlertCooldownHours, setWebhookAlertCooldownHours] = useState<number>(1);
   const [webhookAlertCooldownInitialized, setWebhookAlertCooldownInitialized] = useState(false);
+  const [webhookAlertMerchantFilter, setWebhookAlertMerchantFilter] = useState<number | null>(null);
 
   const [githubSyncEnabled, setGithubSyncEnabled] = useState<boolean>(true);
   const [githubSyncSchedule, setGithubSyncSchedule] = useState<string>("0 2 * * *");
@@ -737,9 +738,18 @@ export default function AdminSettings() {
     },
   });
 
-  const { data: webhookAlertHistoryData, refetch: refetchWebhookAlertHistory } = useGetWebhookFailureAlertHistory();
+  const webhookAlertHistoryParams = webhookAlertMerchantFilter != null
+    ? { merchantId: webhookAlertMerchantFilter }
+    : undefined;
+  const { data: webhookAlertHistoryData, refetch: refetchWebhookAlertHistory } = useGetWebhookFailureAlertHistory(webhookAlertHistoryParams);
   const webhookAlertHistory: WebhookFailureAlertLogEntry[] = webhookAlertHistoryData?.data ?? [];
-  const webhookAlertHistoryCount = webhookAlertHistoryData?.total ?? 0;
+
+  const { data: webhookAlertGlobalData, refetch: refetchWebhookAlertGlobal } = useGetWebhookFailureAlertHistory({ limit: 1 });
+  const webhookAlertGlobalCount = webhookAlertGlobalData?.total ?? 0;
+
+  const { data: webhookAlertMerchantsData } = useListMerchants({ limit: 200 });
+  const webhookAlertMerchants = webhookAlertMerchantsData?.data ?? [];
+  const webhookAlertMerchantMap = new Map(webhookAlertMerchants.map((m) => [m.id, m.businessName]));
 
   const { mutate: clearWebhookAlertHistory, isPending: clearingWebhookAlertHistory } = useClearWebhookFailureAlertHistory({
     mutation: {
@@ -747,6 +757,7 @@ export default function AdminSettings() {
         toast.success("Webhook failure alert history cleared");
         qc.invalidateQueries({ queryKey: getGetWebhookFailureAlertHistoryQueryKey() });
         void refetchWebhookAlertHistory();
+        void refetchWebhookAlertGlobal();
       },
       onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to clear history")),
     },
@@ -2312,48 +2323,92 @@ export default function AdminSettings() {
               <Wifi className="w-4 h-4 text-muted-foreground" />
               <CardTitle className="text-base">Webhook Failure Alert History</CardTitle>
             </div>
-            {webhookAlertHistoryCount > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
-                onClick={() => clearWebhookAlertHistory()}
-                disabled={clearingWebhookAlertHistory}
-              >
-                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                {clearingWebhookAlertHistory ? "Clearing…" : `Clear (${webhookAlertHistoryCount})`}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {webhookAlertMerchants.length > 0 && (
+                <Select
+                  value={webhookAlertMerchantFilter != null ? String(webhookAlertMerchantFilter) : "all"}
+                  onValueChange={(v) => setWebhookAlertMerchantFilter(v === "all" ? null : parseInt(v))}
+                >
+                  <SelectTrigger className="h-8 text-xs w-48">
+                    <SelectValue placeholder="All merchants" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All merchants</SelectItem>
+                    {webhookAlertMerchants.map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        {m.businessName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {webhookAlertGlobalCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
+                  onClick={() => clearWebhookAlertHistory()}
+                  disabled={clearingWebhookAlertHistory}
+                  title="Clears all history across all merchants"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  {clearingWebhookAlertHistory ? "Clearing…" : `Clear all (${webhookAlertGlobalCount})`}
+                </Button>
+              )}
+            </div>
           </div>
           <CardDescription className="text-sm">
             A record of every webhook permanent failure alert email dispatched to admins. Tracks which merchant's webhook failed, the URL, attempt count, and which admins were notified.
+            {webhookAlertMerchantFilter != null && (
+              <span className="ml-1 text-primary">
+                — filtered to {webhookAlertMerchantMap.get(webhookAlertMerchantFilter) ?? `Merchant #${webhookAlertMerchantFilter}`}
+                {" "}<button className="underline underline-offset-2 hover:no-underline" onClick={() => setWebhookAlertMerchantFilter(null)}>clear</button>
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {webhookAlertHistory.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">No webhook failure alert emails have been sent yet.</p>
+            <p className="text-sm text-muted-foreground py-2">
+              {webhookAlertMerchantFilter != null
+                ? `No webhook failure alerts for ${webhookAlertMerchantMap.get(webhookAlertMerchantFilter) ?? `Merchant #${webhookAlertMerchantFilter}`}.`
+                : "No webhook failure alert emails have been sent yet."}
+            </p>
           ) : (
             <div className="space-y-2">
-              {webhookAlertHistory.map((entry) => (
-                <div key={entry.id} className="rounded-lg border border-border/50 bg-muted/5 px-4 py-3 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium">
-                      {new Date(entry.sentAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
-                    </span>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span>Merchant #{entry.merchantId}</span>
-                      <span>{entry.attemptCount} attempt{entry.attemptCount !== 1 ? "s" : ""}</span>
-                      <span>{entry.recipientCount} recipient{entry.recipientCount !== 1 ? "s" : ""}</span>
+              {webhookAlertHistory.map((entry) => {
+                const merchantName = webhookAlertMerchantMap.get(entry.merchantId);
+                return (
+                  <div key={entry.id} className="rounded-lg border border-border/50 bg-muted/5 px-4 py-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium">
+                        {new Date(entry.sentAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                      </span>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <button
+                          className="hover:text-foreground transition-colors"
+                          title={`Filter by ${merchantName ?? `Merchant #${entry.merchantId}`}`}
+                          onClick={() => setWebhookAlertMerchantFilter(entry.merchantId)}
+                        >
+                          {merchantName ? (
+                            <span>{merchantName} <span className="opacity-60">(#{entry.merchantId})</span></span>
+                          ) : (
+                            <span>Merchant #{entry.merchantId}</span>
+                          )}
+                        </button>
+                        <span>{entry.attemptCount} attempt{entry.attemptCount !== 1 ? "s" : ""}</span>
+                        <span>{entry.recipientCount} recipient{entry.recipientCount !== 1 ? "s" : ""}</span>
+                      </div>
                     </div>
+                    <p className="text-xs text-muted-foreground font-mono break-all">{entry.failedUrl}</p>
+                    {entry.recipientEmails.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Sent to: {entry.recipientEmails.join(", ")}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground font-mono break-all">{entry.failedUrl}</p>
-                  {entry.recipientEmails.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Sent to: {entry.recipientEmails.join(", ")}
-                    </p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

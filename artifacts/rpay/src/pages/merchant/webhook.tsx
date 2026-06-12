@@ -719,7 +719,38 @@ export default function MerchantWebhook() {
   const { data: config, isLoading } = useGetWebhookConfig();
   const { data: secretStatus, isLoading: secretLoading } = useGetCallbackSecret();
   const WEBHOOK_DATE_RANGE_KEY = "rasokart_webhook_date_range";
-  const [eventTypeFilter, setEventTypeFilter] = useState<string | null>(null);
+  const WEBHOOK_EVENT_FILTER_KEY = "rasokart_webhook_event_filter";
+  const WEBHOOK_STATUS_FILTER_KEY = "rasokart_webhook_status_filter";
+  const [eventTypeFilter, setEventTypeFilterRaw] = useState<string | null>(() => {
+    try { return localStorage.getItem(WEBHOOK_EVENT_FILTER_KEY) ?? null; } catch { return null; }
+  });
+  const setEventTypeFilter = (value: string | null) => {
+    setEventTypeFilterRaw(value);
+    try {
+      if (value == null) {
+        localStorage.removeItem(WEBHOOK_EVENT_FILTER_KEY);
+      } else {
+        localStorage.setItem(WEBHOOK_EVENT_FILTER_KEY, value);
+      }
+    } catch { /* ignore */ }
+  };
+  const [statusFilter, setStatusFilterRaw] = useState<"all" | "success" | "failed" | "pending_retry">(() => {
+    try {
+      const stored = localStorage.getItem(WEBHOOK_STATUS_FILTER_KEY);
+      if (stored === "success" || stored === "failed" || stored === "pending_retry") return stored;
+    } catch { /* ignore */ }
+    return "all";
+  });
+  const setStatusFilter = (value: "all" | "success" | "failed" | "pending_retry") => {
+    setStatusFilterRaw(value);
+    try {
+      if (value === "all") {
+        localStorage.removeItem(WEBHOOK_STATUS_FILTER_KEY);
+      } else {
+        localStorage.setItem(WEBHOOK_STATUS_FILTER_KEY, value);
+      }
+    } catch { /* ignore */ }
+  };
   const [fromDate, setFromDate] = useState(() => {
     try { return JSON.parse(localStorage.getItem(WEBHOOK_DATE_RANGE_KEY) ?? "{}").from ?? ""; } catch { return ""; }
   });
@@ -890,7 +921,8 @@ onError: () => toast.error("Failed to send test event"),
     toast.success("Copied to clipboard");
   };
 
-  const logs = logsData?.data ?? [];
+  const allLogs = logsData?.data ?? [];
+  const logs = statusFilter === "all" ? allLogs : allLogs.filter(l => l.status === statusFilter);
 
   if (isLoading) return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-muted/50 rounded-lg animate-pulse" />)}</div>;
 
@@ -1133,8 +1165,35 @@ onError: () => toast.error("Failed to send test event"),
               </button>
             )}
           </div>
+          {/* Status filter pills */}
+          <div className="flex items-center gap-1.5 flex-wrap mb-3">
+            <span className="text-[11px] text-muted-foreground/60 font-medium uppercase tracking-wider shrink-0">Status</span>
+            {(
+              [
+                { value: "all", label: "All" },
+                { value: "success", label: "Success", activeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" },
+                { value: "failed", label: "Failed", activeClass: "bg-rose-500/20 text-rose-300 border-rose-500/40" },
+                { value: "pending_retry", label: "Pending retry", activeClass: "bg-amber-500/20 text-amber-300 border-amber-500/40" },
+              ] as const
+            ).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setStatusFilter(opt.value)}
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-colors border ${
+                  statusFilter === opt.value
+                    ? opt.value === "all"
+                      ? "bg-primary text-primary-foreground border-transparent"
+                      : opt.activeClass
+                    : "bg-muted/20 text-muted-foreground border-border/40 hover:bg-muted/40 hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           {/* Event type filter pills */}
           <div className="flex items-center gap-1.5 flex-wrap mb-4 pb-3 border-b border-border/40">
+            <span className="text-[11px] text-muted-foreground/60 font-medium uppercase tracking-wider shrink-0">Event</span>
             <button
               onClick={() => setEventTypeFilter(null)}
               className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-colors ${

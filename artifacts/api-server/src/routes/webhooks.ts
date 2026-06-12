@@ -180,6 +180,10 @@ router.get("/logs", async (req, res) => {
   const fromRaw = req.query['from'] as string | undefined;
   const toRaw = req.query['to'] as string | undefined;
   const eventTypeFilter = req.query['eventType'] as string | undefined;
+  const statusRaw = req.query['status'] as string | undefined;
+  const statusFilter = (statusRaw === "success" || statusRaw === "failed" || statusRaw === "pending_retry")
+    ? statusRaw
+    : undefined;
 
   const fromDate = fromRaw ? new Date(fromRaw) : null;
   const toDate = toRaw ? new Date(toRaw) : null;
@@ -189,6 +193,7 @@ router.get("/logs", async (req, res) => {
     ...(fromDate && !isNaN(fromDate.getTime()) ? [gte(callbackLogsTable.createdAt, fromDate)] : []),
     ...(toDate && !isNaN(toDate.getTime()) ? [lte(callbackLogsTable.createdAt, toDate)] : []),
     ...(eventTypeFilter ? [eq(callbackLogsTable.eventType, eventTypeFilter)] : []),
+    ...(statusFilter ? [eq(callbackLogsTable.status, statusFilter)] : []),
   ];
 
   const data = await db

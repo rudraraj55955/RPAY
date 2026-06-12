@@ -1539,7 +1539,8 @@ export const GetWebhookLogsQueryParams = zod.object({
   "limit": zod.coerce.number().min(1).max(getWebhookLogsQueryLimitMax).default(getWebhookLogsQueryLimitDefault).describe('Number of recent log entries to return (default 10, max 50)'),
   "from": zod.date().optional().describe('ISO 8601 timestamp — only include logs at or after this time'),
   "to": zod.date().optional().describe('ISO 8601 timestamp — only include logs at or before this time'),
-  "eventType": zod.coerce.string().optional().describe('Filter by event type (e.g. payment.success)')
+  "eventType": zod.coerce.string().optional().describe('Filter by event type (e.g. payment.success)'),
+  "status": zod.enum(['success', 'failed', 'pending_retry']).optional().describe('Filter by delivery status (success, failed, or pending_retry)')
 })
 
 export const GetWebhookLogsResponse = zod.object({

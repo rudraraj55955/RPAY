@@ -1566,6 +1566,12 @@ paths:
           schema:
             type: string
           description: Filter by event type (e.g. payment.success)
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [success, failed, pending_retry]
+          description: Filter by delivery status (success, failed, or pending_retry)
       responses:
         "200":
           description: Recent webhook delivery logs

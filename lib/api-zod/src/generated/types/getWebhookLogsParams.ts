@@ -5,6 +5,7 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { GetWebhookLogsStatus } from './getWebhookLogsStatus';
 
 export type GetWebhookLogsParams = {
 /**
@@ -25,4 +26,8 @@ to?: Date;
  * Filter by event type (e.g. payment.success)
  */
 eventType?: string;
+/**
+ * Filter by delivery status (success, failed, or pending_retry)
+ */
+status?: GetWebhookLogsStatus;
 };

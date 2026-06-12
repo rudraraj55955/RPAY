@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { EVENT_TYPE_COLORS, EventTypeBadge } from "@/components/ui/event-type-badge";
-import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, getGetWebhookLogsQueryKey, useSendWebhookTest, useRetryWebhookLog, useGetWebhookLogStats, getGetWebhookLogStatsQueryKey, useGetWebhookRetryDefaults, useGetWebhookPlatformDefaults, WebhookTestRequestEventType } from "@workspace/api-client-react";
+import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, getGetWebhookLogsQueryKey, useSendWebhookTest, useRetryWebhookLog, useGetWebhookLogStats, getGetWebhookLogStatsQueryKey, useGetWebhookRetryDefaults, useGetWebhookPlatformDefaults, WebhookTestRequestEventType, GetWebhookLogsStatus } from "@workspace/api-client-react";
 import { SECRET_WARN_DAYS, SECRET_ROTATION_OVERDUE_DAYS } from "@/lib/webhook-constants";
 import type { CallbackLog, WebhookLogDayBucket } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -781,6 +781,7 @@ export default function MerchantWebhook() {
     ...(eventTypeFilter != null ? { eventType: eventTypeFilter } : {}),
     ...(fromDate ? { from: new Date(fromDate).toISOString() } : {}),
     ...(toDate ? { to: new Date(toDate).toISOString() } : {}),
+    ...(statusFilter !== "all" ? { status: statusFilter as GetWebhookLogsStatus } : {}),
   };
   const { data: logsData, isLoading: logsLoading } = useGetWebhookLogs(logsParams, {
     query: { queryKey: getGetWebhookLogsQueryKey(logsParams) },
@@ -940,8 +941,7 @@ onError: () => toast.error("Failed to send test event"),
     toast.success("Copied to clipboard");
   };
 
-  const allLogs = logsData?.data ?? [];
-  const logs = statusFilter === "all" ? allLogs : allLogs.filter(l => l.status === statusFilter);
+  const logs = logsData?.data ?? [];
 
   if (isLoading) return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-muted/50 rounded-lg animate-pulse" />)}</div>;
 

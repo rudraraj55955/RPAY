@@ -3211,7 +3211,20 @@ to?: string;
  * Filter by event type (e.g. payment.success)
  */
 eventType?: string;
+/**
+ * Filter by delivery status (success, failed, or pending_retry)
+ */
+status?: GetWebhookLogsStatus;
 };
+
+export type GetWebhookLogsStatus = typeof GetWebhookLogsStatus[keyof typeof GetWebhookLogsStatus];
+
+
+export const GetWebhookLogsStatus = {
+  success: 'success',
+  failed: 'failed',
+  pending_retry: 'pending_retry',
+} as const;
 
 export type GetWebhookLogAttempts200 = {
   data: CallbackLogAttempt[];

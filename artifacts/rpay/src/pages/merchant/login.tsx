@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { RateLimitBanner } from "@/components/ui/rate-limit-banner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShieldAlert } from "lucide-react";
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/support-config";
 
 const ACCOUNT_SUSPENDED_MESSAGE = "Account suspended. Please contact support.";
 
@@ -80,7 +81,14 @@ export default function MerchantLogin() {
             <ShieldAlert className="h-4 w-4" />
             <AlertDescription className="pl-1">
               <span className="font-medium">Your account has been suspended.</span>{" "}
-              <span className="text-red-300/80">Please contact support to restore access.</span>
+              <span className="text-red-300/80">Please </span>
+              <a
+                href={SUPPORT_MAILTO}
+                className="text-red-300 underline underline-offset-2 hover:text-red-200 transition-colors"
+              >
+                contact support
+              </a>
+              <span className="text-red-300/80"> to restore access.</span>
             </AlertDescription>
           </Alert>
         </div>

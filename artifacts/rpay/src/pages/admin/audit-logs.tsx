@@ -1693,9 +1693,11 @@ function ScheduledReportsPanel() {
 function GlobalDeliveryHistoryPanel() {
   const { data, isLoading } = useListAllAuditReportScheduleLogs({ limit: 100 });
   const [openCycles, setOpenCycles] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<"all" | "delivered" | "failed">("all");
+  const [emailFilter, setEmailFilter] = useState("");
   const logs = data?.data ?? [];
 
-  const cycles = (() => {
+  const allCycles = (() => {
     const map = new Map<string, typeof logs>();
     for (const log of logs) {
       const key = log.deliveryCycleId ?? `orphan-${log.id}`;
@@ -1709,6 +1711,23 @@ function GlobalDeliveryHistoryPanel() {
       return { cycleId, attempts, overallSuccess, newestAttempt };
     });
   })();
+
+  const cycles = allCycles.filter(({ overallSuccess, newestAttempt }) => {
+    if (statusFilter === "delivered" && !overallSuccess) return false;
+    if (statusFilter === "failed" && overallSuccess) return false;
+    if (emailFilter.trim()) {
+      const q = emailFilter.trim().toLowerCase();
+      if (!newestAttempt.scheduleEmail.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const hasActiveFilters = statusFilter !== "all" || emailFilter.trim() !== "";
+
+  function clearFilters() {
+    setStatusFilter("all");
+    setEmailFilter("");
+  }
 
   function toggleCycle(cycleId: string) {
     setOpenCycles(prev => {
@@ -1731,6 +1750,51 @@ function GlobalDeliveryHistoryPanel() {
         </p>
       </CardHeader>
       <CardContent className="pt-0">
+        {!isLoading && allCycles.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <Select value={statusFilter} onValueChange={v => setStatusFilter(v as "all" | "delivered" | "failed")}>
+              <SelectTrigger className="h-7 w-[130px] text-xs border-border/50 bg-muted/20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="relative flex-1 min-w-[160px]">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Filter by email…"
+                value={emailFilter}
+                onChange={e => setEmailFilter(e.target.value)}
+                className="h-7 pl-6 text-xs border-border/50 bg-muted/20"
+              />
+              {emailFilter && (
+                <button
+                  type="button"
+                  onClick={() => setEmailFilter("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </Button>
+            )}
+            <span className="text-[11px] text-muted-foreground ml-auto">
+              {cycles.length} of {allCycles.length}
+            </span>
+          </div>
+        )}
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2, 3, 4].map(i => <div key={i} className="h-10 bg-muted/20 rounded animate-pulse" />)}
@@ -1738,8 +1802,17 @@ function GlobalDeliveryHistoryPanel() {
         ) : cycles.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
             <History className="w-7 h-7 opacity-30" />
-            <p className="text-sm">No delivery history yet</p>
-            <p className="text-xs opacity-60">History will appear here after the first scheduled report is sent</p>
+            <p className="text-sm">{allCycles.length === 0 ? "No delivery history yet" : "No results match the current filters"}</p>
+            <p className="text-xs opacity-60">
+              {allCycles.length === 0
+                ? "History will appear here after the first scheduled report is sent"
+                : "Try adjusting the status or email filter"}
+            </p>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="mt-1 text-xs">
+                Clear filters
+              </Button>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-border/30 -mx-6 px-0">

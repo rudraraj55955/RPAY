@@ -64,6 +64,10 @@ import type {
   CallbackSecretStatus,
   CallbackStatsResponse,
   CallbackWindowInput,
+  CashfreeGatewayConfig,
+  CashfreeGatewayConfigInput,
+  CashfreeOrderCreateResult,
+  CashfreePaymentLogsResponse,
   ChartDataPoint,
   CleanupRunHistoryResponse,
   CleanupStats,
@@ -72,6 +76,7 @@ import type {
   ClearTestEmailHistory200,
   ClearVaCleanupHistory200,
   ClearWebhookFailureAlertHistory200,
+  CreateCashfreeOrderBody,
   CreateMerchantSavedFilterInput,
   CreateSavedFilterInput,
   CreateSettlementInput,
@@ -123,6 +128,7 @@ import type {
   ListApiKeyHistoryParams,
   ListAuditReportScheduleLogsParams,
   ListCallbackLogsParams,
+  ListCashfreePaymentLogsParams,
   ListCredentialEventsParams,
   ListEkqrWebhookLogsParams,
   ListInvoicesParams,
@@ -18536,6 +18542,309 @@ export function useGetEkqrWebhookStats<TData = Awaited<ReturnType<typeof getEkqr
 
 
 
+
+export const getGetCashfreeConfigUrl = () => {
+
+
+
+
+  return `/api/system-config/cashfree`
+}
+
+/**
+ * @summary Get Cashfree payment gateway configuration
+ */
+export const getCashfreeConfig = async ( options?: RequestInit): Promise<CashfreeGatewayConfig> => {
+
+  return customFetch<CashfreeGatewayConfig>(getGetCashfreeConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCashfreeConfigQueryKey = () => {
+    return [
+    `/api/system-config/cashfree`
+    ] as const;
+    }
+
+
+export const getGetCashfreeConfigQueryOptions = <TData = Awaited<ReturnType<typeof getCashfreeConfig>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCashfreeConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCashfreeConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCashfreeConfig>>> = ({ signal }) => getCashfreeConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCashfreeConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCashfreeConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getCashfreeConfig>>>
+export type GetCashfreeConfigQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get Cashfree payment gateway configuration
+ */
+
+export function useGetCashfreeConfig<TData = Awaited<ReturnType<typeof getCashfreeConfig>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCashfreeConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCashfreeConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateCashfreeConfigUrl = () => {
+
+
+
+
+  return `/api/system-config/cashfree`
+}
+
+/**
+ * @summary Update Cashfree payment gateway configuration
+ */
+export const updateCashfreeConfig = async (cashfreeGatewayConfigInput: CashfreeGatewayConfigInput, options?: RequestInit): Promise<CashfreeGatewayConfig> => {
+
+  return customFetch<CashfreeGatewayConfig>(getUpdateCashfreeConfigUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      cashfreeGatewayConfigInput,)
+  }
+);}
+
+
+
+
+export const getUpdateCashfreeConfigMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCashfreeConfig>>, TError,{data: BodyType<CashfreeGatewayConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCashfreeConfig>>, TError,{data: BodyType<CashfreeGatewayConfigInput>}, TContext> => {
+
+const mutationKey = ['updateCashfreeConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCashfreeConfig>>, {data: BodyType<CashfreeGatewayConfigInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateCashfreeConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCashfreeConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateCashfreeConfig>>>
+    export type UpdateCashfreeConfigMutationBody = BodyType<CashfreeGatewayConfigInput>
+    export type UpdateCashfreeConfigMutationError = ErrorType<void>
+
+    /**
+ * @summary Update Cashfree payment gateway configuration
+ */
+export const useUpdateCashfreeConfig = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCashfreeConfig>>, TError,{data: BodyType<CashfreeGatewayConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCashfreeConfig>>,
+        TError,
+        {data: BodyType<CashfreeGatewayConfigInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCashfreeConfigMutationOptions(options));
+    }
+
+export const getListCashfreePaymentLogsUrl = (params?: ListCashfreePaymentLogsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/system-config/cashfree/logs?${stringifiedParams}` : `/api/system-config/cashfree/logs`
+}
+
+/**
+ * @summary List Cashfree incoming webhook log entries (admin only)
+ */
+export const listCashfreePaymentLogs = async (params?: ListCashfreePaymentLogsParams, options?: RequestInit): Promise<CashfreePaymentLogsResponse> => {
+
+  return customFetch<CashfreePaymentLogsResponse>(getListCashfreePaymentLogsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCashfreePaymentLogsQueryKey = (params?: ListCashfreePaymentLogsParams,) => {
+    return [
+    `/api/system-config/cashfree/logs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCashfreePaymentLogsQueryOptions = <TData = Awaited<ReturnType<typeof listCashfreePaymentLogs>>, TError = ErrorType<void>>(params?: ListCashfreePaymentLogsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCashfreePaymentLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCashfreePaymentLogsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCashfreePaymentLogs>>> = ({ signal }) => listCashfreePaymentLogs(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCashfreePaymentLogs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCashfreePaymentLogsQueryResult = NonNullable<Awaited<ReturnType<typeof listCashfreePaymentLogs>>>
+export type ListCashfreePaymentLogsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List Cashfree incoming webhook log entries (admin only)
+ */
+
+export function useListCashfreePaymentLogs<TData = Awaited<ReturnType<typeof listCashfreePaymentLogs>>, TError = ErrorType<void>>(
+ params?: ListCashfreePaymentLogsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCashfreePaymentLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCashfreePaymentLogsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateCashfreeOrderUrl = () => {
+
+
+
+
+  return `/api/merchant/cashfree/create-order`
+}
+
+/**
+ * @summary Create a Cashfree payment order (merchant only)
+ */
+export const createCashfreeOrder = async (createCashfreeOrderBody: CreateCashfreeOrderBody, options?: RequestInit): Promise<CashfreeOrderCreateResult> => {
+
+  return customFetch<CashfreeOrderCreateResult>(getCreateCashfreeOrderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createCashfreeOrderBody,)
+  }
+);}
+
+
+
+
+export const getCreateCashfreeOrderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCashfreeOrder>>, TError,{data: BodyType<CreateCashfreeOrderBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCashfreeOrder>>, TError,{data: BodyType<CreateCashfreeOrderBody>}, TContext> => {
+
+const mutationKey = ['createCashfreeOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCashfreeOrder>>, {data: BodyType<CreateCashfreeOrderBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCashfreeOrder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCashfreeOrderMutationResult = NonNullable<Awaited<ReturnType<typeof createCashfreeOrder>>>
+    export type CreateCashfreeOrderMutationBody = BodyType<CreateCashfreeOrderBody>
+    export type CreateCashfreeOrderMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a Cashfree payment order (merchant only)
+ */
+export const useCreateCashfreeOrder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCashfreeOrder>>, TError,{data: BodyType<CreateCashfreeOrderBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCashfreeOrder>>,
+        TError,
+        {data: BodyType<CreateCashfreeOrderBody>},
+        TContext
+      > => {
+      return useMutation(getCreateCashfreeOrderMutationOptions(options));
+    }
 
 export const getListEkqrWebhookLogsUrl = (params?: ListEkqrWebhookLogsParams,) => {
   const normalizedParams = new URLSearchParams();

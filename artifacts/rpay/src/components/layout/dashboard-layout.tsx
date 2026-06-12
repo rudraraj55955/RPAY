@@ -298,6 +298,7 @@ const ADMIN_NAV = [
       { title: "Feature Control", icon: Sliders, href: "/admin/feature-control" },
       { title: "Account Details", icon: CreditCard, href: "/admin/account-details" },
       { title: "Payment Providers", icon: Zap, href: "/admin/providers" },
+      { title: "Cashfree Gateway", icon: CreditCard, href: "/admin/cashfree-gateway" },
       { title: "QR Providers", icon: QrCode, href: "/admin/qr-providers" },
       { title: "Visibility Rules", icon: Eye, href: "/admin/visibility-rules" },
       { title: "Merchant Access", icon: LayoutGrid, href: "/admin/merchant-access" },

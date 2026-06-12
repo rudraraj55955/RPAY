@@ -34,6 +34,8 @@ import githubSyncRouter from "./githubSync";
 import securityRouter from "./security";
 import paymentWebhookRouter from "./paymentWebhook";
 import ekqrRouter from "./ekqr";
+import cashfreeWebhookRouter from "./cashfreeWebhook";
+import cashfreeOrdersRouter from "./cashfreeOrders";
 
 const router: IRouter = Router();
 
@@ -71,6 +73,8 @@ router.use("/merchant/saved-filters", merchantSavedFiltersRouter);
 router.use("/github-sync", githubSyncRouter);
 router.use("/security", securityRouter);
 router.use("/payment", paymentWebhookRouter);
+router.use("/payment", cashfreeWebhookRouter);
 router.use("/ekqr", ekqrRouter);
+router.use("/merchant", cashfreeOrdersRouter);
 
 export default router;

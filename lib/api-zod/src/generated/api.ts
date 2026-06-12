@@ -5422,6 +5422,91 @@ export const GetEkqrWebhookStatsResponse = zod.object({
 
 
 /**
+ * @summary Get Cashfree payment gateway configuration
+ */
+export const GetCashfreeConfigResponse = zod.object({
+  "clientIdSet": zod.boolean().describe('Whether a Cashfree Client ID has been configured'),
+  "clientIdMasked": zod.string().describe('Masked version of the Client ID'),
+  "clientSecretSet": zod.boolean().describe('Whether a Cashfree Client Secret has been configured'),
+  "enabled": zod.boolean().describe('Whether Cashfree gateway is enabled'),
+  "env": zod.enum(['test', 'live']).describe('Cashfree environment (test = sandbox, live = production)'),
+  "webhookSecretSet": zod.boolean().describe('Whether a webhook signature secret has been configured')
+})
+
+
+/**
+ * @summary Update Cashfree payment gateway configuration
+ */
+export const UpdateCashfreeConfigBody = zod.object({
+  "clientId": zod.string().optional().describe('Cashfree Client ID (omit to leave unchanged)'),
+  "clientSecret": zod.string().optional().describe('Cashfree Client Secret (omit to leave unchanged, empty string to clear)'),
+  "webhookSecret": zod.string().optional().describe('Cashfree webhook signature secret (omit to leave unchanged, empty string to clear)'),
+  "enabled": zod.boolean().optional().describe('Whether to enable\/disable Cashfree gateway'),
+  "env": zod.enum(['test', 'live']).optional().describe('Cashfree environment')
+})
+
+export const UpdateCashfreeConfigResponse = zod.object({
+  "clientIdSet": zod.boolean().describe('Whether a Cashfree Client ID has been configured'),
+  "clientIdMasked": zod.string().describe('Masked version of the Client ID'),
+  "clientSecretSet": zod.boolean().describe('Whether a Cashfree Client Secret has been configured'),
+  "enabled": zod.boolean().describe('Whether Cashfree gateway is enabled'),
+  "env": zod.enum(['test', 'live']).describe('Cashfree environment (test = sandbox, live = production)'),
+  "webhookSecretSet": zod.boolean().describe('Whether a webhook signature secret has been configured')
+})
+
+
+/**
+ * @summary List Cashfree incoming webhook log entries (admin only)
+ */
+export const listCashfreePaymentLogsQueryPageDefault = 1;
+export const listCashfreePaymentLogsQueryLimitDefault = 25;
+
+export const ListCashfreePaymentLogsQueryParams = zod.object({
+  "page": zod.coerce.number().default(listCashfreePaymentLogsQueryPageDefault),
+  "limit": zod.coerce.number().default(listCashfreePaymentLogsQueryLimitDefault)
+})
+
+export const ListCashfreePaymentLogsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string().nullish(),
+  "cashfreeOrderId": zod.string().nullish(),
+  "merchantId": zod.number().nullish(),
+  "amount": zod.string().nullish(),
+  "status": zod.string().nullish(),
+  "rawPayload": zod.string(),
+  "processingResult": zod.enum(['credited', 'duplicate', 'ignored', 'error']),
+  "errorMessage": zod.string().nullish(),
+  "receivedAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Create a Cashfree payment order (merchant only)
+ */
+export const createCashfreeOrderBodyCurrencyDefault = `INR`;
+
+export const CreateCashfreeOrderBody = zod.object({
+  "amount": zod.number().describe('Payment amount in INR'),
+  "currency": zod.string().default(createCashfreeOrderBodyCurrencyDefault),
+  "customerPhone": zod.string().describe('Customer phone number (required by Cashfree)'),
+  "customerName": zod.string().optional(),
+  "customerEmail": zod.string().optional(),
+  "note": zod.string().optional()
+})
+
+export const CreateCashfreeOrderResponse = zod.object({
+  "orderId": zod.string().describe('The Cashfree order ID'),
+  "paymentSessionId": zod.string().describe('Payment session ID — use this to redirect the customer to Cashfree hosted checkout'),
+  "env": zod.enum(['test', 'live']).describe('The Cashfree environment the order was created in')
+})
+
+
+/**
  * @summary List EKQR incoming webhook log entries (admin only)
  */
 export const listEkqrWebhookLogsQueryPageDefault = 1;

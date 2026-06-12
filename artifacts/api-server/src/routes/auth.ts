@@ -463,11 +463,11 @@ router.get("/trusted-ips", requireAuth, async (req, res, next) => {
       .select({
         id: merchantTrustedIpsTable.id,
         ipAddress: merchantTrustedIpsTable.ipAddress,
-        trustedAt: merchantTrustedIpsTable.trustedAt,
+        trustedAt: merchantTrustedIpsTable.labeledAt,
       })
       .from(merchantTrustedIpsTable)
       .where(eq(merchantTrustedIpsTable.userId, user.id))
-      .orderBy(desc(merchantTrustedIpsTable.trustedAt));
+      .orderBy(desc(merchantTrustedIpsTable.labeledAt));
 
     res.json({ data: rows.map(r => ({ id: r.id, ipAddress: r.ipAddress, trustedAt: r.trustedAt })) });
   } catch (err) {

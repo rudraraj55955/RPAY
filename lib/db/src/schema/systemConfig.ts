@@ -43,6 +43,11 @@ export const SYSTEM_CONFIG_KEYS = {
   EKQR_SYNC_LAST_RUN_AT: "ekqr_sync_last_run_at",
   EKQR_SYNC_LAST_SYNCED: "ekqr_sync_last_synced",
   EKQR_SYNC_LAST_STUCK: "ekqr_sync_last_stuck",
+  CASHFREE_CLIENT_ID: "cashfree_client_id",
+  CASHFREE_CLIENT_SECRET: "cashfree_client_secret",
+  CASHFREE_ENV: "cashfree_env",
+  CASHFREE_WEBHOOK_SECRET: "cashfree_webhook_secret",
+  CASHFREE_ENABLED: "cashfree_enabled",
 } as const;
 
 export const SYSTEM_CONFIG_DEFAULTS = {
@@ -65,4 +70,6 @@ export const SYSTEM_CONFIG_DEFAULTS = {
   [SYSTEM_CONFIG_KEYS.EKQR_SYNC_STALE_MINUTES]: "15",
   [SYSTEM_CONFIG_KEYS.EKQR_SYNC_STUCK_THRESHOLD]: "10",
   [SYSTEM_CONFIG_KEYS.EKQR_SYNC_ALERT_COOLDOWN_HOURS]: "4",
+  [SYSTEM_CONFIG_KEYS.CASHFREE_ENV]: "test",
+  [SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED]: "false",
 } as const;

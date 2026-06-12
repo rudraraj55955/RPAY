@@ -3104,6 +3104,106 @@ export interface EkqrTestWebhookResult {
   syntheticPayload?: EkqrTestWebhookResultSyntheticPayload;
 }
 
+/**
+ * Cashfree environment (test = sandbox, live = production)
+ */
+export type CashfreeGatewayConfigEnv = typeof CashfreeGatewayConfigEnv[keyof typeof CashfreeGatewayConfigEnv];
+
+
+export const CashfreeGatewayConfigEnv = {
+  test: 'test',
+  live: 'live',
+} as const;
+
+export interface CashfreeGatewayConfig {
+  /** Whether a Cashfree Client ID has been configured */
+  clientIdSet: boolean;
+  /** Masked version of the Client ID */
+  clientIdMasked: string;
+  /** Whether a Cashfree Client Secret has been configured */
+  clientSecretSet: boolean;
+  /** Whether Cashfree gateway is enabled */
+  enabled: boolean;
+  /** Cashfree environment (test = sandbox, live = production) */
+  env: CashfreeGatewayConfigEnv;
+  /** Whether a webhook signature secret has been configured */
+  webhookSecretSet: boolean;
+}
+
+/**
+ * Cashfree environment
+ */
+export type CashfreeGatewayConfigInputEnv = typeof CashfreeGatewayConfigInputEnv[keyof typeof CashfreeGatewayConfigInputEnv];
+
+
+export const CashfreeGatewayConfigInputEnv = {
+  test: 'test',
+  live: 'live',
+} as const;
+
+export interface CashfreeGatewayConfigInput {
+  /** Cashfree Client ID (omit to leave unchanged) */
+  clientId?: string;
+  /** Cashfree Client Secret (omit to leave unchanged, empty string to clear) */
+  clientSecret?: string;
+  /** Cashfree webhook signature secret (omit to leave unchanged, empty string to clear) */
+  webhookSecret?: string;
+  /** Whether to enable/disable Cashfree gateway */
+  enabled?: boolean;
+  /** Cashfree environment */
+  env?: CashfreeGatewayConfigInputEnv;
+}
+
+/**
+ * The Cashfree environment the order was created in
+ */
+export type CashfreeOrderCreateResultEnv = typeof CashfreeOrderCreateResultEnv[keyof typeof CashfreeOrderCreateResultEnv];
+
+
+export const CashfreeOrderCreateResultEnv = {
+  test: 'test',
+  live: 'live',
+} as const;
+
+export interface CashfreeOrderCreateResult {
+  /** The Cashfree order ID */
+  orderId: string;
+  /** Payment session ID — use this to redirect the customer to Cashfree hosted checkout */
+  paymentSessionId: string;
+  /** The Cashfree environment the order was created in */
+  env: CashfreeOrderCreateResultEnv;
+}
+
+export type CashfreePaymentLogProcessingResult = typeof CashfreePaymentLogProcessingResult[keyof typeof CashfreePaymentLogProcessingResult];
+
+
+export const CashfreePaymentLogProcessingResult = {
+  credited: 'credited',
+  duplicate: 'duplicate',
+  ignored: 'ignored',
+  error: 'error',
+} as const;
+
+export interface CashfreePaymentLog {
+  id: number;
+  eventType?: string | null;
+  cashfreeOrderId?: string | null;
+  merchantId?: number | null;
+  amount?: string | null;
+  status?: string | null;
+  rawPayload: string;
+  processingResult: CashfreePaymentLogProcessingResult;
+  errorMessage?: string | null;
+  receivedAt: string;
+}
+
+export interface CashfreePaymentLogsResponse {
+  data: CashfreePaymentLog[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export type UpdateMyPreferencesBody = {
   reconciliationAlertEmails?: boolean;
   planExpiryAlertEmails?: boolean;
@@ -3931,6 +4031,22 @@ export type UpdateGithubSyncConfigBody = {
   enabled?: boolean;
   /** Cron expression for the sync schedule (e.g. "0 2 * * *") */
   schedule?: string;
+};
+
+export type ListCashfreePaymentLogsParams = {
+page?: number;
+limit?: number;
+};
+
+export type CreateCashfreeOrderBody = {
+  /** Payment amount in INR */
+  amount: number;
+  currency?: string;
+  /** Customer phone number (required by Cashfree) */
+  customerPhone: string;
+  customerName?: string;
+  customerEmail?: string;
+  note?: string;
 };
 
 export type ListEkqrWebhookLogsParams = {

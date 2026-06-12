@@ -1095,6 +1095,121 @@ router.post("/storage-cleanup/run", async (req, res, next) => {
   }
 });
 
+// ── Cashfree Payment Gateway config ────────────────────────────────────────
+
+async function getCashfreeConfig() {
+  const keys = [
+    SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_ID,
+    SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_SECRET,
+    SYSTEM_CONFIG_KEYS.CASHFREE_ENV,
+    SYSTEM_CONFIG_KEYS.CASHFREE_WEBHOOK_SECRET,
+    SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED,
+  ];
+  const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
+  const map = new Map(rows.map((r) => [r.key, r.value]));
+  const rawId = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_ID) ?? "";
+  const rawSecret = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_SECRET) ?? "";
+  const rawWHSecret = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_WEBHOOK_SECRET) ?? "";
+  return {
+    clientIdSet: rawId.length > 0,
+    clientIdMasked: rawId.length > 4 ? `${rawId.slice(0, 4)}${"*".repeat(Math.max(0, rawId.length - 8))}${rawId.slice(-4)}` : rawId.length > 0 ? "****" : "",
+    enabled: (map.get(SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED]) === "true",
+    env: (map.get(SYSTEM_CONFIG_KEYS.CASHFREE_ENV) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_ENV]) as "test" | "live",
+    webhookSecretSet: rawWHSecret.length > 0,
+    clientSecretSet: rawSecret.length > 0,
+  };
+}
+
+// GET /api/system-config/cashfree
+router.get("/cashfree", async (req, res, next) => {
+  try {
+    res.json(await getCashfreeConfig());
+  } catch (err) { next(err); }
+});
+
+// PUT /api/system-config/cashfree
+router.put("/cashfree", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { clientId, clientSecret, webhookSecret, enabled, env } = req.body as {
+      clientId?: string;
+      clientSecret?: string;
+      webhookSecret?: string;
+      enabled?: boolean;
+      env?: "test" | "live";
+    };
+
+    if (clientId !== undefined) {
+      await db.insert(systemConfigTable)
+        .values({ key: SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_ID, value: clientId, updatedByEmail: user.email })
+        .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: clientId, updatedByEmail: user.email } });
+    }
+
+    if (clientSecret !== undefined) {
+      if (clientSecret === "") {
+        await db.delete(systemConfigTable).where(eq(systemConfigTable.key, SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_SECRET));
+      } else {
+        await db.insert(systemConfigTable)
+          .values({ key: SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_SECRET, value: clientSecret, updatedByEmail: user.email })
+          .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: clientSecret, updatedByEmail: user.email } });
+      }
+    }
+
+    if (webhookSecret !== undefined) {
+      if (webhookSecret === "") {
+        await db.delete(systemConfigTable).where(eq(systemConfigTable.key, SYSTEM_CONFIG_KEYS.CASHFREE_WEBHOOK_SECRET));
+      } else {
+        await db.insert(systemConfigTable)
+          .values({ key: SYSTEM_CONFIG_KEYS.CASHFREE_WEBHOOK_SECRET, value: webhookSecret, updatedByEmail: user.email })
+          .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: webhookSecret, updatedByEmail: user.email } });
+      }
+    }
+
+    if (enabled !== undefined) {
+      const val = enabled ? "true" : "false";
+      await db.insert(systemConfigTable)
+        .values({ key: SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED, value: val, updatedByEmail: user.email })
+        .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: val, updatedByEmail: user.email } });
+    }
+
+    if (env !== undefined) {
+      await db.insert(systemConfigTable)
+        .values({ key: SYSTEM_CONFIG_KEYS.CASHFREE_ENV, value: env, updatedByEmail: user.email })
+        .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: env, updatedByEmail: user.email } });
+    }
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id, adminEmail: user.email,
+      action: "system_config_updated", targetType: "system_config", targetId: null,
+      details: JSON.stringify({ section: "cashfree", clientIdUpdated: clientId !== undefined, clientSecretUpdated: clientSecret !== undefined, webhookSecretUpdated: webhookSecret !== undefined, enabled, env }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ enabled, env, clientIdUpdated: clientId !== undefined }, "Cashfree config updated");
+    res.json(await getCashfreeConfig());
+  } catch (err) { next(err); }
+});
+
+// GET /api/system-config/cashfree/logs
+router.get("/cashfree/logs", async (req, res, next) => {
+  try {
+    const { cashfreePaymentLogsTable } = await import("@workspace/db");
+    const { desc } = await import("drizzle-orm");
+    const page = Math.max(1, parseInt(req.query["page"] as string) || 1);
+    const limit = Math.min(100, parseInt(req.query["limit"] as string) || 25);
+    const offset = (page - 1) * limit;
+
+    const [rows, [{ count }]] = await Promise.all([
+      db.select().from(cashfreePaymentLogsTable)
+        .orderBy(desc(cashfreePaymentLogsTable.receivedAt))
+        .limit(limit).offset(offset),
+      db.select({ count: sql`count(*)::int` }).from(cashfreePaymentLogsTable),
+    ]);
+
+    res.json({ data: rows.map(r => ({ ...r, receivedAt: r.receivedAt.toISOString() })), total: count as number, page, limit });
+  } catch (err) { next(err); }
+});
+
 // ── EKQR / UPI Gateway config ──────────────────────────────────────────────
 
 async function getEkqrConfig() {

@@ -2552,7 +2552,6 @@ export default function AdminSettings() {
                         </p>
                       )}
                     </div>
-                  </div>
                 );
                 })}
               </div>

@@ -5857,6 +5857,46 @@ paths:
         "403":
           description: Forbidden
 
+  /system-config/cashfree-payout:
+    get:
+      operationId: getCashfreePayoutConfig
+      tags: [system-config]
+      summary: Get Cashfree Payout configuration
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Cashfree Payout configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashfreePayoutConfig"
+        "401":
+          description: Unauthorized
+    put:
+      operationId: updateCashfreePayoutConfig
+      tags: [system-config]
+      summary: Update Cashfree Payout configuration
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CashfreePayoutConfigInput"
+      responses:
+        "200":
+          description: Updated Cashfree Payout configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashfreePayoutConfig"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
   /system-config/cashfree:
     get:
       operationId: getCashfreeConfig
@@ -5974,6 +6014,158 @@ paths:
           description: Forbidden
         "502":
           description: Cashfree API error
+
+  /cashfree-payout:
+    get:
+      operationId: listCashfreePayouts
+      tags: [system-config]
+      summary: List Cashfree payout transfers (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, SUCCESS, FAILED, REVERSED] }
+        - name: merchantId
+          in: query
+          schema: { type: integer }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: List of payout transfers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashfreePayoutListResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+    post:
+      operationId: createCashfreePayout
+      tags: [system-config]
+      summary: Create a single Cashfree payout transfer (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CashfreePayoutCreateInput"
+      responses:
+        "200":
+          description: Payout created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashfreePayoutRow"
+        "400":
+          description: Validation error or gateway not enabled
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /cashfree-payout/bulk:
+    post:
+      operationId: bulkCreateCashfreePayouts
+      tags: [system-config]
+      summary: Submit multiple payout transfers from parsed CSV rows (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rows]
+              properties:
+                rows:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CashfreePayoutCsvRow"
+      responses:
+        "200":
+          description: Bulk submission result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashfreePayoutBulkResult"
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+
+  /cashfree-payout/sync-status:
+    post:
+      operationId: syncCashfreePayoutStatus
+      tags: [system-config]
+      summary: Sync PENDING payout statuses from Cashfree (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  description: Specific payout ID to sync (omit to sync all PENDING)
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [checked, updatedCount]
+                properties:
+                  checked:
+                    type: integer
+                  updatedCount:
+                    type: integer
+        "401":
+          description: Unauthorized
+
+  /cashfree-payout/{id}/retry:
+    post:
+      operationId: retryCashfreePayout
+      tags: [system-config]
+      summary: Retry a FAILED payout transfer (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Retried payout row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashfreePayoutRow"
+        "400":
+          description: Not a failed payout
+        "401":
+          description: Unauthorized
+        "404":
+          description: Payout not found
 
   /ekqr/webhook-logs:
     get:
@@ -10101,3 +10293,157 @@ components:
           type: integer
         limit:
           type: integer
+
+    CashfreePayoutConfig:
+      type: object
+      required: [clientIdSet, clientIdMasked, clientSecretSet, enabled, env]
+      properties:
+        clientIdSet:
+          type: boolean
+        clientIdMasked:
+          type: string
+        clientSecretSet:
+          type: boolean
+        enabled:
+          type: boolean
+        env:
+          type: string
+          enum: [test, live]
+
+    CashfreePayoutConfigInput:
+      type: object
+      properties:
+        clientId:
+          type: string
+        clientSecret:
+          type: string
+          description: Pass empty string to remove
+        enabled:
+          type: boolean
+        env:
+          type: string
+          enum: [test, live]
+
+    CashfreePayoutRow:
+      type: object
+      required: [id, transferId, beneficiaryName, amount, status, initiatedByEmail, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        transferId:
+          type: string
+        beneficiaryName:
+          type: string
+        accountNumber:
+          type: string
+          nullable: true
+        ifsc:
+          type: string
+          nullable: true
+        upiId:
+          type: string
+          nullable: true
+        amount:
+          type: string
+        remark:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, SUCCESS, FAILED, REVERSED]
+        cashfreeTransferId:
+          type: string
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        merchantId:
+          type: integer
+          nullable: true
+        initiatedByEmail:
+          type: string
+        rawResponse:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CashfreePayoutListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CashfreePayoutRow"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    CashfreePayoutCreateInput:
+      type: object
+      required: [beneficiaryName, amount]
+      properties:
+        beneficiaryName:
+          type: string
+        accountNumber:
+          type: string
+        ifsc:
+          type: string
+        upiId:
+          type: string
+        amount:
+          type: number
+        remark:
+          type: string
+        merchantId:
+          type: integer
+
+    CashfreePayoutCsvRow:
+      type: object
+      properties:
+        beneficiary_name:
+          type: string
+        account_number:
+          type: string
+        ifsc:
+          type: string
+        upi_id:
+          type: string
+        amount:
+          type: string
+        remark:
+          type: string
+
+    CashfreePayoutBulkResult:
+      type: object
+      required: [total, successCount, failedCount, results]
+      properties:
+        total:
+          type: integer
+        successCount:
+          type: integer
+        failedCount:
+          type: integer
+        results:
+          type: array
+          items:
+            type: object
+            required: [index, status]
+            properties:
+              index:
+                type: integer
+              transferId:
+                type: string
+              status:
+                type: string
+              error:
+                type: string
+                nullable: true

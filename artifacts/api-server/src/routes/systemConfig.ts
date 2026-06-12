@@ -1210,6 +1210,84 @@ router.get("/cashfree/logs", async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── Cashfree Payout config ─────────────────────────────────────────────────
+
+async function getCashfreePayoutConfig() {
+  const keys = [
+    SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_ID,
+    SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET,
+    SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENV,
+    SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENABLED,
+  ];
+  const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
+  const map = new Map(rows.map((r) => [r.key, r.value]));
+  const rawId = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_ID) ?? "";
+  const rawSecret = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET) ?? "";
+  return {
+    clientIdSet: rawId.length > 0,
+    clientIdMasked: rawId.length > 4 ? `${rawId.slice(0, 4)}${"*".repeat(Math.max(0, rawId.length - 8))}${rawId.slice(-4)}` : rawId.length > 0 ? "****" : "",
+    clientSecretSet: rawSecret.length > 0,
+    enabled: (map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENABLED) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENABLED]) === "true",
+    env: (map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENV) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENV]) as "test" | "live",
+  };
+}
+
+// GET /api/system-config/cashfree-payout
+router.get("/cashfree-payout", async (req, res, next) => {
+  try {
+    res.json(await getCashfreePayoutConfig());
+  } catch (err) { next(err); }
+});
+
+// PUT /api/system-config/cashfree-payout
+router.put("/cashfree-payout", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { clientId, clientSecret, enabled, env } = req.body as {
+      clientId?: string;
+      clientSecret?: string;
+      enabled?: boolean;
+      env?: "test" | "live";
+    };
+
+    if (clientId !== undefined) {
+      await db.insert(systemConfigTable)
+        .values({ key: SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_ID, value: clientId, updatedByEmail: user.email })
+        .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: clientId, updatedByEmail: user.email } });
+    }
+    if (clientSecret !== undefined) {
+      if (clientSecret === "") {
+        await db.delete(systemConfigTable).where(eq(systemConfigTable.key, SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET));
+      } else {
+        await db.insert(systemConfigTable)
+          .values({ key: SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET, value: clientSecret, updatedByEmail: user.email })
+          .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: clientSecret, updatedByEmail: user.email } });
+      }
+    }
+    if (enabled !== undefined) {
+      const val = enabled ? "true" : "false";
+      await db.insert(systemConfigTable)
+        .values({ key: SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENABLED, value: val, updatedByEmail: user.email })
+        .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: val, updatedByEmail: user.email } });
+    }
+    if (env !== undefined) {
+      await db.insert(systemConfigTable)
+        .values({ key: SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENV, value: env, updatedByEmail: user.email })
+        .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: env, updatedByEmail: user.email } });
+    }
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id, adminEmail: user.email,
+      action: "system_config_updated", targetType: "system_config", targetId: null,
+      details: JSON.stringify({ section: "cashfree_payout", clientIdUpdated: clientId !== undefined, clientSecretUpdated: clientSecret !== undefined, enabled, env }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ enabled, env, clientIdUpdated: clientId !== undefined }, "Cashfree Payout config updated");
+    res.json(await getCashfreePayoutConfig());
+  } catch (err) { next(err); }
+});
+
 // ── EKQR / UPI Gateway config ──────────────────────────────────────────────
 
 async function getEkqrConfig() {

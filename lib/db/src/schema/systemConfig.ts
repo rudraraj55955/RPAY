@@ -48,6 +48,10 @@ export const SYSTEM_CONFIG_KEYS = {
   CASHFREE_ENV: "cashfree_env",
   CASHFREE_WEBHOOK_SECRET: "cashfree_webhook_secret",
   CASHFREE_ENABLED: "cashfree_enabled",
+  CASHFREE_PAYOUT_CLIENT_ID: "cashfree_payout_client_id",
+  CASHFREE_PAYOUT_CLIENT_SECRET: "cashfree_payout_client_secret",
+  CASHFREE_PAYOUT_ENV: "cashfree_payout_env",
+  CASHFREE_PAYOUT_ENABLED: "cashfree_payout_enabled",
 } as const;
 
 export const SYSTEM_CONFIG_DEFAULTS = {
@@ -72,4 +76,6 @@ export const SYSTEM_CONFIG_DEFAULTS = {
   [SYSTEM_CONFIG_KEYS.EKQR_SYNC_ALERT_COOLDOWN_HOURS]: "4",
   [SYSTEM_CONFIG_KEYS.CASHFREE_ENV]: "test",
   [SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED]: "false",
+  [SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENV]: "test",
+  [SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENABLED]: "false",
 } as const;

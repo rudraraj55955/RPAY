@@ -5425,6 +5425,37 @@ export const GetEkqrWebhookStatsResponse = zod.object({
 
 
 /**
+ * @summary Get Cashfree Payout configuration
+ */
+export const GetCashfreePayoutConfigResponse = zod.object({
+  "clientIdSet": zod.boolean(),
+  "clientIdMasked": zod.string(),
+  "clientSecretSet": zod.boolean(),
+  "enabled": zod.boolean(),
+  "env": zod.enum(['test', 'live'])
+})
+
+
+/**
+ * @summary Update Cashfree Payout configuration
+ */
+export const UpdateCashfreePayoutConfigBody = zod.object({
+  "clientId": zod.string().optional(),
+  "clientSecret": zod.string().optional().describe('Pass empty string to remove'),
+  "enabled": zod.boolean().optional(),
+  "env": zod.enum(['test', 'live']).optional()
+})
+
+export const UpdateCashfreePayoutConfigResponse = zod.object({
+  "clientIdSet": zod.boolean(),
+  "clientIdMasked": zod.string(),
+  "clientSecretSet": zod.boolean(),
+  "enabled": zod.boolean(),
+  "env": zod.enum(['test', 'live'])
+})
+
+
+/**
  * @summary Get Cashfree payment gateway configuration
  */
 export const GetCashfreeConfigResponse = zod.object({
@@ -5506,6 +5537,143 @@ export const CreateCashfreeOrderResponse = zod.object({
   "orderId": zod.string().describe('The Cashfree order ID'),
   "paymentSessionId": zod.string().describe('Payment session ID — use this to redirect the customer to Cashfree hosted checkout'),
   "env": zod.enum(['test', 'live']).describe('The Cashfree environment the order was created in')
+})
+
+
+/**
+ * @summary List Cashfree payout transfers (admin only)
+ */
+export const ListCashfreePayoutsQueryParams = zod.object({
+  "page": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional(),
+  "status": zod.enum(['PENDING', 'SUCCESS', 'FAILED', 'REVERSED']).optional(),
+  "merchantId": zod.coerce.number().optional(),
+  "dateFrom": zod.date().optional(),
+  "dateTo": zod.date().optional()
+})
+
+export const ListCashfreePayoutsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "transferId": zod.string(),
+  "beneficiaryName": zod.string(),
+  "accountNumber": zod.string().nullish(),
+  "ifsc": zod.string().nullish(),
+  "upiId": zod.string().nullish(),
+  "amount": zod.string(),
+  "remark": zod.string().nullish(),
+  "status": zod.enum(['PENDING', 'SUCCESS', 'FAILED', 'REVERSED']),
+  "cashfreeTransferId": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "merchantId": zod.number().nullish(),
+  "initiatedByEmail": zod.string(),
+  "rawResponse": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Create a single Cashfree payout transfer (admin only)
+ */
+export const CreateCashfreePayoutBody = zod.object({
+  "beneficiaryName": zod.string(),
+  "accountNumber": zod.string().optional(),
+  "ifsc": zod.string().optional(),
+  "upiId": zod.string().optional(),
+  "amount": zod.number(),
+  "remark": zod.string().optional(),
+  "merchantId": zod.number().optional()
+})
+
+export const CreateCashfreePayoutResponse = zod.object({
+  "id": zod.number(),
+  "transferId": zod.string(),
+  "beneficiaryName": zod.string(),
+  "accountNumber": zod.string().nullish(),
+  "ifsc": zod.string().nullish(),
+  "upiId": zod.string().nullish(),
+  "amount": zod.string(),
+  "remark": zod.string().nullish(),
+  "status": zod.enum(['PENDING', 'SUCCESS', 'FAILED', 'REVERSED']),
+  "cashfreeTransferId": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "merchantId": zod.number().nullish(),
+  "initiatedByEmail": zod.string(),
+  "rawResponse": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Submit multiple payout transfers from parsed CSV rows (admin only)
+ */
+export const BulkCreateCashfreePayoutsBody = zod.object({
+  "rows": zod.array(zod.object({
+  "beneficiary_name": zod.string().optional(),
+  "account_number": zod.string().optional(),
+  "ifsc": zod.string().optional(),
+  "upi_id": zod.string().optional(),
+  "amount": zod.string().optional(),
+  "remark": zod.string().optional()
+}))
+})
+
+export const BulkCreateCashfreePayoutsResponse = zod.object({
+  "total": zod.number(),
+  "successCount": zod.number(),
+  "failedCount": zod.number(),
+  "results": zod.array(zod.object({
+  "index": zod.number(),
+  "transferId": zod.string().optional(),
+  "status": zod.string(),
+  "error": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Sync PENDING payout statuses from Cashfree (admin only)
+ */
+export const SyncCashfreePayoutStatusBody = zod.object({
+  "id": zod.number().optional().describe('Specific payout ID to sync (omit to sync all PENDING)')
+})
+
+export const SyncCashfreePayoutStatusResponse = zod.object({
+  "checked": zod.number(),
+  "updatedCount": zod.number()
+})
+
+
+/**
+ * @summary Retry a FAILED payout transfer (admin only)
+ */
+export const RetryCashfreePayoutParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RetryCashfreePayoutResponse = zod.object({
+  "id": zod.number(),
+  "transferId": zod.string(),
+  "beneficiaryName": zod.string(),
+  "accountNumber": zod.string().nullish(),
+  "ifsc": zod.string().nullish(),
+  "upiId": zod.string().nullish(),
+  "amount": zod.string(),
+  "remark": zod.string().nullish(),
+  "status": zod.enum(['PENDING', 'SUCCESS', 'FAILED', 'REVERSED']),
+  "cashfreeTransferId": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "merchantId": zod.number().nullish(),
+  "initiatedByEmail": zod.string(),
+  "rawResponse": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
 })
 
 

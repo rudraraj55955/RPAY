@@ -3209,6 +3209,107 @@ export interface CashfreePaymentLogsResponse {
   limit: number;
 }
 
+export type CashfreePayoutConfigEnv = typeof CashfreePayoutConfigEnv[keyof typeof CashfreePayoutConfigEnv];
+
+
+export const CashfreePayoutConfigEnv = {
+  test: 'test',
+  live: 'live',
+} as const;
+
+export interface CashfreePayoutConfig {
+  clientIdSet: boolean;
+  clientIdMasked: string;
+  clientSecretSet: boolean;
+  enabled: boolean;
+  env: CashfreePayoutConfigEnv;
+}
+
+export type CashfreePayoutConfigInputEnv = typeof CashfreePayoutConfigInputEnv[keyof typeof CashfreePayoutConfigInputEnv];
+
+
+export const CashfreePayoutConfigInputEnv = {
+  test: 'test',
+  live: 'live',
+} as const;
+
+export interface CashfreePayoutConfigInput {
+  clientId?: string;
+  /** Pass empty string to remove */
+  clientSecret?: string;
+  enabled?: boolean;
+  env?: CashfreePayoutConfigInputEnv;
+}
+
+export type CashfreePayoutRowStatus = typeof CashfreePayoutRowStatus[keyof typeof CashfreePayoutRowStatus];
+
+
+export const CashfreePayoutRowStatus = {
+  PENDING: 'PENDING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+  REVERSED: 'REVERSED',
+} as const;
+
+export interface CashfreePayoutRow {
+  id: number;
+  transferId: string;
+  beneficiaryName: string;
+  accountNumber?: string | null;
+  ifsc?: string | null;
+  upiId?: string | null;
+  amount: string;
+  remark?: string | null;
+  status: CashfreePayoutRowStatus;
+  cashfreeTransferId?: string | null;
+  errorMessage?: string | null;
+  merchantId?: number | null;
+  initiatedByEmail: string;
+  rawResponse?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CashfreePayoutListResponse {
+  data: CashfreePayoutRow[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CashfreePayoutCreateInput {
+  beneficiaryName: string;
+  accountNumber?: string;
+  ifsc?: string;
+  upiId?: string;
+  amount: number;
+  remark?: string;
+  merchantId?: number;
+}
+
+export interface CashfreePayoutCsvRow {
+  beneficiary_name?: string;
+  account_number?: string;
+  ifsc?: string;
+  upi_id?: string;
+  amount?: string;
+  remark?: string;
+}
+
+export type CashfreePayoutBulkResultResultsItem = {
+  index: number;
+  transferId?: string;
+  status: string;
+  error?: string | null;
+};
+
+export interface CashfreePayoutBulkResult {
+  total: number;
+  successCount: number;
+  failedCount: number;
+  results: CashfreePayoutBulkResultResultsItem[];
+}
+
 export type UpdateMyPreferencesBody = {
   reconciliationAlertEmails?: boolean;
   planExpiryAlertEmails?: boolean;
@@ -4060,6 +4161,39 @@ export type CreateCashfreeOrderBody = {
   customerName?: string;
   customerEmail?: string;
   note?: string;
+};
+
+export type ListCashfreePayoutsParams = {
+page?: number;
+limit?: number;
+status?: ListCashfreePayoutsStatus;
+merchantId?: number;
+dateFrom?: string;
+dateTo?: string;
+};
+
+export type ListCashfreePayoutsStatus = typeof ListCashfreePayoutsStatus[keyof typeof ListCashfreePayoutsStatus];
+
+
+export const ListCashfreePayoutsStatus = {
+  PENDING: 'PENDING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+  REVERSED: 'REVERSED',
+} as const;
+
+export type BulkCreateCashfreePayoutsBody = {
+  rows: CashfreePayoutCsvRow[];
+};
+
+export type SyncCashfreePayoutStatusBody = {
+  /** Specific payout ID to sync (omit to sync all PENDING) */
+  id?: number;
+};
+
+export type SyncCashfreePayoutStatus200 = {
+  checked: number;
+  updatedCount: number;
 };
 
 export type ListEkqrWebhookLogsParams = {

@@ -49,6 +49,7 @@ import AdminReconciliation from "@/pages/admin/reconciliation";
 import AdminPaymentLinks from "@/pages/admin/payment-links";
 import AdminSettings from "@/pages/admin/settings";
 import AdminCashfreeGateway from "@/pages/admin/cashfree-gateway";
+import AdminCashfreePayout from "@/pages/admin/cashfree-payout";
 import PayPage from "@/pages/pay";
 import QrPayPage from "@/pages/qr-pay";
 import VaPayPage from "@/pages/va-pay";
@@ -161,6 +162,7 @@ function Router() {
       <Route path="/admin/payment-links"><AdminRoute component={AdminPaymentLinks} /></Route>
       <Route path="/admin/settings"><AdminRoute component={AdminSettings} /></Route>
       <Route path="/admin/cashfree-gateway"><AdminRoute component={AdminCashfreeGateway} /></Route>
+      <Route path="/admin/cashfree-payout"><AdminRoute component={AdminCashfreePayout} /></Route>
 
       {/* Merchant Routes */}
       <Route path="/merchant/dashboard"><MerchantRoute component={MerchantDashboard} /></Route>

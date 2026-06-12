@@ -51,6 +51,7 @@ import type {
   BroadcastNotificationInput,
   BroadcastNotificationResult,
   BulkAssignPlanInput,
+  BulkCreateCashfreePayoutsBody,
   BulkDeleteQrCodes200,
   BulkDeleteQrCodesInput,
   BulkFeatureUpdateInput,
@@ -68,6 +69,12 @@ import type {
   CashfreeGatewayConfigInput,
   CashfreeOrderCreateResult,
   CashfreePaymentLogsResponse,
+  CashfreePayoutBulkResult,
+  CashfreePayoutConfig,
+  CashfreePayoutConfigInput,
+  CashfreePayoutCreateInput,
+  CashfreePayoutListResponse,
+  CashfreePayoutRow,
   ChartDataPoint,
   CleanupRunHistoryResponse,
   CleanupStats,
@@ -129,6 +136,7 @@ import type {
   ListAuditReportScheduleLogsParams,
   ListCallbackLogsParams,
   ListCashfreePaymentLogsParams,
+  ListCashfreePayoutsParams,
   ListCredentialEventsParams,
   ListEkqrWebhookLogsParams,
   ListInvoicesParams,
@@ -245,6 +253,8 @@ import type {
   SignatureFailureAlertHistoryResponse,
   SimulatePaymentInput,
   StorageCleanupRunResult,
+  SyncCashfreePayoutStatus200,
+  SyncCashfreePayoutStatusBody,
   TestEmailRetentionConfig,
   TestEmailRetentionRunResult,
   ToggleProductInput,
@@ -18543,6 +18553,154 @@ export function useGetEkqrWebhookStats<TData = Awaited<ReturnType<typeof getEkqr
 
 
 
+export const getGetCashfreePayoutConfigUrl = () => {
+
+
+
+
+  return `/api/system-config/cashfree-payout`
+}
+
+/**
+ * @summary Get Cashfree Payout configuration
+ */
+export const getCashfreePayoutConfig = async ( options?: RequestInit): Promise<CashfreePayoutConfig> => {
+
+  return customFetch<CashfreePayoutConfig>(getGetCashfreePayoutConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCashfreePayoutConfigQueryKey = () => {
+    return [
+    `/api/system-config/cashfree-payout`
+    ] as const;
+    }
+
+
+export const getGetCashfreePayoutConfigQueryOptions = <TData = Awaited<ReturnType<typeof getCashfreePayoutConfig>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCashfreePayoutConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCashfreePayoutConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCashfreePayoutConfig>>> = ({ signal }) => getCashfreePayoutConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCashfreePayoutConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCashfreePayoutConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getCashfreePayoutConfig>>>
+export type GetCashfreePayoutConfigQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get Cashfree Payout configuration
+ */
+
+export function useGetCashfreePayoutConfig<TData = Awaited<ReturnType<typeof getCashfreePayoutConfig>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCashfreePayoutConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCashfreePayoutConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateCashfreePayoutConfigUrl = () => {
+
+
+
+
+  return `/api/system-config/cashfree-payout`
+}
+
+/**
+ * @summary Update Cashfree Payout configuration
+ */
+export const updateCashfreePayoutConfig = async (cashfreePayoutConfigInput: CashfreePayoutConfigInput, options?: RequestInit): Promise<CashfreePayoutConfig> => {
+
+  return customFetch<CashfreePayoutConfig>(getUpdateCashfreePayoutConfigUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      cashfreePayoutConfigInput,)
+  }
+);}
+
+
+
+
+export const getUpdateCashfreePayoutConfigMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCashfreePayoutConfig>>, TError,{data: BodyType<CashfreePayoutConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCashfreePayoutConfig>>, TError,{data: BodyType<CashfreePayoutConfigInput>}, TContext> => {
+
+const mutationKey = ['updateCashfreePayoutConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCashfreePayoutConfig>>, {data: BodyType<CashfreePayoutConfigInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateCashfreePayoutConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCashfreePayoutConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateCashfreePayoutConfig>>>
+    export type UpdateCashfreePayoutConfigMutationBody = BodyType<CashfreePayoutConfigInput>
+    export type UpdateCashfreePayoutConfigMutationError = ErrorType<void>
+
+    /**
+ * @summary Update Cashfree Payout configuration
+ */
+export const useUpdateCashfreePayoutConfig = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCashfreePayoutConfig>>, TError,{data: BodyType<CashfreePayoutConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCashfreePayoutConfig>>,
+        TError,
+        {data: BodyType<CashfreePayoutConfigInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCashfreePayoutConfigMutationOptions(options));
+    }
+
 export const getGetCashfreeConfigUrl = () => {
 
 
@@ -18844,6 +19002,373 @@ export const useCreateCashfreeOrder = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCreateCashfreeOrderMutationOptions(options));
+    }
+
+export const getListCashfreePayoutsUrl = (params?: ListCashfreePayoutsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/cashfree-payout?${stringifiedParams}` : `/api/cashfree-payout`
+}
+
+/**
+ * @summary List Cashfree payout transfers (admin only)
+ */
+export const listCashfreePayouts = async (params?: ListCashfreePayoutsParams, options?: RequestInit): Promise<CashfreePayoutListResponse> => {
+
+  return customFetch<CashfreePayoutListResponse>(getListCashfreePayoutsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCashfreePayoutsQueryKey = (params?: ListCashfreePayoutsParams,) => {
+    return [
+    `/api/cashfree-payout`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCashfreePayoutsQueryOptions = <TData = Awaited<ReturnType<typeof listCashfreePayouts>>, TError = ErrorType<void>>(params?: ListCashfreePayoutsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCashfreePayouts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCashfreePayoutsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCashfreePayouts>>> = ({ signal }) => listCashfreePayouts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCashfreePayouts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCashfreePayoutsQueryResult = NonNullable<Awaited<ReturnType<typeof listCashfreePayouts>>>
+export type ListCashfreePayoutsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List Cashfree payout transfers (admin only)
+ */
+
+export function useListCashfreePayouts<TData = Awaited<ReturnType<typeof listCashfreePayouts>>, TError = ErrorType<void>>(
+ params?: ListCashfreePayoutsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCashfreePayouts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCashfreePayoutsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateCashfreePayoutUrl = () => {
+
+
+
+
+  return `/api/cashfree-payout`
+}
+
+/**
+ * @summary Create a single Cashfree payout transfer (admin only)
+ */
+export const createCashfreePayout = async (cashfreePayoutCreateInput: CashfreePayoutCreateInput, options?: RequestInit): Promise<CashfreePayoutRow> => {
+
+  return customFetch<CashfreePayoutRow>(getCreateCashfreePayoutUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      cashfreePayoutCreateInput,)
+  }
+);}
+
+
+
+
+export const getCreateCashfreePayoutMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCashfreePayout>>, TError,{data: BodyType<CashfreePayoutCreateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCashfreePayout>>, TError,{data: BodyType<CashfreePayoutCreateInput>}, TContext> => {
+
+const mutationKey = ['createCashfreePayout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCashfreePayout>>, {data: BodyType<CashfreePayoutCreateInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCashfreePayout(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCashfreePayoutMutationResult = NonNullable<Awaited<ReturnType<typeof createCashfreePayout>>>
+    export type CreateCashfreePayoutMutationBody = BodyType<CashfreePayoutCreateInput>
+    export type CreateCashfreePayoutMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a single Cashfree payout transfer (admin only)
+ */
+export const useCreateCashfreePayout = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCashfreePayout>>, TError,{data: BodyType<CashfreePayoutCreateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCashfreePayout>>,
+        TError,
+        {data: BodyType<CashfreePayoutCreateInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCashfreePayoutMutationOptions(options));
+    }
+
+export const getBulkCreateCashfreePayoutsUrl = () => {
+
+
+
+
+  return `/api/cashfree-payout/bulk`
+}
+
+/**
+ * @summary Submit multiple payout transfers from parsed CSV rows (admin only)
+ */
+export const bulkCreateCashfreePayouts = async (bulkCreateCashfreePayoutsBody: BulkCreateCashfreePayoutsBody, options?: RequestInit): Promise<CashfreePayoutBulkResult> => {
+
+  return customFetch<CashfreePayoutBulkResult>(getBulkCreateCashfreePayoutsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      bulkCreateCashfreePayoutsBody,)
+  }
+);}
+
+
+
+
+export const getBulkCreateCashfreePayoutsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkCreateCashfreePayouts>>, TError,{data: BodyType<BulkCreateCashfreePayoutsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkCreateCashfreePayouts>>, TError,{data: BodyType<BulkCreateCashfreePayoutsBody>}, TContext> => {
+
+const mutationKey = ['bulkCreateCashfreePayouts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkCreateCashfreePayouts>>, {data: BodyType<BulkCreateCashfreePayoutsBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  bulkCreateCashfreePayouts(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkCreateCashfreePayoutsMutationResult = NonNullable<Awaited<ReturnType<typeof bulkCreateCashfreePayouts>>>
+    export type BulkCreateCashfreePayoutsMutationBody = BodyType<BulkCreateCashfreePayoutsBody>
+    export type BulkCreateCashfreePayoutsMutationError = ErrorType<void>
+
+    /**
+ * @summary Submit multiple payout transfers from parsed CSV rows (admin only)
+ */
+export const useBulkCreateCashfreePayouts = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkCreateCashfreePayouts>>, TError,{data: BodyType<BulkCreateCashfreePayoutsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkCreateCashfreePayouts>>,
+        TError,
+        {data: BodyType<BulkCreateCashfreePayoutsBody>},
+        TContext
+      > => {
+      return useMutation(getBulkCreateCashfreePayoutsMutationOptions(options));
+    }
+
+export const getSyncCashfreePayoutStatusUrl = () => {
+
+
+
+
+  return `/api/cashfree-payout/sync-status`
+}
+
+/**
+ * @summary Sync PENDING payout statuses from Cashfree (admin only)
+ */
+export const syncCashfreePayoutStatus = async (syncCashfreePayoutStatusBody?: SyncCashfreePayoutStatusBody, options?: RequestInit): Promise<SyncCashfreePayoutStatus200> => {
+
+  return customFetch<SyncCashfreePayoutStatus200>(getSyncCashfreePayoutStatusUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      syncCashfreePayoutStatusBody,)
+  }
+);}
+
+
+
+
+export const getSyncCashfreePayoutStatusMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncCashfreePayoutStatus>>, TError,{data?: BodyType<SyncCashfreePayoutStatusBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncCashfreePayoutStatus>>, TError,{data?: BodyType<SyncCashfreePayoutStatusBody>}, TContext> => {
+
+const mutationKey = ['syncCashfreePayoutStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncCashfreePayoutStatus>>, {data?: BodyType<SyncCashfreePayoutStatusBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  syncCashfreePayoutStatus(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncCashfreePayoutStatusMutationResult = NonNullable<Awaited<ReturnType<typeof syncCashfreePayoutStatus>>>
+    export type SyncCashfreePayoutStatusMutationBody = BodyType<SyncCashfreePayoutStatusBody> | undefined
+    export type SyncCashfreePayoutStatusMutationError = ErrorType<void>
+
+    /**
+ * @summary Sync PENDING payout statuses from Cashfree (admin only)
+ */
+export const useSyncCashfreePayoutStatus = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncCashfreePayoutStatus>>, TError,{data?: BodyType<SyncCashfreePayoutStatusBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncCashfreePayoutStatus>>,
+        TError,
+        {data?: BodyType<SyncCashfreePayoutStatusBody>},
+        TContext
+      > => {
+      return useMutation(getSyncCashfreePayoutStatusMutationOptions(options));
+    }
+
+export const getRetryCashfreePayoutUrl = (id: number,) => {
+
+
+
+
+  return `/api/cashfree-payout/${id}/retry`
+}
+
+/**
+ * @summary Retry a FAILED payout transfer (admin only)
+ */
+export const retryCashfreePayout = async (id: number, options?: RequestInit): Promise<CashfreePayoutRow> => {
+
+  return customFetch<CashfreePayoutRow>(getRetryCashfreePayoutUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRetryCashfreePayoutMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryCashfreePayout>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryCashfreePayout>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['retryCashfreePayout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryCashfreePayout>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  retryCashfreePayout(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryCashfreePayoutMutationResult = NonNullable<Awaited<ReturnType<typeof retryCashfreePayout>>>
+
+    export type RetryCashfreePayoutMutationError = ErrorType<void>
+
+    /**
+ * @summary Retry a FAILED payout transfer (admin only)
+ */
+export const useRetryCashfreePayout = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryCashfreePayout>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryCashfreePayout>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRetryCashfreePayoutMutationOptions(options));
     }
 
 export const getListEkqrWebhookLogsUrl = (params?: ListEkqrWebhookLogsParams,) => {

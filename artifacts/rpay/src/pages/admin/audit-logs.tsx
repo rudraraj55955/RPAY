@@ -1019,12 +1019,6 @@ function ScheduleHistoryPanel({
     });
   }
 
-  const dismissedCycleId = (() => {
-    if (!failureAcknowledgedAt) return null;
-    const firstFailed = cycles.find(c => !c.overallSuccess);
-    return firstFailed?.cycleId ?? null;
-  })();
-
   if (isLoading) {
     return (
       <div className="space-y-1.5 px-2 py-2">
@@ -1104,12 +1098,6 @@ function ScheduleHistoryPanel({
                     {attempts[0].errorMessage}
                   </p>
                 )}
-                {cycleId === dismissedCycleId && failureAcknowledgedAt && (
-                  <p className="flex items-center gap-1 text-[10px] text-amber-400/80 mt-0.5">
-                    <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
-                    Dismissed by {failureAcknowledgedByEmail ?? "unknown"} at {format(new Date(failureAcknowledgedAt), "MMM d, yyyy 'at' HH:mm")}
-                  </p>
-                )}
               </div>
             </button>
 
@@ -1175,6 +1163,18 @@ function ScheduleHistoryPanel({
           </div>
         );
       })}
+      {failureAcknowledgedAt && (
+        <div className="flex items-start gap-2.5 px-4 py-2.5 border-t border-amber-500/20 bg-amber-500/5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-amber-400">Failure acknowledged</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              by {failureAcknowledgedByEmail ?? "unknown"} &middot;{" "}
+              {format(new Date(failureAcknowledgedAt), "MMM d, yyyy 'at' HH:mm")}
+            </p>
+          </div>
+        </div>
+      )}
       {retentionDays > 0 && (
         <div className="px-4 py-2 flex items-center gap-1.5 text-xs text-muted-foreground/60">
           <Trash2 className="w-3 h-3 shrink-0" />

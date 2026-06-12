@@ -1354,6 +1354,20 @@ export default function AdminMerchants() {
                             </Tooltip>
                           </TooltipProvider>
                         )}
+                        {merchant.loginAlertEmails === false && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 p-0.5 text-amber-400" aria-label="Login alerts disabled">
+                                  <BellOff className="w-3 h-3 shrink-0" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                Login alerts disabled
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">{merchant.email}</p>
                       {merchant.status === "rejected" && merchant.rejectionReason && (

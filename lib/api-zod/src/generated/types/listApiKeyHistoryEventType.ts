@@ -12,5 +12,4 @@ export type ListApiKeyHistoryEventType = typeof ListApiKeyHistoryEventType[keyof
 export const ListApiKeyHistoryEventType = {
   api_key_generated: 'api_key_generated',
   api_key_revoked: 'api_key_revoked',
-  callback_secret_rotated: 'callback_secret_rotated',
 } as const;

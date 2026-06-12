@@ -97,6 +97,7 @@ export * from './exportAdminAuditLogsCsvParams';
 export * from './exportMerchantBalanceHistoryParams';
 export * from './exportVaBalanceAuditCsvFieldChanged';
 export * from './exportVaBalanceAuditCsvParams';
+export * from './getCallbackSecretHistoryParams';
 export * from './getLedgerBackfillLastRun200';
 export * from './getQrCodeStatsParams';
 export * from './getReconciliationRunEmailLogs200';

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useListCallbackLogs, useGetMe, useUpdateMyPreferences, getGetMeQueryKey, useListMySecurityActivity, useListSecurityEvents } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -481,10 +481,7 @@ export default function MerchantSecurity() {
     dateTo: secDateTo || undefined,
   });
 
-  const secPageSlice = useMemo<LocalSecurityEvent[]>(() => {
-    return (secEventsData?.data ?? []) as LocalSecurityEvent[];
-  }, [secEventsData]);
-
+  const secPageSlice = (secEventsData?.data ?? []) as LocalSecurityEvent[];
   const secTotal = secEventsData?.total ?? 0;
   const secTotalPages = Math.max(1, Math.ceil(secTotal / SEC_PAGE_SIZE));
 
@@ -1066,7 +1063,7 @@ export default function MerchantSecurity() {
             </div>
           </div>
           {anySecFilterActive && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-2">
               <span className="font-semibold text-foreground">{secTotal.toLocaleString()}</span> event{secTotal !== 1 ? "s" : ""} match your filters
             </p>
           )}

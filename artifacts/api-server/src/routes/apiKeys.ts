@@ -42,26 +42,26 @@ router.get("/history", async (req, res) => {
 
   const { eventType, from, to } = req.query as Record<string, string | undefined>;
 
-  const allowedTypes = ["api_key_generated", "api_key_revoked", "callback_secret_rotated"] as const;
+  const allowedTypes = ["api_key_generated", "api_key_revoked"] as const;
   const typeFilter = eventType && allowedTypes.includes(eventType as (typeof allowedTypes)[number])
     ? [eventType as (typeof allowedTypes)[number]]
-    : allowedTypes;
+    : [...allowedTypes];
 
-  const conditions: ReturnType<typeof eq>[] = [
+  const conditions: any[] = [
     eq(credentialEventsTable.merchantId, user.merchantId),
-    inArray(credentialEventsTable.eventType, typeFilter as unknown as string[]),
+    inArray(credentialEventsTable.eventType, typeFilter),
   ];
 
   const dateRe = /^\d{4}-\d{2}-\d{2}$/;
   if (from && dateRe.test(from)) {
     const [y, m, d] = from.split("-").map(Number);
-    const fromDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
-    if (!isNaN(fromDate.getTime())) conditions.push(gte(credentialEventsTable.createdAt, fromDate) as any);
+    const fromDate = new Date(Date.UTC(y!, m! - 1, d!, 0, 0, 0, 0));
+    if (!isNaN(fromDate.getTime())) conditions.push(gte(credentialEventsTable.createdAt, fromDate));
   }
   if (to && dateRe.test(to)) {
     const [y, m, d] = to.split("-").map(Number);
-    const toDate = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
-    if (!isNaN(toDate.getTime())) conditions.push(lte(credentialEventsTable.createdAt, toDate) as any);
+    const toDate = new Date(Date.UTC(y!, m! - 1, d!, 23, 59, 59, 999));
+    if (!isNaN(toDate.getTime())) conditions.push(lte(credentialEventsTable.createdAt, toDate));
   }
 
   const rows = await db

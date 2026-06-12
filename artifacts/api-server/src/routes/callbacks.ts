@@ -320,6 +320,24 @@ router.get("/secret/history", async (req, res) => {
     return;
   }
 
+  const { from, to } = req.query as Record<string, string>;
+
+  const conditions: ReturnType<typeof eq>[] = [
+    eq(credentialEventsTable.merchantId, user.merchantId),
+    eq(credentialEventsTable.eventType, "callback_secret_rotated"),
+  ];
+
+  if (from) {
+    const fromDate = new Date(from);
+    fromDate.setUTCHours(0, 0, 0, 0);
+    if (!isNaN(fromDate.getTime())) conditions.push(gte(credentialEventsTable.createdAt, fromDate) as any);
+  }
+  if (to) {
+    const toDate = new Date(to);
+    toDate.setUTCHours(23, 59, 59, 999);
+    if (!isNaN(toDate.getTime())) conditions.push(lte(credentialEventsTable.createdAt, toDate) as any);
+  }
+
   const rows = await db
     .select({
       eventType: credentialEventsTable.eventType,
@@ -329,12 +347,7 @@ router.get("/secret/history", async (req, res) => {
       actorEmail: credentialEventsTable.actorEmail,
     })
     .from(credentialEventsTable)
-    .where(
-      and(
-        eq(credentialEventsTable.merchantId, user.merchantId),
-        eq(credentialEventsTable.eventType, "callback_secret_rotated"),
-      )
-    )
+    .where(and(...conditions))
     .orderBy(desc(credentialEventsTable.createdAt));
 
   const events = rows.map(r => ({

@@ -1415,9 +1415,9 @@ export const ListApiKeysResponse = zod.array(ListApiKeysResponseItem)
  * @summary Get credential event history for API keys
  */
 export const ListApiKeyHistoryQueryParams = zod.object({
-  "eventType": zod.enum(['api_key_generated', 'api_key_revoked', 'callback_secret_rotated']).optional().describe('Filter by event type (api_key_generated, api_key_revoked, callback_secret_rotated)'),
   "from": zod.date().optional().describe('Filter events on or after this date (YYYY-MM-DD)'),
-  "to": zod.date().optional().describe('Filter events on or before this date (YYYY-MM-DD)')
+  "to": zod.date().optional().describe('Filter events on or before this date (YYYY-MM-DD)'),
+  "eventType": zod.enum(['api_key_generated', 'api_key_revoked']).optional().describe('Filter by event type')
 })
 
 export const ListApiKeyHistoryResponse = zod.object({
@@ -1832,6 +1832,11 @@ export const GetCallbackSecretResponse = zod.object({
  * Returns a list of credential events derived from the merchant's callback signing secret (rotations). Merchant access only.
  * @summary Get credential event history for callback signing secret
  */
+export const GetCallbackSecretHistoryQueryParams = zod.object({
+  "from": zod.date().optional().describe('Filter events on or after this date (YYYY-MM-DD)'),
+  "to": zod.date().optional().describe('Filter events on or before this date (YYYY-MM-DD)')
+})
+
 export const GetCallbackSecretHistoryResponse = zod.object({
   "data": zod.array(zod.object({
   "eventType": zod.enum(['key_generated', 'key_revoked', 'secret_rotated', 'api_key_created', 'api_key_revoked']),

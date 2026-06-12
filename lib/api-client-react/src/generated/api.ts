@@ -85,6 +85,7 @@ import type {
   ExportAdminAuditLogsCsvParams,
   ExportMerchantBalanceHistoryParams,
   ExportVaBalanceAuditCsvParams,
+  GetCallbackSecretHistoryParams,
   GetLedgerBackfillLastRun200,
   GetQrCodeStatsParams,
   GetReconciliationRunEmailLogs200,
@@ -5536,21 +5537,28 @@ export function useGetCallbackSecret<TData = Awaited<ReturnType<typeof getCallba
 
 
 
-export const getGetCallbackSecretHistoryUrl = () => {
+export const getGetCallbackSecretHistoryUrl = (params?: GetCallbackSecretHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/callbacks/secret/history`
+  return stringifiedParams.length > 0 ? `/api/callbacks/secret/history?${stringifiedParams}` : `/api/callbacks/secret/history`
 }
 
 /**
  * Returns a list of credential events derived from the merchant's callback signing secret (rotations). Merchant access only.
  * @summary Get credential event history for callback signing secret
  */
-export const getCallbackSecretHistory = async ( options?: RequestInit): Promise<CredentialEventList> => {
+export const getCallbackSecretHistory = async (params?: GetCallbackSecretHistoryParams, options?: RequestInit): Promise<CredentialEventList> => {
 
-  return customFetch<CredentialEventList>(getGetCallbackSecretHistoryUrl(),
+  return customFetch<CredentialEventList>(getGetCallbackSecretHistoryUrl(params),
   {
     ...options,
     method: 'GET'
@@ -5563,23 +5571,23 @@ export const getCallbackSecretHistory = async ( options?: RequestInit): Promise<
 
 
 
-export const getGetCallbackSecretHistoryQueryKey = () => {
+export const getGetCallbackSecretHistoryQueryKey = (params?: GetCallbackSecretHistoryParams,) => {
     return [
-    `/api/callbacks/secret/history`
+    `/api/callbacks/secret/history`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetCallbackSecretHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getCallbackSecretHistory>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCallbackSecretHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCallbackSecretHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getCallbackSecretHistory>>, TError = ErrorType<void>>(params?: GetCallbackSecretHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCallbackSecretHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetCallbackSecretHistoryQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetCallbackSecretHistoryQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCallbackSecretHistory>>> = ({ signal }) => getCallbackSecretHistory({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCallbackSecretHistory>>> = ({ signal }) => getCallbackSecretHistory(params, { signal, ...requestOptions });
 
 
 
@@ -5597,11 +5605,11 @@ export type GetCallbackSecretHistoryQueryError = ErrorType<void>
  */
 
 export function useGetCallbackSecretHistory<TData = Awaited<ReturnType<typeof getCallbackSecretHistory>>, TError = ErrorType<void>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCallbackSecretHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetCallbackSecretHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCallbackSecretHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetCallbackSecretHistoryQueryOptions(options)
+  const queryOptions = getGetCallbackSecretHistoryQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

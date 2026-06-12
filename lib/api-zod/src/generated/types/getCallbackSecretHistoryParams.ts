@@ -5,9 +5,8 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
-import type { ListApiKeyHistoryEventType } from './listApiKeyHistoryEventType';
 
-export type ListApiKeyHistoryParams = {
+export type GetCallbackSecretHistoryParams = {
 /**
  * Filter events on or after this date (YYYY-MM-DD)
  */
@@ -16,8 +15,4 @@ from?: Date;
  * Filter events on or before this date (YYYY-MM-DD)
  */
 to?: Date;
-/**
- * Filter by event type
- */
-eventType?: ListApiKeyHistoryEventType;
 };

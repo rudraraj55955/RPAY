@@ -2984,10 +2984,6 @@ export const ListWithdrawalsStatus = {
 
 export type ListApiKeyHistoryParams = {
 /**
- * Filter by event type (api_key_generated, api_key_revoked, callback_secret_rotated)
- */
-eventType?: ListApiKeyHistoryEventType;
-/**
  * Filter events on or after this date (YYYY-MM-DD)
  */
 from?: string;
@@ -2995,6 +2991,10 @@ from?: string;
  * Filter events on or before this date (YYYY-MM-DD)
  */
 to?: string;
+/**
+ * Filter by event type
+ */
+eventType?: ListApiKeyHistoryEventType;
 };
 
 export type ListApiKeyHistoryEventType = typeof ListApiKeyHistoryEventType[keyof typeof ListApiKeyHistoryEventType];
@@ -3003,7 +3003,6 @@ export type ListApiKeyHistoryEventType = typeof ListApiKeyHistoryEventType[keyof
 export const ListApiKeyHistoryEventType = {
   api_key_generated: 'api_key_generated',
   api_key_revoked: 'api_key_revoked',
-  callback_secret_rotated: 'callback_secret_rotated',
 } as const;
 
 export type ListSecurityEventsParams = {
@@ -3139,6 +3138,17 @@ export const ListCallbackLogsEventType = {
 export type RetryCallback200 = {
   success: boolean;
   id: number;
+};
+
+export type GetCallbackSecretHistoryParams = {
+/**
+ * Filter events on or after this date (YYYY-MM-DD)
+ */
+from?: string;
+/**
+ * Filter events on or before this date (YYYY-MM-DD)
+ */
+to?: string;
 };
 
 export type ListSettlementsParams = {

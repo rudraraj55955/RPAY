@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearch } from "wouter";
 import {
   useListAdminAuditLogs, useGetAdminAuditLogStats,
@@ -975,8 +975,9 @@ function ScheduleHistoryPanel({
   const retentionDays = retentionData?.retentionDays ?? 90;
   const logs = data?.data ?? [];
   const [expandedCycles, setExpandedCycles] = useState<Set<string>>(new Set());
+  const autoExpandedRef = useRef(false);
 
-  const cycles = (() => {
+  const cycles = useMemo(() => {
     const map = new Map<string, typeof logs>();
     for (const log of logs) {
       const key = log.deliveryCycleId ?? `orphan-${log.id}`;
@@ -994,7 +995,21 @@ function ScheduleHistoryPanel({
       )[0]!;
       return { cycleId, attempts: sortedAttempts, overallSuccess, initialAttempt };
     });
-  })();
+  }, [logs]);
+
+  useEffect(() => {
+    if (autoExpandedRef.current || cycles.length === 0) return;
+    autoExpandedRef.current = true;
+    const autoExpand = new Set<string>();
+    for (const cycle of cycles) {
+      if (!cycle.overallSuccess && cycle.attempts.length > 1) {
+        autoExpand.add(cycle.cycleId);
+      }
+    }
+    if (autoExpand.size > 0) {
+      setExpandedCycles(autoExpand);
+    }
+  }, [cycles]);
 
   function toggleCycle(cycleId: string) {
     setExpandedCycles(prev => {

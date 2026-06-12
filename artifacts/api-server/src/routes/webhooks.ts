@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, webhooksTable, callbackLogsTable, auditLogsTable, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
+import { db, webhooksTable, callbackLogsTable, callbackLogAttemptsTable, auditLogsTable, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
 import { and, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { fireCallback, loadWebhookRetryConfig } from "../helpers/callbackRetry";
@@ -332,18 +332,27 @@ router.post("/logs/:id/retry", async (req, res) => {
   const newAttempts = log.attempts + 1;
   const newStatus = ok ? "success" : "failed";
 
-  const [updated] = await db
-    .update(callbackLogsTable)
-    .set({
-      status: newStatus,
-      httpStatus,
-      responseBody,
-      attempts: newAttempts,
-      nextRetryAt: null,
-      lastAttemptAt: now,
-    })
-    .where(eq(callbackLogsTable.id, id))
-    .returning();
+  const [[updated]] = await Promise.all([
+    db
+      .update(callbackLogsTable)
+      .set({
+        status: newStatus,
+        httpStatus,
+        responseBody,
+        attempts: newAttempts,
+        nextRetryAt: null,
+        lastAttemptAt: now,
+      })
+      .where(eq(callbackLogsTable.id, id))
+      .returning(),
+    db.insert(callbackLogAttemptsTable).values({
+      callbackLogId: id,
+      attemptNumber: newAttempts,
+      firedAt: now,
+      httpStatus: httpStatus ?? null,
+      responseBody: responseBody ?? null,
+    }),
+  ]);
 
   req.log.info({ logId: id, ok, httpStatus, merchantId }, "Merchant-triggered webhook retry");
 

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useListTransactions, useSearchByUtr, useGetTransaction, useGetPaymentLink, useListMerchantSavedFilters, useCreateMerchantSavedFilter, useDeleteMerchantSavedFilter, useRenameMerchantSavedFilter, useReorderMerchantSavedFilters } from "@workspace/api-client-react";
 import { useCrossTabSync } from "@/hooks/use-cross-tab-sync";
+import { AllFiltersSheet } from "@/components/merchant/all-filters-sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -161,20 +162,41 @@ interface SavedFilter {
   rawInput: string;
 }
 
-const SAVED_FILTERS_KEY = "rasokart_saved_filters";
+const ALL_SAVED_FILTERS_KEY = "rasokart_all_saved_filters";
+const LEGACY_TX_FILTERS_KEY = "rasokart_saved_filters";
 
-function loadSavedFilters(): SavedFilter[] {
+function migrateOldTxFilters(): void {
   try {
-    const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+    const old = localStorage.getItem(LEGACY_TX_FILTERS_KEY);
+    if (!old) return;
+    const oldFilters = JSON.parse(old) as SavedFilter[];
+    if (oldFilters.length > 0) {
+      const existing = loadPageFilters("transactions");
+      if (existing.length === 0) storePageFilters("transactions", oldFilters);
+    }
+    localStorage.removeItem(LEGACY_TX_FILTERS_KEY);
+  } catch {}
+}
+
+function loadPageFilters(page: "deposits" | "transactions"): SavedFilter[] {
+  try {
+    const raw = localStorage.getItem(ALL_SAVED_FILTERS_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as SavedFilter[];
+    const all = JSON.parse(raw) as Array<SavedFilter & { page: string }>;
+    return all.filter(f => f.page === page);
   } catch {
     return [];
   }
 }
 
-function storeSavedFilters(filters: SavedFilter[]): void {
-  localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filters));
+function storePageFilters(page: "deposits" | "transactions", filters: SavedFilter[]): void {
+  try {
+    const raw = localStorage.getItem(ALL_SAVED_FILTERS_KEY);
+    const all: Array<SavedFilter & { page: string }> = raw ? JSON.parse(raw) : [];
+    const others = all.filter(f => f.page !== page);
+    const tagged = filters.map(f => ({ ...f, page }));
+    localStorage.setItem(ALL_SAVED_FILTERS_KEY, JSON.stringify([...others, ...tagged]));
+  } catch {}
 }
 
 interface CustomDatePreset {
@@ -509,7 +531,11 @@ export default function MerchantTransactions() {
   const smartInputRef = useRef<HTMLInputElement>(null);
 
   // Saved filters state
-  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => loadSavedFilters());
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => {
+    migrateOldTxFilters();
+    return loadPageFilters("transactions");
+  });
+  const [showAllFilters, setShowAllFilters] = useState(false);
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveFilterName, setSaveFilterName] = useState("");
   const [saveFilterNameError, setSaveFilterNameError] = useState("");
@@ -548,9 +574,9 @@ export default function MerchantTransactions() {
     }));
     if (serverFilters.length > 0) {
       setSavedFilters(serverFilters);
-      storeSavedFilters(serverFilters);
+      storePageFilters("transactions", serverFilters);
     } else {
-      const local = loadSavedFilters();
+      const local = loadPageFilters("transactions");
       if (local.length > 0) {
         (async () => {
           const imported: SavedFilter[] = [];
@@ -564,7 +590,7 @@ export default function MerchantTransactions() {
           }
           if (imported.length > 0) {
             setSavedFilters(imported);
-            storeSavedFilters(imported);
+            storePageFilters("transactions", imported);
           }
         })();
       }
@@ -745,7 +771,7 @@ export default function MerchantTransactions() {
       };
       const updated = [...savedFilters, newFilter];
       setSavedFilters(updated);
-      storeSavedFilters(updated);
+      storePageFilters("transactions", updated);
       setShowSaveInput(false);
       setSaveFilterName("");
       setSaveFilterNameError("");
@@ -763,7 +789,7 @@ export default function MerchantTransactions() {
   const deleteSavedFilter = async (id: string) => {
     const updated = savedFilters.filter(f => f.id !== id);
     setSavedFilters(updated);
-    storeSavedFilters(updated);
+    storePageFilters("transactions", updated);
     if (renamingId === id) setRenamingId(null);
     const numericId = parseInt(id);
     if (!isNaN(numericId)) {
@@ -781,7 +807,7 @@ export default function MerchantTransactions() {
     const updated = [...savedFilters];
     [updated[idx], updated[newIdx]] = [updated[newIdx]!, updated[idx]!];
     setSavedFilters(updated);
-    storeSavedFilters(updated);
+    storePageFilters("transactions", updated);
     const ids = updated.map(f => parseInt(f.id)).filter(n => !isNaN(n));
     try {
       await reorderFilterMutation({ data: { ids, context: FILTER_CONTEXT } });
@@ -810,7 +836,7 @@ export default function MerchantTransactions() {
     const [item] = updated.splice(fromIdx, 1);
     updated.splice(toIdx, 0, item!);
     setSavedFilters(updated);
-    storeSavedFilters(updated);
+    storePageFilters("transactions", updated);
     const ids = updated.map(f => parseInt(f.id)).filter(n => !isNaN(n));
     reorderFilterMutation({ data: { ids, context: FILTER_CONTEXT } }).catch(() => {});
   };
@@ -835,7 +861,7 @@ export default function MerchantTransactions() {
     }
     const updated = savedFilters.map(f => f.id === renamingId ? { ...f, name: trimmed } : f);
     setSavedFilters(updated);
-    storeSavedFilters(updated);
+    storePageFilters("transactions", updated);
     setRenamingId(null);
     const numericId = parseInt(renamingId);
     if (!isNaN(numericId)) {
@@ -1072,7 +1098,17 @@ export default function MerchantTransactions() {
       {/* Smart Search Bar */}
       <Card>
         <CardContent className="pt-4 pb-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Smart Search</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Smart Search</p>
+            <button
+              onClick={() => setShowAllFilters(true)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              title="View and manage saved filters across all pages"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Manage all filters
+            </button>
+          </div>
 
           {/* Saved filter chips */}
           {savedFilters.length > 0 && (
@@ -1788,6 +1824,7 @@ export default function MerchantTransactions() {
         onClose={() => setSelectedTxId(null)}
         utrSearch={utrSearch}
       />
+      <AllFiltersSheet open={showAllFilters} onOpenChange={setShowAllFilters} />
     </div>
   );
 }

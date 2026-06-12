@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useCrossTabSync } from "@/hooks/use-cross-tab-sync";
+import { AllFiltersSheet } from "@/components/merchant/all-filters-sheet";
 import {
   useListTransactions,
   useSimulatePayment,
@@ -37,6 +38,7 @@ import {
   FileDown,
   Loader2,
   CalendarRange,
+  Layers,
   Trash2,
   X,
   Sparkles,
@@ -231,20 +233,41 @@ interface SavedFilter {
   rawInput: string;
 }
 
-const SAVED_FILTERS_KEY = "rasokart_merchant_deposits_saved_filters";
+const ALL_SAVED_FILTERS_KEY = "rasokart_all_saved_filters";
+const LEGACY_DEPOSITS_FILTERS_KEY = "rasokart_merchant_deposits_saved_filters";
 
-function loadSavedFilters(): SavedFilter[] {
+function migrateOldDepositFilters(): void {
   try {
-    const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+    const old = localStorage.getItem(LEGACY_DEPOSITS_FILTERS_KEY);
+    if (!old) return;
+    const oldFilters = JSON.parse(old) as SavedFilter[];
+    if (oldFilters.length > 0) {
+      const existing = loadPageFilters("deposits");
+      if (existing.length === 0) storePageFilters("deposits", oldFilters);
+    }
+    localStorage.removeItem(LEGACY_DEPOSITS_FILTERS_KEY);
+  } catch {}
+}
+
+function loadPageFilters(page: "deposits" | "transactions"): SavedFilter[] {
+  try {
+    const raw = localStorage.getItem(ALL_SAVED_FILTERS_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as SavedFilter[];
+    const all = JSON.parse(raw) as Array<SavedFilter & { page: string }>;
+    return all.filter(f => f.page === page);
   } catch {
     return [];
   }
 }
 
-function storeSavedFilters(filters: SavedFilter[]): void {
-  localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filters));
+function storePageFilters(page: "deposits" | "transactions", filters: SavedFilter[]): void {
+  try {
+    const raw = localStorage.getItem(ALL_SAVED_FILTERS_KEY);
+    const all: Array<SavedFilter & { page: string }> = raw ? JSON.parse(raw) : [];
+    const others = all.filter(f => f.page !== page);
+    const tagged = filters.map(f => ({ ...f, page }));
+    localStorage.setItem(ALL_SAVED_FILTERS_KEY, JSON.stringify([...others, ...tagged]));
+  } catch {}
 }
 
 function buildCsvText(data: any[]): string {
@@ -329,7 +352,11 @@ export default function MerchantDeposits() {
   const smartInputRef = useRef<HTMLInputElement>(null);
 
   // Saved filters state
-  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => loadSavedFilters());
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => {
+    migrateOldDepositFilters();
+    return loadPageFilters("deposits");
+  });
+  const [showAllFilters, setShowAllFilters] = useState(false);
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveFilterName, setSaveFilterName] = useState("");
   const [saveFilterNameError, setSaveFilterNameError] = useState("");
@@ -368,9 +395,9 @@ export default function MerchantDeposits() {
     }));
     if (serverFilters.length > 0) {
       setSavedFilters(serverFilters);
-      storeSavedFilters(serverFilters);
+      storePageFilters("deposits", serverFilters);
     } else {
-      const local = loadSavedFilters();
+      const local = loadPageFilters("deposits");
       if (local.length > 0) {
         (async () => {
           const imported: SavedFilter[] = [];
@@ -384,7 +411,7 @@ export default function MerchantDeposits() {
           }
           if (imported.length > 0) {
             setSavedFilters(imported);
-            storeSavedFilters(imported);
+            storePageFilters("deposits", imported);
           }
         })();
       }
@@ -612,7 +639,7 @@ export default function MerchantDeposits() {
       };
       const updated = [...savedFilters, newFilter];
       setSavedFilters(updated);
-      storeSavedFilters(updated);
+      storePageFilters("deposits", updated);
       setShowSaveInput(false);
       setSaveFilterName("");
       setSaveFilterNameError("");
@@ -626,7 +653,7 @@ export default function MerchantDeposits() {
   const deleteSavedFilter = async (id: string) => {
     const updated = savedFilters.filter(f => f.id !== id);
     setSavedFilters(updated);
-    storeSavedFilters(updated);
+    storePageFilters("deposits", updated);
     if (renamingId === id) setRenamingId(null);
     const numericId = parseInt(id);
     if (!isNaN(numericId)) {
@@ -644,7 +671,7 @@ export default function MerchantDeposits() {
     const updated = [...savedFilters];
     [updated[idx], updated[newIdx]] = [updated[newIdx]!, updated[idx]!];
     setSavedFilters(updated);
-    storeSavedFilters(updated);
+    storePageFilters("deposits", updated);
     const ids = updated.map(f => parseInt(f.id)).filter(n => !isNaN(n));
     try {
       await reorderFilterMutation({ data: { ids, context: FILTER_CONTEXT } });
@@ -673,7 +700,7 @@ export default function MerchantDeposits() {
     const [item] = updated.splice(fromIdx, 1);
     updated.splice(toIdx, 0, item!);
     setSavedFilters(updated);
-    storeSavedFilters(updated);
+    storePageFilters("deposits", updated);
     const ids = updated.map(f => parseInt(f.id)).filter(n => !isNaN(n));
     reorderFilterMutation({ data: { ids, context: FILTER_CONTEXT } }).catch(() => {});
   };
@@ -698,7 +725,7 @@ export default function MerchantDeposits() {
     }
     const updated = savedFilters.map(f => f.id === renamingId ? { ...f, name: trimmed } : f);
     setSavedFilters(updated);
-    storeSavedFilters(updated);
+    storePageFilters("deposits", updated);
     setRenamingId(null);
     const numericId = parseInt(renamingId);
     if (!isNaN(numericId)) {
@@ -928,7 +955,17 @@ export default function MerchantDeposits() {
       {/* Smart Search Bar */}
       <Card>
         <CardContent className="pt-4 pb-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Smart Search</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Smart Search</p>
+            <button
+              onClick={() => setShowAllFilters(true)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              title="View and manage saved filters across all pages"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Manage all filters
+            </button>
+          </div>
 
           {/* Saved filter chips */}
           {savedFilters.length > 0 && (
@@ -1635,6 +1672,7 @@ export default function MerchantDeposits() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AllFiltersSheet open={showAllFilters} onOpenChange={setShowAllFilters} />
     </div>
   );
 }

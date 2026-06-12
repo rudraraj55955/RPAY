@@ -1323,7 +1323,17 @@ onError: () => toast.error("Failed to send test event"),
                         )}
                       </span>
                       <span className="text-xs text-muted-foreground/50">·</span>
-                      <span className="text-xs text-muted-foreground/70">
+                      <span className={`text-xs font-semibold tabular-nums ${
+                        log.status === "success" && (log.attempts ?? 1) === 1
+                          ? "text-emerald-400"
+                          : log.status === "success" && (log.attempts ?? 1) > 1
+                          ? "text-amber-400"
+                          : log.status === "pending_retry"
+                          ? "text-amber-400"
+                          : log.status === "failed"
+                          ? "text-rose-400"
+                          : "text-muted-foreground/70"
+                      }`}>
                         {log.attempts} {log.attempts === 1 ? "attempt" : "attempts"}
                       </span>
                     </div>

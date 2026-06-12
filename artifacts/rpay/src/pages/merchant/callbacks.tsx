@@ -155,9 +155,34 @@ function readStoredCooldown(logId: number): number | null {
   }
 }
 
+const MAX_LIVE_COOLDOWN_ENTRIES = 50;
+
+function enforceCooldownCap() {
+  const now = Date.now();
+  const live: { key: string; until: number }[] = [];
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    if (!key?.startsWith(COOLDOWN_STORAGE_PREFIX)) continue;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) continue;
+    const until = parseInt(raw, 10);
+    if (Number.isFinite(until) && until > now) {
+      live.push({ key, until });
+    }
+  }
+  if (live.length > MAX_LIVE_COOLDOWN_ENTRIES) {
+    live.sort((a, b) => a.until - b.until);
+    const excess = live.slice(0, live.length - MAX_LIVE_COOLDOWN_ENTRIES);
+    for (const entry of excess) {
+      sessionStorage.removeItem(entry.key);
+    }
+  }
+}
+
 function writeStoredCooldown(logId: number, until: number) {
   try {
     sessionStorage.setItem(getCooldownKey(logId), String(until));
+    enforceCooldownCap();
   } catch {
     // ignore storage errors
   }
@@ -184,6 +209,7 @@ function sweepStaleCooldowns() {
         sessionStorage.removeItem(key);
       }
     }
+    enforceCooldownCap();
   } catch {
     // ignore storage errors
   }

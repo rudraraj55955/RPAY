@@ -2376,6 +2376,11 @@ export default function AdminMerchants() {
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-muted-foreground shrink-0" />
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Credential History</p>
+                {credentialEvents && credentialEvents.length > 0 && (
+                  <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                    {credentialEvents.length} event{credentialEvents.length !== 1 ? "s" : ""}
+                  </span>
+                )}
               </div>
               {/* Filter chips */}
               <div className="flex flex-wrap gap-1.5">
@@ -2406,44 +2411,58 @@ export default function AdminMerchants() {
               </div>
               {/* Event list */}
               {credEventsLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-4 bg-muted/30 rounded w-full" />)}
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="flex items-start gap-2">
+                      <div className="animate-pulse h-3 w-3 rounded-full bg-muted/40 mt-0.5 shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="animate-pulse h-3 bg-muted/30 rounded w-2/3" />
+                        <div className="animate-pulse h-2.5 bg-muted/20 rounded w-1/2" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : !credentialEvents || credentialEvents.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">No credential events found.</p>
+                <div className="flex flex-col items-center gap-1.5 py-6 text-center">
+                  <History className="w-6 h-6 text-muted-foreground/30" />
+                  <p className="text-xs text-muted-foreground">No credential events found.</p>
+                </div>
               ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <div className="space-y-0 max-h-96 overflow-y-auto pr-1 divide-y divide-border/30">
                   {credentialEvents.map((ev, i) => {
-                    const eventConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-                      key_generated: { label: "Key Generated", color: "text-emerald-400", icon: <KeyRound className="w-3 h-3 text-emerald-400 shrink-0" /> },
-                      key_revoked:   { label: "Key Revoked",   color: "text-rose-400",    icon: <XCircle className="w-3 h-3 text-rose-400 shrink-0" /> },
-                      secret_rotated: { label: "Secret Rotated", color: "text-violet-400", icon: <RotateCcw className="w-3 h-3 text-violet-400 shrink-0" /> },
+                    const eventConfig: Record<string, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
+                      key_generated: { label: "Key Generated", color: "text-emerald-400", bgColor: "bg-emerald-500/10", icon: <KeyRound className="w-3 h-3 text-emerald-400 shrink-0" /> },
+                      key_revoked:   { label: "Key Revoked",   color: "text-rose-400",    bgColor: "bg-rose-500/10",    icon: <XCircle className="w-3 h-3 text-rose-400 shrink-0" /> },
+                      secret_rotated: { label: "Secret Rotated", color: "text-violet-400", bgColor: "bg-violet-500/10", icon: <RotateCcw className="w-3 h-3 text-violet-400 shrink-0" /> },
                     };
-                    const cfg = eventConfig[ev.eventType] ?? { label: ev.eventType, color: "text-muted-foreground", icon: null };
+                    const cfg = eventConfig[ev.eventType] ?? { label: ev.eventType, color: "text-muted-foreground", bgColor: "bg-muted/10", icon: null };
                     return (
-                      <div key={i} className="flex items-start gap-2 text-xs">
-                        <div className="mt-0.5">{cfg.icon}</div>
+                      <div key={i} className="flex items-start gap-2.5 text-xs py-2.5 first:pt-0 last:pb-0">
+                        <div className={`mt-0.5 p-1 rounded ${cfg.bgColor} shrink-0`}>{cfg.icon}</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
                             {ev.keyPrefix && (
-                              <span className="font-mono text-muted-foreground truncate">{ev.keyPrefix}</span>
+                              <span className="font-mono text-[10px] bg-muted/40 px-1.5 py-0.5 rounded text-muted-foreground border border-border/40">{ev.keyPrefix}</span>
                             )}
-                            <span className="text-muted-foreground/70 ml-auto shrink-0">
+                            <span className="text-muted-foreground/60 ml-auto shrink-0 text-[10px]">
                               {formatDistanceToNow(new Date(ev.occurredAt), { addSuffix: true })}
                             </span>
                           </div>
-                          <p className="text-muted-foreground/60">{format(new Date(ev.occurredAt), "dd MMM yyyy, HH:mm")}</p>
-                          {(ev.actorEmail || ev.ipAddress) && (
-                            <div className="flex flex-wrap gap-x-3 mt-0.5 text-muted-foreground/50">
-                              {ev.actorEmail && (
-                                <span className="truncate">{ev.actorEmail}</span>
-                              )}
-                              {ev.ipAddress && (
-                                <span className="font-mono">IP: {ev.ipAddress}</span>
-                              )}
-                            </div>
-                          )}
+                          <p className="text-muted-foreground/50 text-[10px] mt-0.5">{format(new Date(ev.occurredAt), "dd MMM yyyy, HH:mm:ss")}</p>
+                          <div className="flex flex-wrap gap-x-3 mt-1 text-[10px]">
+                            {ev.actorEmail && (
+                              <span className="text-muted-foreground/70 flex items-center gap-1">
+                                <span className="text-muted-foreground/40">by</span>
+                                <span className="font-medium">{ev.actorEmail}</span>
+                              </span>
+                            )}
+                            {ev.ipAddress && (
+                              <span className="font-mono text-muted-foreground/50">
+                                <span className="text-muted-foreground/40 not-font-mono">IP </span>{ev.ipAddress}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

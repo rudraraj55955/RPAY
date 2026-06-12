@@ -6255,7 +6255,7 @@ components:
           description: Masked IP address of the actor who performed the action
         actorEmail:
           type: ["string", "null"]
-          description: Email of the actor who performed the action
+          description: Email of the actor who performed the action (admin view only)
 
     SecurityEvent:
       type: object

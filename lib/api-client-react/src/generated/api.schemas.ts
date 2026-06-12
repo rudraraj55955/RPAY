@@ -687,7 +687,7 @@ export interface MerchantListCredentialEvent {
      */
   ipAddress?: string | null;
   /**
-     * Email of the actor who performed the action
+     * Email of the actor who performed the action (admin view only)
      * @nullable
      */
   actorEmail?: string | null;

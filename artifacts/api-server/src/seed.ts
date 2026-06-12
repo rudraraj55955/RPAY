@@ -26,6 +26,7 @@ import {
   SYSTEM_CONFIG_DEFAULTS,
   systemSettingsTable,
   scheduledAuditReportLogsTable,
+  credentialEventsTable,
 } from "@workspace/db";
 
 const PLAN_TIERS = [
@@ -930,6 +931,106 @@ export async function seed() {
       )
   `);
   console.log("Credential events backfill complete.");
+
+  // ── Credential Events — demo history for admin view ──────────────────────
+  const [credEvCount] = await db.select({ c: count() }).from(credentialEventsTable)
+    .where(eq(credentialEventsTable.merchantId, m1.id));
+  if (credEvCount.c === 0) {
+    const adminUser = admin;
+    const merchantUser = await db.select().from(usersTable)
+      .where(eq(usersTable.email, "merchant@demo.com")).limit(1).then(r => r[0]);
+    const merchantUser2 = await db.select().from(usersTable)
+      .where(eq(usersTable.email, "merchant2@demo.com")).limit(1).then(r => r[0]);
+
+    if (adminUser && merchantUser && merchantUser2) {
+      await db.insert(credentialEventsTable).values([
+        // m1 events — oldest first (newest first is query ordering)
+        {
+          merchantId: m1.id,
+          eventType: "api_key_generated",
+          actorId: merchantUser.id,
+          actorEmail: merchantUser.email,
+          keyPrefix: "rasokart_live_demo",
+          ipAddress: "103.21.44.x",
+          createdAt: new Date(Date.now() - 90 * 86400000),
+        },
+        {
+          merchantId: m1.id,
+          eventType: "callback_secret_rotated",
+          actorId: merchantUser.id,
+          actorEmail: merchantUser.email,
+          keyPrefix: null,
+          ipAddress: "103.21.44.x",
+          createdAt: new Date(Date.now() - 75 * 86400000),
+        },
+        {
+          merchantId: m1.id,
+          eventType: "api_key_generated",
+          actorId: merchantUser.id,
+          actorEmail: merchantUser.email,
+          keyPrefix: "rasokart_test_demo",
+          ipAddress: "103.21.44.x",
+          createdAt: new Date(Date.now() - 60 * 86400000),
+        },
+        {
+          merchantId: m1.id,
+          eventType: "api_key_revoked",
+          actorId: adminUser.id,
+          actorEmail: adminUser.email,
+          keyPrefix: "rasokart_live_demo",
+          ipAddress: "45.33.32.x",
+          createdAt: new Date(Date.now() - 30 * 86400000),
+        },
+        {
+          merchantId: m1.id,
+          eventType: "api_key_generated",
+          actorId: merchantUser.id,
+          actorEmail: merchantUser.email,
+          keyPrefix: "rasokart_live_demo",
+          ipAddress: "103.21.44.x",
+          createdAt: new Date(Date.now() - 15 * 86400000),
+        },
+        {
+          merchantId: m1.id,
+          eventType: "callback_secret_rotated",
+          actorId: adminUser.id,
+          actorEmail: adminUser.email,
+          keyPrefix: null,
+          ipAddress: "45.33.32.x",
+          createdAt: new Date(Date.now() - 5 * 86400000),
+        },
+        // m2 events
+        {
+          merchantId: m2.id,
+          eventType: "api_key_generated",
+          actorId: merchantUser2.id,
+          actorEmail: merchantUser2.email,
+          keyPrefix: "rasokart_live_demo",
+          ipAddress: "198.51.100.x",
+          createdAt: new Date(Date.now() - 45 * 86400000),
+        },
+        {
+          merchantId: m2.id,
+          eventType: "api_key_revoked",
+          actorId: adminUser.id,
+          actorEmail: adminUser.email,
+          keyPrefix: "rasokart_live_demo",
+          ipAddress: "45.33.32.x",
+          createdAt: new Date(Date.now() - 20 * 86400000),
+        },
+        {
+          merchantId: m2.id,
+          eventType: "api_key_generated",
+          actorId: merchantUser2.id,
+          actorEmail: merchantUser2.email,
+          keyPrefix: "rasokart_live_demo",
+          ipAddress: "198.51.100.x",
+          createdAt: new Date(Date.now() - 10 * 86400000),
+        },
+      ]);
+    }
+    console.log("Credential events seeded");
+  }
 
   console.log("Seed complete.");
 }

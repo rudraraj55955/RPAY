@@ -943,7 +943,7 @@ export const ListMerchantCredentialEventsResponseItem = zod.object({
   "keyPrefix": zod.string().nullish().describe('Key prefix for key_generated\/key_revoked events; null for secret_rotated'),
   "occurredAt": zod.string().describe('ISO timestamp of when the event occurred'),
   "ipAddress": zod.string().nullish().describe('Masked IP address of the actor who performed the action'),
-  "actorEmail": zod.string().nullish().describe('Email of the actor who performed the action')
+  "actorEmail": zod.string().nullish().describe('Email of the actor who performed the action (admin view only)')
 })
 export const ListMerchantCredentialEventsResponse = zod.array(ListMerchantCredentialEventsResponseItem)
 

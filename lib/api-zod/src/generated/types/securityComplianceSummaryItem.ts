@@ -18,4 +18,9 @@ export interface SecurityComplianceSummaryItem {
   status: string;
   /** true when lastLoginAt is null or older than 90 days */
   isInactive?: boolean;
+  /**
+     * ISO timestamp of the most recent merchant_dormant notification sent for this merchant; null if never alerted
+     * @nullable
+     */
+  lastDormantAlertAt?: string | null;
 }

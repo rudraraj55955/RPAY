@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, auditLogsTable, scheduledAuditReportsTable, scheduledAuditReportLogsTable, credentialEventsTable, merchantsTable, usersTable } from "@workspace/db";
+import { db, auditLogsTable, scheduledAuditReportsTable, scheduledAuditReportLogsTable, credentialEventsTable, merchantsTable, usersTable, notificationsTable } from "@workspace/db";
 import { eq, ilike, and, count, sql, or, gte, lte, desc, getTableColumns, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { sendScheduledReport, buildEmailHtml, getDateRange, getRetryDelayMs } from "../helpers/auditReportScheduler";
@@ -31,6 +31,7 @@ router.get("/security-compliance", async (req, res) => {
     email: string;
     last_exported_at: string | null;
     last_login_at: string | null;
+    last_dormant_alert_at: string | null;
   }>(sql`
     SELECT
       m.id AS merchant_id,
@@ -47,7 +48,13 @@ router.get("/security-compliance", async (req, res) => {
         FROM users u
         WHERE u.merchant_id = m.id
           AND u.role = 'merchant'
-      ) AS last_login_at
+      ) AS last_login_at,
+      (
+        SELECT MAX(n.created_at)
+        FROM notifications n
+        WHERE n.type = 'merchant_dormant'
+          AND (n.metadata->>'merchantId')::int = m.id
+      ) AS last_dormant_alert_at
     FROM merchants m
     ORDER BY m.business_name
   `).then(r => r.rows);
@@ -66,6 +73,7 @@ router.get("/security-compliance", async (req, res) => {
       lastLoginAt,
       status: r.last_exported_at ? "exported" : "never",
       isInactive,
+      lastDormantAlertAt: r.last_dormant_alert_at ? new Date(r.last_dormant_alert_at).toISOString() : null,
     };
   });
 

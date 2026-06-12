@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useSearch } from "wouter";
+import { useSearch, Link } from "wouter";
 import {
   useListAdminAuditLogs, useGetAdminAuditLogStats,
   useListAuditReportSchedules, useCreateAuditReportSchedule,
@@ -2331,7 +2331,7 @@ function CompliancePanel() {
       }
       return s;
     }
-    const header = ["Merchant ID", "Business Name", "Email", "Last Login At", "Last Export At", "Is Inactive"];
+    const header = ["Merchant ID", "Business Name", "Email", "Last Login At", "Last Export At", "Is Inactive", "Last Dormant Alert At"];
     const csvRows = (rows as any[]).map(r => [
       escapeCsv(String(r.merchantId)),
       escapeCsv(r.businessName),
@@ -2339,6 +2339,7 @@ function CompliancePanel() {
       escapeCsv(r.lastLoginAt ?? null),
       escapeCsv(r.lastExportedAt ?? null),
       escapeCsv(r.isInactive ? "true" : "false"),
+      escapeCsv(r.lastDormantAlertAt ?? null),
     ].join(","));
     const csv = [header.join(","), ...csvRows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -2596,6 +2597,7 @@ function CompliancePanel() {
                       }
                     </button>
                   </TableHead>
+                  <TableHead>Last Alert</TableHead>
                   <TableHead className="w-20" />
                 </TableRow>
               </TableHeader>
@@ -2603,14 +2605,14 @@ function CompliancePanel() {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 7 }).map((_, j) => (
+                      {Array.from({ length: 8 }).map((_, j) => (
                         <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>
                       ))}
                     </TableRow>
                   ))
                 ) : !rows.length ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-14">
+                    <TableCell colSpan={8} className="text-center py-14">
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <ClipboardCheck className="w-8 h-8 opacity-30" />
                         <p className="text-sm">No merchants match this filter</p>
@@ -2652,13 +2654,16 @@ function CompliancePanel() {
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="inline-flex items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 text-xs font-medium text-rose-400">
+                                  <Link
+                                    href={`/admin/merchants?open=${row.merchantId}`}
+                                    className="inline-flex items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 text-xs font-medium text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/50 transition-colors cursor-pointer"
+                                  >
                                     <Clock className="w-2.5 h-2.5" />
-                                    Dormant
-                                  </span>
+                                    Dormant 90d+
+                                  </Link>
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
-                                  No login in the last 90 days
+                                  No login in the last 90 days — click to view merchant profile
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -2713,6 +2718,25 @@ function CompliancePanel() {
                           </TooltipProvider>
                         ) : (
                           <span className="text-muted-foreground/50 italic">Never</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {row.lastDormantAlertAt ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-1 text-rose-400/80 cursor-default">
+                                  <BellRing className="w-3 h-3 shrink-0" />
+                                  {formatDistanceToNow(new Date(row.lastDormantAlertAt), { addSuffix: true })}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                Dormant alert last sent {format(new Date(row.lastDormantAlertAt), "MMM d, yyyy HH:mm:ss")}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-muted-foreground/50 italic">—</span>
                         )}
                       </TableCell>
                       <TableCell className="pr-3">

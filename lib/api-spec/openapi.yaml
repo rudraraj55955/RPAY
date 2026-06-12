@@ -8615,6 +8615,9 @@ components:
         isInactive:
           type: boolean
           description: "true when lastLoginAt is null or older than 90 days"
+        lastDormantAlertAt:
+          type: ["string", "null"]
+          description: "ISO timestamp of the most recent merchant_dormant notification sent for this merchant; null if never alerted"
 
     SecurityComplianceSummaryResponse:
       type: object

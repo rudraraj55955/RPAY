@@ -3567,7 +3567,8 @@ export const GetSecurityComplianceSummaryResponse = zod.object({
   "lastExportedAt": zod.string().nullish(),
   "lastLoginAt": zod.string().nullish(),
   "status": zod.string().describe('exported | never'),
-  "isInactive": zod.boolean().optional().describe('true when lastLoginAt is null or older than 90 days')
+  "isInactive": zod.boolean().optional().describe('true when lastLoginAt is null or older than 90 days'),
+  "lastDormantAlertAt": zod.string().nullish().describe('ISO timestamp of the most recent merchant_dormant notification sent for this merchant; null if never alerted')
 })),
   "totalMerchants": zod.number(),
   "exportedCount": zod.number(),

@@ -229,6 +229,16 @@ export interface MerchantListResponse {
   limit: number;
 }
 
+/**
+ * Map of merchant ID (as string key) to total webhook failure alert count
+ */
+export type MerchantWebhookFailureCountsResponseCounts = {[key: string]: number};
+
+export interface MerchantWebhookFailureCountsResponse {
+  /** Map of merchant ID (as string key) to total webhook failure alert count */
+  counts: MerchantWebhookFailureCountsResponseCounts;
+}
+
 export interface MerchantWebhookMaxRetriesInput {
   /**
      * Maximum number of automatic delivery retries (1–10).
@@ -3059,6 +3069,13 @@ export const ListMerchantsLoginAlertEmails = {
   true: 'true',
   false: 'false',
 } as const;
+
+export type GetMerchantsWebhookFailureCountsParams = {
+/**
+ * Comma-separated list of merchant IDs to fetch counts for
+ */
+merchantIds: string;
+};
 
 export type ListMerchantCredentialEventsParams = {
 eventType?: ListMerchantCredentialEventsEventType;

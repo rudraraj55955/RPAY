@@ -17,6 +17,7 @@ import {
   useGetAdminMerchantWebhookConfig,
   useUpdateMerchantWebhookMaxRetries,
   useGetWebhookFailureAlertHistory,
+  useGetMerchantsWebhookFailureCounts,
   getListMerchantsQueryKey,
   listMerchants,
   type WebhookFailureAlertLogEntry,
@@ -250,6 +251,8 @@ export default function AdminMerchants() {
   const [webhookLogsMerchant, setWebhookLogsMerchant] = useState<{ id: number; name: string } | null>(null);
   const [webhookLogsStatus, setWebhookLogsStatus] = useState<"all" | "success" | "failed" | "pending_retry">("all");
   const [webhookLogsPage, setWebhookLogsPage] = useState(1);
+  const [scrollToAlerts, setScrollToAlerts] = useState(false);
+  const webhookAlertsRef = useRef<HTMLDivElement>(null);
 
   // Parse ?open=<merchantId> once on mount (e.g. linked from QR/VA detail panels)
   const [deepLinkId] = useState<number | null>(() => {
@@ -389,6 +392,16 @@ export default function AdminMerchants() {
     deepLinkOpenedRef.current = true;
     openAssignPlan(deepLinkId, deepLinkMerchant.businessName, deepLinkMerchant.callbackTimestampWindowSeconds, deepLinkMerchant.loginAlertEmails);
   }, [deepLinkMerchant, deepLinkId]);
+
+  // Scroll to Webhook Failure Alerts section when panel opens via badge click
+  useEffect(() => {
+    if (!scrollToAlerts || !assignPlanMerchant) return;
+    const timer = setTimeout(() => {
+      webhookAlertsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setScrollToAlerts(false);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [scrollToAlerts, assignPlanMerchant]);
 
   // Countdown timer for undo window
   useEffect(() => {
@@ -870,6 +883,15 @@ export default function AdminMerchants() {
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
 
+  const pageWebhookCountsIds = merchants.length > 0 ? merchants.map(m => m.id).join(",") : "";
+  const { data: webhookFailureCountsData } = useGetMerchantsWebhookFailureCounts(
+    { merchantIds: pageWebhookCountsIds },
+    { query: { enabled: merchants.length > 0, queryKey: ["getMerchantsWebhookFailureCounts", pageWebhookCountsIds] } }
+  );
+  const webhookFailureCounts: Record<number, number> = webhookFailureCountsData?.counts
+    ? Object.fromEntries(Object.entries(webhookFailureCountsData.counts).map(([k, v]) => [Number(k), v]))
+    : {};
+
   const now = Date.now();
   const expiringCount = merchants.filter(m => {
     if (!m.currentPlanExpiresAt || m.currentPlanIsExpired) return false;
@@ -1307,7 +1329,32 @@ export default function AdminMerchants() {
                   </TableCell>
                   <TableCell>
                     <div>
-                      <p className="font-medium">{merchant.businessName}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-medium">{merchant.businessName}</p>
+                        {(webhookFailureCounts[merchant.id] ?? 0) > 0 && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    openAssignPlan(merchant.id, merchant.businessName, merchant.callbackTimestampWindowSeconds, merchant.loginAlertEmails);
+                                    setScrollToAlerts(true);
+                                  }}
+                                  aria-label={`${webhookFailureCounts[merchant.id]} webhook failure alert${webhookFailureCounts[merchant.id] !== 1 ? "s" : ""}`}
+                                >
+                                  <AlertTriangle className="w-3 h-3 shrink-0" />
+                                  <span className="text-[11px] font-semibold tabular-nums leading-none">{webhookFailureCounts[merchant.id]}</span>
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                {webhookFailureCounts[merchant.id]} webhook failure alert{webhookFailureCounts[merchant.id] !== 1 ? "s" : ""} — click to view
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">{merchant.email}</p>
                       {merchant.status === "rejected" && merchant.rejectionReason && (
                         <p className="text-xs text-rose-400 mt-0.5 max-w-[200px] truncate" title={merchant.rejectionReason}>
@@ -2438,7 +2485,7 @@ export default function AdminMerchants() {
             </div>
 
             {/* Webhook Failure Alerts */}
-            <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-3">
+            <div ref={webhookAlertsRef} className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-3">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-muted-foreground shrink-0" />
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Webhook Failure Alerts</p>

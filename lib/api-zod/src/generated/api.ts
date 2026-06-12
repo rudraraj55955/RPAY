@@ -588,6 +588,18 @@ export const BulkUnassignMerchantPlanResponse = zod.object({
 
 
 /**
+ * @summary Get webhook failure alert counts per merchant (admin only)
+ */
+export const GetMerchantsWebhookFailureCountsQueryParams = zod.object({
+  "merchantIds": zod.coerce.string().describe('Comma-separated list of merchant IDs to fetch counts for')
+})
+
+export const GetMerchantsWebhookFailureCountsResponse = zod.object({
+  "counts": zod.record(zod.string(), zod.number()).describe('Map of merchant ID (as string key) to total webhook failure alert count')
+})
+
+
+/**
  * @summary Assign plan to merchant (admin only)
  */
 export const AssignMerchantPlanParams = zod.object({

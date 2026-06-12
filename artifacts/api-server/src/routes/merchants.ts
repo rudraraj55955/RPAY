@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, merchantsTable, usersTable, merchantPlansTable, plansTable, planHistoryTable, auditLogsTable, invoicesTable, apiKeysTable, credentialEventsTable, webhooksTable } from "@workspace/db";
+import { db, merchantsTable, usersTable, merchantPlansTable, plansTable, planHistoryTable, auditLogsTable, invoicesTable, apiKeysTable, credentialEventsTable, webhooksTable, webhookFailureAlertLogsTable } from "@workspace/db";
 import { eq, ilike, and, or, count, sql, desc, lt, lte, gte, isNotNull, inArray } from "drizzle-orm";
 import { maskIp } from "../helpers/apiKeyEmail";
 import { loadWebhookRetryConfig } from "../helpers/callbackRetry";
@@ -156,6 +156,41 @@ router.get("/", requireAdmin, async (req, res) => {
     page: pageNum,
     limit: limitNum,
   });
+});
+
+// GET /api/merchants/webhook-failure-counts  (admin only)
+// Returns total webhook failure alert counts per merchant for a given list of merchant IDs
+router.get("/webhook-failure-counts", requireAdmin, async (req, res, next) => {
+  try {
+    const raw = (req.query['merchantIds'] as string) ?? "";
+    const ids = raw
+      .split(",")
+      .map(s => parseInt(s.trim()))
+      .filter(n => !isNaN(n) && n > 0);
+
+    if (ids.length === 0) {
+      res.json({ counts: {} });
+      return;
+    }
+
+    const rows = await db
+      .select({
+        merchantId: webhookFailureAlertLogsTable.merchantId,
+        total: count(),
+      })
+      .from(webhookFailureAlertLogsTable)
+      .where(inArray(webhookFailureAlertLogsTable.merchantId, ids))
+      .groupBy(webhookFailureAlertLogsTable.merchantId);
+
+    const counts: Record<number, number> = {};
+    for (const row of rows) {
+      counts[row.merchantId] = row.total;
+    }
+
+    res.json({ counts });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // GET /api/merchants/:id  (admin, or the merchant viewing their own profile)

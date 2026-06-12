@@ -91,6 +91,7 @@ import type {
   ExportVaBalanceAuditCsvParams,
   GetCallbackSecretHistoryParams,
   GetLedgerBackfillLastRun200,
+  GetMerchantsWebhookFailureCountsParams,
   GetQrCodeStatsParams,
   GetReconciliationRunEmailLogs200,
   GetSecurityComplianceSummaryParams,
@@ -162,6 +163,7 @@ import type {
   MerchantRegisterInput,
   MerchantSavedFilter,
   MerchantVolumeListResponse,
+  MerchantWebhookFailureCountsResponse,
   MerchantWebhookMaxRetriesInput,
   MessageResponse,
   Notification,
@@ -1901,6 +1903,90 @@ export const useBulkUnassignMerchantPlan = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getBulkUnassignMerchantPlanMutationOptions(options));
     }
+
+export const getGetMerchantsWebhookFailureCountsUrl = (params: GetMerchantsWebhookFailureCountsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/merchants/webhook-failure-counts?${stringifiedParams}` : `/api/merchants/webhook-failure-counts`
+}
+
+/**
+ * @summary Get webhook failure alert counts per merchant (admin only)
+ */
+export const getMerchantsWebhookFailureCounts = async (params: GetMerchantsWebhookFailureCountsParams, options?: RequestInit): Promise<MerchantWebhookFailureCountsResponse> => {
+
+  return customFetch<MerchantWebhookFailureCountsResponse>(getGetMerchantsWebhookFailureCountsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMerchantsWebhookFailureCountsQueryKey = (params?: GetMerchantsWebhookFailureCountsParams,) => {
+    return [
+    `/api/merchants/webhook-failure-counts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMerchantsWebhookFailureCountsQueryOptions = <TData = Awaited<ReturnType<typeof getMerchantsWebhookFailureCounts>>, TError = ErrorType<unknown>>(params: GetMerchantsWebhookFailureCountsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMerchantsWebhookFailureCounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMerchantsWebhookFailureCountsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMerchantsWebhookFailureCounts>>> = ({ signal }) => getMerchantsWebhookFailureCounts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMerchantsWebhookFailureCounts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMerchantsWebhookFailureCountsQueryResult = NonNullable<Awaited<ReturnType<typeof getMerchantsWebhookFailureCounts>>>
+export type GetMerchantsWebhookFailureCountsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get webhook failure alert counts per merchant (admin only)
+ */
+
+export function useGetMerchantsWebhookFailureCounts<TData = Awaited<ReturnType<typeof getMerchantsWebhookFailureCounts>>, TError = ErrorType<unknown>>(
+ params: GetMerchantsWebhookFailureCountsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMerchantsWebhookFailureCounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMerchantsWebhookFailureCountsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getAssignMerchantPlanUrl = (id: number,) => {
 

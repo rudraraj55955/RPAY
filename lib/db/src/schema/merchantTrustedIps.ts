@@ -7,7 +7,8 @@ export const merchantTrustedIpsTable = pgTable("merchant_trusted_ips", {
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   merchantId: integer("merchant_id").notNull().references(() => merchantsTable.id, { onDelete: "cascade" }),
   ipAddress: text("ip_address").notNull(),
-  trustedAt: timestamp("trusted_at", { withTimezone: true }).notNull().defaultNow(),
+  label: text("label").notNull(),
+  labeledAt: timestamp("labeled_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type MerchantTrustedIp = typeof merchantTrustedIpsTable.$inferSelect;

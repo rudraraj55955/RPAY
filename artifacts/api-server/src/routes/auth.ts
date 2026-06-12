@@ -87,8 +87,9 @@ router.post("/login", loginLimiter, async (req, res, next) => {
           .from(merchantTrustedIpsTable)
           .where(
             and(
-              eq(merchantTrustedIpsTable.userId, user.id),
+              eq(merchantTrustedIpsTable.merchantId, user.merchantId),
               eq(merchantTrustedIpsTable.ipAddress, loginIp!),
+              eq(merchantTrustedIpsTable.label, "trusted"),
             ),
           )
           .limit(1)
@@ -207,7 +208,7 @@ router.get("/trust-ip", async (req, res) => {
       .from(merchantTrustedIpsTable)
       .where(
         and(
-          eq(merchantTrustedIpsTable.userId, user.id),
+          eq(merchantTrustedIpsTable.merchantId, user.merchantId),
           eq(merchantTrustedIpsTable.ipAddress, payload.ip),
         ),
       )
@@ -228,7 +229,18 @@ router.get("/trust-ip", async (req, res) => {
         userId: user.id,
         merchantId: user.merchantId,
         ipAddress: payload.ip,
+        label: "trusted",
       });
+    } else {
+      await db
+        .update(merchantTrustedIpsTable)
+        .set({ label: "trusted", labeledAt: new Date() })
+        .where(
+          and(
+            eq(merchantTrustedIpsTable.merchantId, user.merchantId),
+            eq(merchantTrustedIpsTable.ipAddress, payload.ip),
+          ),
+        );
     }
 
     res.send(htmlPage(true, "This IP address has been added to your trusted list. You will no longer receive login alerts when signing in from this location."));

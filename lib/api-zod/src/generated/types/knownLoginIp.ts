@@ -5,6 +5,7 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { KnownLoginIpLabel } from './knownLoginIpLabel';
 
 export interface KnownLoginIp {
   /** The IP address that logged in */
@@ -13,4 +14,14 @@ export interface KnownLoginIp {
   firstSeen: Date;
   /** Timestamp of the most recent login from this IP */
   lastSeen: Date;
+  /**
+     * Merchant-assigned label for this IP (trusted or suspicious)
+     * @nullable
+     */
+  label?: KnownLoginIpLabel;
+  /**
+     * Timestamp when the label was last set
+     * @nullable
+     */
+  labeledAt?: Date | null;
 }

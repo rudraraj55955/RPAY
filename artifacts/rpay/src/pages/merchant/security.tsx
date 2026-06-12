@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useListCallbackLogs, useGetMe, useUpdateMyPreferences, getGetMeQueryKey, useListMySecurityActivity, useListSecurityEvents, useListKnownLoginIps, useListTrustedIps, useDeleteTrustedIp, getListTrustedIpsQueryKey } from "@workspace/api-client-react";
+import { useListCallbackLogs, useGetMe, useUpdateMyPreferences, getGetMeQueryKey, useListMySecurityActivity, useListSecurityEvents, useListKnownLoginIps, useListTrustedIps, useDeleteTrustedIp, getListTrustedIpsQueryKey, useLabelKnownLoginIp, getListKnownLoginIpsQueryKey } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -594,6 +594,40 @@ export default function MerchantSecurity() {
   function handleRemoveTrustedIp(id: number) {
     setRemovingTrustedIpId(id);
     deleteTrustedIp({ id });
+  }
+
+  const { mutate: labelIp, isPending: labelingIp } = useLabelKnownLoginIp({
+    mutation: {
+      onSuccess: (updated) => {
+        qc.setQueryData(getListKnownLoginIpsQueryKey(), (prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            data: prev.data.map((row: any) =>
+              row.ipAddress === updated.ipAddress ? { ...row, label: updated.label, labeledAt: updated.labeledAt } : row
+            ),
+          };
+        });
+        toast.success(
+          updated.label === "trusted"
+            ? "IP marked as trusted"
+            : updated.label === "suspicious"
+            ? "IP flagged as suspicious"
+            : "IP label cleared"
+        );
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
+
+  const [labelingIpAddress, setLabelingIpAddress] = useState<string | null>(null);
+
+  function handleLabelIp(ipAddress: string, label: "trusted" | "suspicious" | null) {
+    setLabelingIpAddress(ipAddress);
+    labelIp(
+      { ipAddress: encodeURIComponent(ipAddress), data: { label } },
+      { onSettled: () => setLabelingIpAddress(null) }
+    );
   }
 
   const [exportingSecEvents, setExportingSecEvents] = useState(false);
@@ -1196,7 +1230,7 @@ export default function MerchantSecurity() {
             Known Login Locations
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
-            IP addresses that have previously signed into your account — up to the last 10 unique locations. Click a row to filter the event history below by that IP.
+            IP addresses that have previously signed into your account — up to the last 10 unique locations. Click a row to filter the event history below by that IP, or mark IPs as trusted or flag them as suspicious.
           </p>
         </CardHeader>
         <CardContent>
@@ -1207,6 +1241,8 @@ export default function MerchantSecurity() {
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-7 w-28" />
                 </div>
               ))}
             </div>
@@ -1223,11 +1259,14 @@ export default function MerchantSecurity() {
                   <TableHead className="text-xs text-muted-foreground font-medium h-8">IP Address</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-medium h-8">First Seen</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-medium h-8">Last Seen</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-medium h-8">Status</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-medium h-8 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {knownIpsData.data.map((row) => {
                   const isActive = ipFilter === row.ipAddress;
+                  const isActing = labelingIpAddress === row.ipAddress && labelingIp;
                   return (
                     <TableRow
                       key={row.ipAddress}
@@ -1258,6 +1297,80 @@ export default function MerchantSecurity() {
                       <TableCell className="py-2.5 text-xs text-muted-foreground">
                         {format(new Date(row.lastSeen), "dd MMM yyyy 'at' HH:mm")}
                       </TableCell>
+
+
+                      <TableCell className="py-2.5">
+                        {row.label === "trusted" ? (
+                          <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1 text-xs">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Trusted
+                          </Badge>
+                        ) : row.label === "suspicious" ? (
+                          <Badge className="bg-rose-500/10 text-rose-400 border-rose-500/20 gap-1 text-xs">
+                            <AlertTriangle className="w-3 h-3" />
+                            Suspicious
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground/50 border-border/40 text-xs">
+                            Unlabelled
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isActing ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          ) : (
+                            <>
+                              <TooltipProvider delayDuration={300}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant={row.label === "trusted" ? "secondary" : "outline"}
+                                      size="sm"
+                                      className={`h-7 text-xs px-2.5 gap-1 ${row.label === "trusted" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30" : "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 hover:border-emerald-500/50"}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleLabelIp(row.ipAddress, row.label === "trusted" ? null : "trusted");
+                                      }}
+                                      disabled={labelingIp}
+                                    >
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      {row.label === "trusted" ? "Trusted" : "Trust"}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">
+                                    {row.label === "trusted" ? "Click to remove trust label" : "Mark this IP as a trusted device"}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <TooltipProvider delayDuration={300}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant={row.label === "suspicious" ? "secondary" : "outline"}
+                                      size="sm"
+                                      className={`h-7 text-xs px-2.5 gap-1 ${row.label === "suspicious" ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30" : "text-rose-400 border-rose-500/30 hover:bg-rose-500/10 hover:border-rose-500/50"}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleLabelIp(row.ipAddress, row.label === "suspicious" ? null : "suspicious");
+                                      }}
+                                      disabled={labelingIp}
+                                    >
+                                      <AlertTriangle className="w-3 h-3" />
+                                      {row.label === "suspicious" ? "Flagged" : "Flag"}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">
+                                    {row.label === "suspicious" ? "Click to remove suspicious label" : "Flag this IP as suspicious"}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+
                     </TableRow>
                   );
                 })}

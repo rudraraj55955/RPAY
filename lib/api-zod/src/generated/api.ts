@@ -1506,8 +1506,31 @@ export const ListKnownLoginIpsResponse = zod.object({
   "data": zod.array(zod.object({
   "ipAddress": zod.string().describe('The IP address that logged in'),
   "firstSeen": zod.coerce.date().describe('Timestamp of the first login from this IP'),
-  "lastSeen": zod.coerce.date().describe('Timestamp of the most recent login from this IP')
+  "lastSeen": zod.coerce.date().describe('Timestamp of the most recent login from this IP'),
+  "label": zod.union([zod.literal('trusted'),zod.literal('suspicious'),zod.literal(null)]).nullish().describe('Merchant-assigned label for this IP (trusted or suspicious)'),
+  "labeledAt": zod.coerce.date().nullish().describe('Timestamp when the label was last set')
 }))
+})
+
+
+/**
+ * Sets or clears a merchant-assigned label (trusted or suspicious) for a known login IP address. Pass null to remove an existing label. Merchant access only.
+ * @summary Label a known login IP as trusted or suspicious
+ */
+export const LabelKnownLoginIpParams = zod.object({
+  "ipAddress": zod.coerce.string().describe('The IP address to label (URL-encoded if necessary)')
+})
+
+export const LabelKnownLoginIpBody = zod.object({
+  "label": zod.union([zod.literal('trusted'),zod.literal('suspicious'),zod.literal(null)]).nullable().describe('Set to trusted or suspicious to label the IP; null to clear the label')
+})
+
+export const LabelKnownLoginIpResponse = zod.object({
+  "ipAddress": zod.string().describe('The IP address that logged in'),
+  "firstSeen": zod.coerce.date().describe('Timestamp of the first login from this IP'),
+  "lastSeen": zod.coerce.date().describe('Timestamp of the most recent login from this IP'),
+  "label": zod.union([zod.literal('trusted'),zod.literal('suspicious'),zod.literal(null)]).nullish().describe('Merchant-assigned label for this IP (trusted or suspicious)'),
+  "labeledAt": zod.coerce.date().nullish().describe('Timestamp when the label was last set')
 })
 
 

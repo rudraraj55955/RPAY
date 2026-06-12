@@ -723,6 +723,18 @@ export interface TrustedIpListResponse {
   data: TrustedIp[];
 }
 
+/**
+ * Merchant-assigned label for this IP (trusted or suspicious)
+ * @nullable
+ */
+export type KnownLoginIpLabel = typeof KnownLoginIpLabel[keyof typeof KnownLoginIpLabel] | null;
+
+
+export const KnownLoginIpLabel = {
+  trusted: 'trusted',
+  suspicious: 'suspicious',
+} as const;
+
 export interface KnownLoginIp {
   /** The IP address that logged in */
   ipAddress: string;
@@ -730,10 +742,40 @@ export interface KnownLoginIp {
   firstSeen: string;
   /** Timestamp of the most recent login from this IP */
   lastSeen: string;
+  /**
+     * Merchant-assigned label for this IP (trusted or suspicious)
+     * @nullable
+     */
+  label?: KnownLoginIpLabel;
+  /**
+     * Timestamp when the label was last set
+     * @nullable
+     */
+  labeledAt?: string | null;
 }
 
 export interface KnownLoginIpListResponse {
   data: KnownLoginIp[];
+}
+
+/**
+ * Set to trusted or suspicious to label the IP; null to clear the label
+ * @nullable
+ */
+export type LabelIpRequestLabel = typeof LabelIpRequestLabel[keyof typeof LabelIpRequestLabel] | null;
+
+
+export const LabelIpRequestLabel = {
+  trusted: 'trusted',
+  suspicious: 'suspicious',
+} as const;
+
+export interface LabelIpRequest {
+  /**
+     * Set to trusted or suspicious to label the IP; null to clear the label
+     * @nullable
+     */
+  label: LabelIpRequestLabel;
 }
 
 export type SecurityEventEventType = typeof SecurityEventEventType[keyof typeof SecurityEventEventType];

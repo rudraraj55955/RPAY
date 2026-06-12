@@ -110,7 +110,9 @@ import type {
   Invoice,
   InvoiceInput,
   InvoiceListResponse,
+  KnownLoginIp,
   KnownLoginIpListResponse,
+  LabelIpRequest,
   LastReconSummary,
   LedgerAdjustmentInput,
   LedgerEntry,
@@ -4766,6 +4768,79 @@ export function useListKnownLoginIps<TData = Awaited<ReturnType<typeof listKnown
 
 
 
+
+export const getLabelKnownLoginIpUrl = (ipAddress: string,) => {
+
+
+
+
+  return `/api/security/known-ips/${ipAddress}/label`
+}
+
+/**
+ * Sets or clears a merchant-assigned label (trusted or suspicious) for a known login IP address. Pass null to remove an existing label. Merchant access only.
+ * @summary Label a known login IP as trusted or suspicious
+ */
+export const labelKnownLoginIp = async (ipAddress: string,
+    labelIpRequest: LabelIpRequest, options?: RequestInit): Promise<KnownLoginIp> => {
+
+  return customFetch<KnownLoginIp>(getLabelKnownLoginIpUrl(ipAddress),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      labelIpRequest,)
+  }
+);}
+
+
+
+
+export const getLabelKnownLoginIpMutationOptions = <TError = ErrorType<MessageResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof labelKnownLoginIp>>, TError,{ipAddress: string;data: BodyType<LabelIpRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof labelKnownLoginIp>>, TError,{ipAddress: string;data: BodyType<LabelIpRequest>}, TContext> => {
+
+const mutationKey = ['labelKnownLoginIp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof labelKnownLoginIp>>, {ipAddress: string;data: BodyType<LabelIpRequest>}> = (props) => {
+          const {ipAddress,data} = props ?? {};
+
+          return  labelKnownLoginIp(ipAddress,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LabelKnownLoginIpMutationResult = NonNullable<Awaited<ReturnType<typeof labelKnownLoginIp>>>
+    export type LabelKnownLoginIpMutationBody = BodyType<LabelIpRequest>
+    export type LabelKnownLoginIpMutationError = ErrorType<MessageResponse | void>
+
+    /**
+ * @summary Label a known login IP as trusted or suspicious
+ */
+export const useLabelKnownLoginIp = <TError = ErrorType<MessageResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof labelKnownLoginIp>>, TError,{ipAddress: string;data: BodyType<LabelIpRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof labelKnownLoginIp>>,
+        TError,
+        {ipAddress: string;data: BodyType<LabelIpRequest>},
+        TContext
+      > => {
+      return useMutation(getLabelKnownLoginIpMutationOptions(options));
+    }
 
 export const getListSecurityEventsUrl = (params?: ListSecurityEventsParams,) => {
   const normalizedParams = new URLSearchParams();

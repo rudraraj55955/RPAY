@@ -1561,6 +1561,41 @@ paths:
         "403":
           description: Merchant access only
 
+  /security/known-ips/{ipAddress}/label:
+    patch:
+      operationId: labelKnownLoginIp
+      tags: [security]
+      summary: Label a known login IP as trusted or suspicious
+      description: Sets or clears a merchant-assigned label (trusted or suspicious) for a known login IP address. Pass null to remove an existing label. Merchant access only.
+      parameters:
+        - name: ipAddress
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The IP address to label (URL-encoded if necessary)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LabelIpRequest"
+      responses:
+        "200":
+          description: IP label updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnownLoginIp"
+        "400":
+          description: Invalid label value or IP not in known login list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Merchant access only
+
   /security/events:
     get:
       operationId: listSecurityEvents
@@ -6761,6 +6796,14 @@ components:
           type: string
           format: date-time
           description: Timestamp of the most recent login from this IP
+        label:
+          type: ["string", "null"]
+          enum: ["trusted", "suspicious", null]
+          description: Merchant-assigned label for this IP (trusted or suspicious)
+        labeledAt:
+          type: ["string", "null"]
+          format: date-time
+          description: Timestamp when the label was last set
 
     KnownLoginIpListResponse:
       type: object
@@ -6770,6 +6813,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/KnownLoginIp"
+
+    LabelIpRequest:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: ["string", "null"]
+          enum: ["trusted", "suspicious", null]
+          description: Set to trusted or suspicious to label the IP; null to clear the label
 
     SecurityEvent:
       type: object

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useListCallbackLogs, useGetMe, useUpdateMyPreferences, getGetMeQueryKey, useListMySecurityActivity, useListSecurityEvents } from "@workspace/api-client-react";
+import { useListCallbackLogs, useGetMe, useUpdateMyPreferences, getGetMeQueryKey, useListMySecurityActivity, useListSecurityEvents, useListKnownLoginIps } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ import {
   ChevronRight,
   LogIn,
   Monitor,
+  MapPin,
 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
 import { toast } from "sonner";
@@ -495,6 +496,9 @@ export default function MerchantSecurity() {
   const secTotalPages = Math.max(1, Math.ceil(secTotal / SEC_PAGE_SIZE));
 
   const anySecFilterActive = !!(secEventType !== "all" || secDateFrom || secDateTo || secSearch);
+
+  // Known login IPs
+  const { data: knownIpsData, isLoading: knownIpsLoading } = useListKnownLoginIps();
 
   function handleExportCsv() {
     if (!filteredLogs.length && !secPageSlice.length) return;
@@ -1011,6 +1015,65 @@ export default function MerchantSecurity() {
             </div>
           </div>
         )}
+      </Card>
+
+      {/* Known login locations */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-muted-foreground" />
+            Known Login Locations
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            IP addresses that have previously signed into your account — up to the last 10 unique locations.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {knownIpsLoading ? (
+            <div className="space-y-2">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              ))}
+            </div>
+          ) : !knownIpsData?.data?.length ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
+              <MapPin className="w-7 h-7 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">No login locations recorded yet</p>
+              <p className="text-xs text-muted-foreground/60">IP addresses will appear here after your first login.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/40">
+                  <TableHead className="text-xs text-muted-foreground font-medium h-8">IP Address</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-medium h-8">First Seen</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-medium h-8">Last Seen</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {knownIpsData.data.map((row) => (
+                  <TableRow key={row.ipAddress} className="border-border/40">
+                    <TableCell className="py-2.5">
+                      <code className="text-xs font-mono text-foreground/90 bg-muted/50 px-1.5 py-0.5 rounded">
+                        {row.ipAddress}
+                      </code>
+                    </TableCell>
+                    <TableCell className="py-2.5 text-xs text-muted-foreground">
+                      {format(new Date(row.firstSeen), "dd MMM yyyy 'at' HH:mm")}
+                    </TableCell>
+                    <TableCell className="py-2.5 text-xs text-muted-foreground">
+                      {format(new Date(row.lastSeen), "dd MMM yyyy 'at' HH:mm")}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
       </Card>
 
       {/* Security event history */}

@@ -1449,6 +1449,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  /security/known-ips:
+    get:
+      operationId: listKnownLoginIps
+      tags: [security]
+      summary: List known login IP addresses
+      description: Returns a deduplicated list of IP addresses that have previously logged into the merchant account, derived from merchant_login credential events. Capped at 10 most recently seen IPs. Merchant access only.
+      responses:
+        "200":
+          description: List of known login IPs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnownLoginIpListResponse"
+        "403":
+          description: Merchant access only
+
   /security/events:
     get:
       operationId: listSecurityEvents
@@ -6355,6 +6371,31 @@ components:
         actorEmail:
           type: ["string", "null"]
           description: Email of the actor who performed the action (admin view only)
+
+    KnownLoginIp:
+      type: object
+      required: [ipAddress, firstSeen, lastSeen]
+      properties:
+        ipAddress:
+          type: string
+          description: The IP address that logged in
+        firstSeen:
+          type: string
+          format: date-time
+          description: Timestamp of the first login from this IP
+        lastSeen:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent login from this IP
+
+    KnownLoginIpListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnownLoginIp"
 
     SecurityEvent:
       type: object

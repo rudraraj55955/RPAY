@@ -1446,6 +1446,19 @@ export const RevokeApiKeyResponse = zod.object({
 
 
 /**
+ * Returns a deduplicated list of IP addresses that have previously logged into the merchant account, derived from merchant_login credential events. Capped at 10 most recently seen IPs. Merchant access only.
+ * @summary List known login IP addresses
+ */
+export const ListKnownLoginIpsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "ipAddress": zod.string().describe('The IP address that logged in'),
+  "firstSeen": zod.coerce.date().describe('Timestamp of the first login from this IP'),
+  "lastSeen": zod.coerce.date().describe('Timestamp of the most recent login from this IP')
+}))
+})
+
+
+/**
  * Returns a paginated list of security events for the authenticated merchant — logins, API key generation, API key revocation, and callback secret rotations. Merchant access only.
  * @summary List merchant security events
  */

@@ -693,6 +693,19 @@ export interface MerchantListCredentialEvent {
   actorEmail?: string | null;
 }
 
+export interface KnownLoginIp {
+  /** The IP address that logged in */
+  ipAddress: string;
+  /** Timestamp of the first login from this IP */
+  firstSeen: string;
+  /** Timestamp of the most recent login from this IP */
+  lastSeen: string;
+}
+
+export interface KnownLoginIpListResponse {
+  data: KnownLoginIp[];
+}
+
 export type SecurityEventEventType = typeof SecurityEventEventType[keyof typeof SecurityEventEventType];
 
 

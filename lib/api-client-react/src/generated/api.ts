@@ -101,6 +101,7 @@ import type {
   Invoice,
   InvoiceInput,
   InvoiceListResponse,
+  KnownLoginIpListResponse,
   LastReconSummary,
   LedgerAdjustmentInput,
   LedgerEntry,
@@ -4439,6 +4440,84 @@ export const useRevokeApiKey = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getRevokeApiKeyMutationOptions(options));
     }
+
+export const getListKnownLoginIpsUrl = () => {
+
+
+
+
+  return `/api/security/known-ips`
+}
+
+/**
+ * Returns a deduplicated list of IP addresses that have previously logged into the merchant account, derived from merchant_login credential events. Capped at 10 most recently seen IPs. Merchant access only.
+ * @summary List known login IP addresses
+ */
+export const listKnownLoginIps = async ( options?: RequestInit): Promise<KnownLoginIpListResponse> => {
+
+  return customFetch<KnownLoginIpListResponse>(getListKnownLoginIpsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListKnownLoginIpsQueryKey = () => {
+    return [
+    `/api/security/known-ips`
+    ] as const;
+    }
+
+
+export const getListKnownLoginIpsQueryOptions = <TData = Awaited<ReturnType<typeof listKnownLoginIps>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listKnownLoginIps>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListKnownLoginIpsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listKnownLoginIps>>> = ({ signal }) => listKnownLoginIps({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listKnownLoginIps>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListKnownLoginIpsQueryResult = NonNullable<Awaited<ReturnType<typeof listKnownLoginIps>>>
+export type ListKnownLoginIpsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List known login IP addresses
+ */
+
+export function useListKnownLoginIps<TData = Awaited<ReturnType<typeof listKnownLoginIps>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listKnownLoginIps>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListKnownLoginIpsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListSecurityEventsUrl = (params?: ListSecurityEventsParams,) => {
   const normalizedParams = new URLSearchParams();

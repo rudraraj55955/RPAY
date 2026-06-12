@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, credentialEventsTable } from "@workspace/db";
-import { eq, and, gte, lte, desc, count } from "drizzle-orm";
+import { eq, and, gte, lte, desc, count, min, max, isNotNull, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
 const router = Router();
@@ -64,6 +64,45 @@ router.get("/events", async (req, res, next) => {
       total: Number(total),
       page: pageNum,
       limit: limitNum,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/security/known-ips
+router.get("/known-ips", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== "merchant" || !user.merchantId) {
+      res.status(403).json({ error: "Merchant access only" });
+      return;
+    }
+
+    const rows = await db
+      .select({
+        ipAddress: credentialEventsTable.ipAddress,
+        firstSeen: min(credentialEventsTable.createdAt),
+        lastSeen: max(credentialEventsTable.createdAt),
+      })
+      .from(credentialEventsTable)
+      .where(
+        and(
+          eq(credentialEventsTable.merchantId, user.merchantId),
+          eq(credentialEventsTable.eventType, "merchant_login"),
+          isNotNull(credentialEventsTable.ipAddress)
+        )
+      )
+      .groupBy(credentialEventsTable.ipAddress)
+      .orderBy(desc(max(credentialEventsTable.createdAt)))
+      .limit(10);
+
+    res.json({
+      data: rows.map(r => ({
+        ipAddress: r.ipAddress as string,
+        firstSeen: (r.firstSeen as Date).toISOString(),
+        lastSeen: (r.lastSeen as Date).toISOString(),
+      })),
     });
   } catch (err) {
     next(err);

@@ -999,18 +999,22 @@ function ScheduleHistoryPanel({
     });
   }, [logs]);
 
-  useEffect(() => {
-    if (autoExpandedRef.current || cycles.length === 0) return;
-    autoExpandedRef.current = true;
+  const mostRecentFailedCycleId = useMemo(() => {
     const mostRecent = [...cycles].sort(
       (a, b) =>
         new Date(b.initialAttempt.sentAt).getTime() -
         new Date(a.initialAttempt.sentAt).getTime(),
     )[0];
-    if (mostRecent && !mostRecent.overallSuccess) {
-      setExpandedCycles(new Set([mostRecent.cycleId]));
-    }
+    return mostRecent && !mostRecent.overallSuccess ? mostRecent.cycleId : null;
   }, [cycles]);
+
+  useEffect(() => {
+    if (autoExpandedRef.current || cycles.length === 0) return;
+    autoExpandedRef.current = true;
+    if (mostRecentFailedCycleId) {
+      setExpandedCycles(new Set([mostRecentFailedCycleId]));
+    }
+  }, [cycles, mostRecentFailedCycleId]);
 
   function toggleCycle(cycleId: string) {
     setExpandedCycles(prev => {
@@ -1052,7 +1056,10 @@ function ScheduleHistoryPanel({
         const isExpanded = expandedCycles.has(cycleId);
         const hasRetries = attempts.length > 1;
         return (
-          <div key={cycleId}>
+          <div
+            key={cycleId}
+            className={cycleId === mostRecentFailedCycleId ? "border-l-2 border-rose-500 bg-rose-500/5" : undefined}
+          >
             <button
               type="button"
               className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-muted/10 transition-colors"

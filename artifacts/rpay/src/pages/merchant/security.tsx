@@ -1014,10 +1014,14 @@ export default function MerchantSecurity() {
               ) : (
                 pageSlice.map(log => (
                   <TableRow key={log.id}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">#{log.id}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      #<HighlightText text={String(log.id)} query={search} />
+                    </TableCell>
                     <TableCell>
                       {log.eventType ? (
-                        <span className="font-mono text-xs text-sky-400">{log.eventType}</span>
+                        <span className="font-mono text-xs text-sky-400">
+                          <HighlightText text={log.eventType} query={search} />
+                        </span>
                       ) : (
                         <span className="text-muted-foreground text-xs">—</span>
                       )}
@@ -1042,7 +1046,9 @@ export default function MerchantSecurity() {
                     </TableCell>
                     <TableCell>
                       {log.qrCodeId != null ? (
-                        <span className="font-mono text-xs text-blue-400">QR #{log.qrCodeId}</span>
+                        <span className="font-mono text-xs text-blue-400">
+                          QR #<HighlightText text={String(log.qrCodeId)} query={search} />
+                        </span>
                       ) : (
                         <span className="text-muted-foreground text-xs">—</span>
                       )}

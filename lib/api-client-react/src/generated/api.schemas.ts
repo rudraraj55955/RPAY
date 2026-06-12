@@ -2767,6 +2767,15 @@ export interface WebhookFailureAlertHistoryResponse {
   total: number;
 }
 
+export interface WebhookFailureAlertConfig {
+  /**
+     * Number of hours to suppress duplicate webhook failure alert emails for the same merchant. Default is 1.
+     * @minimum 1
+     * @maximum 168
+     */
+  cooldownHours: number;
+}
+
 export interface WebhookRetriesConfig {
   /**
      * Total maximum delivery attempts (1 initial + retries). Default is 4 (1 initial + 3 retries).

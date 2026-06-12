@@ -602,6 +602,73 @@ router.get("/webhook-retry-policy", async (req, res, next) => {
   }
 });
 
+// GET /api/system-config/webhook-failure-alert
+router.get("/webhook-failure-alert", async (req, res, next) => {
+  try {
+    const rows = await db
+      .select()
+      .from(systemConfigTable)
+      .where(eq(systemConfigTable.key, SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS));
+
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+
+    res.json({
+      cooldownHours: parseInt(
+        map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS) ??
+          SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS]
+      ),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/system-config/webhook-failure-alert
+router.put("/webhook-failure-alert", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { cooldownHours } = req.body;
+
+    if (typeof cooldownHours !== "number" || !Number.isInteger(cooldownHours)) {
+      res.status(400).json({ error: "cooldownHours must be an integer" });
+      return;
+    }
+
+    if (cooldownHours < 1 || cooldownHours > 168) {
+      res.status(400).json({ error: "cooldownHours must be between 1 and 168" });
+      return;
+    }
+
+    await db
+      .insert(systemConfigTable)
+      .values({
+        key: SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS,
+        value: String(cooldownHours),
+        updatedByEmail: user.email,
+      })
+      .onConflictDoUpdate({
+        target: systemConfigTable.key,
+        set: { value: String(cooldownHours), updatedByEmail: user.email, updatedAt: sql`now()` },
+      });
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id,
+      adminEmail: user.email,
+      action: "system_config_updated",
+      targetType: "system_config",
+      targetId: null,
+      details: JSON.stringify({ section: "webhook_failure_alert", cooldownHours }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ cooldownHours }, "Webhook failure alert cooldown config updated");
+
+    res.json({ cooldownHours });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/system-config/webhook-failure-alert-history
 router.get("/webhook-failure-alert-history", async (req, res, next) => {
   try {

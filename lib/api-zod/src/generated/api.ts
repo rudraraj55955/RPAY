@@ -4786,6 +4786,38 @@ export const RunStorageCleanupResponse = zod.object({
 
 
 /**
+ * @summary Get webhook failure alert email cooldown configuration (admin only)
+ */
+export const getWebhookFailureAlertConfigResponseCooldownHoursMax = 168;
+
+
+
+export const GetWebhookFailureAlertConfigResponse = zod.object({
+  "cooldownHours": zod.number().min(1).max(getWebhookFailureAlertConfigResponseCooldownHoursMax).describe('Number of hours to suppress duplicate webhook failure alert emails for the same merchant. Default is 1.')
+})
+
+
+/**
+ * @summary Update webhook failure alert email cooldown configuration (admin only)
+ */
+export const updateWebhookFailureAlertConfigBodyCooldownHoursMax = 168;
+
+
+
+export const UpdateWebhookFailureAlertConfigBody = zod.object({
+  "cooldownHours": zod.number().min(1).max(updateWebhookFailureAlertConfigBodyCooldownHoursMax).describe('Number of hours to suppress duplicate webhook failure alert emails for the same merchant. Default is 1.')
+})
+
+export const updateWebhookFailureAlertConfigResponseCooldownHoursMax = 168;
+
+
+
+export const UpdateWebhookFailureAlertConfigResponse = zod.object({
+  "cooldownHours": zod.number().min(1).max(updateWebhookFailureAlertConfigResponseCooldownHoursMax).describe('Number of hours to suppress duplicate webhook failure alert emails for the same merchant. Default is 1.')
+})
+
+
+/**
  * @summary Get webhook failure alert email send history (admin only)
  */
 export const getWebhookFailureAlertHistoryQueryLimitDefault = 50;

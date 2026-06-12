@@ -34,6 +34,7 @@ export const SYSTEM_CONFIG_KEYS = {
   VA_CLEANUP_LAST_DELETED: "va_cleanup_last_deleted",
   EKQR_API_KEY: "ekqr_api_key",
   EKQR_ENABLED: "ekqr_enabled",
+  WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS: "webhook_failure_alert_cooldown_hours",
 } as const;
 
 export const SYSTEM_CONFIG_DEFAULTS = {
@@ -51,4 +52,5 @@ export const SYSTEM_CONFIG_DEFAULTS = {
   [SYSTEM_CONFIG_KEYS.TEST_EMAIL_HISTORY_RETENTION_DAYS]: "30",
   [SYSTEM_CONFIG_KEYS.AUDIT_REPORT_LOG_RETENTION_DAYS]: "90",
   [SYSTEM_CONFIG_KEYS.EKQR_ENABLED]: "false",
+  [SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS]: "1",
 } as const;

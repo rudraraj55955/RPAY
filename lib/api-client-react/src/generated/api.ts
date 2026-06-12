@@ -249,6 +249,7 @@ import type {
   VisibilityRuleUpdateInput,
   WebhookConfig,
   WebhookConfigInput,
+  WebhookFailureAlertConfig,
   WebhookFailureAlertHistoryResponse,
   WebhookHealthSummary,
   WebhookLogStatsResponse,
@@ -15685,6 +15686,154 @@ export const useRunStorageCleanup = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRunStorageCleanupMutationOptions(options));
+    }
+
+export const getGetWebhookFailureAlertConfigUrl = () => {
+
+
+
+
+  return `/api/system-config/webhook-failure-alert`
+}
+
+/**
+ * @summary Get webhook failure alert email cooldown configuration (admin only)
+ */
+export const getWebhookFailureAlertConfig = async ( options?: RequestInit): Promise<WebhookFailureAlertConfig> => {
+
+  return customFetch<WebhookFailureAlertConfig>(getGetWebhookFailureAlertConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWebhookFailureAlertConfigQueryKey = () => {
+    return [
+    `/api/system-config/webhook-failure-alert`
+    ] as const;
+    }
+
+
+export const getGetWebhookFailureAlertConfigQueryOptions = <TData = Awaited<ReturnType<typeof getWebhookFailureAlertConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWebhookFailureAlertConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWebhookFailureAlertConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWebhookFailureAlertConfig>>> = ({ signal }) => getWebhookFailureAlertConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWebhookFailureAlertConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWebhookFailureAlertConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getWebhookFailureAlertConfig>>>
+export type GetWebhookFailureAlertConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get webhook failure alert email cooldown configuration (admin only)
+ */
+
+export function useGetWebhookFailureAlertConfig<TData = Awaited<ReturnType<typeof getWebhookFailureAlertConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWebhookFailureAlertConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWebhookFailureAlertConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateWebhookFailureAlertConfigUrl = () => {
+
+
+
+
+  return `/api/system-config/webhook-failure-alert`
+}
+
+/**
+ * @summary Update webhook failure alert email cooldown configuration (admin only)
+ */
+export const updateWebhookFailureAlertConfig = async (webhookFailureAlertConfig: WebhookFailureAlertConfig, options?: RequestInit): Promise<WebhookFailureAlertConfig> => {
+
+  return customFetch<WebhookFailureAlertConfig>(getUpdateWebhookFailureAlertConfigUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      webhookFailureAlertConfig,)
+  }
+);}
+
+
+
+
+export const getUpdateWebhookFailureAlertConfigMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWebhookFailureAlertConfig>>, TError,{data: BodyType<WebhookFailureAlertConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWebhookFailureAlertConfig>>, TError,{data: BodyType<WebhookFailureAlertConfig>}, TContext> => {
+
+const mutationKey = ['updateWebhookFailureAlertConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWebhookFailureAlertConfig>>, {data: BodyType<WebhookFailureAlertConfig>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateWebhookFailureAlertConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWebhookFailureAlertConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateWebhookFailureAlertConfig>>>
+    export type UpdateWebhookFailureAlertConfigMutationBody = BodyType<WebhookFailureAlertConfig>
+    export type UpdateWebhookFailureAlertConfigMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update webhook failure alert email cooldown configuration (admin only)
+ */
+export const useUpdateWebhookFailureAlertConfig = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWebhookFailureAlertConfig>>, TError,{data: BodyType<WebhookFailureAlertConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWebhookFailureAlertConfig>>,
+        TError,
+        {data: BodyType<WebhookFailureAlertConfig>},
+        TContext
+      > => {
+      return useMutation(getUpdateWebhookFailureAlertConfigMutationOptions(options));
     }
 
 export const getGetWebhookFailureAlertHistoryUrl = (params?: GetWebhookFailureAlertHistoryParams,) => {

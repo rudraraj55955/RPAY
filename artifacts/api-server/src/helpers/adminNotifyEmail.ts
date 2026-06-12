@@ -1,5 +1,5 @@
-import { db, usersTable, webhookFailureAlertLogsTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { db, usersTable, webhookFailureAlertLogsTable, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
+import { and, eq, gt, gte } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendMail } from "./mailer";
 
@@ -294,6 +294,19 @@ function buildWebhookFailureHtml(opts: {
 </html>`;
 }
 
+async function getWebhookFailureCooldownHours(): Promise<number> {
+  try {
+    const rows = await db
+      .select()
+      .from(systemConfigTable)
+      .where(eq(systemConfigTable.key, SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS));
+    const raw = rows[0]?.value ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS];
+    return Math.max(1, parseInt(raw) || 1);
+  } catch {
+    return 1;
+  }
+}
+
 export async function notifyAdminsOfWebhookFailureEmail(opts: {
   merchantId: number;
   url: string;
@@ -305,6 +318,29 @@ export async function notifyAdminsOfWebhookFailureEmail(opts: {
 
     if (recipients.length === 0) {
       logger.info({ merchantId: opts.merchantId }, "No admins opted in to webhook failure emails — skipping");
+      return;
+    }
+
+    const cooldownHours = await getWebhookFailureCooldownHours();
+    const cooldownCutoff = new Date(Date.now() - cooldownHours * 60 * 60 * 1000);
+
+    const recentAlerts = await db
+      .select({ id: webhookFailureAlertLogsTable.id, sentAt: webhookFailureAlertLogsTable.sentAt })
+      .from(webhookFailureAlertLogsTable)
+      .where(
+        and(
+          eq(webhookFailureAlertLogsTable.merchantId, opts.merchantId),
+          gte(webhookFailureAlertLogsTable.sentAt, cooldownCutoff),
+          gt(webhookFailureAlertLogsTable.recipientCount, 0)
+        )
+      )
+      .limit(1);
+
+    if (recentAlerts.length > 0) {
+      logger.info(
+        { merchantId: opts.merchantId, cooldownHours, lastAlertAt: recentAlerts[0]!.sentAt },
+        "Webhook failure alert email suppressed — within cooldown window"
+      );
       return;
     }
 
@@ -327,7 +363,7 @@ export async function notifyAdminsOfWebhookFailureEmail(opts: {
     });
 
     logger.info(
-      { merchantId: opts.merchantId, totalAdmins: recipients.length, sent, failed },
+      { merchantId: opts.merchantId, totalAdmins: recipients.length, sent, failed, cooldownHours },
       "Admin webhook failure emails dispatched"
     );
   } catch (err) {

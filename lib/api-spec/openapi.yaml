@@ -4881,6 +4881,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/StorageCleanupRunResult"
 
+  /system-config/webhook-failure-alert:
+    get:
+      operationId: getWebhookFailureAlertConfig
+      tags: [system-config]
+      summary: Get webhook failure alert email cooldown configuration (admin only)
+      responses:
+        "200":
+          description: Current webhook failure alert cooldown configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookFailureAlertConfig"
+    put:
+      operationId: updateWebhookFailureAlertConfig
+      tags: [system-config]
+      summary: Update webhook failure alert email cooldown configuration (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookFailureAlertConfig"
+      responses:
+        "200":
+          description: Updated webhook failure alert cooldown configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookFailureAlertConfig"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /system-config/webhook-failure-alert-history:
     get:
       operationId: getWebhookFailureAlertHistory
@@ -9049,6 +9085,16 @@ components:
         total:
           type: integer
 
+
+    WebhookFailureAlertConfig:
+      type: object
+      required: [cooldownHours]
+      properties:
+        cooldownHours:
+          type: integer
+          minimum: 1
+          maximum: 168
+          description: Number of hours to suppress duplicate webhook failure alert emails for the same merchant. Default is 1.
 
     WebhookRetriesConfig:
       type: object

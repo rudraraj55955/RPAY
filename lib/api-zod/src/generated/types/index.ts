@@ -335,6 +335,7 @@ export * from './virtualAccountUpdateInputStatus';
 export * from './visibilityRuleUpdateInput';
 export * from './webhookConfig';
 export * from './webhookConfigInput';
+export * from './webhookFailureAlertConfig';
 export * from './webhookFailureAlertHistoryResponse';
 export * from './webhookFailureAlertLogEntry';
 export * from './webhookHealthSummary';

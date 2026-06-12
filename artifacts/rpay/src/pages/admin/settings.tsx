@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetCleanupStats, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, getGetEkqrConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useGetCleanupStats, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, getGetEkqrConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -216,6 +216,9 @@ export default function AdminSettings() {
   const [retryDelay2, setRetryDelay2] = useState<number>(900);
   const [retryDelay3, setRetryDelay3] = useState<number>(3600);
   const [retryInitialized, setRetryInitialized] = useState(false);
+
+  const [webhookAlertCooldownHours, setWebhookAlertCooldownHours] = useState<number>(1);
+  const [webhookAlertCooldownInitialized, setWebhookAlertCooldownInitialized] = useState(false);
 
   const [githubSyncEnabled, setGithubSyncEnabled] = useState<boolean>(true);
   const [githubSyncSchedule, setGithubSyncSchedule] = useState<string>("0 2 * * *");
@@ -670,6 +673,31 @@ export default function AdminSettings() {
     },
   });
 
+
+  const { data: webhookAlertConfigData, isLoading: webhookAlertConfigLoading } = useGetWebhookFailureAlertConfig();
+
+  useEffect(() => {
+    if (webhookAlertConfigData && !webhookAlertCooldownInitialized) {
+      setWebhookAlertCooldownHours(webhookAlertConfigData.cooldownHours);
+      setWebhookAlertCooldownInitialized(true);
+    }
+  }, [webhookAlertConfigData, webhookAlertCooldownInitialized]);
+
+  const currentWebhookAlertCooldownHours = webhookAlertConfigData?.cooldownHours ?? 1;
+  const webhookAlertCooldownUnchanged = webhookAlertCooldownHours === currentWebhookAlertCooldownHours;
+
+  const { mutate: saveWebhookAlertCooldown, isPending: savingWebhookAlertCooldown } = useUpdateWebhookFailureAlertConfig({
+    mutation: {
+      onSuccess: (updated: { cooldownHours: number }) => {
+        toast.success("Webhook failure alert cooldown saved");
+        qc.invalidateQueries({ queryKey: getGetWebhookFailureAlertConfigQueryKey() });
+        setWebhookAlertCooldownInitialized(false);
+        setWebhookAlertCooldownHours(updated.cooldownHours);
+        setWebhookAlertCooldownInitialized(true);
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
 
   const { data: sigFailureHistoryData, refetch: refetchSigFailureHistory } = useGetSignatureFailureAlertHistory();
   const sigFailureHistory: SignatureFailureAlertLogEntry[] = sigFailureHistoryData?.data ?? [];
@@ -1994,6 +2022,65 @@ export default function AdminSettings() {
                   setRetryDelay3(currentRetryDelay3);
                 }}
                 disabled={savingRetry}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Webhook Failure Alert Cooldown */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <WifiOff className="w-4 h-4 text-muted-foreground" />
+            <CardTitle className="text-base">Webhook Failure Alert Cooldown</CardTitle>
+          </div>
+          <CardDescription className="text-sm">
+            Set how long to suppress duplicate webhook failure alert emails for the same merchant. If a merchant's webhook permanently fails multiple times within this window, only the first alert email is sent. Subsequent failures are silently logged but do not trigger a new email until the cooldown expires.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="webhook-alert-cooldown" className="text-sm">Cooldown window (hours)</Label>
+              <Input
+                id="webhook-alert-cooldown"
+                type="number"
+                min={1}
+                max={168}
+                value={webhookAlertCooldownHours}
+                onChange={e => {
+                  const v = parseInt(e.target.value);
+                  if (!isNaN(v)) setWebhookAlertCooldownHours(Math.min(168, Math.max(1, v)));
+                }}
+                disabled={webhookAlertConfigLoading}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Between 1 and 168 hours (1 week). Default is 1 hour.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => saveWebhookAlertCooldown({ data: { cooldownHours: webhookAlertCooldownHours } })}
+              disabled={savingWebhookAlertCooldown || webhookAlertConfigLoading || webhookAlertCooldownUnchanged}
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              {savingWebhookAlertCooldown ? "Saving…" : "Save"}
+            </Button>
+            {!webhookAlertCooldownUnchanged && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setWebhookAlertCooldownHours(currentWebhookAlertCooldownHours);
+                }}
+                disabled={savingWebhookAlertCooldown}
               >
                 Cancel
               </Button>

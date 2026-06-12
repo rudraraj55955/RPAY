@@ -7,6 +7,7 @@ import type { CallbackLogAttempt } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -70,6 +71,70 @@ function CopyButton({ text, label = "Copy response" }: { text: string | null | u
         {copied ? "Copied!" : label}
       </span>
     </div>
+  );
+}
+
+function AttemptCountTooltip({ logId, count, colorClass }: { logId: number; count: number; colorClass: string }) {
+  const [hovered, setHovered] = useState(false);
+  const { data, isLoading } = useGetWebhookLogAttempts(logId, {
+    query: { enabled: hovered } as any,
+  });
+  const attempts: CallbackLogAttempt[] = (data as any)?.data ?? [];
+
+  if (count === 0) {
+    return <span className={`text-sm font-semibold tabular-nums ${colorClass}`}>{count}</span>;
+  }
+
+  return (
+    <TooltipProvider delayDuration={250}>
+      <Tooltip open={hovered} onOpenChange={setHovered}>
+        <TooltipTrigger asChild>
+          <span
+            className={`text-sm font-semibold tabular-nums cursor-default underline decoration-dotted underline-offset-2 ${colorClass}`}
+          >
+            {count}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent
+          side="left"
+          className="bg-popover text-popover-foreground border border-border p-0 shadow-lg"
+        >
+          <div className="px-3 py-2 min-w-[200px]">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+              Attempt Breakdown
+            </p>
+            {isLoading ? (
+              <div className="flex items-center gap-1.5 py-0.5">
+                <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Loading…</span>
+              </div>
+            ) : attempts.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No detail available</p>
+            ) : (
+              <div className="space-y-1.5">
+                {attempts.map(a => (
+                  <div key={a.id} className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground/60 w-5 text-right shrink-0">#{a.attemptNumber}</span>
+                    <span className={`font-mono font-semibold w-8 shrink-0 ${
+                      a.httpStatus != null && a.httpStatus >= 200 && a.httpStatus < 300
+                        ? "text-emerald-400"
+                        : a.httpStatus != null && a.httpStatus < 500
+                        ? "text-amber-400"
+                        : a.httpStatus != null
+                        ? "text-rose-400"
+                        : "text-muted-foreground"
+                    }`}>{a.httpStatus ?? "—"}</span>
+                    <span className="text-muted-foreground/70 font-mono">
+                      {format(new Date(a.firedAt), "MMM d, HH:mm:ss")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -307,19 +372,21 @@ function CallbackRow({ log, activeQrFilter, onFilterByQr, initialOpen, onDeepLin
         <TableCell><StatusBadge status={log.status} /></TableCell>
         <TableCell><span className={`font-mono text-sm ${log.httpStatus === 200 ? "text-emerald-500" : "text-rose-500"}`}>{log.httpStatus || "—"}</span></TableCell>
         <TableCell className="text-center">
-          <span className={`text-sm font-semibold tabular-nums ${
-            log.status === "success" && (log.attempts ?? 1) === 1
-              ? "text-emerald-400"
-              : log.status === "success" && (log.attempts ?? 1) > 1
-              ? "text-amber-400"
-              : log.status === "pending_retry"
-              ? "text-amber-400"
-              : log.status === "failed"
-              ? "text-rose-400"
-              : "text-foreground"
-          }`}>
-            {log.attempts ?? 0}
-          </span>
+          <AttemptCountTooltip
+            logId={log.id}
+            count={log.attempts ?? 0}
+            colorClass={
+              log.status === "success" && (log.attempts ?? 1) === 1
+                ? "text-emerald-400"
+                : log.status === "success" && (log.attempts ?? 1) > 1
+                ? "text-amber-400"
+                : log.status === "pending_retry"
+                ? "text-amber-400"
+                : log.status === "failed"
+                ? "text-rose-400"
+                : "text-foreground"
+            }
+          />
         </TableCell>
         <TableCell><SignatureVerifiedBadge value={log.signatureVerified} /></TableCell>
         <TableCell className="text-sm text-muted-foreground">{format(new Date(log.createdAt), "MMM d, HH:mm")}</TableCell>

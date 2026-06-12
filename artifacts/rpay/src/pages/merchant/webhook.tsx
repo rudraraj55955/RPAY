@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { EVENT_TYPE_COLORS, EventTypeBadge } from "@/components/ui/event-type-badge";
-import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, getGetWebhookLogsQueryKey, useSendWebhookTest, useRetryWebhookLog, useGetWebhookLogStats, getGetWebhookLogStatsQueryKey, useGetWebhookRetryDefaults, WebhookTestRequestEventType } from "@workspace/api-client-react";
+import { useGetWebhookConfig, useUpdateWebhookConfig, getGetWebhookConfigQueryKey, useGetCallbackSecret, useRotateCallbackSecret, getGetCallbackSecretQueryKey, useGetWebhookLogs, getGetWebhookLogsQueryKey, useSendWebhookTest, useRetryWebhookLog, useGetWebhookLogStats, getGetWebhookLogStatsQueryKey, useGetWebhookRetryDefaults, useGetWebhookPlatformDefaults, WebhookTestRequestEventType } from "@workspace/api-client-react";
 import { SECRET_WARN_DAYS, SECRET_ROTATION_OVERDUE_DAYS } from "@/lib/webhook-constants";
 import type { CallbackLog, WebhookLogDayBucket } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -731,6 +731,7 @@ function formatDelaySeconds(secs: number): string {
 export default function MerchantWebhook() {
   const qc = useQueryClient();
   const { data: config, isLoading } = useGetWebhookConfig();
+  const { data: platformDefaults } = useGetWebhookPlatformDefaults();
   const { data: secretStatus, isLoading: secretLoading } = useGetCallbackSecret();
   const WEBHOOK_DATE_RANGE_KEY = "rasokart_webhook_date_range";
   const WEBHOOK_EVENT_FILTER_KEY = "rasokart_webhook_event_filter";
@@ -966,7 +967,12 @@ onError: () => toast.error("Failed to send test event"),
             <Label>Max retries</Label>
             <p className="text-xs text-muted-foreground mt-0.5 mb-1">
               Number of automatic retry attempts when delivery fails (0 = no retries).
-              When set, this overrides the platform-wide default configured by the admin.
+              When set, this overrides the platform-wide default.
+              {platformDefaults != null && (
+                <span className="ml-1 text-muted-foreground/70">
+                  Platform default: <span className="font-medium text-muted-foreground">{platformDefaults.platformDefaultRetries} {platformDefaults.platformDefaultRetries === 1 ? "retry" : "retries"}</span>.
+                </span>
+              )}
             </p>
             <p className="text-xs text-amber-400/80 mb-2">
               Global cap: <span className="font-semibold">{globalMaxRetries}</span> {globalMaxRetries === 1 ? "retry" : "retries"} (admin-configured maximum)

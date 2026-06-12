@@ -147,6 +147,26 @@ router.get("/retry-defaults", async (req, res, next) => {
   }
 });
 
+// GET /api/webhooks/platform-defaults — platform-wide retry defaults visible to merchants
+router.get("/platform-defaults", async (req, res, next) => {
+  try {
+    const rows = await db
+      .select()
+      .from(systemConfigTable)
+      .where(inArray(systemConfigTable.key, [SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS]));
+
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+    const maxAttempts = parseInt(
+      map.get(SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS) ??
+        SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_RETRY_MAX_ATTEMPTS]
+    );
+
+    res.json({ platformDefaultRetries: Math.max(0, maxAttempts - 1) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/webhooks/logs — recent delivery logs for the merchant
 router.get("/logs", async (req, res) => {
   const user = (req as any).user;

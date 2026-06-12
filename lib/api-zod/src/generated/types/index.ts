@@ -115,6 +115,7 @@ export * from './getVirtualAccountBalanceHistoryParams';
 export * from './getWebhookFailureAlertHistoryParams';
 export * from './getWebhookLogAttempts200';
 export * from './getWebhookLogsParams';
+export * from './getWebhookPlatformDefaults200';
 export * from './githubSyncConfig';
 export * from './githubSyncStatus';
 export * from './githubSyncStatusStatus';

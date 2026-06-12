@@ -1672,6 +1672,19 @@ export const SendWebhookTestResponse = zod.object({
 
 
 /**
+ * Returns the admin-configured platform default for webhook retries. Available to all authenticated merchants.
+ * @summary Get platform-wide webhook retry defaults (merchant)
+ */
+export const getWebhookPlatformDefaultsResponsePlatformDefaultRetriesMin = 0;
+
+
+
+export const GetWebhookPlatformDefaultsResponse = zod.object({
+  "platformDefaultRetries": zod.number().min(getWebhookPlatformDefaultsResponsePlatformDefaultRetriesMin).describe('Platform default number of automatic retry attempts for failed webhook deliveries.')
+})
+
+
+/**
  * @summary Get webhook configuration
  */
 export const getWebhookConfigResponseMaxRetriesMin = 0;

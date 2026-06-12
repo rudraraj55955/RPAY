@@ -3218,6 +3218,14 @@ export type RetryWebhookLog200 = {
   log: CallbackLog;
 };
 
+export type GetWebhookPlatformDefaults200 = {
+  /**
+     * Platform default number of automatic retry attempts for failed webhook deliveries.
+     * @minimum 0
+     */
+  platformDefaultRetries: number;
+};
+
 export type ListCallbackLogsParams = {
 status?: ListCallbackLogsStatus;
 /**

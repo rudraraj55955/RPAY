@@ -1689,6 +1689,26 @@ paths:
         "403":
           description: Merchant access only
 
+  /webhooks/platform-defaults:
+    get:
+      operationId: getWebhookPlatformDefaults
+      tags: [webhooks]
+      summary: Get platform-wide webhook retry defaults (merchant)
+      description: Returns the admin-configured platform default for webhook retries. Available to all authenticated merchants.
+      responses:
+        "200":
+          description: Platform webhook retry defaults
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [platformDefaultRetries]
+                properties:
+                  platformDefaultRetries:
+                    type: integer
+                    minimum: 0
+                    description: Platform default number of automatic retry attempts for failed webhook deliveries.
+
   /webhooks:
     get:
       operationId: getWebhookConfig

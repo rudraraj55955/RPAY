@@ -98,6 +98,7 @@ import type {
   GetWebhookFailureAlertHistoryParams,
   GetWebhookLogAttempts200,
   GetWebhookLogsParams,
+  GetWebhookPlatformDefaults200,
   GithubSyncConfig,
   GithubSyncStatus,
   HealthStatus,
@@ -5079,6 +5080,84 @@ export const useSendWebhookTest = <TError = ErrorType<void>,
       > => {
       return useMutation(getSendWebhookTestMutationOptions(options));
     }
+
+export const getGetWebhookPlatformDefaultsUrl = () => {
+
+
+
+
+  return `/api/webhooks/platform-defaults`
+}
+
+/**
+ * Returns the admin-configured platform default for webhook retries. Available to all authenticated merchants.
+ * @summary Get platform-wide webhook retry defaults (merchant)
+ */
+export const getWebhookPlatformDefaults = async ( options?: RequestInit): Promise<GetWebhookPlatformDefaults200> => {
+
+  return customFetch<GetWebhookPlatformDefaults200>(getGetWebhookPlatformDefaultsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWebhookPlatformDefaultsQueryKey = () => {
+    return [
+    `/api/webhooks/platform-defaults`
+    ] as const;
+    }
+
+
+export const getGetWebhookPlatformDefaultsQueryOptions = <TData = Awaited<ReturnType<typeof getWebhookPlatformDefaults>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWebhookPlatformDefaults>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWebhookPlatformDefaultsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWebhookPlatformDefaults>>> = ({ signal }) => getWebhookPlatformDefaults({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWebhookPlatformDefaults>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWebhookPlatformDefaultsQueryResult = NonNullable<Awaited<ReturnType<typeof getWebhookPlatformDefaults>>>
+export type GetWebhookPlatformDefaultsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get platform-wide webhook retry defaults (merchant)
+ */
+
+export function useGetWebhookPlatformDefaults<TData = Awaited<ReturnType<typeof getWebhookPlatformDefaults>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWebhookPlatformDefaults>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWebhookPlatformDefaultsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetWebhookConfigUrl = () => {
 

@@ -252,9 +252,10 @@ function HighlightText({ text, query }: { text: string; query: string }) {
   );
 }
 
-function SecurityEventRow({ event, highlight = "" }: { event: LocalSecurityEvent; highlight?: string }) {
+function SecurityEventRow({ event, highlight = "", myEmail = "" }: { event: LocalSecurityEvent; highlight?: string; myEmail?: string }) {
   const meta = securityEventMeta(event.eventType);
   const isLogin = event.eventType === "merchant_login";
+  const isAdminAction = !isLogin && !!myEmail && !!event.actorEmail && event.actorEmail !== myEmail;
   const descText =
     isLogin
       ? null
@@ -294,10 +295,20 @@ function SecurityEventRow({ event, highlight = "" }: { event: LocalSecurityEvent
         {!isLogin && (event.ipAddress || event.actorEmail) && (
           <div className="flex items-center gap-2 flex-wrap mt-1">
             {event.actorEmail && (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/70">
-                <span className="text-muted-foreground/40">by</span>
-                <code className="font-mono text-muted-foreground bg-muted/50 px-1 py-0.5 rounded"><HighlightText text={event.actorEmail} query={highlight} /></code>
-              </span>
+              isAdminAction ? (
+                <span className="inline-flex items-center gap-1.5 text-xs">
+                  <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 font-medium">
+                    <Shield className="w-3 h-3" />
+                    Admin action
+                  </span>
+                  <span className="text-muted-foreground/40">by</span>
+                  <code className="font-mono text-muted-foreground bg-muted/50 px-1 py-0.5 rounded"><HighlightText text={event.actorEmail} query={highlight} /></code>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/70">
+                  <span className="text-muted-foreground/40">by you</span>
+                </span>
+              )
             )}
             {event.ipAddress && (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/70">
@@ -1609,7 +1620,7 @@ export default function MerchantSecurity() {
           ) : (
             <div className="divide-y divide-border/40">
               {secPageSlice.map(event => (
-                <SecurityEventRow key={event.id} event={event} highlight={secSearch} />
+                <SecurityEventRow key={event.id} event={event} highlight={secSearch} myEmail={me?.email ?? ""} />
               ))}
             </div>
           )}

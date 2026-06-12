@@ -1,7 +1,9 @@
 import cron, { type ScheduledTask } from "node-cron";
-import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
-import { eq, inArray, sql } from "drizzle-orm";
+import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, cleanupRunHistoryTable } from "@workspace/db";
+import { eq, inArray, sql, desc, asc } from "drizzle-orm";
 import { logger } from "../lib/logger";
+
+const HISTORY_LIMIT = 10;
 
 let cleanupTask: ScheduledTask | null = null;
 
@@ -17,7 +19,7 @@ export async function loadQrCleanupRetentionDays(): Promise<number> {
   return isNaN(days) ? 30 : Math.max(0, days);
 }
 
-async function persistQrCleanupStats(deleted: number): Promise<void> {
+async function persistQrCleanupStats(deleted: number, retentionDays: number): Promise<void> {
   const now = new Date().toISOString();
   const entries = [
     { key: SYSTEM_CONFIG_KEYS.QR_CLEANUP_LAST_RUN_AT, value: now },
@@ -31,6 +33,26 @@ async function persistQrCleanupStats(deleted: number): Promise<void> {
         target: systemConfigTable.key,
         set: { value: entry.value, updatedAt: sql`now()` },
       });
+  }
+
+  await db.insert(cleanupRunHistoryTable).values({
+    type: "qr",
+    ranAt: new Date(),
+    deleted,
+    retentionDays,
+  });
+
+  const allRows = await db
+    .select({ id: cleanupRunHistoryTable.id })
+    .from(cleanupRunHistoryTable)
+    .where(eq(cleanupRunHistoryTable.type, "qr"))
+    .orderBy(desc(cleanupRunHistoryTable.ranAt));
+
+  if (allRows.length > HISTORY_LIMIT) {
+    const idsToDelete = allRows.slice(HISTORY_LIMIT).map((r) => r.id);
+    await db.execute(
+      sql`DELETE FROM cleanup_run_history WHERE id = ANY(${idsToDelete})`
+    );
   }
 }
 
@@ -77,7 +99,7 @@ export async function runQrCleanup(): Promise<{ expired: number; deleted: number
 
   logger.info({ retentionDays, expired, deleted }, "QR code auto-cleanup complete");
 
-  await persistQrCleanupStats(deleted);
+  await persistQrCleanupStats(deleted, retentionDays);
 
   return { expired, deleted };
 }
@@ -95,6 +117,15 @@ export async function loadQrCleanupLastRun(): Promise<{ lastRunAt: string | null
   const lastDeletedRaw = map.get(SYSTEM_CONFIG_KEYS.QR_CLEANUP_LAST_RUN_DELETED);
   const lastDeleted = lastDeletedRaw != null ? parseInt(lastDeletedRaw) : null;
   return { lastRunAt, lastDeleted };
+}
+
+export async function loadQrCleanupHistory(): Promise<Array<{ id: number; ranAt: Date; deleted: number; retentionDays: number }>> {
+  return db
+    .select()
+    .from(cleanupRunHistoryTable)
+    .where(eq(cleanupRunHistoryTable.type, "qr"))
+    .orderBy(desc(cleanupRunHistoryTable.ranAt))
+    .limit(HISTORY_LIMIT);
 }
 
 export function initQrCleanupScheduler(): void {

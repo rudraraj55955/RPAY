@@ -4631,6 +4631,32 @@ export const RunQrCleanupResponse = zod.object({
 
 
 /**
+ * @summary Get QR code cleanup run history (last 10 runs, admin only)
+ */
+export const GetQrCleanupHistoryResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "ranAt": zod.coerce.date().describe('ISO timestamp of when the cleanup run occurred.'),
+  "deleted": zod.number().describe('Number of records deleted in this run.'),
+  "retentionDays": zod.number().describe('Retention window in days that was active during this run.')
+}))
+})
+
+
+/**
+ * @summary Get virtual account cleanup run history (last 10 runs, admin only)
+ */
+export const GetVaCleanupHistoryResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "ranAt": zod.coerce.date().describe('ISO timestamp of when the cleanup run occurred.'),
+  "deleted": zod.number().describe('Number of records deleted in this run.'),
+  "retentionDays": zod.number().describe('Retention window in days that was active during this run.')
+}))
+})
+
+
+/**
  * @summary Get test email history retention configuration (admin only)
  */
 export const getTestEmailRetentionConfigResponseRetentionDaysMin = 0;

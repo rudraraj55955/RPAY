@@ -72,6 +72,8 @@ export * from './callbackStatsResponse';
 export * from './callbackWindowInput';
 export * from './chartDataPoint';
 export * from './cleanupJobStats';
+export * from './cleanupRunHistoryEntry';
+export * from './cleanupRunHistoryResponse';
 export * from './cleanupStats';
 export * from './clearSignatureFailureAlertHistory200';
 export * from './clearTestEmailHistory200';

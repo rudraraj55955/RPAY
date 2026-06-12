@@ -4730,6 +4730,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/VaCleanupRunResult"
 
+  /system-config/qr-cleanup/history:
+    get:
+      operationId: getQrCleanupHistory
+      tags: [system-config]
+      summary: Get QR code cleanup run history (last 10 runs, admin only)
+      responses:
+        "200":
+          description: QR cleanup run history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CleanupRunHistoryResponse"
+
+  /system-config/va-cleanup/history:
+    get:
+      operationId: getVaCleanupHistory
+      tags: [system-config]
+      summary: Get virtual account cleanup run history (last 10 runs, admin only)
+      responses:
+        "200":
+          description: VA cleanup run history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CleanupRunHistoryResponse"
+
   /system-config/test-email-retention:
     get:
       operationId: getTestEmailRetentionConfig
@@ -9096,6 +9122,32 @@ components:
         deleted:
           type: integer
           description: Number of test email history rows deleted by this cleanup run.
+
+    CleanupRunHistoryEntry:
+      type: object
+      required: [id, ranAt, deleted, retentionDays]
+      properties:
+        id:
+          type: integer
+        ranAt:
+          type: string
+          format: date-time
+          description: ISO timestamp of when the cleanup run occurred.
+        deleted:
+          type: integer
+          description: Number of records deleted in this run.
+        retentionDays:
+          type: integer
+          description: Retention window in days that was active during this run.
+
+    CleanupRunHistoryResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CleanupRunHistoryEntry"
 
     StorageCleanupRun:
       type: object

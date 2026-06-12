@@ -1,0 +1,11 @@
+import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
+
+export const cleanupRunHistoryTable = pgTable("cleanup_run_history", {
+  id: serial("id").primaryKey(),
+  type: text("type").notNull(),
+  ranAt: timestamp("ran_at", { withTimezone: true }).notNull().defaultNow(),
+  deleted: integer("deleted").notNull().default(0),
+  retentionDays: integer("retention_days").notNull().default(0),
+});
+
+export type CleanupRunHistory = typeof cleanupRunHistoryTable.$inferSelect;

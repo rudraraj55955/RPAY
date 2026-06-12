@@ -2719,6 +2719,20 @@ export interface TestEmailRetentionRunResult {
   deleted: number;
 }
 
+export interface CleanupRunHistoryEntry {
+  id: number;
+  /** ISO timestamp of when the cleanup run occurred. */
+  ranAt: string;
+  /** Number of records deleted in this run. */
+  deleted: number;
+  /** Retention window in days that was active during this run. */
+  retentionDays: number;
+}
+
+export interface CleanupRunHistoryResponse {
+  data: CleanupRunHistoryEntry[];
+}
+
 export interface StorageCleanupRun {
   id: number;
   createdAt: string;

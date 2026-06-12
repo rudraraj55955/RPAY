@@ -1,9 +1,10 @@
 import cron, { type ScheduledTask } from "node-cron";
-import { db, systemConfigTable, SYSTEM_CONFIG_KEYS } from "@workspace/db";
-import { eq, inArray, sql } from "drizzle-orm";
+import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, cleanupRunHistoryTable } from "@workspace/db";
+import { eq, inArray, sql, desc } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const VA_CLEANUP_DEFAULT_DAYS = 30;
+const HISTORY_LIMIT = 10;
 
 let cleanupTask: ScheduledTask | null = null;
 
@@ -64,12 +65,12 @@ export async function runVaCleanup(): Promise<{ closed: number; deleted: number 
 
   logger.info({ retentionDays, closed, deleted }, "VA auto-cleanup complete");
 
-  await writeVaCleanupLastRun(deleted);
+  await writeVaCleanupLastRun(deleted, retentionDays);
 
   return { closed, deleted };
 }
 
-async function writeVaCleanupLastRun(deleted: number): Promise<void> {
+async function writeVaCleanupLastRun(deleted: number, retentionDays: number): Promise<void> {
   const now = new Date().toISOString();
   const entries = [
     { key: SYSTEM_CONFIG_KEYS.VA_CLEANUP_LAST_RUN_AT, value: now },
@@ -83,6 +84,26 @@ async function writeVaCleanupLastRun(deleted: number): Promise<void> {
         target: systemConfigTable.key,
         set: { value: entry.value, updatedAt: sql`now()` },
       });
+  }
+
+  await db.insert(cleanupRunHistoryTable).values({
+    type: "va",
+    ranAt: new Date(),
+    deleted,
+    retentionDays,
+  });
+
+  const allRows = await db
+    .select({ id: cleanupRunHistoryTable.id })
+    .from(cleanupRunHistoryTable)
+    .where(eq(cleanupRunHistoryTable.type, "va"))
+    .orderBy(desc(cleanupRunHistoryTable.ranAt));
+
+  if (allRows.length > HISTORY_LIMIT) {
+    const idsToDelete = allRows.slice(HISTORY_LIMIT).map((r) => r.id);
+    await db.execute(
+      sql`DELETE FROM cleanup_run_history WHERE id = ANY(${idsToDelete})`
+    );
   }
 }
 
@@ -99,6 +120,15 @@ export async function loadVaCleanupLastRun(): Promise<{ lastRunAt: string | null
   const lastDeletedRaw = map.get(SYSTEM_CONFIG_KEYS.VA_CLEANUP_LAST_DELETED);
   const lastDeleted = lastDeletedRaw != null ? parseInt(lastDeletedRaw) : null;
   return { lastRunAt, lastDeleted };
+}
+
+export async function loadVaCleanupHistory(): Promise<Array<{ id: number; ranAt: Date; deleted: number; retentionDays: number }>> {
+  return db
+    .select()
+    .from(cleanupRunHistoryTable)
+    .where(eq(cleanupRunHistoryTable.type, "va"))
+    .orderBy(desc(cleanupRunHistoryTable.ranAt))
+    .limit(HISTORY_LIMIT);
 }
 
 export function initVaCleanupScheduler(): void {

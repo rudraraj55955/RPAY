@@ -64,6 +64,7 @@ import type {
   CallbackStatsResponse,
   CallbackWindowInput,
   ChartDataPoint,
+  CleanupRunHistoryResponse,
   CleanupStats,
   ClearSignatureFailureAlertHistory200,
   ClearTestEmailHistory200,
@@ -14979,6 +14980,28 @@ export const runQrCleanup = async ( options?: RequestInit): Promise<QrCleanupRun
   }
 );}
 
+export const getGetQrCleanupHistoryUrl = () => {
+
+
+
+
+  return `/api/system-config/qr-cleanup/history`
+}
+
+/**
+ * @summary Get QR code cleanup run history (last 10 runs, admin only)
+ */
+export const getQrCleanupHistory = async ( options?: RequestInit): Promise<CleanupRunHistoryResponse> => {
+
+  return customFetch<CleanupRunHistoryResponse>(getGetQrCleanupHistoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
 
 
 
@@ -15026,6 +15049,135 @@ export const useRunQrCleanup = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getRunQrCleanupMutationOptions(options));
     }
+
+
+export const getGetQrCleanupHistoryQueryKey = () => {
+    return [
+    `/api/system-config/qr-cleanup/history`
+    ] as const;
+    }
+
+
+export const getGetQrCleanupHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getQrCleanupHistory>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQrCleanupHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetQrCleanupHistoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getQrCleanupHistory>>> = ({ signal }) => getQrCleanupHistory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getQrCleanupHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetQrCleanupHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getQrCleanupHistory>>>
+export type GetQrCleanupHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get QR code cleanup run history (last 10 runs, admin only)
+ */
+
+export function useGetQrCleanupHistory<TData = Awaited<ReturnType<typeof getQrCleanupHistory>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQrCleanupHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetQrCleanupHistoryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetVaCleanupHistoryUrl = () => {
+
+
+
+
+  return `/api/system-config/va-cleanup/history`
+}
+
+/**
+ * @summary Get virtual account cleanup run history (last 10 runs, admin only)
+ */
+export const getVaCleanupHistory = async ( options?: RequestInit): Promise<CleanupRunHistoryResponse> => {
+
+  return customFetch<CleanupRunHistoryResponse>(getGetVaCleanupHistoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetVaCleanupHistoryQueryKey = () => {
+    return [
+    `/api/system-config/va-cleanup/history`
+    ] as const;
+    }
+
+
+export const getGetVaCleanupHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getVaCleanupHistory>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVaCleanupHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetVaCleanupHistoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVaCleanupHistory>>> = ({ signal }) => getVaCleanupHistory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVaCleanupHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetVaCleanupHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getVaCleanupHistory>>>
+export type GetVaCleanupHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get virtual account cleanup run history (last 10 runs, admin only)
+ */
+
+export function useGetVaCleanupHistory<TData = Awaited<ReturnType<typeof getVaCleanupHistory>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVaCleanupHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetVaCleanupHistoryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetTestEmailRetentionConfigUrl = () => {
 

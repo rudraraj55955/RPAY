@@ -1717,7 +1717,15 @@ function ScheduledReportsPanel() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MonitorPlay className="w-4 h-4 text-violet-400" />
-              Email Preview — <span className="capitalize text-violet-400">{newFrequency}</span> Report
+              Email Preview —{' '}
+              <Badge className={`text-xs capitalize border ${
+                newFrequency === 'daily'
+                  ? 'bg-violet-600/20 text-violet-400 border-violet-600/30 hover:bg-violet-600/20'
+                  : newFrequency === 'weekly'
+                  ? 'bg-amber-600/20 text-amber-400 border-amber-600/30 hover:bg-amber-600/20'
+                  : 'bg-sky-600/20 text-sky-400 border-sky-600/30 hover:bg-sky-600/20'
+              }`}>{newFrequency}</Badge>{' '}
+              Report
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground -mt-1">

@@ -111,6 +111,13 @@ function settlementStatusColor(s: string) {
   return "text-muted-foreground";
 }
 
+function getNextDue(lastSentAt: string | null | undefined, frequency: string): Date | null {
+  if (!lastSentAt) return null;
+  const last = new Date(lastSentAt);
+  const days = frequency === "monthly" ? 28 : 7;
+  return new Date(last.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
 function ScheduledReportsPanel() {
   const qc = useQueryClient();
   const { data, isLoading } = useListMerchantReportSchedules();
@@ -178,6 +185,7 @@ function ScheduledReportsPanel() {
                 <TableHead>Format</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last Sent</TableHead>
+                <TableHead>Next Due</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -199,6 +207,21 @@ function ScheduledReportsPanel() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {s.lastSentAt ? format(new Date(s.lastSentAt), "dd MMM yyyy, HH:mm") : "Never"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {(() => {
+                      const nextDue = getNextDue(s.lastSentAt, s.frequency);
+                      if (!nextDue) {
+                        return <span className="text-muted-foreground">Pending first run</span>;
+                      }
+                      const isOverdue = nextDue < new Date();
+                      return (
+                        <span className={isOverdue ? "text-amber-400 font-medium" : "text-muted-foreground"}>
+                          {format(nextDue, "dd MMM yyyy, HH:mm")}
+                          {isOverdue && <span className="ml-1 text-amber-400">(overdue)</span>}
+                        </span>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">

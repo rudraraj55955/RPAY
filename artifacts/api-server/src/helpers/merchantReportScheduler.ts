@@ -1,7 +1,7 @@
 import cron, { type ScheduledTask } from "node-cron";
 import XLSX from "xlsx";
 import PDFDocument from "pdfkit";
-import { db, reportSchedulesTable, transactionsTable, merchantsTable, merchantConnectionsTable, ledgerEntriesTable, settlementsTable, usersTable } from "@workspace/db";
+import { db, reportSchedulesTable, reportDeliveryLogsTable, transactionsTable, merchantsTable, merchantConnectionsTable, ledgerEntriesTable, settlementsTable, usersTable } from "@workspace/db";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendMail } from "./mailer";
@@ -368,9 +368,11 @@ function buildEmailHtml(
  * - Increments consecutiveFailures in the DB
  * - Auto-pauses the schedule when the threshold is reached
  * - Creates an in-app notification for the merchant's user
+ * - Writes delivery log rows for the failure (and auto-pause if triggered)
  */
 async function handleReportFailure(
   schedule: typeof reportSchedulesTable.$inferSelect,
+  failureReason?: string,
 ): Promise<void> {
   const newConsecutiveFailures = schedule.consecutiveFailures + 1;
   const shouldAutoPause = newConsecutiveFailures >= schedule.autoPauseAfterFailures;
@@ -387,6 +389,24 @@ async function handleReportFailure(
     await db.update(reportSchedulesTable)
       .set({ consecutiveFailures: newConsecutiveFailures, updatedAt: new Date() })
       .where(eq(reportSchedulesTable.id, schedule.id));
+  }
+
+  await db.insert(reportDeliveryLogsTable).values({
+    scheduleId: schedule.id,
+    merchantId: schedule.merchantId,
+    success: false,
+    failureReason: failureReason ?? null,
+    isAutoPause: false,
+  });
+
+  if (shouldAutoPause) {
+    await db.insert(reportDeliveryLogsTable).values({
+      scheduleId: schedule.id,
+      merchantId: schedule.merchantId,
+      success: false,
+      failureReason: `Schedule auto-paused after ${newConsecutiveFailures} consecutive delivery failures.`,
+      isAutoPause: true,
+    });
   }
 
   const [merchantUser] = await db
@@ -459,18 +479,26 @@ export async function sendMerchantReport(
       await db.update(reportSchedulesTable)
         .set({ lastSentAt: new Date(), consecutiveFailures: 0, updatedAt: new Date() })
         .where(eq(reportSchedulesTable.id, schedule.id));
+      await db.insert(reportDeliveryLogsTable).values({
+        scheduleId: schedule.id,
+        merchantId: schedule.merchantId,
+        success: true,
+        failureReason: null,
+        isAutoPause: false,
+      });
       logger.info({ scheduleId: schedule.id, merchantId: schedule.merchantId, txCount: transactions.length }, "Merchant report emailed successfully");
     } else {
       logger.warn({ scheduleId: schedule.id, merchantId: schedule.merchantId }, "Failed to send merchant report email");
-      await handleReportFailure(schedule).catch(notifyErr => {
+      await handleReportFailure(schedule, "Email delivery failed — SMTP returned an error.").catch(notifyErr => {
         logger.error({ err: notifyErr, scheduleId: schedule.id, merchantId: schedule.merchantId }, "Failed to handle merchant report failure");
       });
     }
 
     return sent;
   } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
     logger.error({ err, scheduleId: schedule.id, merchantId: schedule.merchantId }, "Error sending merchant report");
-    await handleReportFailure(schedule).catch(notifyErr => {
+    await handleReportFailure(schedule, reason).catch(notifyErr => {
       logger.error({ err: notifyErr, scheduleId: schedule.id, merchantId: schedule.merchantId }, "Failed to handle merchant report failure after exception");
     });
     return false;

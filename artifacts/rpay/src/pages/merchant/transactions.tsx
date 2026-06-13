@@ -168,6 +168,8 @@ interface SavedFilter {
 
 const ALL_SAVED_FILTERS_KEY = "rasokart_all_saved_filters";
 const LEGACY_TX_FILTERS_KEY = "rasokart_saved_filters";
+const LAST_DATE_FROM_KEY_TX = "rasokart_last_date_from_transactions";
+const LAST_DATE_TO_KEY_TX = "rasokart_last_date_to_transactions";
 
 function migrateOldTxFilters(): void {
   try {
@@ -534,8 +536,8 @@ export default function MerchantTransactions() {
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
   const [provider, setProvider] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => { try { return localStorage.getItem(LAST_DATE_FROM_KEY_TX) ?? ""; } catch { return ""; } });
+  const [dateTo, setDateTo] = useState(() => { try { return localStorage.getItem(LAST_DATE_TO_KEY_TX) ?? ""; } catch { return ""; } });
   const [page, setPage] = useState(1);
   const [utrSearch, setUtrSearch] = useState("");
   const [utrInput, setUtrInput] = useState("");
@@ -578,6 +580,10 @@ export default function MerchantTransactions() {
   const { mutateAsync: deleteFilterMutation } = useDeleteMerchantSavedFilter();
   const { mutateAsync: renameFilterMutation } = useRenameMerchantSavedFilter();
   const { mutateAsync: reorderFilterMutation } = useReorderMerchantSavedFilters();
+
+  // Persist date range to localStorage whenever it changes
+  useEffect(() => { try { localStorage.setItem(LAST_DATE_FROM_KEY_TX, dateFrom); } catch {} }, [dateFrom]);
+  useEffect(() => { try { localStorage.setItem(LAST_DATE_TO_KEY_TX, dateTo); } catch {} }, [dateTo]);
 
   useEffect(() => {
     if (!serverFiltersLoaded || filtersInitialized.current) return;

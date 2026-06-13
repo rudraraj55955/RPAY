@@ -311,6 +311,8 @@ function buildCsvText(data: any[]): string {
 }
 
 const LAST_STATUS_KEY_DEPOSITS = "rasokart_last_status_deposits";
+const LAST_DATE_FROM_KEY_DEPOSITS = "rasokart_last_date_from_deposits";
+const LAST_DATE_TO_KEY_DEPOSITS = "rasokart_last_date_to_deposits";
 
 function loadLastStatus(key: string): string {
   try {
@@ -328,8 +330,8 @@ export default function MerchantDeposits() {
     setStatus(v);
     try { localStorage.setItem(LAST_STATUS_KEY_DEPOSITS, v); } catch {}
   };
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => { try { return localStorage.getItem(LAST_DATE_FROM_KEY_DEPOSITS) ?? ""; } catch { return ""; } });
+  const [dateTo, setDateTo] = useState(() => { try { return localStorage.getItem(LAST_DATE_TO_KEY_DEPOSITS) ?? ""; } catch { return ""; } });
   const [page, setPage] = useState(1);
   const [provider, setProvider] = useState("all");
   const [exporting, setExporting] = useState(false);
@@ -395,6 +397,10 @@ export default function MerchantDeposits() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
+
+  // Persist date range to localStorage whenever it changes
+  useEffect(() => { try { localStorage.setItem(LAST_DATE_FROM_KEY_DEPOSITS, dateFrom); } catch {} }, [dateFrom]);
+  useEffect(() => { try { localStorage.setItem(LAST_DATE_TO_KEY_DEPOSITS, dateTo); } catch {} }, [dateTo]);
 
   // Server-side saved filters sync
   const FILTER_CONTEXT = "merchant_deposits";

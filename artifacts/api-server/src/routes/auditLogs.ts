@@ -861,7 +861,7 @@ router.patch("/schedules/:id", async (req, res) => {
       adminId: user.id,
       adminEmail: user.email,
       action: "audit_schedule_failure_acknowledged",
-      targetType: "audit_logs",
+      targetType: "report_schedule",
       targetId: id,
       details: JSON.stringify({
         scheduleId: id,

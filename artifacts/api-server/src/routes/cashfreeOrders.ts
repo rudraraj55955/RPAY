@@ -130,4 +130,123 @@ router.post("/cashfree/create-order", requireAuth, async (req, res, next) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// White-label routes — no provider name in URL, field names, or response body.
+// Merchants call these; internal Cashfree details stay hidden.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/merchant/payment/status
+ * White-label alias: returns { enabled } only — no provider name or env exposed.
+ */
+router.get("/payment/status", requireAuth, async (req, res, next) => {
+  try {
+    const rows = await db.select().from(systemConfigTable).where(
+      inArray(systemConfigTable.key, [SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED])
+    );
+    const cfg = new Map(rows.map(r => [r.key, r.value]));
+    res.json({ enabled: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED) === "true" });
+  } catch (err) { next(err); }
+});
+
+/**
+ * POST /api/merchant/payment/create-order
+ * White-label alias: creates a payment order and returns RasoKart-branded fields only.
+ * Response: { publicOrderId, checkoutUrl, amount, status, message }
+ * Never returns: paymentSessionId, cashfree_order_id, env, client credentials.
+ */
+router.post("/payment/create-order", requireAuth, async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== "merchant" || !user.merchantId) {
+      res.status(403).json({ error: "Merchant access only" });
+      return;
+    }
+
+    const { amount, currency = "INR", customerPhone, customerName, customerEmail, note } = req.body as {
+      amount?: number;
+      currency?: string;
+      customerPhone?: string;
+      customerName?: string;
+      customerEmail?: string;
+      note?: string;
+    };
+
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      res.status(400).json({ error: "Valid amount is required" });
+      return;
+    }
+    if (!customerPhone) {
+      res.status(400).json({ error: "Customer phone is required" });
+      return;
+    }
+
+    const keys = [
+      SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_ID,
+      SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_SECRET,
+      SYSTEM_CONFIG_KEYS.CASHFREE_ENV,
+      SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED,
+    ];
+    const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
+    const cfg = new Map(rows.map(r => [r.key, r.value]));
+
+    if (cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED) !== "true") {
+      res.status(400).json({ error: "Payment gateway is not enabled" });
+      return;
+    }
+
+    const clientId  = cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_ID)     ?? "";
+    const clientSecret = cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_SECRET) ?? "";
+    const env = (cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_ENV) ?? "test") as CashfreeEnv;
+
+    if (!clientId || !clientSecret) {
+      res.status(400).json({ error: "Payment gateway credentials are not configured" });
+      return;
+    }
+
+    const orderId = `RK-${user.merchantId}-${Date.now()}`;
+
+    const { raw, parsed } = await cashfreeCreateOrder(clientId, clientSecret, env, {
+      order_id: orderId,
+      order_amount: Number(amount),
+      order_currency: currency,
+      customer_details: {
+        customer_id: `merchant-${user.merchantId}`,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+      },
+      order_note: note,
+    });
+
+    if (!parsed.payment_session_id) {
+      req.log.warn({ parsed, raw }, "Payment create-order failed");
+      res.status(502).json({ error: "Failed to create payment order. Please try again." });
+      return;
+    }
+
+    await db.insert(cashfreePaymentOrdersTable).values({
+      merchantId: user.merchantId,
+      cashfreeOrderId: parsed.order_id ?? orderId,
+      paymentSessionId: parsed.payment_session_id,
+      amount: String(amount),
+      currency,
+      status: "created",
+      rawPayload: raw,
+    }).onConflictDoNothing();
+
+    // checkoutUrl points to our own branded checkout page — no cashfree.com in merchant code
+    const checkoutEnv = env === "live" ? "prod" : "sandbox";
+    const checkoutUrl = `/checkout?token=${encodeURIComponent(parsed.payment_session_id)}&env=${checkoutEnv}&amount=${encodeURIComponent(String(amount))}`;
+
+    res.json({
+      publicOrderId: orderId,
+      checkoutUrl,
+      amount: Number(amount),
+      status: "created",
+      message: "Payment order created successfully",
+    });
+  } catch (err) { next(err); }
+});
+
 export default router;

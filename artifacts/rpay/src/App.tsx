@@ -55,6 +55,7 @@ import AdminSmartRouting from "@/pages/admin/smart-routing";
 import PayPage from "@/pages/pay";
 import QrPayPage from "@/pages/qr-pay";
 import VaPayPage from "@/pages/va-pay";
+import CheckoutPage from "@/pages/checkout";
 
 // Merchant Pages
 import MerchantDashboard from "@/pages/merchant/dashboard";
@@ -194,6 +195,7 @@ function Router() {
       <Route path="/pay/:slug" component={PayPage} />
       <Route path="/qr/:id" component={QrPayPage} />
       <Route path="/va/:id" component={VaPayPage} />
+      <Route path="/checkout" component={CheckoutPage} />
 
       <Route component={NotFound} />
     </Switch>

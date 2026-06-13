@@ -13,7 +13,6 @@ import {
   useDeleteMerchantSavedFilter,
   useRenameMerchantSavedFilter,
   useReorderMerchantSavedFilters,
-  useCreateCashfreeOrder,
 } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -855,45 +854,54 @@ export default function MerchantDeposits() {
   const [cfNote, setCfNote] = useState("");
   const [cfCreating, setCfCreating] = useState(false);
 
-  const { data: cashfreeStatusData } = useQuery<{ enabled: boolean; env: string }>({
-    queryKey: ["/api/merchant/cashfree/status"],
+  const { data: cashfreeStatusData } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/merchant/payment/status"],
     queryFn: async () => {
       const token = localStorage.getItem("rasokart_token");
-      const res = await fetch("/api/merchant/cashfree/status", {
+      const res = await fetch("/api/merchant/payment/status", {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!res.ok) return { enabled: false, env: "test" };
-      return res.json() as Promise<{ enabled: boolean; env: string }>;
+      if (!res.ok) return { enabled: false };
+      return res.json() as Promise<{ enabled: boolean }>;
     },
     staleTime: 60_000,
   });
   const cashfreeEnabled = cashfreeStatusData?.enabled ?? false;
-
-  const { mutateAsync: createCashfreeOrder } = useCreateCashfreeOrder();
 
   const handleCashfreePay = async () => {
     if (!cfAmount || Number(cfAmount) <= 0) { toast.error("Enter a valid amount"); return; }
     if (!cfPhone.trim()) { toast.error("Customer phone number is required"); return; }
     setCfCreating(true);
     try {
-      const result = await createCashfreeOrder({
-        data: {
+      const authToken = localStorage.getItem("rasokart_token");
+      const res = await fetch("/api/merchant/payment/create-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({
           amount: Number(cfAmount),
           customerPhone: cfPhone.trim(),
           customerName: cfName.trim() || undefined,
           customerEmail: cfEmail.trim() || undefined,
           note: cfNote.trim() || undefined,
-        },
+        }),
       });
-      const env = result.env;
-      const sessionId = result.paymentSessionId;
-      const checkoutUrl = env === "live"
-        ? `https://payments.cashfree.com/order/pay/${sessionId}`
-        : `https://sandbox.cashfree.com/pg/view/sessions/${sessionId}`;
+      const result = await res.json() as {
+        publicOrderId?: string;
+        checkoutUrl?: string;
+        amount?: number;
+        status?: string;
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(result.error ?? "Failed to create payment order");
+      if (!result.checkoutUrl) throw new Error("Invalid payment order response");
       setShowCashfree(false);
       setCfAmount(""); setCfPhone(""); setCfName(""); setCfEmail(""); setCfNote("");
       toast.success("Payment order created — opening checkout…");
-      window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+      window.open(result.checkoutUrl, "_blank", "noopener,noreferrer");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to create payment order");
     } finally {

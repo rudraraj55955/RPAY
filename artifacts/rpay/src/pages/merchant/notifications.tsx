@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Check, CheckCheck, AlertCircle, CreditCard, Zap, Megaphone, RefreshCw, ExternalLink, Calendar, PlayCircle, CheckCircle2 } from "lucide-react";
+import { Bell, Check, CheckCheck, AlertCircle, CreditCard, Zap, Megaphone, RefreshCw, ExternalLink, Calendar, PlayCircle, CheckCircle2, Trash2, PauseCircle, Clock, Send } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -15,8 +15,13 @@ function notifIcon(type: string) {
   if (type.startsWith("plan")) return <Zap className="w-4 h-4" />;
   if (type === "provider_limit_reset") return <RefreshCw className="w-4 h-4" />;
   if (type === "limit_exceeded" || type === "provider_limit_warning" || type === "provider_limit_reached") return <AlertCircle className="w-4 h-4" />;
-  if (type === "scheduled_report_auto_paused" || type === "scheduled_report_failure" || type === "scheduled_report_retry_success") return <Calendar className="w-4 h-4" />;
+  if (type === "scheduled_report_auto_paused" || type === "scheduled_report_auto_paused_admin") return <PauseCircle className="w-4 h-4" />;
+  if (type === "scheduled_report_failure") return <AlertCircle className="w-4 h-4" />;
+  if (type === "scheduled_report_retry_success" || type === "report_schedule_reenabled") return <PlayCircle className="w-4 h-4" />;
+  if (type === "scheduled_report_overdue") return <Clock className="w-4 h-4" />;
+  if (type === "report_schedule_deleted") return <Trash2 className="w-4 h-4" />;
   if (type === "report_schedule_next_run_updated") return <Calendar className="w-4 h-4" />;
+  if (type === "report_manual_send") return <Send className="w-4 h-4" />;
   return <Megaphone className="w-4 h-4" />;
 }
 
@@ -26,9 +31,11 @@ function notifColor(type: string): string {
   if (type === "plan_expiring" || type === "limit_exceeded" || type === "provider_limit_warning") return "text-amber-400";
   if (type === "plan_expired" || type === "provider_limit_reached") return "text-red-400";
   if (type === "provider_limit_reset") return "text-emerald-400";
-  if (type === "scheduled_report_auto_paused" || type === "scheduled_report_failure") return "text-amber-400";
-  if (type === "scheduled_report_retry_success") return "text-emerald-400";
+  if (type === "scheduled_report_auto_paused" || type === "scheduled_report_auto_paused_admin" || type === "scheduled_report_failure" || type === "scheduled_report_overdue") return "text-amber-400";
+  if (type === "scheduled_report_retry_success" || type === "report_schedule_reenabled") return "text-emerald-400";
+  if (type === "report_schedule_deleted") return "text-red-400";
   if (type === "report_schedule_next_run_updated") return "text-sky-400";
+  if (type === "report_manual_send") return "text-sky-400";
   return "text-blue-400";
 }
 
@@ -44,9 +51,14 @@ const TYPE_LABELS: Record<string, string> = {
   provider_limit_reset: "Limit Reset",
   system_notice: "Notice",
   scheduled_report_auto_paused: "Report Paused",
+  scheduled_report_auto_paused_admin: "Report Paused",
   scheduled_report_failure: "Report Failed",
   scheduled_report_retry_success: "Report Resumed",
-  report_schedule_next_run_updated: "Report Schedule",
+  scheduled_report_overdue: "Report Overdue",
+  report_schedule_deleted: "Schedule Deleted",
+  report_schedule_next_run_updated: "Schedule Updated",
+  report_schedule_reenabled: "Schedule Re-enabled",
+  report_manual_send: "Report Sent",
 };
 
 type TypeFilter =

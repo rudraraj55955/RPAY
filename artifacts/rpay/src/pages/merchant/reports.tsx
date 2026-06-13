@@ -883,6 +883,40 @@ export default function MerchantReports() {
     stlCountMap[r.key] = { count: stlCountResults[i]?.data?.count, loading: stlCountResults[i]?.isLoading ?? false };
   });
 
+  const txSavedFilterCountResults = useQueries({
+    queries: savedFilters.map((saved) => {
+      const fd = saved.filterData;
+      return getGetTransactionReportCountQueryOptions({
+        dateFrom: fd.dateFrom || undefined,
+        dateTo: fd.dateTo || undefined,
+        type: fd.type as "deposit" | "withdrawal" | undefined,
+        status: fd.status as "pending" | "success" | "failed" | undefined,
+        connectionProvider: fd.connectionProvider as "phonepe" | "paytm" | "bharatpe" | "yono_sbi" | "hdfc_smarthub" | "upi_id" | undefined,
+        source: fd.source as "qr_code" | "virtual_account" | "payment_link" | "direct" | undefined,
+      });
+    }),
+  });
+
+  const stlSavedFilterCountResults = useQueries({
+    queries: savedFilters.map((saved) => {
+      const fd = saved.filterData;
+      return getGetSettlementReportCountQueryOptions({
+        dateFrom: fd.dateFrom || undefined,
+        dateTo: fd.dateTo || undefined,
+      });
+    }),
+  });
+
+  const txSavedCountMap: Record<string, { count: number | undefined; loading: boolean }> = {};
+  savedFilters.forEach((saved, i) => {
+    txSavedCountMap[saved.id] = { count: txSavedFilterCountResults[i]?.data?.count, loading: txSavedFilterCountResults[i]?.isLoading ?? false };
+  });
+
+  const stlSavedCountMap: Record<string, { count: number | undefined; loading: boolean }> = {};
+  savedFilters.forEach((saved, i) => {
+    stlSavedCountMap[saved.id] = { count: stlSavedFilterCountResults[i]?.data?.count, loading: stlSavedFilterCountResults[i]?.isLoading ?? false };
+  });
+
   useEffect(() => {
     if (!serverFiltersLoaded || filtersInitialized.current) return;
     filtersInitialized.current = true;
@@ -1790,6 +1824,11 @@ export default function MerchantReports() {
                         >
                           <BookmarkCheck className="w-3 h-3 shrink-0" />
                           {saved.name}
+                          {txSavedCountMap[saved.id]?.loading ? (
+                            <Loader2 className="w-2.5 h-2.5 ml-0.5 animate-spin opacity-40" />
+                          ) : txSavedCountMap[saved.id]?.count !== undefined ? (
+                            <span className="ml-0.5 opacity-50 font-normal tabular-nums">· {txSavedCountMap[saved.id]!.count!.toLocaleString("en-IN")}</span>
+                          ) : null}
                         </button>
                       )}
 
@@ -2177,6 +2216,38 @@ export default function MerchantReports() {
                 <Filter className="w-4 h-4" />
                 Filters
               </div>
+
+              {/* My Presets — quick-apply row for settlements */}
+              {savedFilters.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 mt-2">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Bookmark className="w-3.5 h-3.5 text-sky-400" />
+                    <span className="text-xs text-sky-400 font-semibold">My presets</span>
+                  </div>
+                  <div className="w-px h-3.5 bg-sky-500/30 shrink-0" />
+                  {savedFilters.map((saved) => (
+                    <button
+                      key={saved.id}
+                      onClick={() => {
+                        const fd = saved.filterData;
+                        setStlDateFrom(fd.dateFrom ?? format(startOfMonth(new Date()), "yyyy-MM-dd"));
+                        setStlDateTo(fd.dateTo ?? format(new Date(), "yyyy-MM-dd"));
+                        setStlActivePreset(null);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/8 px-2 py-1 text-xs font-medium text-sky-300 hover:border-sky-500/60 hover:text-sky-100 transition-colors"
+                      title={`Apply date range: ${saved.rawInput}`}
+                    >
+                      <BookmarkCheck className="w-3 h-3 shrink-0" />
+                      {saved.name}
+                      {stlSavedCountMap[saved.id]?.loading ? (
+                        <Loader2 className="w-2.5 h-2.5 ml-0.5 animate-spin opacity-40" />
+                      ) : stlSavedCountMap[saved.id]?.count !== undefined ? (
+                        <span className="ml-0.5 opacity-50 font-normal tabular-nums">· {stlSavedCountMap[saved.id]!.count!.toLocaleString("en-IN")}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-2 flex-wrap">

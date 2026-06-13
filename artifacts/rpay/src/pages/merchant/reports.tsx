@@ -2121,16 +2121,22 @@ export default function MerchantReports() {
                   >
                     <CalendarRange className="w-3 h-3" />Saved
                   </span>
-                  {txShowSaveDatePreset && (
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1">
-                        <Input ref={txSaveDatePresetNameRef} className="h-7 text-xs max-w-[220px]" placeholder="Name this date preset…" value={txSaveDatePresetName} onChange={e => { setTxSaveDatePresetName(e.target.value); setTxSaveDatePresetNameError(""); }} onKeyDown={e => { if (e.key === "Enter") confirmSaveDatePreset(txDateFrom, txDateTo, txSaveDatePresetName, setTxSaveDatePresetName, setTxSaveDatePresetNameError, setTxShowSaveDatePreset, txSaveDatePresetNameRef); if (e.key === "Escape") { setTxShowSaveDatePreset(false); setTxSaveDatePresetName(""); setTxSaveDatePresetNameError(""); } }} maxLength={40} />
-                        {txSaveDatePresetNameError && <p className="mt-1 text-xs text-rose-400">{txSaveDatePresetNameError}</p>}
-                      </div>
-                      <Button size="sm" className="h-7 text-xs shrink-0" onClick={() => confirmSaveDatePreset(txDateFrom, txDateTo, txSaveDatePresetName, setTxSaveDatePresetName, setTxSaveDatePresetNameError, setTxShowSaveDatePreset, txSaveDatePresetNameRef)}>Save</Button>
-                      <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0 px-2" onClick={() => { setTxShowSaveDatePreset(false); setTxSaveDatePresetName(""); setTxSaveDatePresetNameError(""); }}><X className="w-3.5 h-3.5" /></Button>
+                  <div
+                    className={[
+                      "flex items-start gap-2 overflow-hidden transition-all duration-200 ease-in-out",
+                      txShowSaveDatePreset
+                        ? "opacity-100 translate-y-0 max-w-[600px]"
+                        : "opacity-0 -translate-y-1 max-w-0 pointer-events-none",
+                    ].join(" ")}
+                    aria-hidden={!txShowSaveDatePreset}
+                  >
+                    <div className="flex-1">
+                      <Input ref={txSaveDatePresetNameRef} className="h-7 text-xs max-w-[220px]" placeholder="Name this date preset…" value={txSaveDatePresetName} onChange={e => { setTxSaveDatePresetName(e.target.value); setTxSaveDatePresetNameError(""); }} onKeyDown={e => { if (e.key === "Enter") confirmSaveDatePreset(txDateFrom, txDateTo, txSaveDatePresetName, setTxSaveDatePresetName, setTxSaveDatePresetNameError, setTxShowSaveDatePreset, txSaveDatePresetNameRef); if (e.key === "Escape") { setTxShowSaveDatePreset(false); setTxSaveDatePresetName(""); setTxSaveDatePresetNameError(""); } }} maxLength={40} />
+                      {txSaveDatePresetNameError && <p className="mt-1 text-xs text-rose-400">{txSaveDatePresetNameError}</p>}
                     </div>
-                  )}
+                    <Button size="sm" className="h-7 text-xs shrink-0" onClick={() => confirmSaveDatePreset(txDateFrom, txDateTo, txSaveDatePresetName, setTxSaveDatePresetName, setTxSaveDatePresetNameError, setTxShowSaveDatePreset, txSaveDatePresetNameRef)}>Save</Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0 px-2" onClick={() => { setTxShowSaveDatePreset(false); setTxSaveDatePresetName(""); setTxSaveDatePresetNameError(""); }}><X className="w-3.5 h-3.5" /></Button>
+                  </div>
                 </div>
               )}
 
@@ -2164,31 +2170,37 @@ export default function MerchantReports() {
                 >
                   <BookmarkCheck className="w-3.5 h-3.5" />Saved
                 </span>
-                {showSaveInput && (
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1">
-                      <Input
-                        ref={saveNameInputRef}
-                        className="h-7 text-xs max-w-[240px]"
-                        placeholder="Name this filter preset…"
-                        value={saveFilterName}
-                        onChange={(e) => { setSaveFilterName(e.target.value); setSaveFilterNameError(""); }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") confirmSaveFilter();
-                          if (e.key === "Escape") cancelSaveFilter();
-                        }}
-                        maxLength={40}
-                      />
-                      {saveFilterNameError && (
-                        <p className="mt-1 text-xs text-rose-400">{saveFilterNameError}</p>
-                      )}
-                    </div>
-                    <Button size="sm" className="h-7 text-xs shrink-0" onClick={confirmSaveFilter}>Save</Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0 px-2" onClick={cancelSaveFilter}>
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
+                <div
+                  className={[
+                    "flex items-start gap-2 overflow-hidden transition-all duration-200 ease-in-out",
+                    showSaveInput
+                      ? "opacity-100 translate-y-0 max-w-[600px]"
+                      : "opacity-0 -translate-y-1 max-w-0 pointer-events-none",
+                  ].join(" ")}
+                  aria-hidden={!showSaveInput}
+                >
+                  <div className="flex-1">
+                    <Input
+                      ref={saveNameInputRef}
+                      className="h-7 text-xs max-w-[240px]"
+                      placeholder="Name this filter preset…"
+                      value={saveFilterName}
+                      onChange={(e) => { setSaveFilterName(e.target.value); setSaveFilterNameError(""); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") confirmSaveFilter();
+                        if (e.key === "Escape") cancelSaveFilter();
+                      }}
+                      maxLength={40}
+                    />
+                    {saveFilterNameError && (
+                      <p className="mt-1 text-xs text-rose-400">{saveFilterNameError}</p>
+                    )}
                   </div>
-                )}
+                  <Button size="sm" className="h-7 text-xs shrink-0" onClick={confirmSaveFilter}>Save</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0 px-2" onClick={cancelSaveFilter}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -2613,16 +2625,22 @@ export default function MerchantReports() {
                   >
                     <CalendarRange className="w-3 h-3" />Saved
                   </span>
-                  {stlShowSaveDatePreset && (
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1">
-                        <Input ref={stlSaveDatePresetNameRef} className="h-7 text-xs max-w-[220px]" placeholder="Name this date preset…" value={stlSaveDatePresetName} onChange={e => { setStlSaveDatePresetName(e.target.value); setStlSaveDatePresetNameError(""); }} onKeyDown={e => { if (e.key === "Enter") confirmSaveDatePreset(stlDateFrom, stlDateTo, stlSaveDatePresetName, setStlSaveDatePresetName, setStlSaveDatePresetNameError, setStlShowSaveDatePreset, stlSaveDatePresetNameRef); if (e.key === "Escape") { setStlShowSaveDatePreset(false); setStlSaveDatePresetName(""); setStlSaveDatePresetNameError(""); } }} maxLength={40} />
-                        {stlSaveDatePresetNameError && <p className="mt-1 text-xs text-rose-400">{stlSaveDatePresetNameError}</p>}
-                      </div>
-                      <Button size="sm" className="h-7 text-xs shrink-0" onClick={() => confirmSaveDatePreset(stlDateFrom, stlDateTo, stlSaveDatePresetName, setStlSaveDatePresetName, setStlSaveDatePresetNameError, setStlShowSaveDatePreset, stlSaveDatePresetNameRef)}>Save</Button>
-                      <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0 px-2" onClick={() => { setStlShowSaveDatePreset(false); setStlSaveDatePresetName(""); setStlSaveDatePresetNameError(""); }}><X className="w-3.5 h-3.5" /></Button>
+                  <div
+                    className={[
+                      "flex items-start gap-2 overflow-hidden transition-all duration-200 ease-in-out",
+                      stlShowSaveDatePreset
+                        ? "opacity-100 translate-y-0 max-w-[600px]"
+                        : "opacity-0 -translate-y-1 max-w-0 pointer-events-none",
+                    ].join(" ")}
+                    aria-hidden={!stlShowSaveDatePreset}
+                  >
+                    <div className="flex-1">
+                      <Input ref={stlSaveDatePresetNameRef} className="h-7 text-xs max-w-[220px]" placeholder="Name this date preset…" value={stlSaveDatePresetName} onChange={e => { setStlSaveDatePresetName(e.target.value); setStlSaveDatePresetNameError(""); }} onKeyDown={e => { if (e.key === "Enter") confirmSaveDatePreset(stlDateFrom, stlDateTo, stlSaveDatePresetName, setStlSaveDatePresetName, setStlSaveDatePresetNameError, setStlShowSaveDatePreset, stlSaveDatePresetNameRef); if (e.key === "Escape") { setStlShowSaveDatePreset(false); setStlSaveDatePresetName(""); setStlSaveDatePresetNameError(""); } }} maxLength={40} />
+                      {stlSaveDatePresetNameError && <p className="mt-1 text-xs text-rose-400">{stlSaveDatePresetNameError}</p>}
                     </div>
-                  )}
+                    <Button size="sm" className="h-7 text-xs shrink-0" onClick={() => confirmSaveDatePreset(stlDateFrom, stlDateTo, stlSaveDatePresetName, setStlSaveDatePresetName, setStlSaveDatePresetNameError, setStlShowSaveDatePreset, stlSaveDatePresetNameRef)}>Save</Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0 px-2" onClick={() => { setStlShowSaveDatePreset(false); setStlSaveDatePresetName(""); setStlSaveDatePresetNameError(""); }}><X className="w-3.5 h-3.5" /></Button>
+                  </div>
                 </div>
               )}
             </CardContent>

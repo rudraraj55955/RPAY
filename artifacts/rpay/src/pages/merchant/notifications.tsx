@@ -61,8 +61,7 @@ type TypeFilter =
   | "provider_limit_reached"
   | "provider_limit_reset"
   | "system_notice"
-  | "scheduled_report_auto_paused"
-  | "report_schedule_next_run_updated";
+  | "reports";
 
 const TYPE_CHIPS: { value: TypeFilter; label: string; icon: React.ReactNode }[] = [
   { value: "all", label: "All Types", icon: <Bell className="w-3 h-3" /> },
@@ -76,8 +75,7 @@ const TYPE_CHIPS: { value: TypeFilter; label: string; icon: React.ReactNode }[] 
   { value: "provider_limit_reached", label: "Limit Reached", icon: <AlertCircle className="w-3 h-3" /> },
   { value: "provider_limit_reset", label: "Limit Reset", icon: <RefreshCw className="w-3 h-3" /> },
   { value: "system_notice", label: "Notice", icon: <Megaphone className="w-3 h-3" /> },
-  { value: "scheduled_report_auto_paused", label: "Report Paused", icon: <Calendar className="w-3 h-3" /> },
-  { value: "report_schedule_next_run_updated", label: "Report Schedule", icon: <Calendar className="w-3 h-3" /> },
+  { value: "reports", label: "Reports", icon: <Calendar className="w-3 h-3" /> },
 ];
 
 const PROVIDER_LIMIT_TYPES = new Set(["provider_limit_warning", "provider_limit_reached", "provider_limit_reset"]);

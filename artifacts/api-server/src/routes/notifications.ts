@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, notificationsTable, usersTable, merchantsTable, merchantPlansTable, plansTable } from "@workspace/db";
-import { eq, and, desc, count, lt, gte, or, sql, isNull } from "drizzle-orm";
+import { eq, and, desc, count, lt, gte, or, sql, isNull, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { createBulkNotifications, createNotification } from "../helpers/notifications";
 import { runProviderLimitAlertScan } from "../helpers/providerLimitScheduler";
@@ -32,10 +32,21 @@ router.get("/", async (req, res, next) => {
     const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
+    const REPORT_TYPES = [
+      "scheduled_report_auto_paused",
+      "scheduled_report_failure",
+      "scheduled_report_retry_success",
+      "report_schedule_next_run_updated",
+    ] as const;
+
     const conditions: any[] = [eq(notificationsTable.userId, user.id)];
     if (isRead === "true") conditions.push(eq(notificationsTable.isRead, true));
     if (isRead === "false") conditions.push(eq(notificationsTable.isRead, false));
-    if (type) conditions.push(eq(notificationsTable.type, type));
+    if (type === "reports") {
+      conditions.push(inArray(notificationsTable.type, [...REPORT_TYPES]));
+    } else if (type) {
+      conditions.push(eq(notificationsTable.type, type));
+    }
 
     const where = and(...conditions);
     const [{ total }] = await db.select({ total: count() }).from(notificationsTable).where(where);

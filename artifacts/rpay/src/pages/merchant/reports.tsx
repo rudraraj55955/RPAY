@@ -70,6 +70,7 @@ import {
   History,
   PauseCircle,
   Check,
+  RotateCcw,
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
 import { toast } from "sonner";
@@ -108,6 +109,11 @@ const DATE_PRESETS = [
     },
   },
 ];
+
+function getThisMonthDefault(): { from: string; to: string } {
+  const now = new Date();
+  return { from: format(startOfMonth(now), "yyyy-MM-dd"), to: format(now, "yyyy-MM-dd") };
+}
 
 const PROVIDERS = [
   { value: "phonepe", label: "PhonePe" },
@@ -1224,6 +1230,39 @@ export default function MerchantReports() {
     return `Until ${formatDateLabel(dateTo)}`;
   };
 
+  const txIsStale = (() => {
+    const d = getThisMonthDefault();
+    return txDateFrom !== d.from || txDateTo !== d.to;
+  })();
+  const stlIsStale = (() => {
+    const d = getThisMonthDefault();
+    return stlDateFrom !== d.from || stlDateTo !== d.to;
+  })();
+
+  const resetTxToThisMonth = () => {
+    const d = getThisMonthDefault();
+    setTxDateFrom(d.from);
+    setTxDateTo(d.to);
+    setTxActivePreset(null);
+    if (dateLocked) {
+      setStlDateFrom(d.from);
+      setStlDateTo(d.to);
+      setStlActivePreset(null);
+    }
+  };
+
+  const resetStlToThisMonth = () => {
+    const d = getThisMonthDefault();
+    setStlDateFrom(d.from);
+    setStlDateTo(d.to);
+    setStlActivePreset(null);
+    if (dateLocked) {
+      setTxDateFrom(d.from);
+      setTxDateTo(d.to);
+      setTxActivePreset(null);
+    }
+  };
+
   const openSaveInput = () => {
     setSaveFilterName("");
     setSaveFilterNameError("");
@@ -1997,8 +2036,17 @@ export default function MerchantReports() {
               </p>
 
               {/* Save date preset bar */}
-              {(txCanSaveDatePreset || txIsCustomDateAlreadySaved || txShowSaveDatePreset) && (
-                <div className="flex flex-wrap items-start gap-2">
+              {(txCanSaveDatePreset || txIsCustomDateAlreadySaved || txShowSaveDatePreset || txIsStale) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {txIsStale && (
+                    <button
+                      className="inline-flex items-center gap-1.5 h-7 px-2.5 text-xs rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/60 transition-colors"
+                      onClick={resetTxToThisMonth}
+                      title="Reset to the current month's date range"
+                    >
+                      <RotateCcw className="w-3 h-3" />This month
+                    </button>
+                  )}
                   {txCanSaveDatePreset && !txShowSaveDatePreset && (
                     <Button variant="outline" size="sm" className="h-7 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200" onClick={() => { setTxSaveDatePresetName(""); setTxSaveDatePresetNameError(""); setTxShowSaveDatePreset(true); }} title="Save this date range as a quick-access preset">
                       <CalendarRange className="w-3 h-3 mr-1.5" />Save as date preset
@@ -2450,8 +2498,17 @@ export default function MerchantReports() {
               </p>
 
               {/* Save date preset bar */}
-              {(stlCanSaveDatePreset || stlIsCustomDateAlreadySaved || stlShowSaveDatePreset) && (
-                <div className="flex flex-wrap items-start gap-2">
+              {(stlCanSaveDatePreset || stlIsCustomDateAlreadySaved || stlShowSaveDatePreset || stlIsStale) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {stlIsStale && (
+                    <button
+                      className="inline-flex items-center gap-1.5 h-7 px-2.5 text-xs rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/60 transition-colors"
+                      onClick={resetStlToThisMonth}
+                      title="Reset to the current month's date range"
+                    >
+                      <RotateCcw className="w-3 h-3" />This month
+                    </button>
+                  )}
                   {stlCanSaveDatePreset && !stlShowSaveDatePreset && (
                     <Button variant="outline" size="sm" className="h-7 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200" onClick={() => { setStlSaveDatePresetName(""); setStlSaveDatePresetNameError(""); setStlShowSaveDatePreset(true); }} title="Save this date range as a quick-access preset">
                       <CalendarRange className="w-3 h-3 mr-1.5" />Save as date preset

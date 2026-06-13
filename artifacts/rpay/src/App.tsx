@@ -50,6 +50,7 @@ import AdminPaymentLinks from "@/pages/admin/payment-links";
 import AdminSettings from "@/pages/admin/settings";
 import AdminCashfreeGateway from "@/pages/admin/cashfree-gateway";
 import AdminCashfreePayout from "@/pages/admin/cashfree-payout";
+import AdminProviderIntegrations from "@/pages/admin/provider-integrations";
 import PayPage from "@/pages/pay";
 import QrPayPage from "@/pages/qr-pay";
 import VaPayPage from "@/pages/va-pay";
@@ -74,6 +75,7 @@ import MerchantNotifications from "@/pages/merchant/notifications";
 import MerchantPaymentLinks from "@/pages/merchant/payment-links";
 import MerchantBranding from "@/pages/merchant/branding";
 import MerchantSecurity from "@/pages/merchant/security";
+import MerchantRasokartServices from "@/pages/merchant/rasokart-services";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -163,6 +165,7 @@ function Router() {
       <Route path="/admin/settings"><AdminRoute component={AdminSettings} /></Route>
       <Route path="/admin/cashfree-gateway"><AdminRoute component={AdminCashfreeGateway} /></Route>
       <Route path="/admin/cashfree-payout"><AdminRoute component={AdminCashfreePayout} /></Route>
+      <Route path="/admin/provider-integrations"><AdminRoute component={AdminProviderIntegrations} /></Route>
 
       {/* Merchant Routes */}
       <Route path="/merchant/dashboard"><MerchantRoute component={MerchantDashboard} /></Route>
@@ -183,6 +186,7 @@ function Router() {
       <Route path="/merchant/payment-links"><MerchantRoute component={MerchantPaymentLinks} /></Route>
       <Route path="/merchant/branding"><MerchantRoute component={MerchantBranding} /></Route>
       <Route path="/merchant/security"><MerchantRoute component={MerchantSecurity} /></Route>
+      <Route path="/merchant/rasokart-services"><MerchantRoute component={MerchantRasokartServices} /></Route>
       <Route path="/merchant/api-docs"><PublicPage component={MerchantApiDocs} /></Route>
 
       <Route path="/pay/:slug" component={PayPage} />

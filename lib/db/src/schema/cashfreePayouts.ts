@@ -2,6 +2,8 @@ import { pgTable, serial, varchar, text, numeric, integer, timestamp } from "dri
 
 export const cashfreePayoutsTable = pgTable("cashfree_payouts", {
   id: serial("id").primaryKey(),
+  publicTransferId: varchar("public_transfer_id", { length: 64 }),
+  providerKey: varchar("provider_key", { length: 64 }).default("cashfree"),
   transferId: varchar("transfer_id", { length: 255 }).notNull().unique(),
   beneficiaryName: varchar("beneficiary_name", { length: 255 }).notNull(),
   accountNumber: varchar("account_number", { length: 100 }),

@@ -44,3 +44,7 @@ export * from "./cleanupRunHistory";
 export * from "./merchantTrustedIps";
 export * from "./cashfreePayments";
 export * from "./cashfreePayouts";
+export * from "./providerIntegrations";
+export * from "./providerProducts";
+export * from "./providerProductVisibility";
+export * from "./activationRequests";

@@ -6259,6 +6259,228 @@ paths:
                   success:
                     type: boolean
 
+
+  # ── Provider Integrations (Admin) ─────────────────────────────────────────────
+  /provider-integrations/integrations:
+    get:
+      operationId: listProviderIntegrations
+      summary: List provider integrations (admin only)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: List of backend provider integrations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderIntegration"
+  /provider-integrations/integrations/{key}:
+    put:
+      operationId: updateProviderIntegration
+      summary: Update a provider integration (admin only)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProviderIntegrationBody"
+      responses:
+        "200":
+          description: Updated integration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderIntegration"
+  /provider-integrations/products:
+    get:
+      operationId: listProviderProducts
+      summary: List provider products (admin only)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: List of RasoKart service products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderProduct"
+  /provider-integrations/products/{key}:
+    put:
+      operationId: updateProviderProduct
+      summary: Update a provider product (admin only)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProviderProductBody"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderProduct"
+  /provider-integrations/activation-requests:
+    get:
+      operationId: listActivationRequests
+      summary: List activation requests (admin sees all, merchant sees own)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: List of activation requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivationRequest"
+    post:
+      operationId: createActivationRequest
+      summary: Submit an activation request (merchant)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivationRequestBody"
+      responses:
+        "200":
+          description: Created request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivationRequest"
+  /provider-integrations/activation-requests/{id}:
+    put:
+      operationId: updateActivationRequest
+      summary: Approve or reject activation request (admin only)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActivationRequestBody"
+      responses:
+        "200":
+          description: Updated request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivationRequest"
+  /provider-integrations/product-visibility:
+    get:
+      operationId: listProductVisibility
+      summary: List product visibility overrides (admin only)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: merchantId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Visibility overrides
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductVisibility"
+    put:
+      operationId: setProductVisibility
+      summary: Set product visibility for a merchant (admin only)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetProductVisibilityBody"
+      responses:
+        "200":
+          description: Updated visibility
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductVisibility"
+  # ── RasoKart Services (Merchant) ──────────────────────────────────────────────
+  /merchant/rasokart-services:
+    get:
+      operationId: listRasokartServices
+      summary: List RasoKart services for the authenticated merchant
+      tags: [RasokartServices]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: White-labelled service catalogue (no provider names)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RasokartServicesResponse"
+  /merchant/rasokart-services/request:
+    post:
+      operationId: requestServiceActivation
+      summary: Submit a service activation request (merchant)
+      tags: [RasokartServices]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceActivationRequestBody"
+      responses:
+        "200":
+          description: Activation request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceActivationResponse"
+  /merchant/rasokart-services/requests:
+    get:
+      operationId: listMerchantActivationRequests
+      summary: List merchant own service activation requests
+      tags: [RasokartServices]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Activation requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MerchantActivationRequest"
 components:
   schemas:
     GithubSyncConfig:
@@ -10447,3 +10669,250 @@ components:
               error:
                 type: string
                 nullable: true
+
+    ProviderIntegration:
+      type: object
+      required: [id, providerKey, providerNameInternal, displayNamePublic, environment, isEnabled, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        providerKey:
+          type: string
+        providerNameInternal:
+          type: string
+        displayNamePublic:
+          type: string
+        environment:
+          type: string
+        isEnabled:
+          type: boolean
+        productType:
+          type: string
+          nullable: true
+        webhookUrl:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        updatedByEmail:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    UpdateProviderIntegrationBody:
+      type: object
+      properties:
+        environment:
+          type: string
+        isEnabled:
+          type: boolean
+        webhookUrl:
+          type: string
+        notes:
+          type: string
+        displayNamePublic:
+          type: string
+
+    ProviderProduct:
+      type: object
+      required: [id, productKey, publicName, isEnabled, status, sortOrder, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        productKey:
+          type: string
+        providerKey:
+          type: string
+          nullable: true
+        publicName:
+          type: string
+        internalName:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        iconKey:
+          type: string
+          nullable: true
+        isEnabled:
+          type: boolean
+        status:
+          type: string
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    UpdateProviderProductBody:
+      type: object
+      properties:
+        status:
+          type: string
+        isEnabled:
+          type: boolean
+        publicName:
+          type: string
+        description:
+          type: string
+        sortOrder:
+          type: integer
+        providerKey:
+          type: string
+
+    ActivationRequest:
+      type: object
+      required: [id, merchantId, productKey, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        productKey:
+          type: string
+        status:
+          type: string
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    CreateActivationRequestBody:
+      type: object
+      required: [productKey]
+      properties:
+        productKey:
+          type: string
+        note:
+          type: string
+
+    UpdateActivationRequestBody:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+        note:
+          type: string
+
+    ProductVisibility:
+      type: object
+      required: [id, productKey, merchantId, visibilityStatus, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        productKey:
+          type: string
+        merchantId:
+          type: integer
+        visibilityStatus:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    SetProductVisibilityBody:
+      type: object
+      required: [merchantId, productKey, visibilityStatus]
+      properties:
+        merchantId:
+          type: integer
+        productKey:
+          type: string
+        visibilityStatus:
+          type: string
+
+    PublicService:
+      type: object
+      required: [productKey, publicName, status, isEnabled, sortOrder, visibility]
+      properties:
+        productKey:
+          type: string
+        publicName:
+          type: string
+        description:
+          type: string
+          nullable: true
+        iconKey:
+          type: string
+          nullable: true
+        status:
+          type: string
+        isEnabled:
+          type: boolean
+        sortOrder:
+          type: integer
+        visibility:
+          type: string
+        activationRequest:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            status:
+              type: string
+            createdAt:
+              type: string
+
+    RasokartServicesResponse:
+      type: object
+      required: [services]
+      properties:
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicService"
+
+    ServiceActivationRequestBody:
+      type: object
+      required: [productKey]
+      properties:
+        productKey:
+          type: string
+        note:
+          type: string
+
+    ServiceActivationResponse:
+      type: object
+      required: [requestId, productKey, publicServiceName, status, createdAt, message]
+      properties:
+        requestId:
+          type: integer
+        productKey:
+          type: string
+        publicServiceName:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+        message:
+          type: string
+
+    MerchantActivationRequest:
+      type: object
+      required: [id, productKey, publicServiceName, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        productKey:
+          type: string
+        publicServiceName:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string

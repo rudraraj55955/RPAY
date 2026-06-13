@@ -25,6 +25,7 @@ import type {
   AccountDetailListResponse,
   AccountDetailUpdateInput,
   AccountDetailVisibilityResponse,
+  ActivationRequest,
   AdminAuditLog,
   AdminAuditLogInput,
   AdminAuditLogListResponse,
@@ -83,6 +84,7 @@ import type {
   ClearTestEmailHistory200,
   ClearVaCleanupHistory200,
   ClearWebhookFailureAlertHistory200,
+  CreateActivationRequestBody,
   CreateCashfreeOrderBody,
   CreateMerchantSavedFilterInput,
   CreateSavedFilterInput,
@@ -150,6 +152,7 @@ import type {
   ListNotificationsParams,
   ListPaymentLinksParams,
   ListPlanHistoryParams,
+  ListProductVisibilityParams,
   ListProvidersAdminParams,
   ListProvidersParams,
   ListQrCodesParams,
@@ -167,6 +170,7 @@ import type {
   ListWithdrawalsParams,
   LoginInput,
   Merchant,
+  MerchantActivationRequest,
   MerchantBrandingInput,
   MerchantConnection,
   MerchantConnectionInput,
@@ -201,11 +205,14 @@ import type {
   PlanNoteInput,
   PlanUsage,
   PreviewAuditReportEmailParams,
+  ProductVisibility,
   Provider,
   ProviderBulkVisibilityInput,
   ProviderInput,
+  ProviderIntegration,
   ProviderListResponse,
   ProviderMerchantVisibility,
+  ProviderProduct,
   ProviderReorderInput,
   ProviderVisibilityInput,
   ProviderVolumeListResponse,
@@ -218,6 +225,7 @@ import type {
   QrCodeListResponse,
   QrCodeStats,
   QrCodeUpdateInput,
+  RasokartServicesResponse,
   ReconciliationItem,
   ReconciliationItemListResponse,
   ReconciliationItemResolveInput,
@@ -245,6 +253,9 @@ import type {
   SecurityEventListResponse,
   SecurityReminderRequest,
   SecurityReminderResponse,
+  ServiceActivationRequestBody,
+  ServiceActivationResponse,
+  SetProductVisibilityBody,
   Settlement,
   SettlementActionInput,
   SettlementListResponse,
@@ -262,8 +273,11 @@ import type {
   TransactionListResponse,
   TrustedIpListResponse,
   UpdateAccountDetailVisibility200,
+  UpdateActivationRequestBody,
   UpdateGithubSyncConfigBody,
   UpdateMyPreferencesBody,
+  UpdateProviderIntegrationBody,
+  UpdateProviderProductBody,
   UploadUrlRequest,
   UploadUrlResponse,
   User,
@@ -19594,4 +19608,902 @@ export const useEkqrPaymentWebhook = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getEkqrPaymentWebhookMutationOptions(options));
     }
+
+export const getListProviderIntegrationsUrl = () => {
+
+
+
+
+  return `/api/provider-integrations/integrations`
+}
+
+/**
+ * @summary List provider integrations (admin only)
+ */
+export const listProviderIntegrations = async ( options?: RequestInit): Promise<ProviderIntegration[]> => {
+
+  return customFetch<ProviderIntegration[]>(getListProviderIntegrationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProviderIntegrationsQueryKey = () => {
+    return [
+    `/api/provider-integrations/integrations`
+    ] as const;
+    }
+
+
+export const getListProviderIntegrationsQueryOptions = <TData = Awaited<ReturnType<typeof listProviderIntegrations>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProviderIntegrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProviderIntegrationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProviderIntegrations>>> = ({ signal }) => listProviderIntegrations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProviderIntegrations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProviderIntegrationsQueryResult = NonNullable<Awaited<ReturnType<typeof listProviderIntegrations>>>
+export type ListProviderIntegrationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List provider integrations (admin only)
+ */
+
+export function useListProviderIntegrations<TData = Awaited<ReturnType<typeof listProviderIntegrations>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProviderIntegrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProviderIntegrationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateProviderIntegrationUrl = (key: string,) => {
+
+
+
+
+  return `/api/provider-integrations/integrations/${key}`
+}
+
+/**
+ * @summary Update a provider integration (admin only)
+ */
+export const updateProviderIntegration = async (key: string,
+    updateProviderIntegrationBody: UpdateProviderIntegrationBody, options?: RequestInit): Promise<ProviderIntegration> => {
+
+  return customFetch<ProviderIntegration>(getUpdateProviderIntegrationUrl(key),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateProviderIntegrationBody,)
+  }
+);}
+
+
+
+
+export const getUpdateProviderIntegrationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProviderIntegration>>, TError,{key: string;data: BodyType<UpdateProviderIntegrationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProviderIntegration>>, TError,{key: string;data: BodyType<UpdateProviderIntegrationBody>}, TContext> => {
+
+const mutationKey = ['updateProviderIntegration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProviderIntegration>>, {key: string;data: BodyType<UpdateProviderIntegrationBody>}> = (props) => {
+          const {key,data} = props ?? {};
+
+          return  updateProviderIntegration(key,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProviderIntegrationMutationResult = NonNullable<Awaited<ReturnType<typeof updateProviderIntegration>>>
+    export type UpdateProviderIntegrationMutationBody = BodyType<UpdateProviderIntegrationBody>
+    export type UpdateProviderIntegrationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a provider integration (admin only)
+ */
+export const useUpdateProviderIntegration = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProviderIntegration>>, TError,{key: string;data: BodyType<UpdateProviderIntegrationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProviderIntegration>>,
+        TError,
+        {key: string;data: BodyType<UpdateProviderIntegrationBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateProviderIntegrationMutationOptions(options));
+    }
+
+export const getListProviderProductsUrl = () => {
+
+
+
+
+  return `/api/provider-integrations/products`
+}
+
+/**
+ * @summary List provider products (admin only)
+ */
+export const listProviderProducts = async ( options?: RequestInit): Promise<ProviderProduct[]> => {
+
+  return customFetch<ProviderProduct[]>(getListProviderProductsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProviderProductsQueryKey = () => {
+    return [
+    `/api/provider-integrations/products`
+    ] as const;
+    }
+
+
+export const getListProviderProductsQueryOptions = <TData = Awaited<ReturnType<typeof listProviderProducts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProviderProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProviderProductsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProviderProducts>>> = ({ signal }) => listProviderProducts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProviderProducts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProviderProductsQueryResult = NonNullable<Awaited<ReturnType<typeof listProviderProducts>>>
+export type ListProviderProductsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List provider products (admin only)
+ */
+
+export function useListProviderProducts<TData = Awaited<ReturnType<typeof listProviderProducts>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProviderProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProviderProductsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateProviderProductUrl = (key: string,) => {
+
+
+
+
+  return `/api/provider-integrations/products/${key}`
+}
+
+/**
+ * @summary Update a provider product (admin only)
+ */
+export const updateProviderProduct = async (key: string,
+    updateProviderProductBody: UpdateProviderProductBody, options?: RequestInit): Promise<ProviderProduct> => {
+
+  return customFetch<ProviderProduct>(getUpdateProviderProductUrl(key),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateProviderProductBody,)
+  }
+);}
+
+
+
+
+export const getUpdateProviderProductMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProviderProduct>>, TError,{key: string;data: BodyType<UpdateProviderProductBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProviderProduct>>, TError,{key: string;data: BodyType<UpdateProviderProductBody>}, TContext> => {
+
+const mutationKey = ['updateProviderProduct'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProviderProduct>>, {key: string;data: BodyType<UpdateProviderProductBody>}> = (props) => {
+          const {key,data} = props ?? {};
+
+          return  updateProviderProduct(key,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProviderProductMutationResult = NonNullable<Awaited<ReturnType<typeof updateProviderProduct>>>
+    export type UpdateProviderProductMutationBody = BodyType<UpdateProviderProductBody>
+    export type UpdateProviderProductMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a provider product (admin only)
+ */
+export const useUpdateProviderProduct = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProviderProduct>>, TError,{key: string;data: BodyType<UpdateProviderProductBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProviderProduct>>,
+        TError,
+        {key: string;data: BodyType<UpdateProviderProductBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateProviderProductMutationOptions(options));
+    }
+
+export const getListActivationRequestsUrl = () => {
+
+
+
+
+  return `/api/provider-integrations/activation-requests`
+}
+
+/**
+ * @summary List activation requests (admin sees all, merchant sees own)
+ */
+export const listActivationRequests = async ( options?: RequestInit): Promise<ActivationRequest[]> => {
+
+  return customFetch<ActivationRequest[]>(getListActivationRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListActivationRequestsQueryKey = () => {
+    return [
+    `/api/provider-integrations/activation-requests`
+    ] as const;
+    }
+
+
+export const getListActivationRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listActivationRequests>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listActivationRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListActivationRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listActivationRequests>>> = ({ signal }) => listActivationRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listActivationRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListActivationRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listActivationRequests>>>
+export type ListActivationRequestsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List activation requests (admin sees all, merchant sees own)
+ */
+
+export function useListActivationRequests<TData = Awaited<ReturnType<typeof listActivationRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listActivationRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListActivationRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateActivationRequestUrl = () => {
+
+
+
+
+  return `/api/provider-integrations/activation-requests`
+}
+
+/**
+ * @summary Submit an activation request (merchant)
+ */
+export const createActivationRequest = async (createActivationRequestBody: CreateActivationRequestBody, options?: RequestInit): Promise<ActivationRequest> => {
+
+  return customFetch<ActivationRequest>(getCreateActivationRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createActivationRequestBody,)
+  }
+);}
+
+
+
+
+export const getCreateActivationRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createActivationRequest>>, TError,{data: BodyType<CreateActivationRequestBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createActivationRequest>>, TError,{data: BodyType<CreateActivationRequestBody>}, TContext> => {
+
+const mutationKey = ['createActivationRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createActivationRequest>>, {data: BodyType<CreateActivationRequestBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createActivationRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateActivationRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createActivationRequest>>>
+    export type CreateActivationRequestMutationBody = BodyType<CreateActivationRequestBody>
+    export type CreateActivationRequestMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Submit an activation request (merchant)
+ */
+export const useCreateActivationRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createActivationRequest>>, TError,{data: BodyType<CreateActivationRequestBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createActivationRequest>>,
+        TError,
+        {data: BodyType<CreateActivationRequestBody>},
+        TContext
+      > => {
+      return useMutation(getCreateActivationRequestMutationOptions(options));
+    }
+
+export const getUpdateActivationRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/provider-integrations/activation-requests/${id}`
+}
+
+/**
+ * @summary Approve or reject activation request (admin only)
+ */
+export const updateActivationRequest = async (id: number,
+    updateActivationRequestBody: UpdateActivationRequestBody, options?: RequestInit): Promise<ActivationRequest> => {
+
+  return customFetch<ActivationRequest>(getUpdateActivationRequestUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateActivationRequestBody,)
+  }
+);}
+
+
+
+
+export const getUpdateActivationRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateActivationRequest>>, TError,{id: number;data: BodyType<UpdateActivationRequestBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateActivationRequest>>, TError,{id: number;data: BodyType<UpdateActivationRequestBody>}, TContext> => {
+
+const mutationKey = ['updateActivationRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateActivationRequest>>, {id: number;data: BodyType<UpdateActivationRequestBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateActivationRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateActivationRequestMutationResult = NonNullable<Awaited<ReturnType<typeof updateActivationRequest>>>
+    export type UpdateActivationRequestMutationBody = BodyType<UpdateActivationRequestBody>
+    export type UpdateActivationRequestMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Approve or reject activation request (admin only)
+ */
+export const useUpdateActivationRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateActivationRequest>>, TError,{id: number;data: BodyType<UpdateActivationRequestBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateActivationRequest>>,
+        TError,
+        {id: number;data: BodyType<UpdateActivationRequestBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateActivationRequestMutationOptions(options));
+    }
+
+export const getListProductVisibilityUrl = (params?: ListProductVisibilityParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/provider-integrations/product-visibility?${stringifiedParams}` : `/api/provider-integrations/product-visibility`
+}
+
+/**
+ * @summary List product visibility overrides (admin only)
+ */
+export const listProductVisibility = async (params?: ListProductVisibilityParams, options?: RequestInit): Promise<ProductVisibility[]> => {
+
+  return customFetch<ProductVisibility[]>(getListProductVisibilityUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProductVisibilityQueryKey = (params?: ListProductVisibilityParams,) => {
+    return [
+    `/api/provider-integrations/product-visibility`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListProductVisibilityQueryOptions = <TData = Awaited<ReturnType<typeof listProductVisibility>>, TError = ErrorType<unknown>>(params?: ListProductVisibilityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProductVisibility>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProductVisibilityQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProductVisibility>>> = ({ signal }) => listProductVisibility(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProductVisibility>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProductVisibilityQueryResult = NonNullable<Awaited<ReturnType<typeof listProductVisibility>>>
+export type ListProductVisibilityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List product visibility overrides (admin only)
+ */
+
+export function useListProductVisibility<TData = Awaited<ReturnType<typeof listProductVisibility>>, TError = ErrorType<unknown>>(
+ params?: ListProductVisibilityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProductVisibility>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProductVisibilityQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSetProductVisibilityUrl = () => {
+
+
+
+
+  return `/api/provider-integrations/product-visibility`
+}
+
+/**
+ * @summary Set product visibility for a merchant (admin only)
+ */
+export const setProductVisibility = async (setProductVisibilityBody: SetProductVisibilityBody, options?: RequestInit): Promise<ProductVisibility> => {
+
+  return customFetch<ProductVisibility>(getSetProductVisibilityUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      setProductVisibilityBody,)
+  }
+);}
+
+
+
+
+export const getSetProductVisibilityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setProductVisibility>>, TError,{data: BodyType<SetProductVisibilityBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setProductVisibility>>, TError,{data: BodyType<SetProductVisibilityBody>}, TContext> => {
+
+const mutationKey = ['setProductVisibility'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setProductVisibility>>, {data: BodyType<SetProductVisibilityBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setProductVisibility(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetProductVisibilityMutationResult = NonNullable<Awaited<ReturnType<typeof setProductVisibility>>>
+    export type SetProductVisibilityMutationBody = BodyType<SetProductVisibilityBody>
+    export type SetProductVisibilityMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Set product visibility for a merchant (admin only)
+ */
+export const useSetProductVisibility = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setProductVisibility>>, TError,{data: BodyType<SetProductVisibilityBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setProductVisibility>>,
+        TError,
+        {data: BodyType<SetProductVisibilityBody>},
+        TContext
+      > => {
+      return useMutation(getSetProductVisibilityMutationOptions(options));
+    }
+
+export const getListRasokartServicesUrl = () => {
+
+
+
+
+  return `/api/merchant/rasokart-services`
+}
+
+/**
+ * @summary List RasoKart services for the authenticated merchant
+ */
+export const listRasokartServices = async ( options?: RequestInit): Promise<RasokartServicesResponse> => {
+
+  return customFetch<RasokartServicesResponse>(getListRasokartServicesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRasokartServicesQueryKey = () => {
+    return [
+    `/api/merchant/rasokart-services`
+    ] as const;
+    }
+
+
+export const getListRasokartServicesQueryOptions = <TData = Awaited<ReturnType<typeof listRasokartServices>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRasokartServices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRasokartServicesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRasokartServices>>> = ({ signal }) => listRasokartServices({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRasokartServices>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRasokartServicesQueryResult = NonNullable<Awaited<ReturnType<typeof listRasokartServices>>>
+export type ListRasokartServicesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List RasoKart services for the authenticated merchant
+ */
+
+export function useListRasokartServices<TData = Awaited<ReturnType<typeof listRasokartServices>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRasokartServices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRasokartServicesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getRequestServiceActivationUrl = () => {
+
+
+
+
+  return `/api/merchant/rasokart-services/request`
+}
+
+/**
+ * @summary Submit a service activation request (merchant)
+ */
+export const requestServiceActivation = async (serviceActivationRequestBody: ServiceActivationRequestBody, options?: RequestInit): Promise<ServiceActivationResponse> => {
+
+  return customFetch<ServiceActivationResponse>(getRequestServiceActivationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      serviceActivationRequestBody,)
+  }
+);}
+
+
+
+
+export const getRequestServiceActivationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestServiceActivation>>, TError,{data: BodyType<ServiceActivationRequestBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestServiceActivation>>, TError,{data: BodyType<ServiceActivationRequestBody>}, TContext> => {
+
+const mutationKey = ['requestServiceActivation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestServiceActivation>>, {data: BodyType<ServiceActivationRequestBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestServiceActivation(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestServiceActivationMutationResult = NonNullable<Awaited<ReturnType<typeof requestServiceActivation>>>
+    export type RequestServiceActivationMutationBody = BodyType<ServiceActivationRequestBody>
+    export type RequestServiceActivationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Submit a service activation request (merchant)
+ */
+export const useRequestServiceActivation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestServiceActivation>>, TError,{data: BodyType<ServiceActivationRequestBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestServiceActivation>>,
+        TError,
+        {data: BodyType<ServiceActivationRequestBody>},
+        TContext
+      > => {
+      return useMutation(getRequestServiceActivationMutationOptions(options));
+    }
+
+export const getListMerchantActivationRequestsUrl = () => {
+
+
+
+
+  return `/api/merchant/rasokart-services/requests`
+}
+
+/**
+ * @summary List merchant own service activation requests
+ */
+export const listMerchantActivationRequests = async ( options?: RequestInit): Promise<MerchantActivationRequest[]> => {
+
+  return customFetch<MerchantActivationRequest[]>(getListMerchantActivationRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMerchantActivationRequestsQueryKey = () => {
+    return [
+    `/api/merchant/rasokart-services/requests`
+    ] as const;
+    }
+
+
+export const getListMerchantActivationRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listMerchantActivationRequests>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMerchantActivationRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMerchantActivationRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMerchantActivationRequests>>> = ({ signal }) => listMerchantActivationRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMerchantActivationRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMerchantActivationRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listMerchantActivationRequests>>>
+export type ListMerchantActivationRequestsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List merchant own service activation requests
+ */
+
+export function useListMerchantActivationRequests<TData = Awaited<ReturnType<typeof listMerchantActivationRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMerchantActivationRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMerchantActivationRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 

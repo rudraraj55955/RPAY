@@ -37,6 +37,8 @@ import ekqrRouter from "./ekqr";
 import cashfreeWebhookRouter from "./cashfreeWebhook";
 import cashfreeOrdersRouter from "./cashfreeOrders";
 import cashfreePayoutRouter from "./cashfreePayout";
+import providerIntegrationsRouter from "./providerIntegrations";
+import rasokartServicesRouter from "./rasokartServices";
 
 const router: IRouter = Router();
 
@@ -78,5 +80,7 @@ router.use("/payment", cashfreeWebhookRouter);
 router.use("/ekqr", ekqrRouter);
 router.use("/merchant", cashfreeOrdersRouter);
 router.use("/cashfree-payout", cashfreePayoutRouter);
+router.use("/provider-integrations", providerIntegrationsRouter);
+router.use("/merchant", rasokartServicesRouter);
 
 export default router;

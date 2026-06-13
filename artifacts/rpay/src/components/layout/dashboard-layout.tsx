@@ -4,7 +4,7 @@ import { UserRole, useGetMyPlanUsage, useGetCallbackSecret, useListApiKeys, useG
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, SidebarFooter, SidebarTrigger } from "@/components/ui/sidebar";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
-import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap, GitMerge, Link2, Paintbrush, Settings, ShieldAlert, X, Download, ShieldOff } from "lucide-react";
+import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap, GitMerge, Link2, Paintbrush, Settings, ShieldAlert, X, Download, ShieldOff, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NotificationBell } from "@/components/notification-bell";
@@ -193,6 +193,7 @@ function MerchantSidebar() {
     {
       group: "Integration",
       items: [
+        { title: "RasoKart Services", icon: Layers, href: "/merchant/rasokart-services", locked: false, lockReason: null },
         { title: "Connect", icon: Plug, href: "/merchant/connect", locked: false, lockReason: null },
         {
           title: "API Keys", icon: KeyRound, href: "/merchant/api-keys",
@@ -297,6 +298,7 @@ const ADMIN_NAV = [
     items: [
       { title: "Feature Control", icon: Sliders, href: "/admin/feature-control" },
       { title: "Account Details", icon: CreditCard, href: "/admin/account-details" },
+      { title: "Provider Integrations", icon: Layers, href: "/admin/provider-integrations" },
       { title: "Payment Providers", icon: Zap, href: "/admin/providers" },
       { title: "Cashfree Gateway", icon: CreditCard, href: "/admin/cashfree-gateway" },
       { title: "Cashfree Payout", icon: Landmark, href: "/admin/cashfree-payout" },

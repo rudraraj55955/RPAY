@@ -3310,6 +3310,133 @@ export interface CashfreePayoutBulkResult {
   results: CashfreePayoutBulkResultResultsItem[];
 }
 
+export interface ProviderIntegration {
+  id: number;
+  providerKey: string;
+  providerNameInternal: string;
+  displayNamePublic: string;
+  environment: string;
+  isEnabled: boolean;
+  productType?: string | null;
+  webhookUrl?: string | null;
+  notes?: string | null;
+  updatedByEmail?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateProviderIntegrationBody {
+  environment?: string;
+  isEnabled?: boolean;
+  webhookUrl?: string;
+  notes?: string;
+  displayNamePublic?: string;
+}
+
+export interface ProviderProduct {
+  id: number;
+  productKey: string;
+  providerKey?: string | null;
+  publicName: string;
+  internalName?: string | null;
+  description?: string | null;
+  iconKey?: string | null;
+  isEnabled: boolean;
+  status: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateProviderProductBody {
+  status?: string;
+  isEnabled?: boolean;
+  publicName?: string;
+  description?: string;
+  sortOrder?: number;
+  providerKey?: string;
+}
+
+export interface ActivationRequest {
+  id: number;
+  merchantId: number;
+  productKey: string;
+  status: string;
+  note?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateActivationRequestBody {
+  productKey: string;
+  note?: string;
+}
+
+export interface UpdateActivationRequestBody {
+  status: string;
+  note?: string;
+}
+
+export interface ProductVisibility {
+  id: number;
+  productKey: string;
+  merchantId: number;
+  visibilityStatus: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SetProductVisibilityBody {
+  merchantId: number;
+  productKey: string;
+  visibilityStatus: string;
+}
+
+export type PublicServiceActivationRequest = {
+  id?: number;
+  status?: string;
+  createdAt?: string;
+} | null;
+
+export interface PublicService {
+  productKey: string;
+  publicName: string;
+  description?: string | null;
+  iconKey?: string | null;
+  status: string;
+  isEnabled: boolean;
+  sortOrder: number;
+  visibility: string;
+  activationRequest?: PublicServiceActivationRequest;
+}
+
+export interface RasokartServicesResponse {
+  services: PublicService[];
+}
+
+export interface ServiceActivationRequestBody {
+  productKey: string;
+  note?: string;
+}
+
+export interface ServiceActivationResponse {
+  requestId: number;
+  productKey: string;
+  publicServiceName: string;
+  status: string;
+  createdAt: string;
+  message: string;
+}
+
+export interface MerchantActivationRequest {
+  id: number;
+  productKey: string;
+  publicServiceName: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type UpdateMyPreferencesBody = {
   reconciliationAlertEmails?: boolean;
   planExpiryAlertEmails?: boolean;
@@ -4217,5 +4344,9 @@ export const ListEkqrWebhookLogsProcessingResult = {
 
 export type EkqrPaymentWebhook200 = {
   success?: boolean;
+};
+
+export type ListProductVisibilityParams = {
+merchantId?: number;
 };
 

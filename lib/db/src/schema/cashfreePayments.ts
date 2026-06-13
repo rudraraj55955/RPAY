@@ -5,6 +5,8 @@ import { z } from "zod/v4";
 export const cashfreePaymentOrdersTable = pgTable("cashfree_payment_orders", {
   id: serial("id").primaryKey(),
   merchantId: integer("merchant_id").notNull(),
+  publicOrderId: text("public_order_id"),
+  providerKey: text("provider_key").default("cashfree"),
   cashfreeOrderId: text("cashfree_order_id").notNull().unique(),
   paymentSessionId: text("payment_session_id"),
   amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),

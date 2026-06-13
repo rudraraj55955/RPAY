@@ -5733,3 +5733,254 @@ export const EkqrPaymentWebhookResponse = zod.object({
 })
 
 
+/**
+ * @summary List provider integrations (admin only)
+ */
+export const ListProviderIntegrationsResponseItem = zod.object({
+  "id": zod.number(),
+  "providerKey": zod.string(),
+  "providerNameInternal": zod.string(),
+  "displayNamePublic": zod.string(),
+  "environment": zod.string(),
+  "isEnabled": zod.boolean(),
+  "productType": zod.string().nullish(),
+  "webhookUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "updatedByEmail": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListProviderIntegrationsResponse = zod.array(ListProviderIntegrationsResponseItem)
+
+
+/**
+ * @summary Update a provider integration (admin only)
+ */
+export const UpdateProviderIntegrationParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const UpdateProviderIntegrationBody = zod.object({
+  "environment": zod.string().optional(),
+  "isEnabled": zod.boolean().optional(),
+  "webhookUrl": zod.string().optional(),
+  "notes": zod.string().optional(),
+  "displayNamePublic": zod.string().optional()
+})
+
+export const UpdateProviderIntegrationResponse = zod.object({
+  "id": zod.number(),
+  "providerKey": zod.string(),
+  "providerNameInternal": zod.string(),
+  "displayNamePublic": zod.string(),
+  "environment": zod.string(),
+  "isEnabled": zod.boolean(),
+  "productType": zod.string().nullish(),
+  "webhookUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "updatedByEmail": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List provider products (admin only)
+ */
+export const ListProviderProductsResponseItem = zod.object({
+  "id": zod.number(),
+  "productKey": zod.string(),
+  "providerKey": zod.string().nullish(),
+  "publicName": zod.string(),
+  "internalName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "iconKey": zod.string().nullish(),
+  "isEnabled": zod.boolean(),
+  "status": zod.string(),
+  "sortOrder": zod.number(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListProviderProductsResponse = zod.array(ListProviderProductsResponseItem)
+
+
+/**
+ * @summary Update a provider product (admin only)
+ */
+export const UpdateProviderProductParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const UpdateProviderProductBody = zod.object({
+  "status": zod.string().optional(),
+  "isEnabled": zod.boolean().optional(),
+  "publicName": zod.string().optional(),
+  "description": zod.string().optional(),
+  "sortOrder": zod.number().optional(),
+  "providerKey": zod.string().optional()
+})
+
+export const UpdateProviderProductResponse = zod.object({
+  "id": zod.number(),
+  "productKey": zod.string(),
+  "providerKey": zod.string().nullish(),
+  "publicName": zod.string(),
+  "internalName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "iconKey": zod.string().nullish(),
+  "isEnabled": zod.boolean(),
+  "status": zod.string(),
+  "sortOrder": zod.number(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List activation requests (admin sees all, merchant sees own)
+ */
+export const ListActivationRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "productKey": zod.string(),
+  "status": zod.string(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListActivationRequestsResponse = zod.array(ListActivationRequestsResponseItem)
+
+
+/**
+ * @summary Submit an activation request (merchant)
+ */
+export const CreateActivationRequestBody = zod.object({
+  "productKey": zod.string(),
+  "note": zod.string().optional()
+})
+
+export const CreateActivationRequestResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "productKey": zod.string(),
+  "status": zod.string(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Approve or reject activation request (admin only)
+ */
+export const UpdateActivationRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateActivationRequestBody = zod.object({
+  "status": zod.string(),
+  "note": zod.string().optional()
+})
+
+export const UpdateActivationRequestResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "productKey": zod.string(),
+  "status": zod.string(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List product visibility overrides (admin only)
+ */
+export const ListProductVisibilityQueryParams = zod.object({
+  "merchantId": zod.coerce.number().optional()
+})
+
+export const ListProductVisibilityResponseItem = zod.object({
+  "id": zod.number(),
+  "productKey": zod.string(),
+  "merchantId": zod.number(),
+  "visibilityStatus": zod.string(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListProductVisibilityResponse = zod.array(ListProductVisibilityResponseItem)
+
+
+/**
+ * @summary Set product visibility for a merchant (admin only)
+ */
+export const SetProductVisibilityBody = zod.object({
+  "merchantId": zod.number(),
+  "productKey": zod.string(),
+  "visibilityStatus": zod.string()
+})
+
+export const SetProductVisibilityResponse = zod.object({
+  "id": zod.number(),
+  "productKey": zod.string(),
+  "merchantId": zod.number(),
+  "visibilityStatus": zod.string(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List RasoKart services for the authenticated merchant
+ */
+export const ListRasokartServicesResponse = zod.object({
+  "services": zod.array(zod.object({
+  "productKey": zod.string(),
+  "publicName": zod.string(),
+  "description": zod.string().nullish(),
+  "iconKey": zod.string().nullish(),
+  "status": zod.string(),
+  "isEnabled": zod.boolean(),
+  "sortOrder": zod.number(),
+  "visibility": zod.string(),
+  "activationRequest": zod.object({
+  "id": zod.number().optional(),
+  "status": zod.string().optional(),
+  "createdAt": zod.string().optional()
+}).nullish()
+}))
+})
+
+
+/**
+ * @summary Submit a service activation request (merchant)
+ */
+export const RequestServiceActivationBody = zod.object({
+  "productKey": zod.string(),
+  "note": zod.string().optional()
+})
+
+export const RequestServiceActivationResponse = zod.object({
+  "requestId": zod.number(),
+  "productKey": zod.string(),
+  "publicServiceName": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary List merchant own service activation requests
+ */
+export const ListMerchantActivationRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "productKey": zod.string(),
+  "publicServiceName": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListMerchantActivationRequestsResponse = zod.array(ListMerchantActivationRequestsResponseItem)
+
+

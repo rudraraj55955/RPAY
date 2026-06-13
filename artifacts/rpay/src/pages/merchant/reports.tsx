@@ -1608,21 +1608,28 @@ export default function MerchantReports() {
             </TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
-            {rangesMatch && !dateLocked && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-medium select-none">
-                      <Check className="w-3 h-3" />
-                      Ranges match
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[220px] text-center">
-                    Both tabs are showing the same date range.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className={[
+                      "inline-flex items-center gap-1 h-6 px-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-medium select-none",
+                      "transition-all duration-200 ease-in-out",
+                      rangesMatch && !dateLocked
+                        ? "opacity-100 translate-y-0 pointer-events-auto"
+                        : "opacity-0 -translate-y-1 pointer-events-none",
+                    ].join(" ")}
+                    aria-hidden={!(rangesMatch && !dateLocked)}
+                  >
+                    <Check className="w-3 h-3" />
+                    Ranges match
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[220px] text-center">
+                  Both tabs are showing the same date range.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

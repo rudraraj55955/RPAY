@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useSearch, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -1242,11 +1242,37 @@ function DeliveryHistoryPanel() {
   const [merchantFilter, setMerchantFilter] = useState(urlMerchantId);
   const [successFilter, setSuccessFilter] = useState("all");
   const [triggeredByFilter, setTriggeredByFilter] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [timelinePreset, setTimelinePreset] = useState<string | null>(null);
+  const STORAGE_KEY = "rasokart_delivery_history_filter";
+
+  const [dateFrom, setDateFrom] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return (JSON.parse(saved) as { dateFrom?: string }).dateFrom ?? "";
+    } catch { /* ignore */ }
+    return "";
+  });
+  const [dateTo, setDateTo] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return (JSON.parse(saved) as { dateTo?: string }).dateTo ?? "";
+    } catch { /* ignore */ }
+    return "";
+  });
+  const [timelinePreset, setTimelinePreset] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return (JSON.parse(saved) as { timelinePreset?: string | null }).timelinePreset ?? null;
+    } catch { /* ignore */ }
+    return null;
+  });
   const [reEnabling, setReEnabling] = useState<number | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ dateFrom, dateTo, timelinePreset }));
+    } catch { /* ignore */ }
+  }, [dateFrom, dateTo, timelinePreset]);
 
   const params = {
     merchantId: merchantFilter !== "all" ? parseInt(merchantFilter) : undefined,
@@ -1295,6 +1321,7 @@ function DeliveryHistoryPanel() {
     setDateFrom("");
     setDateTo("");
     setTimelinePreset(null);
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
   };
 
   const failureCount = logs.filter((l) => !l.success).length;

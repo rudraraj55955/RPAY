@@ -353,7 +353,13 @@ function ScheduledReportsPanel() {
                   <TableCell className="font-medium text-sm">{s.businessName}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{s.merchantEmail}</TableCell>
                   <TableCell>
-                    <span className="text-xs capitalize">{s.frequency}</span>
+                    {s.frequency === "weekly" ? (
+                      <Badge className="text-xs capitalize bg-amber-600/20 text-amber-400 border border-amber-600/30 hover:bg-amber-600/20">Weekly</Badge>
+                    ) : s.frequency === "monthly" ? (
+                      <Badge className="text-xs capitalize bg-sky-600/20 text-sky-400 border border-sky-600/30 hover:bg-sky-600/20">Monthly</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs capitalize">{s.frequency}</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     {s.format === "xlsx" ? (
@@ -548,7 +554,13 @@ function ReportHistoryPanel() {
                   <TableCell className="font-medium text-sm">{s.businessName}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{s.merchantEmail}</TableCell>
                   <TableCell>
-                    <span className="text-xs capitalize">{s.frequency}</span>
+                    {s.frequency === "weekly" ? (
+                      <Badge className="text-xs capitalize bg-amber-600/20 text-amber-400 border border-amber-600/30 hover:bg-amber-600/20">Weekly</Badge>
+                    ) : s.frequency === "monthly" ? (
+                      <Badge className="text-xs capitalize bg-sky-600/20 text-sky-400 border border-sky-600/30 hover:bg-sky-600/20">Monthly</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs capitalize">{s.frequency}</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs uppercase">{s.format}</Badge>

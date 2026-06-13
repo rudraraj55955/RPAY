@@ -632,6 +632,7 @@ function SchedulePanel() {
                   : "No delivery history yet — logs appear here after your first scheduled send."}
               </p>
             ) : (
+              <>
               <div className="rounded-lg border border-border/50 overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -664,7 +665,12 @@ function SchedulePanel() {
                           })()}
                         </TableCell>
                         <TableCell className="py-2">
-                          {log.isAutoPause ? (
+                          {log.outcome === "re-enabled" ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                              <PlayCircle className="w-3 h-3" />
+                              Re-enabled
+                            </span>
+                          ) : log.isAutoPause ? (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -704,6 +710,27 @@ function SchedulePanel() {
                   </TableBody>
                 </Table>
               </div>
+              {deliveryLogs[0]?.isAutoPause && !schedule.isActive && (
+                <div className="mt-3 flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/8 px-3 py-2.5">
+                  <PauseCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <p className="flex-1 text-xs text-amber-400/90">
+                    Schedule was auto-paused after repeated failures. Fix the delivery issue, then re-enable to resume.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleReenable}
+                    disabled={reenable.isPending}
+                    className="h-7 text-xs shrink-0 gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/60"
+                  >
+                    {reenable.isPending
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <PlayCircle className="w-3.5 h-3.5" />}
+                    Re-enable schedule
+                  </Button>
+                </div>
+              )}
+              </>
             )}
           </div>
         )}

@@ -13,6 +13,7 @@ export const reportDeliveryLogsTable = pgTable("report_delivery_logs", {
   isAutoPause: boolean("is_auto_pause").notNull().default(false),
   frequency: text("frequency"),
   format: text("format"),
+  outcome: text("outcome"),
 });
 
 export type ReportDeliveryLog = typeof reportDeliveryLogsTable.$inferSelect;

@@ -660,6 +660,11 @@ export interface ReportDeliveryLog {
      * @nullable
      */
   format?: string | null;
+  /**
+     * Distinct outcome marker for special events; "re-enabled" when a paused schedule is re-activated
+     * @nullable
+     */
+  outcome?: string | null;
 }
 
 export type AdminReportDeliveryLog = ReportDeliveryLog & ({

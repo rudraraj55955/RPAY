@@ -8882,6 +8882,9 @@ components:
         format:
           type: ["string", "null"]
           description: File format used for this delivery (xlsx or pdf)
+        outcome:
+          type: ["string", "null"]
+          description: Distinct outcome marker for special events; "re-enabled" when a paused schedule is re-activated
 
     AdminReportDeliveryLog:
       allOf:

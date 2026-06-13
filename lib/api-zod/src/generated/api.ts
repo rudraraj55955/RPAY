@@ -1640,7 +1640,8 @@ export const GetReportScheduleHistoryResponse = zod.object({
   "failureReason": zod.string().nullish().describe('Human-readable failure reason, present when success is false'),
   "isAutoPause": zod.boolean().describe('Whether this entry represents the moment the schedule was auto-paused'),
   "frequency": zod.string().nullish().describe('Schedule frequency at time of delivery (weekly or monthly)'),
-  "format": zod.string().nullish().describe('File format used for this delivery (xlsx or pdf)')
+  "format": zod.string().nullish().describe('File format used for this delivery (xlsx or pdf)'),
+  "outcome": zod.string().nullish().describe('Distinct outcome marker for special events; \"re-enabled\" when a paused schedule is re-activated')
 }))
 })
 

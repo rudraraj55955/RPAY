@@ -379,7 +379,26 @@ router.put("/schedule", async (req, res, next) => {
       return;
     }
 
+    // Capture existing state before upsert so we can detect re-activation
+    const [existingBefore] = await db
+      .select()
+      .from(reportSchedulesTable)
+      .where(eq(reportSchedulesTable.merchantId, user.merchantId!))
+      .limit(1);
+
     const schedule = await upsertSchedule(user.merchantId!, { frequency, format, isActive, dayOfWeek, dayOfMonth });
+
+    // If this PUT explicitly re-activates a previously-inactive schedule, log it
+    if (isActive === true && existingBefore && !existingBefore.isActive) {
+      await db.insert(reportDeliveryLogsTable).values({
+        scheduleId: schedule.id,
+        merchantId: user.merchantId!,
+        success: true,
+        isAutoPause: false,
+        outcome: "re-enabled",
+      });
+    }
+
     res.json({ schedule });
   } catch (err) {
     next(err);
@@ -411,6 +430,14 @@ router.patch("/schedule/reenable", async (req, res, next) => {
       .set({ isActive: true, consecutiveFailures: 0, updatedAt: new Date() })
       .where(eq(reportSchedulesTable.merchantId, user.merchantId!))
       .returning();
+
+    await db.insert(reportDeliveryLogsTable).values({
+      scheduleId: existing.id,
+      merchantId: user.merchantId!,
+      success: true,
+      isAutoPause: false,
+      outcome: "re-enabled",
+    });
 
     res.json({ schedule: updated });
   } catch (err) {

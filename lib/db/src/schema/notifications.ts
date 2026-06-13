@@ -51,6 +51,16 @@ export const notificationsTable = pgTable("notifications", {
       sql`((metadata->>'dedupeKey'))`,
     )
     .where(sql`type = 'merchant_dormant'`),
+  // Dedup index: at most one scheduled_report_overdue alert per admin user per
+  // overdue event (keyed by dedupeKey = "report_overdue_<kind>_<scheduleId>_<YYYY-MM-DD>").
+  // onConflictDoNothing() in runOverdueReportScan() relies on this.
+  uniqueIndex("notifications_report_overdue_dedup_idx")
+    .on(
+      sql`"user_id"`,
+      sql`"type"`,
+      sql`((metadata->>'dedupeKey'))`,
+    )
+    .where(sql`type = 'scheduled_report_overdue'`),
 ]);
 
 export type Notification = typeof notificationsTable.$inferSelect;

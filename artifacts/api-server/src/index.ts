@@ -17,6 +17,7 @@ import { initAuditReportRetentionScheduler } from "./helpers/auditReportRetentio
 import { initDormantMerchantScheduler, runDormantMerchantScan } from "./helpers/dormantMerchantScheduler";
 import { initEkqrSyncScheduler } from "./helpers/ekqrSyncScheduler";
 import { initMerchantReportScheduler } from "./helpers/merchantReportScheduler";
+import { initOverdueReportScheduler, runOverdueReportScan } from "./helpers/overdueReportScheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -74,6 +75,7 @@ async function main() {
   initDormantMerchantScheduler();
   initEkqrSyncScheduler();
   initMerchantReportScheduler();
+  initOverdueReportScheduler();
   scheduleCallbackRetryWorker();
 
   // Startup sweep: immediately scan all active connections so merchants receive
@@ -87,6 +89,12 @@ async function main() {
   // when the server was down at the scheduled run time. Dedup keys make this safe.
   runDormantMerchantScan().catch((err) => {
     logger.warn({ err }, "Startup dormant merchant sweep failed");
+  });
+
+  // Startup sweep: scan for overdue scheduled reports so admins are alerted even
+  // when the server was down at the daily run time. Dedup keys make this safe.
+  runOverdueReportScan().catch((err) => {
+    logger.warn({ err }, "Startup overdue report sweep failed");
   });
 
   app.listen(port, (err) => {

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useSearch, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetTransactionReport,
@@ -138,16 +139,22 @@ function ScheduledReportsPanel() {
   const [formatFilter, setFormatFilter] = useState("all");
 
   type SortCol = "merchant" | "email" | "frequency" | "format" | "status" | "lastSent" | "nextDue";
-  const [sortCol, setSortCol] = useState<SortCol>("merchant");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const VALID_SORT_COLS: SortCol[] = ["merchant", "email", "frequency", "format", "status", "lastSent", "nextDue"];
+
+  const searchStr = useSearch();
+  const [location, navigate] = useLocation();
+  const urlParams = new URLSearchParams(searchStr);
+  const rawSort = urlParams.get("sort") ?? "merchant";
+  const rawDir = urlParams.get("dir") ?? "asc";
+  const sortCol: SortCol = (VALID_SORT_COLS.includes(rawSort as SortCol) ? rawSort : "merchant") as SortCol;
+  const sortDir: "asc" | "desc" = rawDir === "desc" ? "desc" : "asc";
 
   const handleSort = (col: SortCol) => {
-    if (col === sortCol) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortCol(col);
-      setSortDir("asc");
-    }
+    const newDir = col === sortCol ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    const next = new URLSearchParams(searchStr);
+    next.set("sort", col);
+    next.set("dir", newDir);
+    navigate(`${location}?${next.toString()}`);
   };
 
   const invalidate = () => {

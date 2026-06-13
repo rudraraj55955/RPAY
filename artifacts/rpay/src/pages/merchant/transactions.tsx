@@ -170,6 +170,9 @@ const ALL_SAVED_FILTERS_KEY = "rasokart_all_saved_filters";
 const LEGACY_TX_FILTERS_KEY = "rasokart_saved_filters";
 const LAST_DATE_FROM_KEY_TX = "rasokart_last_date_from_transactions";
 const LAST_DATE_TO_KEY_TX = "rasokart_last_date_to_transactions";
+const LAST_TYPE_KEY_TX = "rasokart_last_type_transactions";
+const LAST_STATUS_KEY_TX = "rasokart_last_status_transactions";
+const LAST_PROVIDER_KEY_TX = "rasokart_last_provider_transactions";
 
 function migrateOldTxFilters(): void {
   try {
@@ -533,9 +536,9 @@ function TransactionDetailPanel({ id, open, onClose, utrSearch }: { id: number |
 
 export default function MerchantTransactions() {
   const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
-  const [type, setType] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [provider, setProvider] = useState("all");
+  const [type, setType] = useState(() => { try { return localStorage.getItem(LAST_TYPE_KEY_TX) ?? "all"; } catch { return "all"; } });
+  const [status, setStatus] = useState(() => { try { return localStorage.getItem(LAST_STATUS_KEY_TX) ?? "all"; } catch { return "all"; } });
+  const [provider, setProvider] = useState(() => { try { return localStorage.getItem(LAST_PROVIDER_KEY_TX) ?? "all"; } catch { return "all"; } });
   const [dateFrom, setDateFrom] = useState(() => { try { return localStorage.getItem(LAST_DATE_FROM_KEY_TX) ?? ""; } catch { return ""; } });
   const [dateTo, setDateTo] = useState(() => { try { return localStorage.getItem(LAST_DATE_TO_KEY_TX) ?? ""; } catch { return ""; } });
   const [page, setPage] = useState(1);
@@ -962,6 +965,9 @@ export default function MerchantTransactions() {
     setType(preset.type);
     setStatus(preset.status);
     setProvider(preset.provider);
+    try { if (preset.type === "all") localStorage.removeItem(LAST_TYPE_KEY_TX); else localStorage.setItem(LAST_TYPE_KEY_TX, preset.type); } catch {}
+    try { if (preset.status === "all") localStorage.removeItem(LAST_STATUS_KEY_TX); else localStorage.setItem(LAST_STATUS_KEY_TX, preset.status); } catch {}
+    try { if (preset.provider === "all") localStorage.removeItem(LAST_PROVIDER_KEY_TX); else localStorage.setItem(LAST_PROVIDER_KEY_TX, preset.provider); } catch {}
     setDateFrom(preset.dateFrom);
     setDateTo(preset.dateTo);
     if (smartFilter) {
@@ -1060,6 +1066,9 @@ export default function MerchantTransactions() {
     setType("all");
     setStatus("all");
     setProvider("all");
+    try { localStorage.removeItem(LAST_TYPE_KEY_TX); } catch {}
+    try { localStorage.removeItem(LAST_STATUS_KEY_TX); } catch {}
+    try { localStorage.removeItem(LAST_PROVIDER_KEY_TX); } catch {}
     setDateFrom("");
     setDateTo("");
     setSmartFilter(null);
@@ -1575,7 +1584,7 @@ export default function MerchantTransactions() {
               </div>
             )}
             <div className="flex flex-wrap gap-3 items-center">
-              <Select value={type} onValueChange={v => { setType(v); setPage(1); }}>
+              <Select value={type} onValueChange={v => { setType(v); try { if (v === "all") localStorage.removeItem(LAST_TYPE_KEY_TX); else localStorage.setItem(LAST_TYPE_KEY_TX, v); } catch {} setPage(1); }}>
                 <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
@@ -1583,7 +1592,7 @@ export default function MerchantTransactions() {
                   <SelectItem value="withdrawal">Withdrawal</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>
+              <Select value={status} onValueChange={v => { setStatus(v); try { if (v === "all") localStorage.removeItem(LAST_STATUS_KEY_TX); else localStorage.setItem(LAST_STATUS_KEY_TX, v); } catch {} setPage(1); }}>
                 <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -1592,7 +1601,7 @@ export default function MerchantTransactions() {
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={provider} onValueChange={v => { setProvider(v); setPage(1); }}>
+              <Select value={provider} onValueChange={v => { setProvider(v); try { if (v === "all") localStorage.removeItem(LAST_PROVIDER_KEY_TX); else localStorage.setItem(LAST_PROVIDER_KEY_TX, v); } catch {} setPage(1); }}>
                 <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Providers" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Providers</SelectItem>

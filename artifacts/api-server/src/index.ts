@@ -18,6 +18,7 @@ import { initDormantMerchantScheduler, runDormantMerchantScan } from "./helpers/
 import { initEkqrSyncScheduler } from "./helpers/ekqrSyncScheduler";
 import { initMerchantReportScheduler } from "./helpers/merchantReportScheduler";
 import { initOverdueReportScheduler, runOverdueReportScan } from "./helpers/overdueReportScheduler";
+import { initDeliveryHealthDigestScheduler } from "./helpers/reportDeliveryHealthEmail";
 
 const rawPort = process.env["PORT"];
 
@@ -76,6 +77,7 @@ async function main() {
   initEkqrSyncScheduler();
   initMerchantReportScheduler();
   initOverdueReportScheduler();
+  initDeliveryHealthDigestScheduler();
   scheduleCallbackRetryWorker();
 
   // Startup sweep: immediately scan all active connections so merchants receive

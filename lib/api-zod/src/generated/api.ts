@@ -1820,6 +1820,35 @@ export const SendAdminMerchantReportNowResponse = zod.object({
 
 
 /**
+ * @summary Admin — get delivery history for a merchant's report schedule
+ */
+export const GetAdminMerchantReportScheduleHistoryParams = zod.object({
+  "merchantId": zod.coerce.number()
+})
+
+export const getAdminMerchantReportScheduleHistoryQueryLimitDefault = 20;
+export const getAdminMerchantReportScheduleHistoryQueryLimitMax = 100;
+
+
+
+export const GetAdminMerchantReportScheduleHistoryQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getAdminMerchantReportScheduleHistoryQueryLimitMax).default(getAdminMerchantReportScheduleHistoryQueryLimitDefault).describe('Maximum number of history entries to return (default 20, max 100)')
+})
+
+export const GetAdminMerchantReportScheduleHistoryResponse = zod.object({
+  "logs": zod.array(zod.object({
+  "id": zod.number(),
+  "scheduleId": zod.number(),
+  "merchantId": zod.number(),
+  "attemptedAt": zod.string().describe('ISO timestamp of the delivery attempt'),
+  "success": zod.boolean(),
+  "failureReason": zod.string().nullish().describe('Human-readable failure reason, present when success is false'),
+  "isAutoPause": zod.boolean().describe('Whether this entry represents the moment the schedule was auto-paused')
+}))
+})
+
+
+/**
  * @summary List withdrawal requests
  */
 export const ListWithdrawalsQueryParams = zod.object({

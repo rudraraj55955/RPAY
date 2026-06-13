@@ -9,6 +9,7 @@ import {
   useUpsertAdminMerchantReportSchedule,
   useDeleteAdminMerchantReportSchedule,
   useSendAdminMerchantReportNow,
+  useGetAdminMerchantReportScheduleHistory,
   getListMerchantReportSchedulesQueryOptions,
   useGetAdminReportDeliveryHistory,
 } from "@workspace/api-client-react";
@@ -63,6 +64,10 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  History,
+  CheckCircle,
+  AlertCircle,
+  PauseCircle,
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { toast } from "sonner";
@@ -141,6 +146,99 @@ function toLocalDatetimeInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function ScheduleHistoryDialog({
+  merchantId,
+  merchantName,
+  open,
+  onClose,
+}: {
+  merchantId: number | null;
+  merchantName: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { data, isLoading } = useGetAdminMerchantReportScheduleHistory(
+    merchantId ?? 0,
+    { limit: 50 },
+    { query: { enabled: open && merchantId != null } as any },
+  );
+  const logs = data?.logs ?? [];
+
+  function outcomeIcon(log: { success: boolean; isAutoPause: boolean }) {
+    if (log.isAutoPause) return <PauseCircle className="w-4 h-4 text-amber-400 shrink-0" />;
+    if (log.success) return <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />;
+    return <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />;
+  }
+
+  function outcomeLabel(log: { success: boolean; isAutoPause: boolean }) {
+    if (log.isAutoPause) return <span className="text-amber-400 font-medium">Auto-paused</span>;
+    if (log.success) return <span className="text-emerald-400 font-medium">Success</span>;
+    return <span className="text-red-400 font-medium">Failed</span>;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <History className="w-4 h-4 text-primary" />
+            Delivery History — {merchantName}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10 text-muted-foreground gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Loading history…</span>
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
+              <History className="w-10 h-10 opacity-20" />
+              <p className="text-sm">No delivery attempts recorded yet</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Date &amp; Time</TableHead>
+                  <TableHead className="text-xs">Outcome</TableHead>
+                  <TableHead className="text-xs">Failure Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {format(new Date(log.attemptedAt), "dd MMM yyyy, HH:mm")}
+                      <span className="ml-1 text-muted-foreground/60">
+                        ({formatDistanceToNow(new Date(log.attemptedAt), { addSuffix: true })})
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {outcomeIcon(log)}
+                        {outcomeLabel(log)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-xs">
+                      {log.failureReason ?? <span className="opacity-40">—</span>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+
+        <p className="text-xs text-muted-foreground pt-2 border-t border-border">
+          Showing last {logs.length} attempt{logs.length !== 1 ? "s" : ""} (max 50)
+        </p>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ScheduledReportsPanel() {
   const qc = useQueryClient();
   const { data, isLoading } = useListMerchantReportSchedules();
@@ -154,6 +252,7 @@ function ScheduledReportsPanel() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [frequencyFilter, setFrequencyFilter] = useState("all");
   const [formatFilter, setFormatFilter] = useState("all");
+  const [historyMerchant, setHistoryMerchant] = useState<{ id: number; name: string } | null>(null);
 
   type SortCol = "merchant" | "email" | "frequency" | "format" | "status" | "lastSent" | "nextDue";
   const VALID_SORT_COLS: SortCol[] = ["merchant", "email", "frequency", "format", "status", "lastSent", "nextDue"];
@@ -500,6 +599,15 @@ function ScheduledReportsPanel() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                        onClick={() => setHistoryMerchant({ id: s.merchantId, name: s.businessName })}
+                        title="View delivery history"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-7 px-2 text-xs gap-1"
                         onClick={() => handleToggle(s.merchantId, s.isActive)}
                         disabled={upsert.isPending}
@@ -550,6 +658,13 @@ function ScheduledReportsPanel() {
         )}
       </CardContent>
     </Card>
+
+      <ScheduleHistoryDialog
+        merchantId={historyMerchant?.id ?? null}
+        merchantName={historyMerchant?.name ?? ""}
+        open={historyMerchant != null}
+        onClose={() => setHistoryMerchant(null)}
+      />
 
       <Dialog open={!!overrideTarget} onOpenChange={(open) => { if (!open) setOverrideTarget(null); }}>
         <DialogContent className="max-w-sm">

@@ -4465,6 +4465,19 @@ export type SendAdminMerchantReportNow200 = {
   to: string;
 };
 
+export type GetAdminMerchantReportScheduleHistoryParams = {
+/**
+ * Maximum number of history entries to return (default 20, max 100)
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type GetAdminMerchantReportScheduleHistory200 = {
+  logs: ReportDeliveryLog[];
+};
+
 export type ListWithdrawalsParams = {
 status?: ListWithdrawalsStatus;
 merchantId?: number;

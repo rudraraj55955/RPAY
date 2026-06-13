@@ -114,6 +114,8 @@ import type {
   GetAdminMerchantReportSchedule200,
   GetAdminReportDeliveryHistory200,
   GetAdminReportDeliveryHistoryParams,
+  GetAdminMerchantReportScheduleHistory200,
+  GetAdminMerchantReportScheduleHistoryParams,
   GetCallbackSecretHistoryParams,
   GetLedgerBackfillLastRun200,
   GetMerchantsWebhookFailureCountsParams,
@@ -5401,6 +5403,95 @@ export const useSendAdminMerchantReportNow = <TError = ErrorType<void>,
       > => {
       return useMutation(getSendAdminMerchantReportNowMutationOptions(options));
     }
+
+export const getGetAdminMerchantReportScheduleHistoryUrl = (merchantId: number,
+    params?: GetAdminMerchantReportScheduleHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/schedules/${merchantId}/history?${stringifiedParams}` : `/api/reports/schedules/${merchantId}/history`
+}
+
+/**
+ * @summary Admin — get delivery history for a merchant's report schedule
+ */
+export const getAdminMerchantReportScheduleHistory = async (merchantId: number,
+    params?: GetAdminMerchantReportScheduleHistoryParams, options?: RequestInit): Promise<GetAdminMerchantReportScheduleHistory200> => {
+
+  return customFetch<GetAdminMerchantReportScheduleHistory200>(getGetAdminMerchantReportScheduleHistoryUrl(merchantId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminMerchantReportScheduleHistoryQueryKey = (merchantId: number,
+    params?: GetAdminMerchantReportScheduleHistoryParams,) => {
+    return [
+    `/api/reports/schedules/${merchantId}/history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAdminMerchantReportScheduleHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAdminMerchantReportScheduleHistory>>, TError = ErrorType<void>>(merchantId: number,
+    params?: GetAdminMerchantReportScheduleHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminMerchantReportScheduleHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminMerchantReportScheduleHistoryQueryKey(merchantId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminMerchantReportScheduleHistory>>> = ({ signal }) => getAdminMerchantReportScheduleHistory(merchantId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(merchantId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminMerchantReportScheduleHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminMerchantReportScheduleHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminMerchantReportScheduleHistory>>>
+export type GetAdminMerchantReportScheduleHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Admin — get delivery history for a merchant's report schedule
+ */
+
+export function useGetAdminMerchantReportScheduleHistory<TData = Awaited<ReturnType<typeof getAdminMerchantReportScheduleHistory>>, TError = ErrorType<void>>(
+ merchantId: number,
+    params?: GetAdminMerchantReportScheduleHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminMerchantReportScheduleHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminMerchantReportScheduleHistoryQueryOptions(merchantId,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListWithdrawalsUrl = (params?: ListWithdrawalsParams,) => {
   const normalizedParams = new URLSearchParams();

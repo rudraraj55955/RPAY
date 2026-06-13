@@ -711,6 +711,31 @@ router.delete("/schedules/:merchantId", requireAdmin, async (req, res, next) => 
   }
 });
 
+// GET /api/reports/schedules/:merchantId/history — admin: get delivery history for a merchant's schedule
+router.get("/schedules/:merchantId/history", requireAdmin, async (req, res, next) => {
+  try {
+    const mid = parseInt(req.params['merchantId'] as string);
+    if (isNaN(mid)) {
+      res.status(400).json({ error: "Invalid merchantId" });
+      return;
+    }
+
+    const rawLimit = parseInt((req.query["limit"] as string) ?? "20");
+    const limit = isNaN(rawLimit) ? 20 : Math.min(Math.max(rawLimit, 1), 100);
+
+    const logs = await db
+      .select()
+      .from(reportDeliveryLogsTable)
+      .where(eq(reportDeliveryLogsTable.merchantId, mid))
+      .orderBy(desc(reportDeliveryLogsTable.attemptedAt))
+      .limit(limit);
+
+    res.json({ logs });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/reports/schedules/:merchantId/send-now — admin: trigger immediate send for a merchant
 router.post("/schedules/:merchantId/send-now", requireAdmin, async (req, res, next) => {
   try {

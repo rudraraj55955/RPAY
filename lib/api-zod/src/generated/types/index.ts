@@ -148,6 +148,8 @@ export * from './getAdminMerchantReportSchedule200';
 export * from './getAdminReportDeliveryHistory200';
 export * from './getAdminReportDeliveryHistoryParams';
 export * from './getAdminReportDeliveryHistorySuccess';
+export * from './getAdminMerchantReportScheduleHistory200';
+export * from './getAdminMerchantReportScheduleHistoryParams';
 export * from './getCallbackSecretHistoryParams';
 export * from './getLedgerBackfillLastRun200';
 export * from './getMerchantsWebhookFailureCountsParams';

@@ -895,7 +895,7 @@ function ScheduledReportsPanel() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
-            The following merchants did not receive their overdue report. Address the errors listed below, then retry individually using "Send Now".
+            The following merchants did not receive their overdue report. Click "Retry Failed" to re-attempt all failed deliveries at once, or address the errors individually using "Send Now" in the table.
           </p>
           <div className="flex-1 overflow-y-auto min-h-0">
             {sendFailures && sendFailures.length > 0 ? (
@@ -927,10 +927,42 @@ function ScheduledReportsPanel() {
               <p className="text-xs text-muted-foreground py-4 text-center">No failure details available.</p>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 flex-wrap">
             <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setSendFailures(null)}>
               Close
             </Button>
+            {sendFailures && sendFailures.length > 0 && (
+              <Button
+                size="sm"
+                className="text-xs h-7 gap-1.5 bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 hover:text-red-200"
+                disabled={sendAllOverdue.isPending}
+                onClick={async () => {
+                  if (!sendFailures) return;
+                  const failedIds = sendFailures.map((f) => f.merchantId);
+                  try {
+                    const res = await sendAllOverdue.mutateAsync({ data: { merchantIds: failedIds } });
+                    if (res.failed === 0) {
+                      toast.success(`Retried ${res.sent} report${res.sent !== 1 ? "s" : ""} — all delivered successfully`);
+                      setSendFailures(null);
+                    } else if (res.sent === 0) {
+                      toast.error(`All ${res.failed} retr${res.failed !== 1 ? "ies" : "y"} failed again`);
+                      setSendFailures(res.failures);
+                    } else {
+                      toast.warning(`Sent ${res.sent}, still failed ${res.failed}`);
+                      setSendFailures(res.failures);
+                    }
+                    invalidate();
+                  } catch {
+                    toast.error("Retry failed — check SMTP configuration");
+                  }
+                }}
+              >
+                {sendAllOverdue.isPending
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <RotateCcw className="w-3.5 h-3.5" />}
+                Retry Failed
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

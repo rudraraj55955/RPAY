@@ -792,9 +792,29 @@ router.delete("/schedules/:merchantId", requireAdmin, async (req, res, next) => 
       return;
     }
 
+    const [merchant] = await db
+      .select({ businessName: merchantsTable.businessName })
+      .from(merchantsTable)
+      .where(eq(merchantsTable.id, mid))
+      .limit(1);
+
     await db
       .delete(reportSchedulesTable)
       .where(eq(reportSchedulesTable.merchantId, mid));
+
+    const admin = (req as any).user;
+    await db.insert(auditLogsTable).values({
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "report_schedule_deleted",
+      targetType: "merchant",
+      targetId: mid,
+      details: JSON.stringify({
+        merchantId: mid,
+        businessName: merchant?.businessName ?? null,
+      }),
+      ipAddress: req.ip ?? null,
+    });
 
     res.json({ ok: true });
   } catch (err) {

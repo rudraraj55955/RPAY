@@ -913,6 +913,14 @@ export default function AdminMerchants() {
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
 
+  const anyFilterActive = !!search || status !== "all" || !!expiryStatus || !!rejectionReasonFilter || callbackSecretFilter !== "" || loginAlertFilter !== "" || securityEmailsDisabledFilter !== "";
+  const [grandTotal, setGrandTotal] = useState(0);
+  useEffect(() => {
+    if (!anyFilterActive && !isLoading && data?.total != null) {
+      setGrandTotal(data.total);
+    }
+  }, [anyFilterActive, isLoading, data?.total]);
+
   const pageWebhookCountsIds = merchants.length > 0 ? merchants.map(m => m.id).join(",") : "";
   const { data: webhookFailureCountsData } = useGetMerchantsWebhookFailureCounts(
     { merchantIds: pageWebhookCountsIds },
@@ -1260,6 +1268,11 @@ export default function AdminMerchants() {
               </button>
             </span>
           )}
+          <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+            {isLoading
+              ? <span className="inline-block w-24 h-3 bg-muted/60 rounded animate-pulse align-middle" />
+              : <>{total.toLocaleString()} of {grandTotal.toLocaleString()} merchant{grandTotal !== 1 ? "s" : ""}</>}
+          </span>
         </div>
       )}
 

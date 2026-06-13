@@ -446,6 +446,7 @@ export default function AdminSettlements() {
     f => f.rawInput === smartInput && JSON.stringify(f.filter) === JSON.stringify(smartFilter)
   );
   const anyFilterActive = hasSmartFilter || !!search || status !== "all" || !!(dateFrom || dateTo);
+  const settlementGrandTotal = Object.values(stats?.counts ?? {}).reduce((s, v) => s + (Number(v) || 0), 0);
 
   const applySmartSearch = () => {
     setSmartError("");
@@ -891,9 +892,9 @@ export default function AdminSettlements() {
             <div className="flex items-center gap-1.5 text-sm">
               <Hash className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="font-semibold text-foreground">
-                {isLoading ? <span className="inline-block w-8 h-3.5 bg-muted/60 rounded animate-pulse" /> : (data?.total ?? 0).toLocaleString()}
+                {isLoading ? <span className="inline-block w-16 h-3.5 bg-muted/60 rounded animate-pulse" /> : `${(data?.total ?? 0).toLocaleString()} of ${settlementGrandTotal.toLocaleString()}`}
               </span>
-              <span className="text-muted-foreground">settlements</span>
+              <span className="text-muted-foreground">settlement{settlementGrandTotal !== 1 ? "s" : ""}</span>
             </div>
             <div className="flex items-center gap-1.5 text-sm">
               <TrendingUp className="w-3.5 h-3.5 text-amber-400" />

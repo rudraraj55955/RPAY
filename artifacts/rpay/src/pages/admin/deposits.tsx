@@ -226,6 +226,12 @@ export default function AdminDeposits() {
     f => f.rawInput === smartInput && JSON.stringify(f.filter) === JSON.stringify(smartFilter)
   );
   const anyFilterActive = hasSmartFilter || !!search || !!merchantId || status !== "all";
+  const [depositGrandTotal, setDepositGrandTotal] = useState(0);
+  useEffect(() => {
+    if (!anyFilterActive && !isLoading && data?.total != null) {
+      setDepositGrandTotal(data.total);
+    }
+  }, [anyFilterActive, isLoading, data?.total]);
 
   const applySmartSearch = () => {
     setSmartError("");
@@ -647,9 +653,9 @@ export default function AdminDeposits() {
             <div className="flex items-center gap-1.5 text-sm">
               <Hash className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="font-semibold text-foreground">
-                {isLoading ? <span className="inline-block w-8 h-3.5 bg-muted/60 rounded animate-pulse" /> : (data?.total ?? 0).toLocaleString()}
+                {isLoading ? <span className="inline-block w-16 h-3.5 bg-muted/60 rounded animate-pulse" /> : `${(data?.total ?? 0).toLocaleString()} of ${depositGrandTotal.toLocaleString()}`}
               </span>
-              <span className="text-muted-foreground">deposits</span>
+              <span className="text-muted-foreground">deposit{depositGrandTotal !== 1 ? "s" : ""}</span>
             </div>
             <div className="flex items-center gap-1.5 text-sm">
               <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />

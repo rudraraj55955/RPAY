@@ -427,6 +427,7 @@ function ScheduledReportsPanel() {
   const [overrideSaving, setOverrideSaving] = useState(false);
   const [sendingMerchantId, setSendingMerchantId] = useState<number | null>(null);
   const [confirmSend, setConfirmSend] = useState<{ merchantId: number; name: string; email: string; frequency: string; format: string } | null>(null);
+  const [retryingFailureMerchantId, setRetryingFailureMerchantId] = useState<number | null>(null);
   const [emailPreview, setEmailPreview] = useState<{ html: string; subject: string } | null>(null);
   const [emailPreviewLoading, setEmailPreviewLoading] = useState(false);
 
@@ -1052,7 +1053,7 @@ function ScheduledReportsPanel() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
-            The following merchants did not receive their overdue report. Click "Retry Failed" to re-attempt all failed deliveries at once, or address the errors individually using "Send Now" in the table.
+            The following merchants did not receive their overdue report. Use "Retry" on a single row to re-attempt just that merchant, or "Retry All" to re-attempt all at once.
           </p>
           <div className="flex-1 overflow-y-auto min-h-0">
             {sendFailures && sendFailures.length > 0 ? (
@@ -1062,6 +1063,7 @@ function ScheduledReportsPanel() {
                     <TableHead className="text-xs">Merchant</TableHead>
                     <TableHead className="text-xs">Email</TableHead>
                     <TableHead className="text-xs">Error</TableHead>
+                    <TableHead className="text-xs w-16"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1075,6 +1077,35 @@ function ScheduledReportsPanel() {
                       </TableCell>
                       <TableCell className="text-xs text-red-400 max-w-[180px]">
                         {f.reason}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs gap-1 text-sky-400 hover:text-sky-300"
+                          disabled={retryingFailureMerchantId === f.merchantId || sendAllOverdue.isPending}
+                          title={`Retry delivery for ${f.merchantName}`}
+                          onClick={async () => {
+                            setRetryingFailureMerchantId(f.merchantId);
+                            try {
+                              await sendNow.mutateAsync({ merchantId: f.merchantId });
+                              setSendFailures((prev) => prev?.filter((r) => r.merchantId !== f.merchantId) ?? null);
+                              invalidate();
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : "Send failed";
+                              setSendFailures((prev) =>
+                                prev?.map((r) => r.merchantId === f.merchantId ? { ...r, reason: msg } : r) ?? null
+                              );
+                            } finally {
+                              setRetryingFailureMerchantId(null);
+                            }
+                          }}
+                        >
+                          {retryingFailureMerchantId === f.merchantId
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : <RotateCcw className="w-3 h-3" />}
+                          Retry
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1117,7 +1148,7 @@ function ScheduledReportsPanel() {
                 {sendAllOverdue.isPending
                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   : <RotateCcw className="w-3.5 h-3.5" />}
-                Retry Failed
+                Retry All
               </Button>
             )}
           </DialogFooter>

@@ -141,6 +141,11 @@ const TX_DATE_FROM_KEY = "rasokart_reports_tx_date_from";
 const TX_DATE_TO_KEY = "rasokart_reports_tx_date_to";
 const STL_DATE_FROM_KEY = "rasokart_reports_stl_date_from";
 const STL_DATE_TO_KEY = "rasokart_reports_stl_date_to";
+const TX_TYPE_KEY = "rasokart_reports_tx_type";
+const TX_STATUS_KEY = "rasokart_reports_tx_status";
+const TX_SOURCE_KEY = "rasokart_reports_tx_source";
+const TX_CONNECTION_PROVIDER_KEY = "rasokart_reports_tx_connection_provider";
+const STL_STATUS_KEY = "rasokart_reports_stl_status";
 
 interface CustomDatePreset {
   id: string;
@@ -667,10 +672,22 @@ export default function MerchantReports() {
     try { const v = localStorage.getItem(TX_DATE_TO_KEY); if (v) return v; } catch {}
     return format(new Date(), "yyyy-MM-dd");
   });
-  const [type, setType] = useState("all");
-  const [txStatus, setTxStatus] = useState("all");
-  const [connectionProvider, setConnectionProvider] = useState("all");
-  const [source, setSource] = useState("all");
+  const [type, setType] = useState(() => {
+    try { const v = localStorage.getItem(TX_TYPE_KEY); if (v) return v; } catch {}
+    return "all";
+  });
+  const [txStatus, setTxStatus] = useState(() => {
+    try { const v = localStorage.getItem(TX_STATUS_KEY); if (v) return v; } catch {}
+    return "all";
+  });
+  const [connectionProvider, setConnectionProvider] = useState(() => {
+    try { const v = localStorage.getItem(TX_CONNECTION_PROVIDER_KEY); if (v) return v; } catch {}
+    return "all";
+  });
+  const [source, setSource] = useState(() => {
+    try { const v = localStorage.getItem(TX_SOURCE_KEY); if (v) return v; } catch {}
+    return "all";
+  });
   const [txActivePreset, setTxActivePreset] = useState<string | null>(null);
   const [txExporting, setTxExporting] = useState<"pdf" | "xlsx" | null>(null);
 
@@ -683,7 +700,10 @@ export default function MerchantReports() {
     try { const v = localStorage.getItem(STL_DATE_TO_KEY); if (v) return v; } catch {}
     return format(new Date(), "yyyy-MM-dd");
   });
-  const [stlStatus, setStlStatus] = useState("all");
+  const [stlStatus, setStlStatus] = useState(() => {
+    try { const v = localStorage.getItem(STL_STATUS_KEY); if (v) return v; } catch {}
+    return "all";
+  });
   const [settlementId, setSettlementId] = useState("");
   const [stlActivePreset, setStlActivePreset] = useState<string | null>(null);
   const [stlExporting, setStlExporting] = useState<"pdf" | "xlsx" | null>(null);
@@ -779,6 +799,13 @@ export default function MerchantReports() {
   useEffect(() => { try { localStorage.setItem(TX_DATE_TO_KEY, txDateTo); } catch {} }, [txDateTo]);
   useEffect(() => { try { localStorage.setItem(STL_DATE_FROM_KEY, stlDateFrom); } catch {} }, [stlDateFrom]);
   useEffect(() => { try { localStorage.setItem(STL_DATE_TO_KEY, stlDateTo); } catch {} }, [stlDateTo]);
+
+  // Persist dropdown filter values to localStorage whenever they change
+  useEffect(() => { try { localStorage.setItem(TX_TYPE_KEY, type); } catch {} }, [type]);
+  useEffect(() => { try { localStorage.setItem(TX_STATUS_KEY, txStatus); } catch {} }, [txStatus]);
+  useEffect(() => { try { localStorage.setItem(TX_SOURCE_KEY, source); } catch {} }, [source]);
+  useEffect(() => { try { localStorage.setItem(TX_CONNECTION_PROVIDER_KEY, connectionProvider); } catch {} }, [connectionProvider]);
+  useEffect(() => { try { localStorage.setItem(STL_STATUS_KEY, stlStatus); } catch {} }, [stlStatus]);
 
   // Rename/drag state for custom date preset chips (shared across both tabs)
   const [renamingPresetId, setRenamingPresetId] = useState<string | null>(null);

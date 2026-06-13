@@ -780,10 +780,14 @@ export default function MerchantReports() {
                 ))}
               </div>
 
-              {/* Saved filter chips */}
+              {/* My Presets — quick-apply row (visually distinct from date-preset buttons) */}
               {savedFilters.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-muted-foreground font-medium">Saved:</span>
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Bookmark className="w-3.5 h-3.5 text-sky-400" />
+                    <span className="text-xs text-sky-400 font-semibold">My presets</span>
+                  </div>
+                  <div className="w-px h-3.5 bg-sky-500/30 shrink-0" />
                   {savedFilters.map((saved, idx) => (
                     <span
                       key={saved.id}

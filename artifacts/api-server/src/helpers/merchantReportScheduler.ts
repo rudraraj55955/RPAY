@@ -1,10 +1,11 @@
 import cron, { type ScheduledTask } from "node-cron";
 import XLSX from "xlsx";
 import PDFDocument from "pdfkit";
-import { db, reportSchedulesTable, transactionsTable, merchantsTable, merchantConnectionsTable, ledgerEntriesTable, settlementsTable } from "@workspace/db";
+import { db, reportSchedulesTable, transactionsTable, merchantsTable, merchantConnectionsTable, ledgerEntriesTable, settlementsTable, usersTable } from "@workspace/db";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendMail } from "./mailer";
+import { createNotification } from "./notifications";
 
 let scheduledTask: ScheduledTask | null = null;
 
@@ -362,6 +363,63 @@ function buildEmailHtml(
 </html>`;
 }
 
+/**
+ * Handles a delivery failure for a report schedule:
+ * - Increments consecutiveFailures in the DB
+ * - Auto-pauses the schedule when the threshold is reached
+ * - Creates an in-app notification for the merchant's user
+ */
+async function handleReportFailure(
+  schedule: typeof reportSchedulesTable.$inferSelect,
+): Promise<void> {
+  const newConsecutiveFailures = schedule.consecutiveFailures + 1;
+  const shouldAutoPause = newConsecutiveFailures >= schedule.autoPauseAfterFailures;
+
+  if (shouldAutoPause) {
+    await db.update(reportSchedulesTable)
+      .set({ consecutiveFailures: newConsecutiveFailures, isActive: false, updatedAt: new Date() })
+      .where(eq(reportSchedulesTable.id, schedule.id));
+    logger.warn(
+      { scheduleId: schedule.id, merchantId: schedule.merchantId, consecutiveFailures: newConsecutiveFailures, autoPauseAfterFailures: schedule.autoPauseAfterFailures },
+      "Merchant report schedule auto-paused after repeated delivery failures",
+    );
+  } else {
+    await db.update(reportSchedulesTable)
+      .set({ consecutiveFailures: newConsecutiveFailures, updatedAt: new Date() })
+      .where(eq(reportSchedulesTable.id, schedule.id));
+  }
+
+  const [merchantUser] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.merchantId, schedule.merchantId))
+    .limit(1);
+
+  if (!merchantUser) return;
+
+  const freqLabel = schedule.frequency.charAt(0).toUpperCase() + schedule.frequency.slice(1);
+  const appDomain = process.env["APP_DOMAIN"] ?? "https://rasokart.com";
+  const smtpSettingsUrl = `${appDomain}/admin/settings`;
+
+  if (shouldAutoPause) {
+    await createNotification({
+      userId: merchantUser.id,
+      type: "scheduled_report_auto_paused",
+      title: "Scheduled Report Auto-Paused",
+      body: `Your ${freqLabel.toLowerCase()} transaction report schedule has been automatically paused after ${schedule.autoPauseAfterFailures} consecutive delivery failures. This is typically caused by an SMTP misconfiguration on the platform. Please contact your platform administrator to check the SMTP settings at ${smtpSettingsUrl}, then re-enable the schedule from your Reports page.`,
+      metadata: { scheduleId: schedule.id, frequency: schedule.frequency, consecutiveFailures: newConsecutiveFailures, autoPauseAfterFailures: schedule.autoPauseAfterFailures, smtpSettingsUrl },
+    });
+  } else {
+    await createNotification({
+      userId: merchantUser.id,
+      type: "scheduled_report_failure",
+      title: "Scheduled Report Delivery Failed",
+      body: `Your ${freqLabel.toLowerCase()} transaction report could not be delivered (attempt ${newConsecutiveFailures} of ${schedule.autoPauseAfterFailures}). This is typically caused by an SMTP misconfiguration — please contact your platform administrator to verify the SMTP settings at ${smtpSettingsUrl}. The schedule will be automatically paused after ${schedule.autoPauseAfterFailures} consecutive failures.`,
+      metadata: { scheduleId: schedule.id, frequency: schedule.frequency, consecutiveFailures: newConsecutiveFailures, autoPauseAfterFailures: schedule.autoPauseAfterFailures, smtpSettingsUrl },
+    });
+  }
+}
+
 export async function sendMerchantReport(
   schedule: typeof reportSchedulesTable.$inferSelect,
   merchantEmail: string,
@@ -399,16 +457,22 @@ export async function sendMerchantReport(
 
     if (sent) {
       await db.update(reportSchedulesTable)
-        .set({ lastSentAt: new Date(), updatedAt: new Date() })
+        .set({ lastSentAt: new Date(), consecutiveFailures: 0, updatedAt: new Date() })
         .where(eq(reportSchedulesTable.id, schedule.id));
       logger.info({ scheduleId: schedule.id, merchantId: schedule.merchantId, txCount: transactions.length }, "Merchant report emailed successfully");
     } else {
       logger.warn({ scheduleId: schedule.id, merchantId: schedule.merchantId }, "Failed to send merchant report email");
+      await handleReportFailure(schedule).catch(notifyErr => {
+        logger.error({ err: notifyErr, scheduleId: schedule.id, merchantId: schedule.merchantId }, "Failed to handle merchant report failure");
+      });
     }
 
     return sent;
   } catch (err) {
     logger.error({ err, scheduleId: schedule.id, merchantId: schedule.merchantId }, "Error sending merchant report");
+    await handleReportFailure(schedule).catch(notifyErr => {
+      logger.error({ err: notifyErr, scheduleId: schedule.id, merchantId: schedule.merchantId }, "Failed to handle merchant report failure after exception");
+    });
     return false;
   }
 }
@@ -430,15 +494,24 @@ async function runDueReports(): Promise<void> {
     for (const row of active) {
       const { schedule, email, businessName } = row;
       if (!email || !businessName) continue;
-      // Re-fetch lastSentAt to get the current value after previous iterations may have updated it
+      // Re-fetch to get the latest consecutiveFailures, autoPauseAfterFailures, and lastSentAt
+      // after previous iterations may have updated them
       const [fresh] = await db
-        .select({ lastSentAt: reportSchedulesTable.lastSentAt })
+        .select({
+          lastSentAt: reportSchedulesTable.lastSentAt,
+          consecutiveFailures: reportSchedulesTable.consecutiveFailures,
+          autoPauseAfterFailures: reportSchedulesTable.autoPauseAfterFailures,
+        })
         .from(reportSchedulesTable)
         .where(eq(reportSchedulesTable.id, schedule.id))
         .limit(1);
       if (!isDue(schedule, fresh?.lastSentAt ?? schedule.lastSentAt)) continue;
 
-      await sendMerchantReport(schedule, email, businessName).catch(err => {
+      const freshSchedule = fresh
+        ? { ...schedule, consecutiveFailures: fresh.consecutiveFailures, autoPauseAfterFailures: fresh.autoPauseAfterFailures }
+        : schedule;
+
+      await sendMerchantReport(freshSchedule, email, businessName).catch(err => {
         logger.error({ err, scheduleId: schedule.id }, "Merchant report scheduler send failed");
       });
     }

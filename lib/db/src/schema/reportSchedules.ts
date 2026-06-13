@@ -11,6 +11,8 @@ export const reportSchedulesTable = pgTable("report_schedules", {
   dayOfWeek: integer("day_of_week"), // 0=Sun, 1=Mon, ..., 6=Sat — null means rolling 7-day cadence
   dayOfMonth: integer("day_of_month"), // 1–28 — null means rolling 30-day cadence
   lastSentAt: timestamp("last_sent_at", { withTimezone: true }),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  autoPauseAfterFailures: integer("auto_pause_after_failures").notNull().default(3),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -18,6 +20,6 @@ export const reportSchedulesTable = pgTable("report_schedules", {
 ]);
 
 export const insertReportScheduleSchema = createInsertSchema(reportSchedulesTable)
-  .omit({ id: true, createdAt: true, updatedAt: true, lastSentAt: true });
+  .omit({ id: true, createdAt: true, updatedAt: true, lastSentAt: true, consecutiveFailures: true });
 export type InsertReportSchedule = z.infer<typeof insertReportScheduleSchema>;
 export type ReportSchedule = typeof reportSchedulesTable.$inferSelect;

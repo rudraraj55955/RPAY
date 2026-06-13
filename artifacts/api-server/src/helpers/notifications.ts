@@ -10,6 +10,7 @@ export type NotificationType =
   | "system_notice"
   | "webhook_failure"
   | "reconciliation_email_failure"
+  | "scheduled_report_failure"
   | "scheduled_report_retry_success"
   | "scheduled_report_auto_paused"
   | "merchant_dormant"

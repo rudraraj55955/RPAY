@@ -398,8 +398,8 @@ function SchedulePanel() {
               </p>
               <button
                 className="mt-2 text-xs font-medium text-amber-300 underline underline-offset-2 hover:text-amber-200 transition-colors"
-                onClick={() => handleToggle(true)}
-                disabled={upsert.isPending}
+                onClick={handleReenable}
+                disabled={reenable.isPending}
               >
                 Re-enable schedule
               </button>
@@ -611,53 +611,75 @@ function SchedulePanel() {
                 No delivery history yet — logs appear here after your first scheduled send.
               </p>
             ) : (
-              <div className="rounded-lg border border-border/50 overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent border-border/50">
-                      <TableHead className="text-xs py-2 h-auto">Date &amp; Time</TableHead>
-                      <TableHead className="text-xs py-2 h-auto">Outcome</TableHead>
-                      <TableHead className="text-xs py-2 h-auto">Details</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {deliveryLogs.map((log) => (
-                      <TableRow key={log.id} className="border-border/40 hover:bg-muted/30">
-                        <TableCell className="py-2 text-xs text-muted-foreground whitespace-nowrap">
-                          {format(new Date(log.attemptedAt), "dd MMM yyyy, HH:mm")}
-                        </TableCell>
-                        <TableCell className="py-2">
-                          {log.isAutoPause ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
-                              <PauseCircle className="w-3 h-3" />
-                              Auto-paused
-                            </span>
-                          ) : log.success ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Delivered
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
-                              <XCircle className="w-3 h-3" />
-                              Failed
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-2 text-xs text-muted-foreground max-w-xs truncate">
-                          {log.isAutoPause
-                            ? "Schedule automatically paused due to repeated failures"
-                            : log.failureReason
-                            ? log.failureReason
-                            : log.success
-                            ? "Report emailed successfully"
-                            : "Delivery failed"}
-                        </TableCell>
+              <>
+                <div className="rounded-lg border border-border/50 overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent border-border/50">
+                        <TableHead className="text-xs py-2 h-auto">Date &amp; Time</TableHead>
+                        <TableHead className="text-xs py-2 h-auto">Outcome</TableHead>
+                        <TableHead className="text-xs py-2 h-auto">Details</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {deliveryLogs.map((log) => (
+                        <TableRow key={log.id} className="border-border/40 hover:bg-muted/30">
+                          <TableCell className="py-2 text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(log.attemptedAt), "dd MMM yyyy, HH:mm")}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {log.isAutoPause ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
+                                <PauseCircle className="w-3 h-3" />
+                                Auto-paused
+                              </span>
+                            ) : log.success ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Delivered
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+                                <XCircle className="w-3 h-3" />
+                                Failed
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2 text-xs text-muted-foreground max-w-xs truncate">
+                            {log.isAutoPause
+                              ? "Schedule automatically paused due to repeated failures"
+                              : log.failureReason
+                              ? log.failureReason
+                              : log.success
+                              ? "Report emailed successfully"
+                              : "Delivery failed"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                {deliveryLogs[0]?.isAutoPause && !schedule.isActive && (
+                  <div className="mt-3 flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/8 px-3 py-2.5">
+                    <PauseCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <p className="flex-1 text-xs text-amber-400/90">
+                      Schedule was auto-paused after repeated failures. Fix the delivery issue, then re-enable to resume.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleReenable}
+                      disabled={reenable.isPending}
+                      className="h-7 text-xs shrink-0 gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/60"
+                    >
+                      {reenable.isPending
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <PlayCircle className="w-3.5 h-3.5" />}
+                      Re-enable schedule
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

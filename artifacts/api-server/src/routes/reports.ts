@@ -712,6 +712,8 @@ async function upsertSchedule(
         ...(patch.frequency !== undefined ? { frequency: patch.frequency } : {}),
         ...(patch.format !== undefined ? { format: patch.format } : {}),
         ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
+        // Reset failure counter whenever the schedule is being re-enabled
+        ...(patch.isActive === true ? { consecutiveFailures: 0 } : {}),
         dayOfWeek: effectiveFrequency === "weekly" ? dayWeekValue : null,
         dayOfMonth: effectiveFrequency === "monthly" ? dayMonthValue : null,
         ...(nextRunAtValue !== undefined ? { nextRunAt: nextRunAtValue } : {}),

@@ -63,9 +63,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 type TypeFilter =
   | "all"
-  | "settlement_approved"
-  | "settlement_rejected"
-  | "settlement_paid"
+  | "settlements"
   | "plan_expiring"
   | "plan_expired"
   | "limit_exceeded"
@@ -77,9 +75,7 @@ type TypeFilter =
 
 const TYPE_CHIPS: { value: TypeFilter; label: string; icon: React.ReactNode }[] = [
   { value: "all", label: "All Types", icon: <Bell className="w-3 h-3" /> },
-  { value: "settlement_approved", label: "Approved", icon: <CreditCard className="w-3 h-3" /> },
-  { value: "settlement_rejected", label: "Rejected", icon: <CreditCard className="w-3 h-3" /> },
-  { value: "settlement_paid", label: "Paid", icon: <CreditCard className="w-3 h-3" /> },
+  { value: "settlements", label: "Settlements", icon: <CreditCard className="w-3 h-3" /> },
   { value: "plan_expiring", label: "Expiring", icon: <Zap className="w-3 h-3" /> },
   { value: "plan_expired", label: "Expired", icon: <Zap className="w-3 h-3" /> },
   { value: "limit_exceeded", label: "Limit Alert", icon: <AlertCircle className="w-3 h-3" /> },

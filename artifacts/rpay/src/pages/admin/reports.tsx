@@ -622,6 +622,19 @@ function ScheduledReportsPanel() {
     }
   };
 
+  const handlePreviewClearEmail = async () => {
+    if (!overrideTarget) return;
+    setEmailPreviewLoading(true);
+    try {
+      const result = await previewAdminMerchantReportScheduleEmail(overrideTarget.merchantId, {});
+      setEmailPreview(result);
+    } catch {
+      toast.error("Failed to load email preview");
+    } finally {
+      setEmailPreviewLoading(false);
+    }
+  };
+
   return (
     <>
       <Card>
@@ -1185,16 +1198,31 @@ function ScheduledReportsPanel() {
           </div>
           <DialogFooter className="gap-2 flex-wrap">
             {overrideTarget?.current && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs h-7 text-muted-foreground gap-1"
-                onClick={handleOverrideClear}
-                disabled={overrideSaving}
-              >
-                <X className="w-3 h-3" />
-                Clear override
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 text-muted-foreground gap-1"
+                  onClick={handleOverrideClear}
+                  disabled={overrideSaving}
+                >
+                  <X className="w-3 h-3" />
+                  Clear override
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 gap-1 text-violet-400/70 hover:text-violet-300 hover:bg-violet-500/10"
+                  onClick={handlePreviewClearEmail}
+                  disabled={emailPreviewLoading || overrideSaving}
+                  title="Preview the email sent when reverting to normal cadence"
+                >
+                  {emailPreviewLoading
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Eye className="w-3 h-3" />}
+                  Preview (clear)
+                </Button>
+              </>
             )}
             <Button
               variant="outline"

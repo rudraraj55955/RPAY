@@ -112,6 +112,8 @@ import type {
   ExportMerchantBalanceHistoryParams,
   ExportVaBalanceAuditCsvParams,
   GetAdminMerchantReportSchedule200,
+  GetAdminReportDeliveryHistory200,
+  GetAdminReportDeliveryHistoryParams,
   GetCallbackSecretHistoryParams,
   GetLedgerBackfillLastRun200,
   GetMerchantsWebhookFailureCountsParams,
@@ -5245,6 +5247,90 @@ export const useDeleteAdminMerchantReportSchedule = <TError = ErrorType<void>,
       > => {
       return useMutation(getDeleteAdminMerchantReportScheduleMutationOptions(options));
     }
+
+export const getGetAdminReportDeliveryHistoryUrl = (params?: GetAdminReportDeliveryHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/schedules/delivery-history?${stringifiedParams}` : `/api/reports/schedules/delivery-history`
+}
+
+/**
+ * @summary Admin — consolidated delivery log across all merchants
+ */
+export const getAdminReportDeliveryHistory = async (params?: GetAdminReportDeliveryHistoryParams, options?: RequestInit): Promise<GetAdminReportDeliveryHistory200> => {
+
+  return customFetch<GetAdminReportDeliveryHistory200>(getGetAdminReportDeliveryHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminReportDeliveryHistoryQueryKey = (params?: GetAdminReportDeliveryHistoryParams,) => {
+    return [
+    `/api/reports/schedules/delivery-history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAdminReportDeliveryHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAdminReportDeliveryHistory>>, TError = ErrorType<void>>(params?: GetAdminReportDeliveryHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminReportDeliveryHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminReportDeliveryHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminReportDeliveryHistory>>> = ({ signal }) => getAdminReportDeliveryHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminReportDeliveryHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminReportDeliveryHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminReportDeliveryHistory>>>
+export type GetAdminReportDeliveryHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Admin — consolidated delivery log across all merchants
+ */
+
+export function useGetAdminReportDeliveryHistory<TData = Awaited<ReturnType<typeof getAdminReportDeliveryHistory>>, TError = ErrorType<void>>(
+ params?: GetAdminReportDeliveryHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminReportDeliveryHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminReportDeliveryHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getSendAdminMerchantReportNowUrl = (merchantId: number,) => {
 

@@ -652,6 +652,19 @@ export interface ReportDeliveryLog {
   isAutoPause: boolean;
 }
 
+export type AdminReportDeliveryLog = ReportDeliveryLog & ({
+  /**
+     * Merchant's business name
+     * @nullable
+     */
+  businessName?: string | null;
+  /**
+     * Merchant's email address
+     * @nullable
+     */
+  merchantEmail?: string | null;
+});
+
 export type ReportScheduleFrequency = typeof ReportScheduleFrequency[keyof typeof ReportScheduleFrequency];
 
 
@@ -4408,6 +4421,43 @@ export type UpsertAdminMerchantReportSchedule200 = {
 
 export type DeleteAdminMerchantReportSchedule200 = {
   ok: boolean;
+};
+
+export type GetAdminReportDeliveryHistoryParams = {
+/**
+ * Filter by a specific merchant
+ */
+merchantId?: number;
+/**
+ * ISO date — only return attempts on or after this date
+ */
+dateFrom?: string;
+/**
+ * ISO date — only return attempts on or before this date
+ */
+dateTo?: string;
+/**
+ * Filter by outcome (omit for all)
+ */
+success?: GetAdminReportDeliveryHistorySuccess;
+/**
+ * Maximum rows to return (default 100, max 200)
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+};
+
+export type GetAdminReportDeliveryHistorySuccess = typeof GetAdminReportDeliveryHistorySuccess[keyof typeof GetAdminReportDeliveryHistorySuccess];
+
+
+export const GetAdminReportDeliveryHistorySuccess = {
+  true: 'true',
+  false: 'false',
+} as const;
+
+export type GetAdminReportDeliveryHistory200 = {
+  logs: AdminReportDeliveryLog[];
 };
 
 export type SendAdminMerchantReportNow200 = {

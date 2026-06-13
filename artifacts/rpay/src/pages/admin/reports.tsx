@@ -10,6 +10,7 @@ import {
   useDeleteAdminMerchantReportSchedule,
   useSendAdminMerchantReportNow,
   getListMerchantReportSchedulesQueryOptions,
+  useGetAdminReportDeliveryHistory,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -595,30 +596,37 @@ function ScheduledReportsPanel() {
   );
 }
 
-function ReportHistoryPanel() {
-  const { data, isLoading } = useListMerchantReportSchedules();
-  const schedules = data?.schedules ?? [];
+function DeliveryHistoryPanel() {
+  const { data: merchantsData } = useListMerchants({ page: 1, limit: 200 });
+  const merchants = merchantsData?.data ?? [];
 
-  const [historySearch, setHistorySearch] = useState("");
-  const [historyFormatFilter, setHistoryFormatFilter] = useState("all");
+  const [merchantFilter, setMerchantFilter] = useState("all");
+  const [successFilter, setSuccessFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
-  const history = schedules
-    .filter((s) => s.lastSentAt != null)
-    .sort((a, b) => new Date(b.lastSentAt!).getTime() - new Date(a.lastSentAt!).getTime());
+  const params = {
+    merchantId: merchantFilter !== "all" ? parseInt(merchantFilter) : undefined,
+    success: successFilter !== "all" ? (successFilter as "true" | "false") : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    limit: 200,
+  };
 
-  const filtered = history.filter((s) => {
-    const q = historySearch.trim().toLowerCase();
-    if (q && !s.businessName.toLowerCase().includes(q) && !s.merchantEmail.toLowerCase().includes(q)) return false;
-    if (historyFormatFilter !== "all" && s.format !== historyFormatFilter) return false;
-    return true;
-  });
+  const { data, isLoading, isFetching } = useGetAdminReportDeliveryHistory(params);
+  const logs = data?.logs ?? [];
 
-  const hasFilters = historySearch.trim() !== "" || historyFormatFilter !== "all";
+  const hasFilters = merchantFilter !== "all" || successFilter !== "all" || !!dateFrom || !!dateTo;
 
   const clearFilters = () => {
-    setHistorySearch("");
-    setHistoryFormatFilter("all");
+    setMerchantFilter("all");
+    setSuccessFilter("all");
+    setDateFrom("");
+    setDateTo("");
   };
+
+  const failureCount = logs.filter((l) => !l.success).length;
+  const autoPauseCount = logs.filter((l) => l.isAutoPause).length;
 
   return (
     <Card>
@@ -626,104 +634,157 @@ function ReportHistoryPanel() {
         <div className="flex items-center gap-2 text-sm font-medium">
           <CalendarClock className="w-4 h-4 text-primary" />
           Report Delivery History
+          {(isLoading || isFetching) && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
         </div>
         <p className="text-xs text-muted-foreground">
-          Past report deliveries across all merchants — most recent first.
+          Per-attempt delivery log across all merchants — failures, auto-pauses, and successes in one view.
         </p>
+        {!isLoading && logs.length > 0 && (failureCount > 0 || autoPauseCount > 0) && (
+          <div className="flex items-center gap-3 pt-1">
+            {failureCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs text-red-400 font-medium">
+                <XCircle className="w-3.5 h-3.5" />
+                {failureCount} failure{failureCount !== 1 ? "s" : ""}
+              </span>
+            )}
+            {autoPauseCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-medium">
+                <Clock className="w-3.5 h-3.5" />
+                {autoPauseCount} auto-pause{autoPauseCount !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         {/* Filter bar */}
         <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-1 border-b border-border">
-          <div className="relative flex-1 min-w-[180px]">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Search by merchant or email…"
-              value={historySearch}
-              onChange={(e) => setHistorySearch(e.target.value)}
-              className="h-8 pl-8 text-xs"
-            />
-          </div>
-          <Select value={historyFormatFilter} onValueChange={setHistoryFormatFilter}>
-            <SelectTrigger className="h-8 w-[120px] text-xs">
-              <SelectValue placeholder="Format" />
+          <Select value={merchantFilter} onValueChange={setMerchantFilter}>
+            <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectValue placeholder="All merchants" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Formats</SelectItem>
-              <SelectItem value="xlsx">XLSX</SelectItem>
-              <SelectItem value="pdf">PDF</SelectItem>
+              <SelectItem value="all">All merchants</SelectItem>
+              {merchants.map((m) => (
+                <SelectItem key={m.id} value={m.id.toString()}>
+                  {m.businessName ?? `Merchant #${m.id}`}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+          <Select value={successFilter} onValueChange={setSuccessFilter}>
+            <SelectTrigger className="h-8 w-[130px] text-xs">
+              <SelectValue placeholder="All outcomes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All outcomes</SelectItem>
+              <SelectItem value="true">
+                <span className="flex items-center gap-1.5 text-emerald-400"><CheckCircle2 className="w-3 h-3" />Success</span>
+              </SelectItem>
+              <SelectItem value="false">
+                <span className="flex items-center gap-1.5 text-red-400"><XCircle className="w-3 h-3" />Failed</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-1.5">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">From</Label>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-8 text-xs w-[130px]"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">To</Label>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-8 text-xs w-[130px]"
+            />
+          </div>
           {hasFilters && (
             <Button variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1 text-muted-foreground" onClick={clearFilters}>
               <X className="w-3.5 h-3.5" />
               Clear
             </Button>
           )}
-          {hasFilters && (
-            <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
-              {filtered.length} of {history.length} deliver{history.length !== 1 ? "ies" : "y"}
-            </span>
-          )}
+          <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+            {!isLoading && `${logs.length.toLocaleString("en-IN")} attempt${logs.length !== 1 ? "s" : ""}`}
+          </span>
         </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">Loading history…</span>
+            <span className="text-sm">Loading delivery history…</span>
           </div>
-        ) : history.length === 0 ? (
+        ) : logs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
             <CalendarClock className="w-10 h-10 opacity-20" />
-            <p className="text-sm">No reports have been sent yet</p>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
-            <Search className="w-10 h-10 opacity-20" />
-            <p className="text-sm">No deliveries match your filters</p>
-            <Button variant="link" size="sm" className="text-xs" onClick={clearFilters}>Clear filters</Button>
+            <p className="text-sm">{hasFilters ? "No delivery attempts match your filters" : "No delivery attempts recorded yet"}</p>
+            {hasFilters && (
+              <Button variant="link" size="sm" className="text-xs" onClick={clearFilters}>Clear filters</Button>
+            )}
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Merchant</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Frequency</TableHead>
-                <TableHead>Format</TableHead>
-                <TableHead>Last Sent</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-medium text-sm">{s.businessName}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{s.merchantEmail}</TableCell>
-                  <TableCell>
-                    {s.frequency === "weekly" ? (
-                      <Badge className="text-xs capitalize bg-amber-600/20 text-amber-400 border border-amber-600/30 hover:bg-amber-600/20">Weekly</Badge>
-                    ) : s.frequency === "monthly" ? (
-                      <Badge className="text-xs capitalize bg-sky-600/20 text-sky-400 border border-sky-600/30 hover:bg-sky-600/20">Monthly</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs capitalize">{s.frequency}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <FormatBadge format={s.format} />
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {s.lastSentAt ? (
-                      <span>
-                        {format(new Date(s.lastSentAt), "dd MMM yyyy, HH:mm")}
-                        <span className="ml-1 text-muted-foreground/60">
-                          ({formatDistanceToNow(new Date(s.lastSentAt), { addSuffix: true })})
-                        </span>
-                      </span>
-                    ) : "Never"}
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Attempted At</TableHead>
+                  <TableHead>Merchant</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Outcome</TableHead>
+                  <TableHead>Auto-pause</TableHead>
+                  <TableHead>Failure Reason</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {logs.map((log) => (
+                  <TableRow key={log.id} className={!log.success ? "bg-red-950/10 hover:bg-red-950/20" : undefined}>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {format(new Date(log.attemptedAt), "dd MMM yyyy, HH:mm")}
+                      <span className="ml-1 text-muted-foreground/60">
+                        ({formatDistanceToNow(new Date(log.attemptedAt), { addSuffix: true })})
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-medium text-sm">{log.businessName ?? `Merchant #${log.merchantId}`}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{log.merchantEmail ?? "—"}</TableCell>
+                    <TableCell>
+                      {log.success ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                          <CheckCircle2 className="w-3.5 h-3.5" />Delivered
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+                          <XCircle className="w-3.5 h-3.5" />Failed
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {log.isAutoPause ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
+                          <Clock className="w-3.5 h-3.5" />Yes
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[280px] truncate" title={log.failureReason ?? undefined}>
+                      {log.failureReason ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {logs.length >= 200 && (
+              <div className="text-center py-3 text-xs text-muted-foreground border-t border-border/50">
+                Showing the most recent 200 attempts — apply filters to narrow results
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -1690,7 +1751,7 @@ export default function AdminReports() {
       </Tabs>
 
       <ScheduledReportsPanel />
-      <ReportHistoryPanel />
+      <DeliveryHistoryPanel />
     </div>
   );
 }

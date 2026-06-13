@@ -508,6 +508,51 @@ router.post("/schedule/send-now", async (req, res, next) => {
 
 // ─── Admin: manage any merchant's schedule ────────────────────────────────────
 
+// GET /api/reports/schedules/delivery-history — admin: consolidated delivery log across all merchants
+router.get("/schedules/delivery-history", requireAdmin, async (req, res, next) => {
+  try {
+    const { merchantId, dateFrom, dateTo, success } = req.query as Record<string, string>;
+
+    const rawLimit = parseInt((req.query["limit"] as string) ?? "100");
+    const limit = isNaN(rawLimit) ? 100 : Math.min(Math.max(rawLimit, 1), 200);
+
+    const conditions = [];
+    if (merchantId) conditions.push(eq(reportDeliveryLogsTable.merchantId, parseInt(merchantId as string)));
+    if (dateFrom) conditions.push(gte(reportDeliveryLogsTable.attemptedAt, new Date(dateFrom)));
+    if (dateTo) {
+      const endOfDay = new Date(dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(lte(reportDeliveryLogsTable.attemptedAt, endOfDay));
+    }
+    if (success === "true") conditions.push(eq(reportDeliveryLogsTable.success, true));
+    if (success === "false") conditions.push(eq(reportDeliveryLogsTable.success, false));
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const logs = await db
+      .select({
+        log: reportDeliveryLogsTable,
+        businessName: merchantsTable.businessName,
+        merchantEmail: merchantsTable.email,
+      })
+      .from(reportDeliveryLogsTable)
+      .leftJoin(merchantsTable, eq(reportDeliveryLogsTable.merchantId, merchantsTable.id))
+      .where(where)
+      .orderBy(desc(reportDeliveryLogsTable.attemptedAt))
+      .limit(limit);
+
+    res.json({
+      logs: logs.map((r) => ({
+        ...r.log,
+        businessName: r.businessName ?? null,
+        merchantEmail: r.merchantEmail ?? null,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/reports/schedules — admin: list all merchants' schedules
 router.get("/schedules", requireAdmin, async (req, res, next) => {
   try {

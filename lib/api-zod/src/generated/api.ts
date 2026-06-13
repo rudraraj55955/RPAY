@@ -1775,6 +1775,38 @@ export const DeleteAdminMerchantReportScheduleResponse = zod.object({
 
 
 /**
+ * @summary Admin — consolidated delivery log across all merchants
+ */
+export const getAdminReportDeliveryHistoryQueryLimitDefault = 100;
+export const getAdminReportDeliveryHistoryQueryLimitMax = 200;
+
+
+
+export const GetAdminReportDeliveryHistoryQueryParams = zod.object({
+  "merchantId": zod.coerce.number().optional().describe('Filter by a specific merchant'),
+  "dateFrom": zod.coerce.string().optional().describe('ISO date — only return attempts on or after this date'),
+  "dateTo": zod.coerce.string().optional().describe('ISO date — only return attempts on or before this date'),
+  "success": zod.enum(['true', 'false']).optional().describe('Filter by outcome (omit for all)'),
+  "limit": zod.coerce.number().min(1).max(getAdminReportDeliveryHistoryQueryLimitMax).default(getAdminReportDeliveryHistoryQueryLimitDefault).describe('Maximum rows to return (default 100, max 200)')
+})
+
+export const GetAdminReportDeliveryHistoryResponse = zod.object({
+  "logs": zod.array(zod.object({
+  "id": zod.number(),
+  "scheduleId": zod.number(),
+  "merchantId": zod.number(),
+  "attemptedAt": zod.string().describe('ISO timestamp of the delivery attempt'),
+  "success": zod.boolean(),
+  "failureReason": zod.string().nullish().describe('Human-readable failure reason, present when success is false'),
+  "isAutoPause": zod.boolean().describe('Whether this entry represents the moment the schedule was auto-paused')
+}).and(zod.object({
+  "businessName": zod.string().nullish().describe('Merchant\'s business name'),
+  "merchantEmail": zod.string().nullish().describe('Merchant\'s email address')
+})))
+})
+
+
+/**
  * @summary Admin — immediately send a merchant's report
  */
 export const SendAdminMerchantReportNowParams = zod.object({

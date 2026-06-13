@@ -48,6 +48,9 @@ import {
   ToggleRight,
   Search,
   X,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { toast } from "sonner";
@@ -134,6 +137,19 @@ function ScheduledReportsPanel() {
   const [frequencyFilter, setFrequencyFilter] = useState("all");
   const [formatFilter, setFormatFilter] = useState("all");
 
+  type SortCol = "merchant" | "email" | "frequency" | "format" | "status" | "lastSent" | "nextDue";
+  const [sortCol, setSortCol] = useState<SortCol>("merchant");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (col: SortCol) => {
+    if (col === sortCol) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  };
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getListMerchantReportSchedulesQueryOptions().queryKey });
   };
@@ -171,6 +187,32 @@ function ScheduledReportsPanel() {
   });
 
   const hasFilters = search.trim() !== "" || statusFilter !== "all" || frequencyFilter !== "all" || formatFilter !== "all";
+
+  const freqOrder: Record<string, number> = { daily: 1, weekly: 7, monthly: 28 };
+
+  const sortedSchedules = [...filteredSchedules].sort((a, b) => {
+    let cmp = 0;
+    if (sortCol === "merchant") {
+      cmp = a.businessName.localeCompare(b.businessName);
+    } else if (sortCol === "email") {
+      cmp = a.merchantEmail.localeCompare(b.merchantEmail);
+    } else if (sortCol === "frequency") {
+      cmp = (freqOrder[a.frequency] ?? 0) - (freqOrder[b.frequency] ?? 0);
+    } else if (sortCol === "format") {
+      cmp = a.format.localeCompare(b.format);
+    } else if (sortCol === "status") {
+      cmp = (a.isActive ? 1 : 0) - (b.isActive ? 1 : 0);
+    } else if (sortCol === "lastSent") {
+      const ta = a.lastSentAt ? new Date(a.lastSentAt).getTime() : 0;
+      const tb = b.lastSentAt ? new Date(b.lastSentAt).getTime() : 0;
+      cmp = ta - tb;
+    } else if (sortCol === "nextDue") {
+      const na = getNextDue(a.lastSentAt, a.frequency);
+      const nb = getNextDue(b.lastSentAt, b.frequency);
+      cmp = (na?.getTime() ?? 0) - (nb?.getTime() ?? 0);
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   const clearFilters = () => {
     setSearch("");
@@ -266,18 +308,40 @@ function ScheduledReportsPanel() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Merchant</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Frequency</TableHead>
-                <TableHead>Format</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Sent</TableHead>
-                <TableHead>Next Due</TableHead>
+                {(
+                  [
+                    { col: "merchant", label: "Merchant" },
+                    { col: "email", label: "Email" },
+                    { col: "frequency", label: "Frequency" },
+                    { col: "format", label: "Format" },
+                    { col: "status", label: "Status" },
+                    { col: "lastSent", label: "Last Sent" },
+                    { col: "nextDue", label: "Next Due" },
+                  ] as { col: "merchant" | "email" | "frequency" | "format" | "status" | "lastSent" | "nextDue"; label: string }[]
+                ).map(({ col, label }) => (
+                  <TableHead key={col}>
+                    <button
+                      onClick={() => handleSort(col)}
+                      className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors select-none"
+                    >
+                      {label}
+                      {sortCol === col ? (
+                        sortDir === "asc" ? (
+                          <ChevronUp className="w-3.5 h-3.5 text-primary" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 text-primary" />
+                        )
+                      ) : (
+                        <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />
+                      )}
+                    </button>
+                  </TableHead>
+                ))}
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredSchedules.map((s) => (
+              {sortedSchedules.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium text-sm">{s.businessName}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{s.merchantEmail}</TableCell>

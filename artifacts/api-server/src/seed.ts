@@ -27,6 +27,8 @@ import {
   systemSettingsTable,
   scheduledAuditReportLogsTable,
   credentialEventsTable,
+  merchantWalletsTable,
+  walletLedgerTable,
 } from "@workspace/db";
 
 const PLAN_TIERS = [
@@ -1030,6 +1032,76 @@ export async function seed() {
       ]);
     }
     console.log("Credential events seeded");
+  }
+
+  // ── Merchant Wallets — seeded with realistic demo balances ───────────────
+  if (m1 && m2) {
+    const walletsData = [
+      {
+        merchantId: m1.id,
+        availableBalance: "15420.50",
+        pendingBalance:   "8300.00",
+        holdBalance:      "2000.00",
+        settlementBalance: "0.00",
+        payoutBalance:    "0.00",
+        totalCollection:  "85200.00",
+        totalPayout:      "60000.00",
+        totalCharges:     "2550.00",
+        totalRefunds:     "1200.00",
+        totalReversals:   "500.00",
+      },
+      {
+        merchantId: m2.id,
+        availableBalance: "28750.00",
+        pendingBalance:   "12100.00",
+        holdBalance:      "5000.00",
+        settlementBalance: "0.00",
+        payoutBalance:    "0.00",
+        totalCollection:  "182500.00",
+        totalPayout:      "135000.00",
+        totalCharges:     "6200.00",
+        totalRefunds:     "3400.00",
+        totalReversals:   "1100.00",
+      },
+    ];
+
+    for (const w of walletsData) {
+      const existing = await db.select({ id: merchantWalletsTable.id })
+        .from(merchantWalletsTable)
+        .where(eq(merchantWalletsTable.merchantId, w.merchantId))
+        .limit(1);
+
+      if (existing.length === 0) {
+        await db.insert(merchantWalletsTable).values(w);
+
+        // Seed a few representative ledger entries
+        const ledgerEntries = [
+          { txnType: "pending_credit",      bucket: "pending",    amount: "5000.00", desc: "Payment received via UPI" },
+          { txnType: "settlement_transfer", bucket: "available",  amount: "12000.00", desc: "Settlement approved — funds moved to available" },
+          { txnType: "withdrawal_debit",    bucket: "available",  amount: "-8000.00", desc: "Withdrawal processed to bank account" },
+          { txnType: "charge",              bucket: "available",  amount: "-250.00",  desc: "Platform fee (monthly)" },
+          { txnType: "refund",              bucket: "available",  amount: "1200.00",  desc: "Refund credited to wallet" },
+        ];
+        for (let i = 0; i < ledgerEntries.length; i++) {
+          const le = ledgerEntries[i];
+          const dayOffset = (ledgerEntries.length - i) * 3;
+          await db.insert(walletLedgerTable).values({
+            merchantId: w.merchantId,
+            txnType: le.txnType,
+            bucket: le.bucket,
+            amount: le.amount,
+            availableBefore: "0.00",
+            availableAfter:  "0.00",
+            pendingBefore:   "0.00",
+            pendingAfter:    "0.00",
+            description: le.desc,
+            createdBy: null,
+            createdAt: new Date(Date.now() - dayOffset * 86400000),
+          });
+        }
+      }
+    }
+    console.log("Merchant wallets seeded");
   }
 
   console.log("Seed complete.");

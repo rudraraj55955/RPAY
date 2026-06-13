@@ -102,6 +102,74 @@ async function migrate() {
       updated_by_admin_email TEXT,
       CONSTRAINT module_visibility_uniq UNIQUE (module_name, entity_type, entity_id)
     );
+
+    -- ── merchant_wallets ───────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS merchant_wallets (
+      id                SERIAL PRIMARY KEY,
+      merchant_id       INTEGER NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+      currency          TEXT NOT NULL DEFAULT 'INR',
+      available_balance  NUMERIC(18,2) NOT NULL DEFAULT 0,
+      pending_balance    NUMERIC(18,2) NOT NULL DEFAULT 0,
+      hold_balance       NUMERIC(18,2) NOT NULL DEFAULT 0,
+      settlement_balance NUMERIC(18,2) NOT NULL DEFAULT 0,
+      payout_balance     NUMERIC(18,2) NOT NULL DEFAULT 0,
+      total_collection   NUMERIC(18,2) NOT NULL DEFAULT 0,
+      total_payout       NUMERIC(18,2) NOT NULL DEFAULT 0,
+      total_charges      NUMERIC(18,2) NOT NULL DEFAULT 0,
+      total_refunds      NUMERIC(18,2) NOT NULL DEFAULT 0,
+      total_reversals    NUMERIC(18,2) NOT NULL DEFAULT 0,
+      updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT merchant_wallets_merchant_id_uniq UNIQUE (merchant_id)
+    );
+
+    -- ── wallet_ledger ──────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS wallet_ledger (
+      id               SERIAL PRIMARY KEY,
+      merchant_id      INTEGER NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+      txn_type         TEXT NOT NULL,
+      bucket           TEXT NOT NULL,
+      amount           NUMERIC(18,2) NOT NULL,
+      available_before NUMERIC(18,2) NOT NULL DEFAULT 0,
+      available_after  NUMERIC(18,2) NOT NULL DEFAULT 0,
+      pending_before   NUMERIC(18,2) NOT NULL DEFAULT 0,
+      pending_after    NUMERIC(18,2) NOT NULL DEFAULT 0,
+      reference_type   TEXT,
+      reference_id     INTEGER,
+      description      TEXT NOT NULL,
+      created_by       INTEGER,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS wallet_ledger_merchant_created_idx ON wallet_ledger(merchant_id, created_at);
+    CREATE INDEX IF NOT EXISTS wallet_ledger_txn_type_idx ON wallet_ledger(txn_type);
+
+    -- ── wallet_holds ───────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS wallet_holds (
+      id          SERIAL PRIMARY KEY,
+      merchant_id INTEGER NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+      amount      NUMERIC(18,2) NOT NULL,
+      reason      TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'active',
+      created_by  INTEGER NOT NULL,
+      released_by INTEGER,
+      released_at TIMESTAMPTZ,
+      expires_at  TIMESTAMPTZ,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS wallet_holds_merchant_status_idx ON wallet_holds(merchant_id, status);
+
+    -- ── wallet_charges ─────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS wallet_charges (
+      id             SERIAL PRIMARY KEY,
+      merchant_id    INTEGER NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+      amount         NUMERIC(18,2) NOT NULL,
+      charge_type    TEXT NOT NULL DEFAULT 'fee',
+      description    TEXT NOT NULL,
+      reference_type TEXT,
+      reference_id   INTEGER,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS wallet_charges_merchant_idx ON wallet_charges(merchant_id);
   `);
 
   console.log("DB migrations complete.");

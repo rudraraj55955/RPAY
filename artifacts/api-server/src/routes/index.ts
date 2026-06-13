@@ -42,6 +42,7 @@ import rasokartServicesRouter from "./rasokartServices";
 import smartRoutingRouter from "./smartRouting";
 import moduleControlRouter from "./moduleControl";
 import merchantModuleStatusRouter from "./merchantModuleStatus";
+import walletsRouter from "./wallets";
 import kycRouter from "./kyc";
 import reportsRouter from "./reports";
 
@@ -90,6 +91,7 @@ router.use("/merchant", rasokartServicesRouter);
 router.use("/smart-routing", smartRoutingRouter);
 router.use("/module-control", moduleControlRouter);
 router.use("/merchant", merchantModuleStatusRouter);
+router.use("/wallets", walletsRouter);
 router.use("/kyc", kycRouter);
 router.use("/reports", reportsRouter);
 

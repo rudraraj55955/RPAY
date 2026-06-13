@@ -53,6 +53,8 @@ import AdminCashfreePayout from "@/pages/admin/cashfree-payout";
 import AdminProviderIntegrations from "@/pages/admin/provider-integrations";
 import AdminSmartRouting from "@/pages/admin/smart-routing";
 import AdminModuleControl from "@/pages/admin/module-control";
+import AdminWallets from "@/pages/admin/wallets";
+import AdminWalletDetail from "@/pages/admin/wallet-detail";
 import PayPage from "@/pages/pay";
 import QrPayPage from "@/pages/qr-pay";
 import VaPayPage from "@/pages/va-pay";
@@ -80,6 +82,7 @@ import MerchantBranding from "@/pages/merchant/branding";
 import MerchantSecurity from "@/pages/merchant/security";
 import MerchantRasokartServices from "@/pages/merchant/rasokart-services";
 import MerchantVerification from "@/pages/merchant/verification";
+import MerchantWallet from "@/pages/merchant/wallet";
 import AdminKycReview from "@/pages/admin/kyc-review";
 import MerchantReports from "@/pages/merchant/reports";
 import AdminReports from "@/pages/admin/reports";
@@ -175,6 +178,8 @@ function Router() {
       <Route path="/admin/provider-integrations"><AdminRoute component={AdminProviderIntegrations} /></Route>
       <Route path="/admin/smart-routing"><AdminRoute component={AdminSmartRouting} /></Route>
       <Route path="/admin/module-control"><AdminRoute component={AdminModuleControl} /></Route>
+      <Route path="/admin/wallets/:merchantId"><AdminRoute component={AdminWalletDetail} /></Route>
+      <Route path="/admin/wallets"><AdminRoute component={AdminWallets} /></Route>
       <Route path="/admin/kyc-review"><AdminRoute component={AdminKycReview} /></Route>
       <Route path="/admin/reports"><AdminRoute component={AdminReports} /></Route>
 
@@ -199,6 +204,7 @@ function Router() {
       <Route path="/merchant/security"><MerchantRoute component={MerchantSecurity} /></Route>
       <Route path="/merchant/rasokart-services"><MerchantRoute component={MerchantRasokartServices} /></Route>
       <Route path="/merchant/verification"><MerchantRoute component={MerchantVerification} /></Route>
+      <Route path="/merchant/wallet"><MerchantRoute component={MerchantWallet} /></Route>
       <Route path="/merchant/reports"><MerchantRoute component={MerchantReports} /></Route>
       <Route path="/merchant/api-docs"><PublicPage component={MerchantApiDocs} /></Route>
 

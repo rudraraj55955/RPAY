@@ -2064,16 +2064,34 @@ export default function MerchantReports() {
                       <RotateCcw className="w-3 h-3" />This month
                     </button>
                   )}
-                  {txCanSaveDatePreset && !txShowSaveDatePreset && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200" onClick={() => { setTxSaveDatePresetName(""); setTxSaveDatePresetNameError(""); setTxShowSaveDatePreset(true); }} title="Save this date range as a quick-access preset">
-                      <CalendarRange className="w-3 h-3 mr-1.5" />Save as date preset
-                    </Button>
-                  )}
-                  {txIsCustomDateAlreadySaved && !txShowSaveDatePreset && (
-                    <span className="inline-flex items-center gap-1 h-7 px-2.5 text-xs text-sky-400/60 border border-sky-500/20 rounded-md">
-                      <CalendarRange className="w-3 h-3" />Saved
-                    </span>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={[
+                      "h-7 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200",
+                      "transition-all duration-200 ease-in-out",
+                      txCanSaveDatePreset && !txShowSaveDatePreset
+                        ? "opacity-100 translate-y-0 pointer-events-auto"
+                        : "opacity-0 -translate-y-1 pointer-events-none",
+                    ].join(" ")}
+                    onClick={() => { setTxSaveDatePresetName(""); setTxSaveDatePresetNameError(""); setTxShowSaveDatePreset(true); }}
+                    title="Save this date range as a quick-access preset"
+                    tabIndex={txCanSaveDatePreset && !txShowSaveDatePreset ? undefined : -1}
+                  >
+                    <CalendarRange className="w-3 h-3 mr-1.5" />Save as date preset
+                  </Button>
+                  <span
+                    className={[
+                      "inline-flex items-center gap-1 h-7 px-2.5 text-xs text-sky-400/60 border border-sky-500/20 rounded-md",
+                      "transition-all duration-200 ease-in-out",
+                      txIsCustomDateAlreadySaved && !txShowSaveDatePreset
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 -translate-y-1 pointer-events-none",
+                    ].join(" ")}
+                    aria-hidden={!(txIsCustomDateAlreadySaved && !txShowSaveDatePreset)}
+                  >
+                    <CalendarRange className="w-3 h-3" />Saved
+                  </span>
                   {txShowSaveDatePreset && (
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
@@ -2089,22 +2107,34 @@ export default function MerchantReports() {
 
               {/* Save filter bar */}
               <div className="flex items-center gap-2 flex-wrap">
-                {hasAnyFilter && !isCurrentFilterSaved && !showSaveInput && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200"
-                    onClick={openSaveInput}
-                    title="Save this filter combination for quick access"
-                  >
-                    <Bookmark className="w-3.5 h-3.5 mr-1.5" />Save current filters
-                  </Button>
-                )}
-                {hasAnyFilter && isCurrentFilterSaved && (
-                  <span className="inline-flex items-center gap-1 text-xs text-sky-400/60 font-medium">
-                    <BookmarkCheck className="w-3.5 h-3.5" />Saved
-                  </span>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={[
+                    "h-7 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200",
+                    "transition-all duration-200 ease-in-out",
+                    hasAnyFilter && !isCurrentFilterSaved && !showSaveInput
+                      ? "opacity-100 translate-y-0 pointer-events-auto"
+                      : "opacity-0 -translate-y-1 pointer-events-none",
+                  ].join(" ")}
+                  onClick={openSaveInput}
+                  title="Save this filter combination for quick access"
+                  tabIndex={hasAnyFilter && !isCurrentFilterSaved && !showSaveInput ? undefined : -1}
+                >
+                  <Bookmark className="w-3.5 h-3.5 mr-1.5" />Save current filters
+                </Button>
+                <span
+                  className={[
+                    "inline-flex items-center gap-1 text-xs text-sky-400/60 font-medium",
+                    "transition-all duration-200 ease-in-out",
+                    hasAnyFilter && isCurrentFilterSaved && !showSaveInput
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-1 pointer-events-none",
+                  ].join(" ")}
+                  aria-hidden={!(hasAnyFilter && isCurrentFilterSaved && !showSaveInput)}
+                >
+                  <BookmarkCheck className="w-3.5 h-3.5" />Saved
+                </span>
                 {showSaveInput && (
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
@@ -2526,16 +2556,34 @@ export default function MerchantReports() {
                       <RotateCcw className="w-3 h-3" />This month
                     </button>
                   )}
-                  {stlCanSaveDatePreset && !stlShowSaveDatePreset && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200" onClick={() => { setStlSaveDatePresetName(""); setStlSaveDatePresetNameError(""); setStlShowSaveDatePreset(true); }} title="Save this date range as a quick-access preset">
-                      <CalendarRange className="w-3 h-3 mr-1.5" />Save as date preset
-                    </Button>
-                  )}
-                  {stlIsCustomDateAlreadySaved && !stlShowSaveDatePreset && (
-                    <span className="inline-flex items-center gap-1 h-7 px-2.5 text-xs text-sky-400/60 border border-sky-500/20 rounded-md">
-                      <CalendarRange className="w-3 h-3" />Saved
-                    </span>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={[
+                      "h-7 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200",
+                      "transition-all duration-200 ease-in-out",
+                      stlCanSaveDatePreset && !stlShowSaveDatePreset
+                        ? "opacity-100 translate-y-0 pointer-events-auto"
+                        : "opacity-0 -translate-y-1 pointer-events-none",
+                    ].join(" ")}
+                    onClick={() => { setStlSaveDatePresetName(""); setStlSaveDatePresetNameError(""); setStlShowSaveDatePreset(true); }}
+                    title="Save this date range as a quick-access preset"
+                    tabIndex={stlCanSaveDatePreset && !stlShowSaveDatePreset ? undefined : -1}
+                  >
+                    <CalendarRange className="w-3 h-3 mr-1.5" />Save as date preset
+                  </Button>
+                  <span
+                    className={[
+                      "inline-flex items-center gap-1 h-7 px-2.5 text-xs text-sky-400/60 border border-sky-500/20 rounded-md",
+                      "transition-all duration-200 ease-in-out",
+                      stlIsCustomDateAlreadySaved && !stlShowSaveDatePreset
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 -translate-y-1 pointer-events-none",
+                    ].join(" ")}
+                    aria-hidden={!(stlIsCustomDateAlreadySaved && !stlShowSaveDatePreset)}
+                  >
+                    <CalendarRange className="w-3 h-3" />Saved
+                  </span>
                   {stlShowSaveDatePreset && (
                     <div className="flex items-start gap-2">
                       <div className="flex-1">

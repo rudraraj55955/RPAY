@@ -45,6 +45,20 @@ export interface AdminReportSchedule {
      * @nullable
      */
   nextRunAt?: string | null;
+  /**
+     * ISO timestamp of the most recent delivery attempt (success or failure). Null if no attempts exist.
+     * @nullable
+     */
+  lastDeliveryAt?: string | null;
+  /**
+     * Whether the most recent delivery attempt succeeded. Null if no attempts exist.
+     * @nullable
+     */
+  lastDeliverySuccess?: boolean | null;
+  /** Total delivery attempts in the last 7 days. */
+  sevenDayTotal: number;
+  /** Successful delivery attempts in the last 7 days. */
+  sevenDaySuccesses: number;
   createdAt: string;
   updatedAt: string;
   /** Last 3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules. */

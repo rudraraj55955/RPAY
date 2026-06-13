@@ -633,6 +633,8 @@ router.get("/schedules", requireAdmin, async (req, res, next) => {
       .innerJoin(merchantsTable, eq(reportSchedulesTable.merchantId, merchantsTable.id))
       .orderBy(merchantsTable.businessName);
 
+    const allMerchantIds = rows.map(r => r.schedule.merchantId);
+
     // Batch-fetch recent failure logs for auto-paused schedules (non-zero consecutiveFailures)
     const pausedMerchantIds = rows
       .filter(r => !r.schedule.isActive && r.schedule.consecutiveFailures > 0)
@@ -640,32 +642,81 @@ router.get("/schedules", requireAdmin, async (req, res, next) => {
 
     const recentFailuresByMerchant: Record<number, (typeof reportDeliveryLogsTable.$inferSelect)[]> = {};
 
-    if (pausedMerchantIds.length > 0) {
-      const failureLogs = await db
-        .select()
-        .from(reportDeliveryLogsTable)
-        .where(and(
-          inArray(reportDeliveryLogsTable.merchantId, pausedMerchantIds),
-          eq(reportDeliveryLogsTable.success, false),
-        ))
-        .orderBy(desc(reportDeliveryLogsTable.attemptedAt))
-        .limit(pausedMerchantIds.length * 3);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-      for (const log of failureLogs) {
-        if (!recentFailuresByMerchant[log.merchantId]) recentFailuresByMerchant[log.merchantId] = [];
-        if (recentFailuresByMerchant[log.merchantId].length < 3) {
-          recentFailuresByMerchant[log.merchantId].push(log);
-        }
+    const [failureLogs, latestDeliveries, sevenDayStats] = await Promise.all([
+      pausedMerchantIds.length > 0
+        ? db
+            .select()
+            .from(reportDeliveryLogsTable)
+            .where(and(
+              inArray(reportDeliveryLogsTable.merchantId, pausedMerchantIds),
+              eq(reportDeliveryLogsTable.success, false),
+            ))
+            .orderBy(desc(reportDeliveryLogsTable.attemptedAt))
+            .limit(pausedMerchantIds.length * 3)
+        : Promise.resolve([] as (typeof reportDeliveryLogsTable.$inferSelect)[]),
+
+      allMerchantIds.length > 0
+        ? db
+            .selectDistinctOn([reportDeliveryLogsTable.merchantId], {
+              merchantId: reportDeliveryLogsTable.merchantId,
+              attemptedAt: reportDeliveryLogsTable.attemptedAt,
+              success: reportDeliveryLogsTable.success,
+            })
+            .from(reportDeliveryLogsTable)
+            .where(inArray(reportDeliveryLogsTable.merchantId, allMerchantIds))
+            .orderBy(reportDeliveryLogsTable.merchantId, desc(reportDeliveryLogsTable.attemptedAt))
+        : Promise.resolve([] as { merchantId: number; attemptedAt: Date; success: boolean }[]),
+
+      allMerchantIds.length > 0
+        ? db
+            .select({
+              merchantId: reportDeliveryLogsTable.merchantId,
+              total: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+              successes: sql<number>`CAST(COUNT(CASE WHEN ${reportDeliveryLogsTable.success} = true THEN 1 END) AS INTEGER)`,
+            })
+            .from(reportDeliveryLogsTable)
+            .where(and(
+              inArray(reportDeliveryLogsTable.merchantId, allMerchantIds),
+              gte(reportDeliveryLogsTable.attemptedAt, sevenDaysAgo),
+            ))
+            .groupBy(reportDeliveryLogsTable.merchantId)
+        : Promise.resolve([] as { merchantId: number; total: number; successes: number }[]),
+    ]);
+
+    for (const log of failureLogs) {
+      if (!recentFailuresByMerchant[log.merchantId]) recentFailuresByMerchant[log.merchantId] = [];
+      if (recentFailuresByMerchant[log.merchantId].length < 3) {
+        recentFailuresByMerchant[log.merchantId].push(log);
       }
     }
 
+    const latestDeliveryByMerchant: Record<number, { attemptedAt: Date; success: boolean }> = {};
+    for (const log of latestDeliveries) {
+      latestDeliveryByMerchant[log.merchantId] = { attemptedAt: log.attemptedAt, success: log.success };
+    }
+
+    const sevenDayStatsByMerchant: Record<number, { total: number; successes: number }> = {};
+    for (const stat of sevenDayStats) {
+      sevenDayStatsByMerchant[stat.merchantId] = { total: Number(stat.total), successes: Number(stat.successes) };
+    }
+
     res.json({
-      schedules: rows.map(r => ({
-        ...r.schedule,
-        businessName: r.businessName,
-        merchantEmail: r.email,
-        recentFailures: recentFailuresByMerchant[r.schedule.merchantId] ?? [],
-      })),
+      schedules: rows.map(r => {
+        const lastDelivery = latestDeliveryByMerchant[r.schedule.merchantId] ?? null;
+        const sevenDay = sevenDayStatsByMerchant[r.schedule.merchantId] ?? null;
+        return {
+          ...r.schedule,
+          businessName: r.businessName,
+          merchantEmail: r.email,
+          recentFailures: recentFailuresByMerchant[r.schedule.merchantId] ?? [],
+          lastDeliveryAt: lastDelivery?.attemptedAt?.toISOString() ?? null,
+          lastDeliverySuccess: lastDelivery != null ? lastDelivery.success : null,
+          sevenDayTotal: sevenDay?.total ?? 0,
+          sevenDaySuccesses: sevenDay?.successes ?? 0,
+        };
+      }),
     });
   } catch (err) {
     next(err);

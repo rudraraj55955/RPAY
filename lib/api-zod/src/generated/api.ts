@@ -1735,6 +1735,10 @@ export const ListMerchantReportSchedulesResponse = zod.object({
   "dayOfMonth": zod.number().min(1).max(listMerchantReportSchedulesResponseSchedulesItemDayOfMonthMax).nullish().describe('Day of month for monthly reports (1–28). Null uses rolling 30-day cadence.'),
   "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
   "nextRunAt": zod.string().nullish().describe('Admin-set override for the next scheduled run. Cleared automatically after the report fires.'),
+  "lastDeliveryAt": zod.string().nullish().describe('ISO timestamp of the most recent delivery attempt (success or failure). Null if no attempts exist.'),
+  "lastDeliverySuccess": zod.boolean().nullish().describe('Whether the most recent delivery attempt succeeded. Null if no attempts exist.'),
+  "sevenDayTotal": zod.number().describe('Total delivery attempts in the last 7 days.'),
+  "sevenDaySuccesses": zod.number().describe('Successful delivery attempts in the last 7 days.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string(),
   "recentFailures": zod.array(zod.object({

@@ -9117,7 +9117,7 @@ components:
 
     AdminReportSchedule:
       type: object
-      required: [id, merchantId, businessName, merchantEmail, frequency, format, isActive, consecutiveFailures, autoPauseAfterFailures, createdAt, updatedAt]
+      required: [id, merchantId, businessName, merchantEmail, frequency, format, isActive, consecutiveFailures, autoPauseAfterFailures, sevenDayTotal, sevenDaySuccesses, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -9157,6 +9157,18 @@ components:
         nextRunAt:
           type: ["string", "null"]
           description: Admin-set override for the next scheduled run. Cleared automatically after the report fires.
+        lastDeliveryAt:
+          type: ["string", "null"]
+          description: ISO timestamp of the most recent delivery attempt (success or failure). Null if no attempts exist.
+        lastDeliverySuccess:
+          type: ["boolean", "null"]
+          description: Whether the most recent delivery attempt succeeded. Null if no attempts exist.
+        sevenDayTotal:
+          type: integer
+          description: Total delivery attempts in the last 7 days.
+        sevenDaySuccesses:
+          type: integer
+          description: Successful delivery attempts in the last 7 days.
         createdAt:
           type: string
         updatedAt:

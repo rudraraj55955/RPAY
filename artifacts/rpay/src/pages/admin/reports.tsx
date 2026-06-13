@@ -403,8 +403,8 @@ function ScheduledReportsPanel() {
   const [sendFailures, setSendFailures] = useState<{ merchantId: number; merchantName: string; email: string; reason: string }[] | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  type SortCol = "merchant" | "email" | "frequency" | "format" | "status" | "lastSent" | "nextDue";
-  const VALID_SORT_COLS: SortCol[] = ["merchant", "email", "frequency", "format", "status", "lastSent", "nextDue"];
+  type SortCol = "merchant" | "email" | "frequency" | "format" | "status" | "lastSent" | "nextDue" | "lastDelivery" | "successRate";
+  const VALID_SORT_COLS: SortCol[] = ["merchant", "email", "frequency", "format", "status", "lastSent", "nextDue", "lastDelivery", "successRate"];
 
   const searchStr = useSearch();
   const [location, navigate] = useLocation();
@@ -556,6 +556,14 @@ function ScheduledReportsPanel() {
       const na = getNextDue(a.lastSentAt, a.frequency);
       const nb = getNextDue(b.lastSentAt, b.frequency);
       cmp = (na?.getTime() ?? 0) - (nb?.getTime() ?? 0);
+    } else if (sortCol === "lastDelivery") {
+      const ta = (a as any).lastDeliveryAt ? new Date((a as any).lastDeliveryAt).getTime() : 0;
+      const tb = (b as any).lastDeliveryAt ? new Date((b as any).lastDeliveryAt).getTime() : 0;
+      cmp = ta - tb;
+    } else if (sortCol === "successRate") {
+      const ra = (a as any).sevenDayTotal > 0 ? (a as any).sevenDaySuccesses / (a as any).sevenDayTotal : -1;
+      const rb = (b as any).sevenDayTotal > 0 ? (b as any).sevenDaySuccesses / (b as any).sevenDayTotal : -1;
+      cmp = ra - rb;
     }
     return sortDir === "asc" ? cmp : -cmp;
   });
@@ -820,7 +828,9 @@ function ScheduledReportsPanel() {
                     { col: "status", label: "Status" },
                     { col: "lastSent", label: "Last Sent" },
                     { col: "nextDue", label: "Next Due" },
-                  ] as { col: "merchant" | "email" | "frequency" | "format" | "status" | "lastSent" | "nextDue"; label: string }[]
+                    { col: "lastDelivery", label: "Last Delivery" },
+                    { col: "successRate", label: "7-day Rate" },
+                  ] as { col: "merchant" | "email" | "frequency" | "format" | "status" | "lastSent" | "nextDue" | "lastDelivery" | "successRate"; label: string }[]
                 ).map(({ col, label }) => (
                   <TableHead key={col}>
                     <button
@@ -847,10 +857,15 @@ function ScheduledReportsPanel() {
               {sortedSchedules.map((s) => {
                 const rowNextDue = getNextDue(s.lastSentAt, s.frequency, (s as any).nextRunAt as string | null | undefined);
                 const isRowOverdue = s.isActive && rowNextDue != null && rowNextDue < now;
+                const sevenDayTotal = (s as any).sevenDayTotal as number ?? 0;
+                const sevenDaySuccesses = (s as any).sevenDaySuccesses as number ?? 0;
+                const isZeroSuccess = sevenDayTotal > 0 && sevenDaySuccesses === 0;
+                const lastDeliveryAt = (s as any).lastDeliveryAt as string | null ?? null;
+                const lastDeliverySuccess = (s as any).lastDeliverySuccess as boolean | null ?? null;
                 return (
                 <TableRow
                   key={s.id}
-                  className={isRowOverdue ? "border-l-2 border-amber-500/60 bg-amber-500/[0.04] hover:bg-amber-500/[0.07]" : ""}
+                  className={isZeroSuccess ? "border-l-2 border-red-500/60 bg-red-500/[0.04] hover:bg-red-500/[0.07]" : isRowOverdue ? "border-l-2 border-amber-500/60 bg-amber-500/[0.04] hover:bg-amber-500/[0.07]" : ""}
                 >
                   <TableCell className="font-medium text-sm">{s.businessName}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{s.merchantEmail}</TableCell>
@@ -908,6 +923,48 @@ function ScheduledReportsPanel() {
                         </span>
                       );
                     })()}
+                  </TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">
+                    {lastDeliveryAt != null ? (
+                      <div className="flex items-center gap-1.5">
+                        {lastDeliverySuccess === true ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        ) : lastDeliverySuccess === false ? (
+                          <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                        ) : null}
+                        <span className={lastDeliverySuccess === false ? "text-red-400" : "text-muted-foreground"}>
+                          {format(new Date(lastDeliveryAt), "dd MMM yyyy")}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground/50">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">
+                    {sevenDayTotal > 0 ? (
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className={`inline-flex items-center gap-1 font-semibold cursor-default ${
+                                sevenDaySuccesses === 0
+                                  ? "text-red-400"
+                                  : sevenDaySuccesses / sevenDayTotal >= 0.8
+                                    ? "text-emerald-400"
+                                    : "text-amber-400"
+                              }`}
+                            >
+                              {Math.round((sevenDaySuccesses / sevenDayTotal) * 100)}%
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p className="text-xs">{sevenDaySuccesses} of {sevenDayTotal} deliveries succeeded in the last 7 days</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <span className="text-muted-foreground/50">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">

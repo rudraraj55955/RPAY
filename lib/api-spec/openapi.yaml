@@ -9007,6 +9007,9 @@ components:
         triggeredBy:
           type: ["string", "null"]
           description: What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)
+        triggeredByEmail:
+          type: ["string", "null"]
+          description: Email of the admin who manually triggered the delivery, if applicable
 
     AdminReportDeliveryLog:
       allOf:

@@ -1656,7 +1656,8 @@ export const GetReportScheduleHistoryResponse = zod.object({
   "frequency": zod.string().nullish().describe('Schedule frequency at time of delivery (weekly or monthly)'),
   "format": zod.string().nullish().describe('File format used for this delivery (xlsx or pdf)'),
   "outcome": zod.string().nullish().describe('Distinct outcome marker for special events; \"re-enabled\" when a paused schedule is re-activated'),
-  "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)')
+  "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
+  "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable')
 }))
 })
 
@@ -1707,7 +1708,9 @@ export const ListMerchantReportSchedulesResponse = zod.object({
   "isAutoPause": zod.boolean().describe('Whether this entry represents the moment the schedule was auto-paused'),
   "frequency": zod.string().nullish().describe('Schedule frequency at time of delivery (weekly or monthly)'),
   "format": zod.string().nullish().describe('File format used for this delivery (xlsx or pdf)'),
-  "outcome": zod.string().nullish().describe('Distinct outcome marker for special events; \"re-enabled\" when a paused schedule is re-activated')
+  "outcome": zod.string().nullish().describe('Distinct outcome marker for special events; \"re-enabled\" when a paused schedule is re-activated'),
+  "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
+  "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable')
 })).optional().describe('Last 3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules.')
 }))
 })
@@ -1856,7 +1859,8 @@ export const GetAdminReportDeliveryHistoryResponse = zod.object({
   "frequency": zod.string().nullish().describe('Schedule frequency at time of delivery (weekly or monthly)'),
   "format": zod.string().nullish().describe('File format used for this delivery (xlsx or pdf)'),
   "outcome": zod.string().nullish().describe('Distinct outcome marker for special events; \"re-enabled\" when a paused schedule is re-activated'),
-  "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)')
+  "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
+  "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable')
 }).and(zod.object({
   "businessName": zod.string().nullish().describe('Merchant\'s business name'),
   "merchantEmail": zod.string().nullish().describe('Merchant\'s email address')
@@ -1955,7 +1959,8 @@ export const GetAdminMerchantReportScheduleHistoryResponse = zod.object({
   "frequency": zod.string().nullish().describe('Schedule frequency at time of delivery (weekly or monthly)'),
   "format": zod.string().nullish().describe('File format used for this delivery (xlsx or pdf)'),
   "outcome": zod.string().nullish().describe('Distinct outcome marker for special events; \"re-enabled\" when a paused schedule is re-activated'),
-  "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)')
+  "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
+  "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable')
 }))
 })
 

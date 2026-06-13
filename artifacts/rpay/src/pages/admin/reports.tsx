@@ -176,13 +176,17 @@ function toLocalDatetimeInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function TriggeredByBadge({ value }: { value: string | null | undefined }) {
+function TriggeredByBadge({ value, email }: { value: string | null | undefined; email?: string | null }) {
   if (!value) return <span className="text-xs text-muted-foreground/50">—</span>;
-  if (value === "manual") return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-400 bg-sky-400/10 rounded px-1.5 py-0.5">
-      <Send className="w-2.5 h-2.5" />Manual
-    </span>
-  );
+  if (value === "manual") {
+    const badge = (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-400 bg-sky-400/10 rounded px-1.5 py-0.5">
+        <Send className="w-2.5 h-2.5" />
+        {email ? `Manual — ${email}` : "Manual"}
+      </span>
+    );
+    return badge;
+  }
   if (value === "bulk") return (
     <span className="inline-flex items-center gap-1 text-xs font-medium text-violet-400 bg-violet-400/10 rounded px-1.5 py-0.5">
       <Send className="w-2.5 h-2.5" />Bulk
@@ -354,7 +358,7 @@ function ScheduleHistoryDialog({
                       </span>
                     </TableCell>
                     <TableCell>
-                      <TriggeredByBadge value={(log as any).triggeredBy} />
+                      <TriggeredByBadge value={(log as any).triggeredBy} email={(log as any).triggeredByEmail} />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
@@ -1671,7 +1675,7 @@ function DeliveryHistoryPanel() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{log.merchantEmail ?? "—"}</TableCell>
                     <TableCell>
-                      <TriggeredByBadge value={(log as any).triggeredBy} />
+                      <TriggeredByBadge value={(log as any).triggeredBy} email={(log as any).triggeredByEmail} />
                     </TableCell>
                     <TableCell>
                       {log.frequency ? (

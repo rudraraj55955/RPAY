@@ -40,4 +40,9 @@ export interface ReportDeliveryLog {
      * @nullable
      */
   triggeredBy?: string | null;
+  /**
+     * Email of the admin who manually triggered the delivery, if applicable
+     * @nullable
+     */
+  triggeredByEmail?: string | null;
 }

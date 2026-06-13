@@ -762,7 +762,7 @@ function SchedulePanel() {
                           {(log as any).triggeredBy === "manual" ? (
                             <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-violet-600/15 text-violet-400 border border-violet-600/30">
                               <Send className="w-2.5 h-2.5" />
-                              Manual
+                              {(log as any).triggeredByEmail ? `Manual — ${(log as any).triggeredByEmail}` : "Manual"}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-sky-600/15 text-sky-400 border border-sky-600/30">

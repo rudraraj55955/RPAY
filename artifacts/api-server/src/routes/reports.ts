@@ -1072,14 +1072,14 @@ router.post("/schedules/:merchantId/send-now", requireAdmin, async (req, res, ne
       return;
     }
 
-    const sent = await sendMerchantReport(scheduleRow, merchantRow.email, merchantRow.businessName, "manual");
+    const admin = (req as any).user;
+    const sent = await sendMerchantReport(scheduleRow, merchantRow.email, merchantRow.businessName, "manual", admin.email);
 
     if (!sent) {
       res.status(502).json({ error: "Failed to send report — check SMTP configuration" });
       return;
     }
 
-    const admin = (req as any).user;
     await db.insert(auditLogsTable).values({
       adminId: admin.id,
       adminEmail: admin.email,

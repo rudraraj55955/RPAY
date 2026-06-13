@@ -4,6 +4,7 @@ import { eq, and, sql, gte, lte, or, inArray, isNotNull, isNull, desc } from "dr
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { sendMerchantReport } from "../helpers/merchantReportScheduler";
 import { createNotification } from "../helpers/notifications";
+import { sendReportScheduleUpdatedEmail } from "../helpers/reportScheduleEmail";
 
 const router = Router();
 router.use(requireAuth);
@@ -732,9 +733,9 @@ router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
       }
     }
 
-    // Verify merchant exists
+    // Verify merchant exists and fetch contact details for notifications
     const [merchant] = await db
-      .select({ id: merchantsTable.id })
+      .select({ id: merchantsTable.id, email: merchantsTable.email, businessName: merchantsTable.businessName })
       .from(merchantsTable)
       .where(eq(merchantsTable.id, mid))
       .limit(1);
@@ -775,6 +776,12 @@ router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
           metadata: { nextRunAt: nextRunAt ?? null },
         }).catch(() => {});
       }
+      // Send email to merchant alongside the in-app notification
+      sendReportScheduleUpdatedEmail({
+        to: merchant.email,
+        businessName: merchant.businessName,
+        nextRunAt: nextRunAt ?? null,
+      }).catch(() => {});
     }
 
     res.json({ schedule });

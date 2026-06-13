@@ -775,6 +775,10 @@ export interface AdminReportSchedule {
   frequency: AdminReportScheduleFrequency;
   format: AdminReportScheduleFormat;
   isActive: boolean;
+  /** Number of consecutive delivery failures. Non-zero when auto-paused. */
+  consecutiveFailures: number;
+  /** Threshold of consecutive failures before auto-pausing the schedule. */
+  autoPauseAfterFailures: number;
   /**
      * Day of week for weekly reports (0=Sun, 1=Mon, …, 6=Sat). Null uses rolling 7-day cadence.
      * @minimum 0
@@ -4721,6 +4725,10 @@ export const GetAdminReportDeliveryHistorySuccess = {
 
 export type GetAdminReportDeliveryHistory200 = {
   logs: AdminReportDeliveryLog[];
+};
+
+export type ReenableAdminMerchantReportSchedule200 = {
+  schedule: ReportSchedule;
 };
 
 export type SendAdminMerchantReportNow200 = {

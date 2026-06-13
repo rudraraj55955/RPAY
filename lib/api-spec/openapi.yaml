@@ -1981,6 +1981,35 @@ paths:
         "403":
           description: Forbidden
 
+  /reports/schedules/{merchantId}/reenable:
+    patch:
+      operationId: reenableAdminMerchantReportSchedule
+      tags: [reports]
+      summary: Admin — re-enable a merchant's auto-paused report schedule (resets consecutiveFailures, sets isActive=true)
+      parameters:
+        - name: merchantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Schedule re-enabled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schedule]
+                properties:
+                  schedule:
+                    $ref: "#/components/schemas/ReportSchedule"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: No schedule configured for this merchant
+
   /reports/schedules/{merchantId}/send-now:
     post:
       operationId: sendAdminMerchantReportNow
@@ -8974,7 +9003,7 @@ components:
 
     AdminReportSchedule:
       type: object
-      required: [id, merchantId, businessName, merchantEmail, frequency, format, isActive, createdAt, updatedAt]
+      required: [id, merchantId, businessName, merchantEmail, frequency, format, isActive, consecutiveFailures, autoPauseAfterFailures, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -8992,6 +9021,12 @@ components:
           enum: [xlsx, pdf]
         isActive:
           type: boolean
+        consecutiveFailures:
+          type: integer
+          description: Number of consecutive delivery failures. Non-zero when auto-paused.
+        autoPauseAfterFailures:
+          type: integer
+          description: Threshold of consecutive failures before auto-pausing the schedule.
         dayOfWeek:
           type: ["integer", "null"]
           minimum: 0

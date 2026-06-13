@@ -1674,6 +1674,8 @@ export const ListMerchantReportSchedulesResponse = zod.object({
   "frequency": zod.enum(['weekly', 'monthly']),
   "format": zod.enum(['xlsx', 'pdf']),
   "isActive": zod.boolean(),
+  "consecutiveFailures": zod.number().describe('Number of consecutive delivery failures. Non-zero when auto-paused.'),
+  "autoPauseAfterFailures": zod.number().describe('Threshold of consecutive failures before auto-pausing the schedule.'),
   "dayOfWeek": zod.number().min(listMerchantReportSchedulesResponseSchedulesItemDayOfWeekMin).max(listMerchantReportSchedulesResponseSchedulesItemDayOfWeekMax).nullish().describe('Day of week for weekly reports (0=Sun, 1=Mon, …, 6=Sat). Null uses rolling 7-day cadence.'),
   "dayOfMonth": zod.number().min(1).max(listMerchantReportSchedulesResponseSchedulesItemDayOfMonthMax).nullish().describe('Day of month for monthly reports (1–28). Null uses rolling 30-day cadence.'),
   "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
@@ -1823,6 +1825,39 @@ export const GetAdminReportDeliveryHistoryResponse = zod.object({
   "businessName": zod.string().nullish().describe('Merchant\'s business name'),
   "merchantEmail": zod.string().nullish().describe('Merchant\'s email address')
 })))
+})
+
+
+/**
+ * @summary Admin — re-enable a merchant's auto-paused report schedule (resets consecutiveFailures, sets isActive=true)
+ */
+export const ReenableAdminMerchantReportScheduleParams = zod.object({
+  "merchantId": zod.coerce.number()
+})
+
+export const reenableAdminMerchantReportScheduleResponseScheduleDayOfWeekMin = 0;
+export const reenableAdminMerchantReportScheduleResponseScheduleDayOfWeekMax = 6;
+
+export const reenableAdminMerchantReportScheduleResponseScheduleDayOfMonthMax = 28;
+
+
+
+export const ReenableAdminMerchantReportScheduleResponse = zod.object({
+  "schedule": zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "frequency": zod.enum(['weekly', 'monthly']),
+  "format": zod.enum(['xlsx', 'pdf']),
+  "isActive": zod.boolean(),
+  "dayOfWeek": zod.number().min(reenableAdminMerchantReportScheduleResponseScheduleDayOfWeekMin).max(reenableAdminMerchantReportScheduleResponseScheduleDayOfWeekMax).nullish().describe('Day of week for weekly reports (0=Sun, 1=Mon, …, 6=Sat). Null uses rolling 7-day cadence.'),
+  "dayOfMonth": zod.number().min(1).max(reenableAdminMerchantReportScheduleResponseScheduleDayOfMonthMax).nullish().describe('Day of month for monthly reports (1–28). Null uses rolling 30-day cadence.'),
+  "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
+  "consecutiveFailures": zod.number().describe('Count of consecutive delivery failures since the last success'),
+  "autoPauseAfterFailures": zod.number().describe('Threshold — schedule is auto-paused when consecutiveFailures reaches this value'),
+  "nextRunAt": zod.string().nullish().describe('Admin-set override for the next scheduled run. Cleared automatically after the report fires.'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
 })
 
 

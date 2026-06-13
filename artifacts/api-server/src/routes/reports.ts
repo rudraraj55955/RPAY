@@ -827,6 +827,49 @@ router.get("/schedules/:merchantId/history", requireAdmin, async (req, res, next
   }
 });
 
+// PATCH /api/reports/schedules/:merchantId/reenable — admin: re-enable a merchant's auto-paused schedule
+router.patch("/schedules/:merchantId/reenable", requireAdmin, async (req, res, next) => {
+  try {
+    const mid = parseInt(req.params['merchantId'] as string);
+    if (isNaN(mid)) {
+      res.status(400).json({ error: "Invalid merchantId" });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(reportSchedulesTable)
+      .where(eq(reportSchedulesTable.merchantId, mid))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "No schedule configured for this merchant" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(reportSchedulesTable)
+      .set({ isActive: true, consecutiveFailures: 0, updatedAt: new Date() })
+      .where(eq(reportSchedulesTable.merchantId, mid))
+      .returning();
+
+    const [u] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.merchantId, mid)).limit(1);
+    if (u) {
+      createNotification({
+        userId: u.id,
+        type: "report_schedule_reenabled",
+        title: "Report Schedule Re-enabled",
+        body: "Your report schedule has been re-enabled by an admin. Future reports will resume on the normal cadence.",
+        metadata: {},
+      }).catch(() => {});
+    }
+
+    res.json({ schedule: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/reports/schedules/:merchantId/send-now — admin: trigger immediate send for a merchant
 router.post("/schedules/:merchantId/send-now", requireAdmin, async (req, res, next) => {
   try {

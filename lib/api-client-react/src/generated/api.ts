@@ -275,6 +275,7 @@ import type {
   ReconciliationRunListResponse,
   ReconciliationScheduleConfig,
   ReconciliationSchedulerStatus,
+  ReenableAdminMerchantReportSchedule200,
   ReenableReportSchedule200,
   RejectInput,
   RenameMerchantSavedFilterInput,
@@ -5364,6 +5365,28 @@ export const getAdminReportDeliveryHistory = async (params?: GetAdminReportDeliv
   }
 );}
 
+export const getReenableAdminMerchantReportScheduleUrl = (merchantId: number,) => {
+
+
+
+
+  return `/api/reports/schedules/${merchantId}/reenable`
+}
+
+/**
+ * @summary Admin — re-enable a merchant's auto-paused report schedule (resets consecutiveFailures, sets isActive=true)
+ */
+export const reenableAdminMerchantReportSchedule = async (merchantId: number, options?: RequestInit): Promise<ReenableAdminMerchantReportSchedule200> => {
+
+  return customFetch<ReenableAdminMerchantReportSchedule200>(getReenableAdminMerchantReportScheduleUrl(merchantId),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
 
 
 
@@ -5418,6 +5441,51 @@ export function useGetAdminReportDeliveryHistory<TData = Awaited<ReturnType<type
 
 
 
+
+export const getReenableAdminMerchantReportScheduleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reenableAdminMerchantReportSchedule>>, TError,{merchantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reenableAdminMerchantReportSchedule>>, TError,{merchantId: number}, TContext> => {
+
+const mutationKey = ['reenableAdminMerchantReportSchedule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reenableAdminMerchantReportSchedule>>, {merchantId: number}> = (props) => {
+          const {merchantId} = props ?? {};
+
+          return  reenableAdminMerchantReportSchedule(merchantId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReenableAdminMerchantReportScheduleMutationResult = NonNullable<Awaited<ReturnType<typeof reenableAdminMerchantReportSchedule>>>
+
+    export type ReenableAdminMerchantReportScheduleMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin — re-enable a merchant's auto-paused report schedule (resets consecutiveFailures, sets isActive=true)
+ */
+export const useReenableAdminMerchantReportSchedule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reenableAdminMerchantReportSchedule>>, TError,{merchantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reenableAdminMerchantReportSchedule>>,
+        TError,
+        {merchantId: number},
+        TContext
+      > => {
+      return useMutation(getReenableAdminMerchantReportScheduleMutationOptions(options));
+    }
 
 export const getSendAdminMerchantReportNowUrl = (merchantId: number,) => {
 

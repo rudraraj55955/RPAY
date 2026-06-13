@@ -11,6 +11,7 @@ import {
   useSendAdminMerchantReportNow,
   useGetAdminMerchantReportScheduleHistory,
   useSendAllOverdueReports,
+  useReenableAdminMerchantReportSchedule,
   getListMerchantReportSchedulesQueryOptions,
   useGetAdminReportDeliveryHistory,
 } from "@workspace/api-client-react";
@@ -69,6 +70,7 @@ import {
   CheckCircle,
   AlertCircle,
   PauseCircle,
+  RotateCcw,
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays, startOfMonth, endOfMonth, subMonths, eachDayOfInterval, parseISO } from "date-fns";
 import {
@@ -259,6 +261,7 @@ function ScheduledReportsPanel() {
   const del = useDeleteAdminMerchantReportSchedule();
   const sendNow = useSendAdminMerchantReportNow();
   const sendAllOverdue = useSendAllOverdueReports();
+  const reenable = useReenableAdminMerchantReportSchedule();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -303,6 +306,16 @@ function ScheduledReportsPanel() {
     await del.mutateAsync({ merchantId });
     invalidate();
     toast.success(`Schedule removed for ${name}`);
+  };
+
+  const handleReenable = async (merchantId: number, name: string) => {
+    try {
+      await reenable.mutateAsync({ merchantId });
+      invalidate();
+      toast.success(`Schedule re-enabled for ${name}`);
+    } catch {
+      toast.error(`Failed to re-enable schedule for ${name}`);
+    }
   };
 
   const handleSendNow = async (merchantId: number, name: string) => {
@@ -614,8 +627,8 @@ function ScheduledReportsPanel() {
                     <FormatBadge format={s.format} />
                   </TableCell>
                   <TableCell>
-                    <span className={`text-xs font-medium ${s.isActive ? "text-emerald-400" : "text-muted-foreground"}`}>
-                      {s.isActive ? "Active" : "Paused"}
+                    <span className={`text-xs font-medium ${s.isActive ? "text-emerald-400" : s.consecutiveFailures > 0 ? "text-amber-400" : "text-muted-foreground"}`}>
+                      {s.isActive ? "Active" : s.consecutiveFailures > 0 ? "Auto-paused" : "Paused"}
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
@@ -665,6 +678,21 @@ function ScheduledReportsPanel() {
                       >
                         <History className="w-3.5 h-3.5" />
                       </Button>
+                      {!s.isActive && s.consecutiveFailures > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs gap-1 text-amber-400 hover:text-amber-300"
+                          onClick={() => handleReenable(s.merchantId, s.businessName)}
+                          disabled={reenable.isPending}
+                          title={`Re-enable auto-paused schedule (${s.consecutiveFailures} failure${s.consecutiveFailures !== 1 ? "s" : ""})`}
+                        >
+                          {reenable.isPending
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <RotateCcw className="w-3.5 h-3.5" />}
+                          <span className="hidden sm:inline">Re-enable</span>
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"

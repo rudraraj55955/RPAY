@@ -1790,7 +1790,13 @@ export const SendAllOverdueReportsBody = zod.object({
 export const SendAllOverdueReportsResponse = zod.object({
   "sent": zod.number().describe('Number of reports successfully sent'),
   "failed": zod.number().describe('Number of reports that failed to send'),
-  "total": zod.number().describe('Total overdue schedules processed')
+  "total": zod.number().describe('Total overdue schedules processed'),
+  "failures": zod.array(zod.object({
+  "merchantId": zod.number(),
+  "merchantName": zod.string(),
+  "email": zod.string(),
+  "reason": zod.string()
+})).describe('Per-merchant failure details')
 })
 
 

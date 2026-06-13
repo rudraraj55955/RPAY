@@ -1912,7 +1912,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [sent, failed, total]
+                required: [sent, failed, total, failures]
                 properties:
                   sent:
                     type: integer
@@ -1923,6 +1923,21 @@ paths:
                   total:
                     type: integer
                     description: Total overdue schedules processed
+                  failures:
+                    type: array
+                    description: Per-merchant failure details
+                    items:
+                      type: object
+                      required: [merchantId, merchantName, email, reason]
+                      properties:
+                        merchantId:
+                          type: integer
+                        merchantName:
+                          type: string
+                        email:
+                          type: string
+                        reason:
+                          type: string
         "401":
           description: Unauthorized
         "403":

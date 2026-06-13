@@ -268,6 +268,7 @@ function ScheduledReportsPanel() {
   const [frequencyFilter, setFrequencyFilter] = useState("all");
   const [formatFilter, setFormatFilter] = useState("all");
   const [historyMerchant, setHistoryMerchant] = useState<{ id: number; name: string } | null>(null);
+  const [sendFailures, setSendFailures] = useState<{ merchantId: number; merchantName: string; email: string; reason: string }[] | null>(null);
 
   type SortCol = "merchant" | "email" | "frequency" | "format" | "status" | "lastSent" | "nextDue";
   const VALID_SORT_COLS: SortCol[] = ["merchant", "email", "frequency", "format", "status", "lastSent", "nextDue"];
@@ -337,9 +338,11 @@ function ScheduledReportsPanel() {
       } else if (res.failed === 0) {
         toast.success(`Sent ${res.sent} overdue report${res.sent !== 1 ? "s" : ""} successfully`);
       } else if (res.sent === 0) {
-        toast.error(`Failed to send all ${res.failed} overdue report${res.failed !== 1 ? "s" : ""}`);
+        toast.error(`All ${res.failed} overdue report${res.failed !== 1 ? "s" : ""} failed — see details`);
+        setSendFailures(res.failures);
       } else {
         toast.warning(`Sent ${res.sent}, failed ${res.failed} of ${res.total} overdue reports`);
+        setSendFailures(res.failures);
       }
       invalidate();
     } catch {
@@ -753,6 +756,55 @@ function ScheduledReportsPanel() {
         open={historyMerchant != null}
         onClose={() => setHistoryMerchant(null)}
       />
+
+      <Dialog open={sendFailures != null} onOpenChange={(open) => { if (!open) setSendFailures(null); }}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <XCircle className="w-4 h-4 text-red-400" />
+              Failed Deliveries ({sendFailures?.length ?? 0})
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            The following merchants did not receive their overdue report. Address the errors listed below, then retry individually using "Send Now".
+          </p>
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {sendFailures && sendFailures.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Merchant</TableHead>
+                    <TableHead className="text-xs">Email</TableHead>
+                    <TableHead className="text-xs">Error</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sendFailures.map((f) => (
+                    <TableRow key={f.merchantId}>
+                      <TableCell className="text-xs font-medium text-foreground whitespace-nowrap">
+                        {f.merchantName}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {f.email}
+                      </TableCell>
+                      <TableCell className="text-xs text-red-400 max-w-[180px]">
+                        {f.reason}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-xs text-muted-foreground py-4 text-center">No failure details available.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setSendFailures(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!overrideTarget} onOpenChange={(open) => { if (!open) setOverrideTarget(null); }}>
         <DialogContent className="max-w-sm">

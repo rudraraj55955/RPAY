@@ -5,6 +5,7 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { SendAllOverdueReports200FailuresItem } from './sendAllOverdueReports200FailuresItem';
 
 export type SendAllOverdueReports200 = {
   /** Number of reports successfully sent */
@@ -13,4 +14,6 @@ export type SendAllOverdueReports200 = {
   failed: number;
   /** Total overdue schedules processed */
   total: number;
+  /** Per-merchant failure details */
+  failures: SendAllOverdueReports200FailuresItem[];
 };

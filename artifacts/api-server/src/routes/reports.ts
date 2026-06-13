@@ -650,6 +650,7 @@ router.post("/schedules/send-all-overdue", requireAdmin, async (req, res, next) 
 
     let sent = 0;
     let failed = 0;
+    const failures: { merchantId: number; merchantName: string; email: string; reason: string }[] = [];
 
     for (const row of overdue) {
       try {
@@ -658,13 +659,25 @@ router.post("/schedules/send-all-overdue", requireAdmin, async (req, res, next) 
           sent++;
         } else {
           failed++;
+          failures.push({
+            merchantId: row.schedule.merchantId,
+            merchantName: row.businessName,
+            email: row.email,
+            reason: "Report delivery failed — SMTP or attachment error",
+          });
         }
-      } catch {
+      } catch (err) {
         failed++;
+        failures.push({
+          merchantId: row.schedule.merchantId,
+          merchantName: row.businessName,
+          email: row.email,
+          reason: err instanceof Error ? err.message : "Unknown error",
+        });
       }
     }
 
-    res.json({ sent, failed, total: overdue.length });
+    res.json({ sent, failed, total: overdue.length, failures });
   } catch (err) {
     next(err);
   }

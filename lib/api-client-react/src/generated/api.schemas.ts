@@ -4681,6 +4681,13 @@ export type SendAllOverdueReportsBody = {
   merchantIds?: number[];
 };
 
+export type SendAllOverdueReports200FailuresItem = {
+  merchantId: number;
+  merchantName: string;
+  email: string;
+  reason: string;
+};
+
 export type SendAllOverdueReports200 = {
   /** Number of reports successfully sent */
   sent: number;
@@ -4688,6 +4695,8 @@ export type SendAllOverdueReports200 = {
   failed: number;
   /** Total overdue schedules processed */
   total: number;
+  /** Per-merchant failure details */
+  failures: SendAllOverdueReports200FailuresItem[];
 };
 
 export type GetAdminReportDeliveryHistoryParams = {

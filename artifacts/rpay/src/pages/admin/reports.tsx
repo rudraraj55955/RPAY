@@ -183,15 +183,28 @@ function ScheduledReportsPanel() {
     }
   };
 
+  const now = new Date();
+
   const filteredSchedules = schedules.filter((s) => {
     const q = search.trim().toLowerCase();
     if (q && !s.businessName.toLowerCase().includes(q) && !s.merchantEmail.toLowerCase().includes(q)) return false;
     if (statusFilter === "active" && !s.isActive) return false;
     if (statusFilter === "paused" && s.isActive) return false;
+    if (statusFilter === "overdue") {
+      if (!s.isActive) return false;
+      const nextDue = getNextDue(s.lastSentAt, s.frequency);
+      if (!nextDue || nextDue >= now) return false;
+    }
     if (frequencyFilter !== "all" && s.frequency !== frequencyFilter) return false;
     if (formatFilter !== "all" && s.format !== formatFilter) return false;
     return true;
   });
+
+  const overdueCount = schedules.filter((s) => {
+    if (!s.isActive) return false;
+    const nextDue = getNextDue(s.lastSentAt, s.frequency);
+    return nextDue != null && nextDue < now;
+  }).length;
 
   const hasFilters = search.trim() !== "" || statusFilter !== "all" || frequencyFilter !== "all" || formatFilter !== "all";
 
@@ -259,6 +272,16 @@ function ScheduledReportsPanel() {
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="paused">Paused</SelectItem>
+              <SelectItem value="overdue">
+                <span className="flex items-center gap-1.5">
+                  Overdue
+                  {overdueCount > 0 && (
+                    <span className="inline-flex items-center justify-center rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px] leading-none">
+                      {overdueCount}
+                    </span>
+                  )}
+                </span>
+              </SelectItem>
             </SelectContent>
           </Select>
           <Select value={frequencyFilter} onValueChange={setFrequencyFilter}>
@@ -289,7 +312,13 @@ function ScheduledReportsPanel() {
             </Button>
           )}
           {hasFilters && (
-            <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+            <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap flex items-center gap-2">
+              {statusFilter === "overdue" && filteredSchedules.length > 0 && (
+                <span className="inline-flex items-center gap-1 text-amber-400 font-medium">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  {filteredSchedules.length} overdue
+                </span>
+              )}
               {filteredSchedules.length} of {schedules.length} schedule{schedules.length !== 1 ? "s" : ""}
             </span>
           )}

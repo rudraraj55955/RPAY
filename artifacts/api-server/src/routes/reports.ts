@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { db, transactionsTable, merchantsTable, merchantConnectionsTable, ledgerEntriesTable, settlementsTable, reportSchedulesTable, reportDeliveryLogsTable } from "@workspace/db";
+import { db, transactionsTable, merchantsTable, merchantConnectionsTable, ledgerEntriesTable, settlementsTable, reportSchedulesTable, reportDeliveryLogsTable, usersTable } from "@workspace/db";
 import { eq, and, sql, gte, lte, or, inArray, isNotNull, isNull, desc } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { sendMerchantReport } from "../helpers/merchantReportScheduler";
+import { createNotification } from "../helpers/notifications";
 
 const router = Router();
 router.use(requireAuth);
@@ -607,6 +608,24 @@ router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
     }
 
     const schedule = await upsertSchedule(mid, { frequency, format, isActive, dayOfWeek, dayOfMonth, nextRunAt });
+
+    // Notify the merchant if the admin explicitly set or cleared nextRunAt
+    if (nextRunAt !== undefined) {
+      const [u] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.merchantId, mid)).limit(1);
+      if (u) {
+        const body = nextRunAt === null
+          ? "An admin has reverted your report schedule next run date to its normal cadence."
+          : `An admin has updated your report schedule. Your next report will be sent on ${new Date(nextRunAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })} IST.`;
+        createNotification({
+          userId: u.id,
+          type: "report_schedule_next_run_updated",
+          title: "Report Schedule Updated",
+          body,
+          metadata: { nextRunAt: nextRunAt ?? null },
+        }).catch(() => {});
+      }
+    }
+
     res.json({ schedule });
   } catch (err) {
     next(err);

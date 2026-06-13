@@ -13,6 +13,7 @@ export type NotificationType =
   | "scheduled_report_failure"
   | "scheduled_report_retry_success"
   | "scheduled_report_auto_paused"
+  | "report_schedule_next_run_updated"
   | "merchant_dormant"
   | "kyc_approved"
   | "kyc_rejected";

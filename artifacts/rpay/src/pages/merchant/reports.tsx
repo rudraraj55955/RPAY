@@ -253,9 +253,16 @@ function SchedulePanel() {
   const schedule = scheduleData?.schedule ?? null;
 
   const [historyFormatFilter, setHistoryFormatFilter] = useState<"all" | "xlsx" | "pdf">("all");
+  const [historyDateFrom, setHistoryDateFrom] = useState<string>("");
+  const [historyDateTo, setHistoryDateTo] = useState<string>("");
+
+  const historyParams: Record<string, unknown> = { limit: 50 };
+  if (historyFormatFilter !== "all") historyParams["format"] = historyFormatFilter;
+  if (historyDateFrom) historyParams["dateFrom"] = historyDateFrom;
+  if (historyDateTo) historyParams["dateTo"] = historyDateTo;
 
   const { data: historyData, isLoading: historyLoading } = useGetReportScheduleHistory(
-    { limit: 50, ...(historyFormatFilter !== "all" ? { format: historyFormatFilter as "xlsx" | "pdf" } : {}) },
+    historyParams as Parameters<typeof useGetReportScheduleHistory>[0],
     { query: { enabled: !!schedule } as any },
   );
   const deliveryLogs = historyData?.logs ?? [];
@@ -593,6 +600,13 @@ function SchedulePanel() {
               <History className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span className="text-xs font-medium text-muted-foreground">Delivery History</span>
 
+              {schedule.consecutiveFailures > 0 && (
+                <span className="flex items-center gap-1 text-xs text-amber-400 shrink-0">
+                  <AlertTriangle className="w-3 h-3" />
+                  {schedule.consecutiveFailures} consecutive {schedule.consecutiveFailures === 1 ? "failure" : "failures"}
+                </span>
+              )}
+
               {/* Format filter pill buttons */}
               <div className="flex items-center gap-1 ml-auto">
                 {(["all", "xlsx", "pdf"] as const).map((f) => (
@@ -613,13 +627,39 @@ function SchedulePanel() {
                   </button>
                 ))}
               </div>
+            </div>
 
-              {schedule.consecutiveFailures > 0 && (
-                <span className="flex items-center gap-1 text-xs text-amber-400 shrink-0">
-                  <AlertTriangle className="w-3 h-3" />
-                  {schedule.consecutiveFailures} consecutive {schedule.consecutiveFailures === 1 ? "failure" : "failures"}
-                </span>
-              )}
+            {/* Date-range filter row */}
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <CalendarRange className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground">Date range:</span>
+              <div className="flex items-center gap-1.5 flex-1 flex-wrap">
+                <Input
+                  type="date"
+                  value={historyDateFrom}
+                  onChange={(e) => setHistoryDateFrom(e.target.value)}
+                  className="h-7 text-xs w-36 px-2 min-w-0"
+                  placeholder="From"
+                />
+                <span className="text-xs text-muted-foreground">–</span>
+                <Input
+                  type="date"
+                  value={historyDateTo}
+                  onChange={(e) => setHistoryDateTo(e.target.value)}
+                  min={historyDateFrom || undefined}
+                  className="h-7 text-xs w-36 px-2 min-w-0"
+                  placeholder="To"
+                />
+                {(historyDateFrom || historyDateTo) && (
+                  <button
+                    onClick={() => { setHistoryDateFrom(""); setHistoryDateTo(""); }}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
 
             {historyLoading ? (
@@ -628,8 +668,8 @@ function SchedulePanel() {
               </div>
             ) : deliveryLogs.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">
-                {historyFormatFilter !== "all"
-                  ? `No ${historyFormatFilter.toUpperCase()} deliveries found.`
+                {historyFormatFilter !== "all" || historyDateFrom || historyDateTo
+                  ? "No deliveries match the selected filters."
                   : "No delivery history yet — logs appear here after your first scheduled send."}
               </p>
             ) : (

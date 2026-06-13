@@ -18,4 +18,12 @@ limit?: number;
  * Filter delivery history by file format
  */
 format?: GetReportScheduleHistoryFormat;
+/**
+ * Filter delivery history — only entries on or after this date (YYYY-MM-DD)
+ */
+dateFrom?: Date;
+/**
+ * Filter delivery history — only entries on or before this date (YYYY-MM-DD)
+ */
+dateTo?: Date;
 };

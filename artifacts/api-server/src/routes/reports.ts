@@ -477,10 +477,20 @@ router.get("/schedule/history", async (req, res, next) => {
     const rawLimit = parseInt((req.query["limit"] as string) ?? "20");
     const limit = isNaN(rawLimit) ? 20 : Math.min(Math.max(rawLimit, 1), 100);
     const formatFilter = (req.query["format"] as string | undefined) ?? null;
+    const dateFrom = (req.query["dateFrom"] as string | undefined) ?? null;
+    const dateTo = (req.query["dateTo"] as string | undefined) ?? null;
 
     const conditions = [eq(reportDeliveryLogsTable.merchantId, user.merchantId!)];
     if (formatFilter === "xlsx" || formatFilter === "pdf") {
       conditions.push(eq(reportDeliveryLogsTable.format, formatFilter));
+    }
+    if (dateFrom) {
+      conditions.push(gte(reportDeliveryLogsTable.attemptedAt, new Date(dateFrom)));
+    }
+    if (dateTo) {
+      const endOfDay = new Date(dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(lte(reportDeliveryLogsTable.attemptedAt, endOfDay));
     }
 
     const logs = await db

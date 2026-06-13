@@ -1706,6 +1706,18 @@ paths:
             type: string
             enum: [xlsx, pdf]
           description: Filter delivery history by file format
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter delivery history — only entries on or after this date (YYYY-MM-DD)
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter delivery history — only entries on or before this date (YYYY-MM-DD)
       responses:
         "200":
           description: Delivery history entries newest-first

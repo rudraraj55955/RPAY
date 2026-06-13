@@ -4601,6 +4601,14 @@ limit?: number;
  * Filter delivery history by file format
  */
 format?: GetReportScheduleHistoryFormat;
+/**
+ * Filter delivery history — only entries on or after this date (YYYY-MM-DD)
+ */
+dateFrom?: string;
+/**
+ * Filter delivery history — only entries on or before this date (YYYY-MM-DD)
+ */
+dateTo?: string;
 };
 
 export type GetReportScheduleHistoryFormat = typeof GetReportScheduleHistoryFormat[keyof typeof GetReportScheduleHistoryFormat];

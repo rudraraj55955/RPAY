@@ -5,6 +5,58 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+export interface KycUploadUrlRequest {
+  name: string;
+  size: number;
+  contentType: string;
+}
+
+export interface KycUploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+}
+
+export interface KycDocument {
+  id: number;
+  merchantId: number;
+  docType: string;
+  fileUrl: string;
+  fileName?: string | null;
+  status: string;
+  adminNote?: string | null;
+  reviewedBy?: number | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KycDocumentListResponse {
+  data: KycDocument[];
+  total: number;
+}
+
+export interface KycDocumentSubmitInput {
+  docType: string;
+  fileUrl: string;
+  fileName?: string;
+}
+
+export interface KycReviewInput {
+  status: string;
+  adminNote?: string;
+}
+
+export interface KycSummary {
+  merchantId: number;
+  isVerified: boolean;
+  totalDocs: number;
+  pendingCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  requiredDocTypes: string[];
+  submittedDocTypes: string[];
+}
+
 export interface GithubSyncConfig {
   /** Whether the GitHub sync job is enabled */
   enabled: boolean;
@@ -4495,5 +4547,10 @@ export const GetRoutingMetricsWindow = {
 export type GetRoutingLogsParams = {
 page?: number;
 limit?: number;
+};
+
+export type ListKycDocumentsParams = {
+merchantId?: number;
+status?: string;
 };
 

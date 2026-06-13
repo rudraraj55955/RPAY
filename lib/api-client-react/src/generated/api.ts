@@ -129,6 +129,13 @@ import type {
   InvoiceListResponse,
   KnownLoginIp,
   KnownLoginIpListResponse,
+  KycDocument,
+  KycDocumentListResponse,
+  KycDocumentSubmitInput,
+  KycReviewInput,
+  KycSummary,
+  KycUploadUrlRequest,
+  KycUploadUrlResponse,
   LabelIpRequest,
   LastReconSummary,
   LedgerAdjustmentInput,
@@ -145,6 +152,7 @@ import type {
   ListCredentialEventsParams,
   ListEkqrWebhookLogsParams,
   ListInvoicesParams,
+  ListKycDocumentsParams,
   ListLedgerEntriesParams,
   ListMerchantCredentialEventsParams,
   ListMerchantFeaturesParams,
@@ -21261,6 +21269,451 @@ export function useGetRoutingStatus<TData = Awaited<ReturnType<typeof getRouting
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetRoutingStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getRequestKycUploadUrlUrl = () => {
+
+
+
+
+  return `/api/kyc/upload-url`
+}
+
+/**
+ * @summary Request a presigned URL for KYC document upload
+ */
+export const requestKycUploadUrl = async (kycUploadUrlRequest: KycUploadUrlRequest, options?: RequestInit): Promise<KycUploadUrlResponse> => {
+
+  return customFetch<KycUploadUrlResponse>(getRequestKycUploadUrlUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      kycUploadUrlRequest,)
+  }
+);}
+
+
+
+
+export const getRequestKycUploadUrlMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestKycUploadUrl>>, TError,{data: BodyType<KycUploadUrlRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestKycUploadUrl>>, TError,{data: BodyType<KycUploadUrlRequest>}, TContext> => {
+
+const mutationKey = ['requestKycUploadUrl'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestKycUploadUrl>>, {data: BodyType<KycUploadUrlRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestKycUploadUrl(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestKycUploadUrlMutationResult = NonNullable<Awaited<ReturnType<typeof requestKycUploadUrl>>>
+    export type RequestKycUploadUrlMutationBody = BodyType<KycUploadUrlRequest>
+    export type RequestKycUploadUrlMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Request a presigned URL for KYC document upload
+ */
+export const useRequestKycUploadUrl = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestKycUploadUrl>>, TError,{data: BodyType<KycUploadUrlRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestKycUploadUrl>>,
+        TError,
+        {data: BodyType<KycUploadUrlRequest>},
+        TContext
+      > => {
+      return useMutation(getRequestKycUploadUrlMutationOptions(options));
+    }
+
+export const getListKycDocumentsUrl = (params?: ListKycDocumentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/kyc?${stringifiedParams}` : `/api/kyc`
+}
+
+/**
+ * @summary List KYC documents (merchant sees own; admin can filter by merchantId)
+ */
+export const listKycDocuments = async (params?: ListKycDocumentsParams, options?: RequestInit): Promise<KycDocumentListResponse> => {
+
+  return customFetch<KycDocumentListResponse>(getListKycDocumentsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListKycDocumentsQueryKey = (params?: ListKycDocumentsParams,) => {
+    return [
+    `/api/kyc`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListKycDocumentsQueryOptions = <TData = Awaited<ReturnType<typeof listKycDocuments>>, TError = ErrorType<ErrorResponse>>(params?: ListKycDocumentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listKycDocuments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListKycDocumentsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listKycDocuments>>> = ({ signal }) => listKycDocuments(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listKycDocuments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListKycDocumentsQueryResult = NonNullable<Awaited<ReturnType<typeof listKycDocuments>>>
+export type ListKycDocumentsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary List KYC documents (merchant sees own; admin can filter by merchantId)
+ */
+
+export function useListKycDocuments<TData = Awaited<ReturnType<typeof listKycDocuments>>, TError = ErrorType<ErrorResponse>>(
+ params?: ListKycDocumentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listKycDocuments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListKycDocumentsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSubmitKycDocumentUrl = () => {
+
+
+
+
+  return `/api/kyc`
+}
+
+/**
+ * @summary Submit a KYC document
+ */
+export const submitKycDocument = async (kycDocumentSubmitInput: KycDocumentSubmitInput, options?: RequestInit): Promise<KycDocument> => {
+
+  return customFetch<KycDocument>(getSubmitKycDocumentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      kycDocumentSubmitInput,)
+  }
+);}
+
+
+
+
+export const getSubmitKycDocumentMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitKycDocument>>, TError,{data: BodyType<KycDocumentSubmitInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitKycDocument>>, TError,{data: BodyType<KycDocumentSubmitInput>}, TContext> => {
+
+const mutationKey = ['submitKycDocument'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitKycDocument>>, {data: BodyType<KycDocumentSubmitInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitKycDocument(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitKycDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof submitKycDocument>>>
+    export type SubmitKycDocumentMutationBody = BodyType<KycDocumentSubmitInput>
+    export type SubmitKycDocumentMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Submit a KYC document
+ */
+export const useSubmitKycDocument = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitKycDocument>>, TError,{data: BodyType<KycDocumentSubmitInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitKycDocument>>,
+        TError,
+        {data: BodyType<KycDocumentSubmitInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitKycDocumentMutationOptions(options));
+    }
+
+export const getDeleteKycDocumentUrl = (id: number,) => {
+
+
+
+
+  return `/api/kyc/${id}`
+}
+
+/**
+ * @summary Delete a pending KYC document (merchant deletes own pending)
+ */
+export const deleteKycDocument = async (id: number, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getDeleteKycDocumentUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteKycDocumentMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteKycDocument>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteKycDocument>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteKycDocument'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteKycDocument>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteKycDocument(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteKycDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteKycDocument>>>
+
+    export type DeleteKycDocumentMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Delete a pending KYC document (merchant deletes own pending)
+ */
+export const useDeleteKycDocument = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteKycDocument>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteKycDocument>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteKycDocumentMutationOptions(options));
+    }
+
+export const getReviewKycDocumentUrl = (id: number,) => {
+
+
+
+
+  return `/api/kyc/${id}/review`
+}
+
+/**
+ * @summary Approve or reject a KYC document (admin only)
+ */
+export const reviewKycDocument = async (id: number,
+    kycReviewInput: KycReviewInput, options?: RequestInit): Promise<KycDocument> => {
+
+  return customFetch<KycDocument>(getReviewKycDocumentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      kycReviewInput,)
+  }
+);}
+
+
+
+
+export const getReviewKycDocumentMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewKycDocument>>, TError,{id: number;data: BodyType<KycReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewKycDocument>>, TError,{id: number;data: BodyType<KycReviewInput>}, TContext> => {
+
+const mutationKey = ['reviewKycDocument'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewKycDocument>>, {id: number;data: BodyType<KycReviewInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reviewKycDocument(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewKycDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof reviewKycDocument>>>
+    export type ReviewKycDocumentMutationBody = BodyType<KycReviewInput>
+    export type ReviewKycDocumentMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Approve or reject a KYC document (admin only)
+ */
+export const useReviewKycDocument = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewKycDocument>>, TError,{id: number;data: BodyType<KycReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewKycDocument>>,
+        TError,
+        {id: number;data: BodyType<KycReviewInput>},
+        TContext
+      > => {
+      return useMutation(getReviewKycDocumentMutationOptions(options));
+    }
+
+export const getGetKycSummaryUrl = (merchantId: number,) => {
+
+
+
+
+  return `/api/kyc/summary/${merchantId}`
+}
+
+/**
+ * @summary Get KYC verification summary for a merchant
+ */
+export const getKycSummary = async (merchantId: number, options?: RequestInit): Promise<KycSummary> => {
+
+  return customFetch<KycSummary>(getGetKycSummaryUrl(merchantId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetKycSummaryQueryKey = (merchantId: number,) => {
+    return [
+    `/api/kyc/summary/${merchantId}`
+    ] as const;
+    }
+
+
+export const getGetKycSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getKycSummary>>, TError = ErrorType<ErrorResponse>>(merchantId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKycSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetKycSummaryQueryKey(merchantId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getKycSummary>>> = ({ signal }) => getKycSummary(merchantId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(merchantId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getKycSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetKycSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getKycSummary>>>
+export type GetKycSummaryQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get KYC verification summary for a merchant
+ */
+
+export function useGetKycSummary<TData = Awaited<ReturnType<typeof getKycSummary>>, TError = ErrorType<ErrorResponse>>(
+ merchantId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKycSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetKycSummaryQueryOptions(merchantId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

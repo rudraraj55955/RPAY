@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, merchantsTable, usersTable, merchantPlansTable, plansTable, planHistoryTable, auditLogsTable, invoicesTable, apiKeysTable, credentialEventsTable, webhooksTable, webhookFailureAlertLogsTable } from "@workspace/db";
+import { db, merchantsTable, usersTable, merchantPlansTable, plansTable, planHistoryTable, auditLogsTable, invoicesTable, apiKeysTable, credentialEventsTable, webhooksTable, webhookFailureAlertLogsTable, merchantKycTable } from "@workspace/db";
 import { eq, ilike, and, or, count, sql, desc, lt, lte, gte, isNotNull, inArray } from "drizzle-orm";
 import { maskIp } from "../helpers/apiKeyEmail";
 import { loadWebhookRetryConfig } from "../helpers/callbackRetry";
@@ -425,10 +425,33 @@ router.patch("/:id/webhook-max-retries", requireAdmin, async (req, res) => {
   res.json(webhook);
 });
 
+const KYC_REQUIRED_DOC_TYPES = ["pan", "gst", "bank_details", "business_proof"];
+
+async function checkKycApproved(merchantId: number): Promise<{ passed: boolean; missing: string[] }> {
+  const docs = await db
+    .select({ docType: merchantKycTable.docType, status: merchantKycTable.status })
+    .from(merchantKycTable)
+    .where(eq(merchantKycTable.merchantId, merchantId));
+  const missing = KYC_REQUIRED_DOC_TYPES.filter(
+    dt => !docs.some(d => d.docType === dt && d.status === "approved")
+  );
+  return { passed: missing.length === 0, missing };
+}
+
 // POST /api/merchants/:id/approve
 router.post("/:id/approve", requireAdmin, async (req, res) => {
   const id = parseInt(req.params['id'] as string);
   const admin = (req as any).user;
+
+  const kyc = await checkKycApproved(id);
+  if (!kyc.passed) {
+    res.status(422).json({
+      error: "KYC verification incomplete. All required documents must be approved before the merchant can be activated.",
+      missingDocTypes: kyc.missing,
+    });
+    return;
+  }
+
   const [merchant] = await db.update(merchantsTable)
     .set({ status: "approved", rejectionReason: null })
     .where(eq(merchantsTable.id, id)).returning();
@@ -609,6 +632,12 @@ router.post("/bulk-approve", requireAdmin, async (req, res) => {
       }
       if (existing.status === "approved") {
         results.push({ id: merchantId, name, success: false, reason: "Already approved" });
+        failed++;
+        continue;
+      }
+      const kyc = await checkKycApproved(merchantId);
+      if (!kyc.passed) {
+        results.push({ id: merchantId, name, success: false, reason: `KYC incomplete: missing approved docs for ${kyc.missing.join(", ")}` });
         failed++;
         continue;
       }

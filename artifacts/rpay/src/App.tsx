@@ -79,6 +79,8 @@ import MerchantPaymentLinks from "@/pages/merchant/payment-links";
 import MerchantBranding from "@/pages/merchant/branding";
 import MerchantSecurity from "@/pages/merchant/security";
 import MerchantRasokartServices from "@/pages/merchant/rasokart-services";
+import MerchantVerification from "@/pages/merchant/verification";
+import AdminKycReview from "@/pages/admin/kyc-review";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -171,6 +173,7 @@ function Router() {
       <Route path="/admin/provider-integrations"><AdminRoute component={AdminProviderIntegrations} /></Route>
       <Route path="/admin/smart-routing"><AdminRoute component={AdminSmartRouting} /></Route>
       <Route path="/admin/module-control"><AdminRoute component={AdminModuleControl} /></Route>
+      <Route path="/admin/kyc-review"><AdminRoute component={AdminKycReview} /></Route>
 
       {/* Merchant Routes */}
       <Route path="/merchant/dashboard"><MerchantRoute component={MerchantDashboard} /></Route>
@@ -192,6 +195,7 @@ function Router() {
       <Route path="/merchant/branding"><MerchantRoute component={MerchantBranding} /></Route>
       <Route path="/merchant/security"><MerchantRoute component={MerchantSecurity} /></Route>
       <Route path="/merchant/rasokart-services"><MerchantRoute component={MerchantRasokartServices} /></Route>
+      <Route path="/merchant/verification"><MerchantRoute component={MerchantVerification} /></Route>
       <Route path="/merchant/api-docs"><PublicPage component={MerchantApiDocs} /></Route>
 
       <Route path="/pay/:slug" component={PayPage} />

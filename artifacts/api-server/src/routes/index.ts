@@ -42,6 +42,7 @@ import rasokartServicesRouter from "./rasokartServices";
 import smartRoutingRouter from "./smartRouting";
 import moduleControlRouter from "./moduleControl";
 import merchantModuleStatusRouter from "./merchantModuleStatus";
+import kycRouter from "./kyc";
 
 const router: IRouter = Router();
 
@@ -88,5 +89,6 @@ router.use("/merchant", rasokartServicesRouter);
 router.use("/smart-routing", smartRoutingRouter);
 router.use("/module-control", moduleControlRouter);
 router.use("/merchant", merchantModuleStatusRouter);
+router.use("/kyc", kycRouter);
 
 export default router;

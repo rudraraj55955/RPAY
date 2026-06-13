@@ -6247,3 +6247,112 @@ export const GetRoutingStatusResponse = zod.object({
 })
 
 
+/**
+ * @summary Request a presigned URL for KYC document upload
+ */
+export const RequestKycUploadUrlBody = zod.object({
+  "name": zod.string(),
+  "size": zod.number(),
+  "contentType": zod.string()
+})
+
+export const RequestKycUploadUrlResponse = zod.object({
+  "uploadURL": zod.string(),
+  "objectPath": zod.string()
+})
+
+
+/**
+ * @summary List KYC documents (merchant sees own; admin can filter by merchantId)
+ */
+export const ListKycDocumentsQueryParams = zod.object({
+  "merchantId": zod.coerce.number().optional(),
+  "status": zod.coerce.string().optional()
+})
+
+export const ListKycDocumentsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "docType": zod.string(),
+  "fileUrl": zod.string(),
+  "fileName": zod.string().nullish(),
+  "status": zod.string(),
+  "adminNote": zod.string().nullish(),
+  "reviewedBy": zod.number().nullish(),
+  "reviewedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Submit a KYC document
+ */
+export const SubmitKycDocumentBody = zod.object({
+  "docType": zod.string(),
+  "fileUrl": zod.string(),
+  "fileName": zod.string().optional()
+})
+
+
+/**
+ * @summary Delete a pending KYC document (merchant deletes own pending)
+ */
+export const DeleteKycDocumentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteKycDocumentResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Approve or reject a KYC document (admin only)
+ */
+export const ReviewKycDocumentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReviewKycDocumentBody = zod.object({
+  "status": zod.string(),
+  "adminNote": zod.string().optional()
+})
+
+export const ReviewKycDocumentResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "docType": zod.string(),
+  "fileUrl": zod.string(),
+  "fileName": zod.string().nullish(),
+  "status": zod.string(),
+  "adminNote": zod.string().nullish(),
+  "reviewedBy": zod.number().nullish(),
+  "reviewedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Get KYC verification summary for a merchant
+ */
+export const GetKycSummaryParams = zod.object({
+  "merchantId": zod.coerce.number()
+})
+
+export const GetKycSummaryResponse = zod.object({
+  "merchantId": zod.number(),
+  "isVerified": zod.boolean(),
+  "totalDocs": zod.number(),
+  "pendingCount": zod.number(),
+  "approvedCount": zod.number(),
+  "rejectedCount": zod.number(),
+  "requiredDocTypes": zod.array(zod.string()),
+  "submittedDocTypes": zod.array(zod.string())
+})
+
+

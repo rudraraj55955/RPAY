@@ -1,10 +1,10 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { UserRole, useGetMyPlanUsage, useGetCallbackSecret, useListApiKeys, useGetSecurityComplianceSummary } from "@workspace/api-client-react";
+import { UserRole, useGetMyPlanUsage, useGetCallbackSecret, useListApiKeys, useGetSecurityComplianceSummary, useGetKycSummary } from "@workspace/api-client-react";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, SidebarFooter, SidebarTrigger } from "@/components/ui/sidebar";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
-import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap, GitMerge, Link2, Paintbrush, Settings, ShieldAlert, X, Download, ShieldOff, Layers, ToggleLeft } from "lucide-react";
+import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap, GitMerge, Link2, Paintbrush, Settings, ShieldAlert, X, Download, ShieldOff, Layers, ToggleLeft, BadgeCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NotificationBell } from "@/components/notification-bell";
@@ -160,14 +160,21 @@ interface DashboardLayoutProps {
 
 function MerchantSidebar() {
   const [location] = useLocation();
+  const { user } = useAuth();
   const { data: usage } = useGetMyPlanUsage();
+  const merchantId = (user as any)?.merchantId as number | undefined;
+  const { data: kycSummary } = useGetKycSummary(merchantId ?? 0, {
+    query: { enabled: !!merchantId, queryKey: ["/api/kyc/summary", merchantId] },
+  });
+  const isKycVerified = kycSummary?.isVerified === true;
 
   const navGroups = [
     {
       group: "Overview",
       items: [
-        { title: "Dashboard", icon: LayoutDashboard, href: "/merchant/dashboard", locked: false, lockReason: null },
-        { title: "My Plan", icon: CreditCard, href: "/merchant/plan", locked: false, lockReason: null },
+        { title: "Dashboard", icon: LayoutDashboard, href: "/merchant/dashboard", locked: false, lockReason: null, badge: null },
+        { title: "My Plan", icon: CreditCard, href: "/merchant/plan", locked: false, lockReason: null, badge: null },
+        { title: "Verification", icon: BadgeCheck, href: "/merchant/verification", locked: false, lockReason: null, badge: isKycVerified ? "Verified" : null },
       ],
     },
     {
@@ -238,7 +245,13 @@ function MerchantSidebar() {
                     <SidebarMenuButton asChild isActive={location === item.href} tooltip={item.title}>
                       <Link href={item.href} className="flex items-center gap-3">
                         <item.icon className="w-4 h-4" />
-                        <span>{item.title}</span>
+                        <span className="flex-1">{item.title}</span>
+                        {"badge" in item && item.badge && (
+                          <span className="flex items-center gap-0.5 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded px-1 py-0.5 leading-none shrink-0">
+                            <BadgeCheck className="w-3 h-3" />
+                            {item.badge}
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   )}
@@ -263,6 +276,7 @@ const ADMIN_NAV = [
     group: "Merchants",
     items: [
       { title: "Merchants", icon: Store, href: "/admin/merchants" },
+      { title: "KYC Review", icon: BadgeCheck, href: "/admin/kyc-review" },
       { title: "Plans", icon: CreditCard, href: "/admin/plans" },
       { title: "Invoices", icon: Receipt, href: "/admin/invoices" },
     ],

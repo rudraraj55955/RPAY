@@ -65,6 +65,8 @@ tags:
     description: GitHub repository sync status
   - name: security
     description: Merchant security event log
+  - name: kyc
+    description: KYC document verification for merchants
 paths:
   /healthz:
     get:
@@ -6706,8 +6708,314 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RoutingStatusResponse"
+  /kyc/upload-url:
+    post:
+      operationId: requestKycUploadUrl
+      tags: [kyc]
+      summary: Request a presigned URL for KYC document upload
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KycUploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KycUploadUrlResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /kyc:
+    get:
+      operationId: listKycDocuments
+      tags: [kyc]
+      summary: List KYC documents (merchant sees own; admin can filter by merchantId)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: merchantId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of KYC documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KycDocumentListResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: submitKycDocument
+      tags: [kyc]
+      summary: Submit a KYC document
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KycDocumentSubmitInput"
+      responses:
+        "201":
+          description: KYC document submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KycDocument"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /kyc/{id}:
+    delete:
+      operationId: deleteKycDocument
+      tags: [kyc]
+      summary: Delete a pending KYC document (merchant deletes own pending)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /kyc/{id}/review:
+    patch:
+      operationId: reviewKycDocument
+      tags: [kyc]
+      summary: Approve or reject a KYC document (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KycReviewInput"
+      responses:
+        "200":
+          description: KYC document reviewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KycDocument"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /kyc/summary/{merchantId}:
+    get:
+      operationId: getKycSummary
+      tags: [kyc]
+      summary: Get KYC verification summary for a merchant
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: merchantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: KYC summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KycSummary"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
+    KycUploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+
+    KycUploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+
+    KycDocument:
+      type: object
+      required: [id, merchantId, docType, fileUrl, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        docType:
+          type: string
+        fileUrl:
+          type: string
+        fileName:
+          type: string
+          nullable: true
+        status:
+          type: string
+        adminNote:
+          type: string
+          nullable: true
+        reviewedBy:
+          type: integer
+          nullable: true
+        reviewedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    KycDocumentListResponse:
+      type: object
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/KycDocument"
+        total:
+          type: integer
+
+    KycDocumentSubmitInput:
+      type: object
+      required: [docType, fileUrl]
+      properties:
+        docType:
+          type: string
+        fileUrl:
+          type: string
+        fileName:
+          type: string
+
+    KycReviewInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+        adminNote:
+          type: string
+
+    KycSummary:
+      type: object
+      required: [merchantId, isVerified, totalDocs, pendingCount, approvedCount, rejectedCount, requiredDocTypes, submittedDocTypes]
+      properties:
+        merchantId:
+          type: integer
+        isVerified:
+          type: boolean
+        totalDocs:
+          type: integer
+        pendingCount:
+          type: integer
+        approvedCount:
+          type: integer
+        rejectedCount:
+          type: integer
+        requiredDocTypes:
+          type: array
+          items:
+            type: string
+        submittedDocTypes:
+          type: array
+          items:
+            type: string
+
     GithubSyncConfig:
       type: object
       required: [enabled, schedule]

@@ -71,7 +71,7 @@ import {
   PauseCircle,
   Check,
 } from "lucide-react";
-import { format, formatDistanceToNow, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { format, formatDistanceToNow, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -1196,6 +1196,34 @@ export default function MerchantReports() {
   const txCanSaveDatePreset = !!(txDateFrom && txDateTo) && !txIsBuiltInPresetActive && !txIsCustomDateAlreadySaved;
   const stlCanSaveDatePreset = !!(stlDateFrom && stlDateTo) && !stlIsBuiltInPresetActive && !stlIsCustomDateAlreadySaved;
 
+  const formatDateLabel = (dateStr: string): string => {
+    try { return format(parseISO(dateStr), "d MMM yyyy"); }
+    catch { return dateStr; }
+  };
+
+  const buildRangeSummary = (
+    dateFrom: string,
+    dateTo: string,
+    activePreset: string | null,
+  ): string => {
+    const hasFrom = !!dateFrom;
+    const hasTo = !!dateTo;
+
+    let presetLabel: string | null = activePreset;
+    if (!presetLabel && hasFrom && hasTo) {
+      const matched = customDatePresets.find(p => p.from === dateFrom && p.to === dateTo);
+      if (matched) presetLabel = matched.name;
+    }
+
+    if (!hasFrom && !hasTo) return "All time";
+    if (hasFrom && hasTo) {
+      const range = `${formatDateLabel(dateFrom)} – ${formatDateLabel(dateTo)}`;
+      return presetLabel ? `${presetLabel} · ${range}` : `Custom range · ${range}`;
+    }
+    if (hasFrom) return `From ${formatDateLabel(dateFrom)}`;
+    return `Until ${formatDateLabel(dateTo)}`;
+  };
+
   const openSaveInput = () => {
     setSaveFilterName("");
     setSaveFilterNameError("");
@@ -1962,6 +1990,12 @@ export default function MerchantReports() {
                 </div>
               </div>
 
+              {/* Date range summary */}
+              <p className="text-xs text-muted-foreground/70 flex items-center gap-1.5">
+                <CalendarRange className="w-3 h-3 shrink-0" />
+                {buildRangeSummary(txDateFrom, txDateTo, txActivePreset)}
+              </p>
+
               {/* Save date preset bar */}
               {(txCanSaveDatePreset || txIsCustomDateAlreadySaved || txShowSaveDatePreset) && (
                 <div className="flex flex-wrap items-start gap-2">
@@ -2408,6 +2442,12 @@ export default function MerchantReports() {
                   />
                 </div>
               </div>
+
+              {/* Date range summary */}
+              <p className="text-xs text-muted-foreground/70 flex items-center gap-1.5">
+                <CalendarRange className="w-3 h-3 shrink-0" />
+                {buildRangeSummary(stlDateFrom, stlDateTo, stlActivePreset)}
+              </p>
 
               {/* Save date preset bar */}
               {(stlCanSaveDatePreset || stlIsCustomDateAlreadySaved || stlShowSaveDatePreset) && (

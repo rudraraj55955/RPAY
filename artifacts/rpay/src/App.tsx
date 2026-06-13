@@ -55,6 +55,7 @@ import AdminSmartRouting from "@/pages/admin/smart-routing";
 import AdminModuleControl from "@/pages/admin/module-control";
 import AdminWallets from "@/pages/admin/wallets";
 import AdminWalletDetail from "@/pages/admin/wallet-detail";
+import AdminSupportTickets from "@/pages/admin/support-tickets";
 import PayPage from "@/pages/pay";
 import QrPayPage from "@/pages/qr-pay";
 import VaPayPage from "@/pages/va-pay";
@@ -86,6 +87,7 @@ import MerchantWallet from "@/pages/merchant/wallet";
 import AdminKycReview from "@/pages/admin/kyc-review";
 import MerchantReports from "@/pages/merchant/reports";
 import AdminReports from "@/pages/admin/reports";
+import MerchantSupport from "@/pages/merchant/support";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -182,6 +184,7 @@ function Router() {
       <Route path="/admin/wallets"><AdminRoute component={AdminWallets} /></Route>
       <Route path="/admin/kyc-review"><AdminRoute component={AdminKycReview} /></Route>
       <Route path="/admin/reports"><AdminRoute component={AdminReports} /></Route>
+      <Route path="/admin/support-tickets"><AdminRoute component={AdminSupportTickets} /></Route>
 
       {/* Merchant Routes */}
       <Route path="/merchant/dashboard"><MerchantRoute component={MerchantDashboard} /></Route>
@@ -206,6 +209,7 @@ function Router() {
       <Route path="/merchant/verification"><MerchantRoute component={MerchantVerification} /></Route>
       <Route path="/merchant/wallet"><MerchantRoute component={MerchantWallet} /></Route>
       <Route path="/merchant/reports"><MerchantRoute component={MerchantReports} /></Route>
+      <Route path="/merchant/support"><MerchantRoute component={MerchantSupport} /></Route>
       <Route path="/merchant/api-docs"><PublicPage component={MerchantApiDocs} /></Route>
 
       <Route path="/pay/:slug" component={PayPage} />

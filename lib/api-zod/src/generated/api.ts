@@ -6406,3 +6406,135 @@ export const GetKycSummaryResponse = zod.object({
 })
 
 
+/**
+ * @summary List support tickets (admin sees all; merchant sees own)
+ */
+export const ListSupportTicketsQueryParams = zod.object({
+  "status": zod.enum(['open', 'in-progress', 'resolved']).optional(),
+  "category": zod.coerce.string().optional(),
+  "priority": zod.coerce.string().optional(),
+  "merchantId": zod.coerce.number().optional(),
+  "page": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListSupportTicketsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "userId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "category": zod.string(),
+  "subject": zod.string(),
+  "message": zod.string(),
+  "screenshotUrl": zod.string().nullish(),
+  "status": zod.string(),
+  "priority": zod.string(),
+  "resolvedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Create a new support ticket (merchant only)
+ */
+export const CreateSupportTicketBody = zod.object({
+  "category": zod.enum(['payments', 'account', 'technical', 'billing']),
+  "subject": zod.string(),
+  "message": zod.string(),
+  "screenshotUrl": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get a single support ticket with replies
+ */
+export const GetSupportTicketParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetSupportTicketResponse = zod.object({
+  "ticket": zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "userId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "category": zod.string(),
+  "subject": zod.string(),
+  "message": zod.string(),
+  "screenshotUrl": zod.string().nullish(),
+  "status": zod.string(),
+  "priority": zod.string(),
+  "resolvedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}),
+  "replies": zod.array(zod.object({
+  "id": zod.number(),
+  "ticketId": zod.number(),
+  "authorId": zod.number(),
+  "authorRole": zod.string(),
+  "authorName": zod.string().nullish(),
+  "message": zod.string(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Update ticket status and/or priority (admin only)
+ */
+export const UpdateTicketStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateTicketStatusBody = zod.object({
+  "status": zod.enum(['open', 'in-progress', 'resolved']).optional(),
+  "priority": zod.enum(['low', 'normal', 'high', 'urgent']).optional()
+})
+
+export const UpdateTicketStatusResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "userId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "category": zod.string(),
+  "subject": zod.string(),
+  "message": zod.string(),
+  "screenshotUrl": zod.string().nullish(),
+  "status": zod.string(),
+  "priority": zod.string(),
+  "resolvedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Add a reply to a support ticket
+ */
+export const AddTicketReplyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AddTicketReplyBody = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Get ticket count stats (admin only)
+ */
+export const GetSupportTicketStatsResponse = zod.object({
+  "open": zod.number(),
+  "inProgress": zod.number(),
+  "resolved": zod.number(),
+  "total": zod.number()
+})
+
+

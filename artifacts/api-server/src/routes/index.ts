@@ -45,6 +45,7 @@ import merchantModuleStatusRouter from "./merchantModuleStatus";
 import walletsRouter from "./wallets";
 import kycRouter from "./kyc";
 import reportsRouter from "./reports";
+import supportRouter from "./support";
 
 const router: IRouter = Router();
 
@@ -94,5 +95,6 @@ router.use("/merchant", merchantModuleStatusRouter);
 router.use("/wallets", walletsRouter);
 router.use("/kyc", kycRouter);
 router.use("/reports", reportsRouter);
+router.use("/support", supportRouter);
 
 export default router;

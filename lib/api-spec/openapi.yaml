@@ -69,6 +69,8 @@ tags:
     description: KYC document verification for merchants
   - name: reports
     description: Transaction report generation for merchants and admins
+  - name: support
+    description: Merchant support ticket system
 paths:
   /healthz:
     get:
@@ -6967,6 +6969,151 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /support/tickets:
+    get:
+      operationId: listSupportTickets
+      tags: [support]
+      summary: List support tickets (admin sees all; merchant sees own)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [open, in-progress, resolved] }
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: priority
+          in: query
+          schema: { type: string }
+        - name: merchantId
+          in: query
+          schema: { type: integer }
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paginated ticket list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicketListResponse"
+    post:
+      operationId: createSupportTicket
+      tags: [support]
+      summary: Create a new support ticket (merchant only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSupportTicketInput"
+      responses:
+        "201":
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicket"
+
+  /support/tickets/{id}:
+    get:
+      operationId: getSupportTicket
+      tags: [support]
+      summary: Get a single support ticket with replies
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Ticket with replies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicketDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /support/tickets/{id}/status:
+    patch:
+      operationId: updateTicketStatus
+      tags: [support]
+      summary: Update ticket status and/or priority (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTicketStatusInput"
+      responses:
+        "200":
+          description: Updated ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicket"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /support/tickets/{id}/replies:
+    post:
+      operationId: addTicketReply
+      tags: [support]
+      summary: Add a reply to a support ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddTicketReplyInput"
+      responses:
+        "201":
+          description: Reply added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketReply"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /support/tickets/stats:
+    get:
+      operationId: getSupportTicketStats
+      tags: [support]
+      summary: Get ticket count stats (admin only)
+      responses:
+        "200":
+          description: Ticket stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicketStats"
 components:
   schemas:
     KycUploadUrlRequest:
@@ -11804,4 +11951,129 @@ components:
             type: object
         recentActivity:
           type: object
+
+    SupportTicket:
+      type: object
+      required: [id, merchantId, userId, category, subject, message, status, priority, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        userId:
+          type: integer
+        merchantName:
+          type: string
+          nullable: true
+        category:
+          type: string
+        subject:
+          type: string
+        message:
+          type: string
+        screenshotUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+        priority:
+          type: string
+        resolvedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    TicketReply:
+      type: object
+      required: [id, ticketId, authorId, authorRole, message, createdAt]
+      properties:
+        id:
+          type: integer
+        ticketId:
+          type: integer
+        authorId:
+          type: integer
+        authorRole:
+          type: string
+        authorName:
+          type: string
+          nullable: true
+        message:
+          type: string
+        createdAt:
+          type: string
+
+    SupportTicketDetail:
+      type: object
+      required: [ticket, replies]
+      properties:
+        ticket:
+          $ref: "#/components/schemas/SupportTicket"
+        replies:
+          type: array
+          items:
+            $ref: "#/components/schemas/TicketReply"
+
+    SupportTicketListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportTicket"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    CreateSupportTicketInput:
+      type: object
+      required: [category, subject, message]
+      properties:
+        category:
+          type: string
+          enum: [payments, account, technical, billing]
+        subject:
+          type: string
+        message:
+          type: string
+        screenshotUrl:
+          type: string
+          nullable: true
+
+    UpdateTicketStatusInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [open, in-progress, resolved]
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+
+    AddTicketReplyInput:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    SupportTicketStats:
+      type: object
+      required: [open, inProgress, resolved, total]
+      properties:
+        open:
+          type: integer
+        inProgress:
+          type: integer
+        resolved:
+          type: integer
+        total:
+          type: integer
 

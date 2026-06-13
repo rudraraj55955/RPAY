@@ -59,3 +59,4 @@ export * from "./merchantWallets";
 export * from "./walletLedger";
 export * from "./walletHolds";
 export * from "./walletCharges";
+export * from "./supportTickets";

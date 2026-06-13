@@ -4,7 +4,7 @@ import { UserRole, useGetMyPlanUsage, useGetCallbackSecret, useListApiKeys, useG
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, SidebarFooter, SidebarTrigger } from "@/components/ui/sidebar";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
-import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap, GitMerge, Link2, Paintbrush, Settings, ShieldAlert, X, Download, ShieldOff, Layers, ToggleLeft, BadgeCheck, BarChart3, Wallet } from "lucide-react";
+import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap, GitMerge, Link2, Paintbrush, Settings, ShieldAlert, X, Download, ShieldOff, Layers, ToggleLeft, BadgeCheck, BarChart3, Wallet, Headphones } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NotificationBell } from "@/components/notification-bell";
@@ -200,6 +200,12 @@ function MerchantSidebar() {
       ],
     },
     {
+      group: "Support",
+      items: [
+        { title: "Support", icon: Headphones, href: "/merchant/support", locked: false, lockReason: null },
+      ],
+    },
+    {
       group: "Integration",
       items: [
         { title: "RasoKart Services", icon: Layers, href: "/merchant/rasokart-services", locked: false, lockReason: null },
@@ -331,6 +337,12 @@ const ADMIN_NAV = [
     items: [
       { title: "Reconciliation", icon: GitMerge, href: "/admin/reconciliation" },
       { title: "Reports", icon: BarChart3, href: "/admin/reports" },
+    ],
+  },
+  {
+    group: "Support",
+    items: [
+      { title: "Support Tickets", icon: Headphones, href: "/admin/support-tickets" },
     ],
   },
   {

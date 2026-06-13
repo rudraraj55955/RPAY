@@ -3682,6 +3682,96 @@ export interface RoutingStatusResponse {
   recentActivity?: RoutingStatusResponseRecentActivity;
 }
 
+export interface SupportTicket {
+  id: number;
+  merchantId: number;
+  userId: number;
+  merchantName?: string | null;
+  category: string;
+  subject: string;
+  message: string;
+  screenshotUrl?: string | null;
+  status: string;
+  priority: string;
+  resolvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TicketReply {
+  id: number;
+  ticketId: number;
+  authorId: number;
+  authorRole: string;
+  authorName?: string | null;
+  message: string;
+  createdAt: string;
+}
+
+export interface SupportTicketDetail {
+  ticket: SupportTicket;
+  replies: TicketReply[];
+}
+
+export interface SupportTicketListResponse {
+  data: SupportTicket[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type CreateSupportTicketInputCategory = typeof CreateSupportTicketInputCategory[keyof typeof CreateSupportTicketInputCategory];
+
+
+export const CreateSupportTicketInputCategory = {
+  payments: 'payments',
+  account: 'account',
+  technical: 'technical',
+  billing: 'billing',
+} as const;
+
+export interface CreateSupportTicketInput {
+  category: CreateSupportTicketInputCategory;
+  subject: string;
+  message: string;
+  screenshotUrl?: string | null;
+}
+
+export type UpdateTicketStatusInputStatus = typeof UpdateTicketStatusInputStatus[keyof typeof UpdateTicketStatusInputStatus];
+
+
+export const UpdateTicketStatusInputStatus = {
+  open: 'open',
+  'in-progress': 'in-progress',
+  resolved: 'resolved',
+} as const;
+
+export type UpdateTicketStatusInputPriority = typeof UpdateTicketStatusInputPriority[keyof typeof UpdateTicketStatusInputPriority];
+
+
+export const UpdateTicketStatusInputPriority = {
+  low: 'low',
+  normal: 'normal',
+  high: 'high',
+  urgent: 'urgent',
+} as const;
+
+export interface UpdateTicketStatusInput {
+  status?: UpdateTicketStatusInputStatus;
+  priority?: UpdateTicketStatusInputPriority;
+}
+
+export interface AddTicketReplyInput {
+  message: string;
+}
+
+export interface SupportTicketStats {
+  open: number;
+  inProgress: number;
+  resolved: number;
+  total: number;
+}
+
 export type UpdateMyPreferencesBody = {
   reconciliationAlertEmails?: boolean;
   planExpiryAlertEmails?: boolean;
@@ -4680,4 +4770,22 @@ export type ListKycDocumentsParams = {
 merchantId?: number;
 status?: string;
 };
+
+export type ListSupportTicketsParams = {
+status?: ListSupportTicketsStatus;
+category?: string;
+priority?: string;
+merchantId?: number;
+page?: number;
+limit?: number;
+};
+
+export type ListSupportTicketsStatus = typeof ListSupportTicketsStatus[keyof typeof ListSupportTicketsStatus];
+
+
+export const ListSupportTicketsStatus = {
+  open: 'open',
+  'in-progress': 'in-progress',
+  resolved: 'resolved',
+} as const;
 

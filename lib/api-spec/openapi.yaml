@@ -1482,6 +1482,265 @@ paths:
         "401":
           description: Unauthorized
 
+  /reports/schedule:
+    get:
+      operationId: getReportSchedule
+      tags: [reports]
+      summary: Get the merchant's own report schedule
+      responses:
+        "200":
+          description: Current report schedule (null if none configured)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schedule]
+                properties:
+                  schedule:
+                    oneOf:
+                      - $ref: "#/components/schemas/ReportSchedule"
+                      - type: "null"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+    put:
+      operationId: upsertReportSchedule
+      tags: [reports]
+      summary: Create or update the merchant's report schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                frequency:
+                  type: string
+                  enum: [weekly, monthly]
+                format:
+                  type: string
+                  enum: [xlsx, pdf]
+                isActive:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated report schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schedule]
+                properties:
+                  schedule:
+                    $ref: "#/components/schemas/ReportSchedule"
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+    delete:
+      operationId: deleteReportSchedule
+      tags: [reports]
+      summary: Delete the merchant's report schedule
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /reports/schedule/send-now:
+    post:
+      operationId: sendReportNow
+      tags: [reports]
+      summary: Immediately send the scheduled report to the merchant's email
+      responses:
+        "200":
+          description: Report sent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, to]
+                properties:
+                  ok:
+                    type: boolean
+                  to:
+                    type: string
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: No schedule configured
+        "502":
+          description: SMTP error
+
+  /reports/schedules:
+    get:
+      operationId: listMerchantReportSchedules
+      tags: [reports]
+      summary: Admin — list all merchants' report schedules
+      responses:
+        "200":
+          description: List of all schedules with merchant info
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schedules]
+                properties:
+                  schedules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminReportSchedule"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /reports/schedules/{merchantId}:
+    get:
+      operationId: getAdminMerchantReportSchedule
+      tags: [reports]
+      summary: Admin — get a specific merchant's report schedule
+      parameters:
+        - name: merchantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Schedule (null if none configured)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schedule]
+                properties:
+                  schedule:
+                    oneOf:
+                      - $ref: "#/components/schemas/ReportSchedule"
+                      - type: "null"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+    put:
+      operationId: upsertAdminMerchantReportSchedule
+      tags: [reports]
+      summary: Admin — create or update a merchant's report schedule
+      parameters:
+        - name: merchantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                frequency:
+                  type: string
+                  enum: [weekly, monthly]
+                format:
+                  type: string
+                  enum: [xlsx, pdf]
+                isActive:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schedule]
+                properties:
+                  schedule:
+                    $ref: "#/components/schemas/ReportSchedule"
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Merchant not found
+    delete:
+      operationId: deleteAdminMerchantReportSchedule
+      tags: [reports]
+      summary: Admin — remove a merchant's report schedule
+      parameters:
+        - name: merchantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /reports/schedules/{merchantId}/send-now:
+    post:
+      operationId: sendAdminMerchantReportNow
+      tags: [reports]
+      summary: Admin — immediately send a merchant's report
+      parameters:
+        - name: merchantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Report sent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, to]
+                properties:
+                  ok:
+                    type: boolean
+                  to:
+                    type: string
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: No schedule or merchant not found
+        "502":
+          description: SMTP error
+
   /withdrawals:
     get:
       operationId: listWithdrawals
@@ -7986,6 +8245,30 @@ components:
         updatedAt:
           type: string
 
+    ReportSchedule:
+      type: object
+      required: [id, merchantId, frequency, format, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        frequency:
+          type: string
+          enum: [weekly, monthly]
+        format:
+          type: string
+          enum: [xlsx, pdf]
+        isActive:
+          type: boolean
+        lastSentAt:
+          type: ["string", "null"]
+          description: ISO timestamp of last successful send
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
     SettlementReportResponse:
       type: object
       required: [data, stats]
@@ -8016,6 +8299,34 @@ components:
               type: integer
             totalCount:
               type: integer
+
+    AdminReportSchedule:
+      type: object
+      required: [id, merchantId, businessName, merchantEmail, frequency, format, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        businessName:
+          type: string
+        merchantEmail:
+          type: string
+        frequency:
+          type: string
+          enum: [weekly, monthly]
+        format:
+          type: string
+          enum: [xlsx, pdf]
+        isActive:
+          type: boolean
+        lastSentAt:
+          type: ["string", "null"]
+          description: ISO timestamp of last successful send
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
 
     TransactionReportResponse:
       type: object

@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { db, transactionsTable, merchantsTable, merchantConnectionsTable, ledgerEntriesTable, settlementsTable } from "@workspace/db";
+import { db, transactionsTable, merchantsTable, merchantConnectionsTable, ledgerEntriesTable, settlementsTable, reportSchedulesTable } from "@workspace/db";
 import { eq, and, sql, gte, lte, or, inArray, isNotNull, isNull } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { sendMerchantReport } from "../helpers/merchantReportScheduler";
 
 const router = Router();
 router.use(requireAuth);
 
 // GET /api/reports/transactions
-// Returns all matching transactions (no pagination, up to 10,000 rows) with aggregate stats,
-// fee per transaction (from ledger_entries type=fee), and settlement status (from settlements).
+// Returns all matching transactions (no pagination, up to 10,000 rows) with aggregate stats.
 // Merchant: auto-scoped. Admin: optionally scoped by merchantId.
 router.get("/transactions", async (req, res, next) => {
   try {
@@ -223,5 +223,315 @@ router.get("/settlements", async (req, res, next) => {
     next(err);
   }
 });
+
+// ─── Merchant: own schedule ───────────────────────────────────────────────────
+
+// GET /api/reports/schedule — merchant: get own schedule
+router.get("/schedule", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== "merchant") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    const [row] = await db
+      .select()
+      .from(reportSchedulesTable)
+      .where(eq(reportSchedulesTable.merchantId, user.merchantId!))
+      .limit(1);
+
+    res.json({ schedule: row ?? null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/reports/schedule — merchant: upsert own schedule
+router.put("/schedule", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== "merchant") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    const { frequency, format, isActive } = req.body as {
+      frequency?: string;
+      format?: string;
+      isActive?: boolean;
+    };
+
+    if (frequency && !["weekly", "monthly"].includes(frequency)) {
+      res.status(400).json({ error: "frequency must be 'weekly' or 'monthly'" });
+      return;
+    }
+    if (format && !["xlsx", "pdf"].includes(format)) {
+      res.status(400).json({ error: "format must be 'xlsx' or 'pdf'" });
+      return;
+    }
+
+    const schedule = await upsertSchedule(user.merchantId!, { frequency, format, isActive });
+    res.json({ schedule });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/reports/schedule — merchant: remove own schedule
+router.delete("/schedule", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== "merchant") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    await db
+      .delete(reportSchedulesTable)
+      .where(eq(reportSchedulesTable.merchantId, user.merchantId!));
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/reports/schedule/send-now — merchant: trigger immediate send
+router.post("/schedule/send-now", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== "merchant") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    const [scheduleRow] = await db
+      .select()
+      .from(reportSchedulesTable)
+      .where(eq(reportSchedulesTable.merchantId, user.merchantId!))
+      .limit(1);
+
+    if (!scheduleRow) {
+      res.status(404).json({ error: "No schedule configured. Save a schedule first." });
+      return;
+    }
+
+    const [merchantRow] = await db
+      .select({ email: merchantsTable.email, businessName: merchantsTable.businessName })
+      .from(merchantsTable)
+      .where(eq(merchantsTable.id, user.merchantId!))
+      .limit(1);
+
+    if (!merchantRow) {
+      res.status(404).json({ error: "Merchant not found" });
+      return;
+    }
+
+    const sent = await sendMerchantReport(scheduleRow, merchantRow.email, merchantRow.businessName);
+
+    if (!sent) {
+      res.status(502).json({ error: "Failed to send report — check SMTP configuration" });
+      return;
+    }
+
+    res.json({ ok: true, to: merchantRow.email });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Admin: manage any merchant's schedule ────────────────────────────────────
+
+// GET /api/reports/schedules — admin: list all merchants' schedules
+router.get("/schedules", requireAdmin, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        schedule: reportSchedulesTable,
+        businessName: merchantsTable.businessName,
+        email: merchantsTable.email,
+      })
+      .from(reportSchedulesTable)
+      .innerJoin(merchantsTable, eq(reportSchedulesTable.merchantId, merchantsTable.id))
+      .orderBy(merchantsTable.businessName);
+
+    res.json({
+      schedules: rows.map(r => ({
+        ...r.schedule,
+        businessName: r.businessName,
+        merchantEmail: r.email,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/reports/schedules/:merchantId — admin: get a specific merchant's schedule
+router.get("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
+  try {
+    const mid = parseInt(req.params['merchantId'] as string);
+    if (isNaN(mid)) {
+      res.status(400).json({ error: "Invalid merchantId" });
+      return;
+    }
+
+    const [row] = await db
+      .select()
+      .from(reportSchedulesTable)
+      .where(eq(reportSchedulesTable.merchantId, mid))
+      .limit(1);
+
+    res.json({ schedule: row ?? null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/reports/schedules/:merchantId — admin: create/update a merchant's schedule
+router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
+  try {
+    const mid = parseInt(req.params['merchantId'] as string);
+    if (isNaN(mid)) {
+      res.status(400).json({ error: "Invalid merchantId" });
+      return;
+    }
+
+    const { frequency, format, isActive } = req.body as {
+      frequency?: string;
+      format?: string;
+      isActive?: boolean;
+    };
+
+    if (frequency && !["weekly", "monthly"].includes(frequency)) {
+      res.status(400).json({ error: "frequency must be 'weekly' or 'monthly'" });
+      return;
+    }
+    if (format && !["xlsx", "pdf"].includes(format)) {
+      res.status(400).json({ error: "format must be 'xlsx' or 'pdf'" });
+      return;
+    }
+
+    // Verify merchant exists
+    const [merchant] = await db
+      .select({ id: merchantsTable.id })
+      .from(merchantsTable)
+      .where(eq(merchantsTable.id, mid))
+      .limit(1);
+    if (!merchant) {
+      res.status(404).json({ error: "Merchant not found" });
+      return;
+    }
+
+    const schedule = await upsertSchedule(mid, { frequency, format, isActive });
+    res.json({ schedule });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/reports/schedules/:merchantId — admin: remove a merchant's schedule
+router.delete("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
+  try {
+    const mid = parseInt(req.params['merchantId'] as string);
+    if (isNaN(mid)) {
+      res.status(400).json({ error: "Invalid merchantId" });
+      return;
+    }
+
+    await db
+      .delete(reportSchedulesTable)
+      .where(eq(reportSchedulesTable.merchantId, mid));
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/reports/schedules/:merchantId/send-now — admin: trigger immediate send for a merchant
+router.post("/schedules/:merchantId/send-now", requireAdmin, async (req, res, next) => {
+  try {
+    const mid = parseInt(req.params['merchantId'] as string);
+    if (isNaN(mid)) {
+      res.status(400).json({ error: "Invalid merchantId" });
+      return;
+    }
+
+    const [scheduleRow] = await db
+      .select()
+      .from(reportSchedulesTable)
+      .where(eq(reportSchedulesTable.merchantId, mid))
+      .limit(1);
+
+    if (!scheduleRow) {
+      res.status(404).json({ error: "No schedule configured for this merchant" });
+      return;
+    }
+
+    const [merchantRow] = await db
+      .select({ email: merchantsTable.email, businessName: merchantsTable.businessName })
+      .from(merchantsTable)
+      .where(eq(merchantsTable.id, mid))
+      .limit(1);
+
+    if (!merchantRow) {
+      res.status(404).json({ error: "Merchant not found" });
+      return;
+    }
+
+    const sent = await sendMerchantReport(scheduleRow, merchantRow.email, merchantRow.businessName);
+
+    if (!sent) {
+      res.status(502).json({ error: "Failed to send report — check SMTP configuration" });
+      return;
+    }
+
+    res.json({ ok: true, to: merchantRow.email });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Shared helper ────────────────────────────────────────────────────────────
+
+async function upsertSchedule(
+  merchantId: number,
+  patch: { frequency?: string; format?: string; isActive?: boolean },
+): Promise<typeof reportSchedulesTable.$inferSelect> {
+  const now = new Date();
+  const [existing] = await db
+    .select()
+    .from(reportSchedulesTable)
+    .where(eq(reportSchedulesTable.merchantId, merchantId))
+    .limit(1);
+
+  if (existing) {
+    const [updated] = await db
+      .update(reportSchedulesTable)
+      .set({
+        ...(patch.frequency !== undefined ? { frequency: patch.frequency } : {}),
+        ...(patch.format !== undefined ? { format: patch.format } : {}),
+        ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
+        updatedAt: now,
+      })
+      .where(eq(reportSchedulesTable.merchantId, merchantId))
+      .returning();
+    return updated!;
+  }
+
+  const [inserted] = await db
+    .insert(reportSchedulesTable)
+    .values({
+      merchantId,
+      frequency: patch.frequency ?? "weekly",
+      format: patch.format ?? "xlsx",
+      isActive: patch.isActive ?? true,
+      updatedAt: now,
+    })
+    .returning();
+  return inserted!;
+}
 
 export default router;

@@ -8,13 +8,19 @@ import {
   useDeleteMerchantSavedFilter,
   useRenameMerchantSavedFilter,
   useReorderMerchantSavedFilters,
+  useGetReportSchedule,
+  useUpsertReportSchedule,
+  useDeleteReportSchedule,
+  useSendReportNow,
 } from "@workspace/api-client-react";
 import { AllFiltersSheet } from "@/components/merchant/all-filters-sheet";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -42,11 +48,16 @@ import {
   Bookmark,
   BookmarkCheck,
   Pencil,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   X,
   Layers,
+  Bell,
+  BellOff,
+  Mail,
+  Send,
+  CalendarDays,
+  Trash2,
 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { toast } from "sonner";
@@ -156,6 +167,210 @@ function settlementStatusColor(s: string) {
   if (s === "processing") return "text-amber-400";
   if (s === "rejected" || s === "cancelled") return "text-red-400";
   return "text-muted-foreground";
+}
+
+function SchedulePanel() {
+  const queryClient = useQueryClient();
+  const { data: scheduleData, isLoading: scheduleLoading } = useGetReportSchedule();
+  const schedule = scheduleData?.schedule ?? null;
+
+  const [frequency, setFrequency] = useState<"weekly" | "monthly">("weekly");
+  const [fileFormat, setFileFormat] = useState<"xlsx" | "pdf">("xlsx");
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  if (!hasInitialized && !scheduleLoading && schedule) {
+    setFrequency(schedule.frequency as "weekly" | "monthly");
+    setFileFormat(schedule.format as "xlsx" | "pdf");
+    setHasInitialized(true);
+  }
+  if (!hasInitialized && !scheduleLoading && !schedule) {
+    setHasInitialized(true);
+  }
+
+  const upsert = useUpsertReportSchedule();
+  const deleteMut = useDeleteReportSchedule();
+  const sendNow = useSendReportNow();
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["/api/reports/schedule"] });
+
+  const handleSave = () => {
+    upsert.mutate(
+      { data: { frequency, format: fileFormat, isActive: true } },
+      {
+        onSuccess: () => {
+          toast.success("Report schedule saved");
+          invalidate();
+        },
+        onError: () => toast.error("Failed to save schedule"),
+      },
+    );
+  };
+
+  const handleToggle = (active: boolean) => {
+    upsert.mutate(
+      { data: { isActive: active } },
+      {
+        onSuccess: () => {
+          toast.success(active ? "Schedule enabled" : "Schedule paused");
+          invalidate();
+        },
+        onError: () => toast.error("Failed to update schedule"),
+      },
+    );
+  };
+
+  const handleDelete = () => {
+    deleteMut.mutate(undefined, {
+      onSuccess: () => {
+        toast.success("Schedule removed");
+        setHasInitialized(false);
+        invalidate();
+      },
+      onError: () => toast.error("Failed to remove schedule"),
+    });
+  };
+
+  const handleSendNow = () => {
+    sendNow.mutate(undefined, {
+      onSuccess: (data) => {
+        toast.success(`Report sent to ${(data as any).to}`);
+        invalidate();
+      },
+      onError: () => toast.error("Failed to send u2014 check SMTP settings"),
+    });
+  };
+
+  if (scheduleLoading) {
+    return (
+      <Card>
+        <CardContent className="py-8 flex justify-center">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <CalendarDays className="w-4 h-4 text-primary" />
+            Scheduled Reports
+          </div>
+          {schedule && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {schedule.isActive ? "Active" : "Paused"}
+              </span>
+              <Switch
+                checked={schedule.isActive}
+                onCheckedChange={handleToggle}
+                disabled={upsert.isPending}
+              />
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Automatically email your transaction report on a schedule. The report covers the previous week or month depending on frequency.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Frequency</Label>
+            <Select value={frequency} onValueChange={(v) => setFrequency(v as "weekly" | "monthly")}>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly (last 7 days)</SelectItem>
+                <SelectItem value="monthly">Monthly (last 30 days)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Format</Label>
+            <Select value={fileFormat} onValueChange={(v) => setFileFormat(v as "xlsx" | "pdf")}>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="xlsx">
+                  <span className="flex items-center gap-1.5"><FileSpreadsheet className="w-3.5 h-3.5" />Excel (.xlsx)</span>
+                </SelectItem>
+                <SelectItem value="pdf">
+                  <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />PDF (.pdf)</span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {schedule && (
+          <div className="rounded-lg bg-muted/40 border border-border/60 px-4 py-3 text-sm space-y-1.5">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Mail className="w-3.5 h-3.5 shrink-0" />
+              <span className="text-xs">Report emailed to your registered merchant email address</span>
+            </div>
+            {schedule.lastSentAt && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                <span className="text-xs">
+                  Last sent: {format(new Date(schedule.lastSentAt), "dd MMM yyyy, HH:mm")}
+                </span>
+              </div>
+            )}
+            {!schedule.lastSentAt && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-xs">No report sent yet u2014 first report will go out on the next scheduled run</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={upsert.isPending}
+            className="h-8"
+          >
+            {upsert.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Bell className="w-3.5 h-3.5 mr-1.5" />}
+            {schedule ? "Update Schedule" : "Enable Schedule"}
+          </Button>
+
+          {schedule && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSendNow}
+                disabled={sendNow.isPending}
+                className="h-8"
+              >
+                {sendNow.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
+                Send Now
+              </Button>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleDelete}
+                disabled={deleteMut.isPending}
+                className="h-8 text-destructive hover:text-destructive"
+              >
+                {deleteMut.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
+                Remove
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function MerchantReports() {
@@ -716,34 +931,36 @@ export default function MerchantReports() {
           </p>
         </div>
       </div>
+      <SchedulePanel />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="settlements">Settlements</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="transactions" className="gap-2">
+            <FileText className="w-4 h-4" />
+            Transactions
+          </TabsTrigger>
+          <TabsTrigger value="settlements" className="gap-2">
+            <Banknote className="w-4 h-4" />
+            Settlements
+          </TabsTrigger>
         </TabsList>
 
-        {/* ── Transactions Tab ───────────────────────────────────────────── */}
+        {/* u2500u2500 Transactions Tab u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500 */} 
         <TabsContent value="transactions" className="space-y-6">
           <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={exportTxExcel}
-              disabled={isTxExporting || txLoading || transactions.length === 0}
-            >
-              {txExporting === "xlsx" ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-1.5" />}
-              {txExporting === "xlsx" ? "Exporting…" : "Excel (.xlsx)"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={exportTxPDF}
-              disabled={isTxExporting || txLoading || transactions.length === 0}
-            >
-              {txExporting === "pdf" ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileText className="w-4 h-4 mr-1.5" />}
-              {txExporting === "pdf" ? "Exporting…" : "PDF (.pdf)"}
-            </Button>
+            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-md border border-border/50">
+              {DATE_PRESETS.map((p) => (
+                <Button
+                  key={p.label}
+                  variant={txActivePreset === p.label ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-7 text-xs px-2.5"
+                  onClick={() => applyTxPreset(p)}
+                >
+                  {p.label}
+                </Button>
+              ))}
+            </div>
           </div>
 
           {/* Tx Filters */}
@@ -762,22 +979,6 @@ export default function MerchantReports() {
                   <Layers className="w-3.5 h-3.5" />
                   Manage saved filters
                 </button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                <CalendarRange className="w-4 h-4 text-muted-foreground shrink-0" />
-                {DATE_PRESETS.map((p) => (
-                  <Button
-                    key={p.label}
-                    variant={txActivePreset === p.label ? "secondary" : "outline"}
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => applyTxPreset(p)}
-                  >
-                    {p.label}
-                  </Button>
-                ))}
               </div>
 
               {/* My Presets — quick-apply row (visually distinct from date-preset buttons) */}
@@ -877,6 +1078,8 @@ export default function MerchantReports() {
                   ))}
                 </div>
               )}
+            </CardHeader>
+            <CardContent className="space-y-4">
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div className="space-y-1">

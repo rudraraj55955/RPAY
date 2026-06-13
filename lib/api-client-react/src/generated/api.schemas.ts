@@ -636,6 +636,37 @@ export interface ReportSettlement {
   updatedAt: string;
 }
 
+export type ReportScheduleFrequency = typeof ReportScheduleFrequency[keyof typeof ReportScheduleFrequency];
+
+
+export const ReportScheduleFrequency = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export type ReportScheduleFormat = typeof ReportScheduleFormat[keyof typeof ReportScheduleFormat];
+
+
+export const ReportScheduleFormat = {
+  xlsx: 'xlsx',
+  pdf: 'pdf',
+} as const;
+
+export interface ReportSchedule {
+  id: number;
+  merchantId: number;
+  frequency: ReportScheduleFrequency;
+  format: ReportScheduleFormat;
+  isActive: boolean;
+  /**
+     * ISO timestamp of last successful send
+     * @nullable
+     */
+  lastSentAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type SettlementReportResponseStats = {
   totalAmount: number;
   paidAmount: number;
@@ -651,6 +682,39 @@ export type SettlementReportResponseStats = {
 export interface SettlementReportResponse {
   data: ReportSettlement[];
   stats: SettlementReportResponseStats;
+}
+
+export type AdminReportScheduleFrequency = typeof AdminReportScheduleFrequency[keyof typeof AdminReportScheduleFrequency];
+
+
+export const AdminReportScheduleFrequency = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export type AdminReportScheduleFormat = typeof AdminReportScheduleFormat[keyof typeof AdminReportScheduleFormat];
+
+
+export const AdminReportScheduleFormat = {
+  xlsx: 'xlsx',
+  pdf: 'pdf',
+} as const;
+
+export interface AdminReportSchedule {
+  id: number;
+  merchantId: number;
+  businessName: string;
+  merchantEmail: string;
+  frequency: AdminReportScheduleFrequency;
+  format: AdminReportScheduleFormat;
+  isActive: boolean;
+  /**
+     * ISO timestamp of last successful send
+     * @nullable
+     */
+  lastSentAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type TransactionReportResponseStats = {
@@ -4079,6 +4143,88 @@ export const GetTransactionReportSource = {
   payment_link: 'payment_link',
   direct: 'direct',
 } as const;
+
+export type GetReportSchedule200 = {
+  schedule: ReportSchedule | null;
+};
+
+export type UpsertReportScheduleBodyFrequency = typeof UpsertReportScheduleBodyFrequency[keyof typeof UpsertReportScheduleBodyFrequency];
+
+
+export const UpsertReportScheduleBodyFrequency = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export type UpsertReportScheduleBodyFormat = typeof UpsertReportScheduleBodyFormat[keyof typeof UpsertReportScheduleBodyFormat];
+
+
+export const UpsertReportScheduleBodyFormat = {
+  xlsx: 'xlsx',
+  pdf: 'pdf',
+} as const;
+
+export type UpsertReportScheduleBody = {
+  frequency?: UpsertReportScheduleBodyFrequency;
+  format?: UpsertReportScheduleBodyFormat;
+  isActive?: boolean;
+};
+
+export type UpsertReportSchedule200 = {
+  schedule: ReportSchedule;
+};
+
+export type DeleteReportSchedule200 = {
+  ok: boolean;
+};
+
+export type SendReportNow200 = {
+  ok: boolean;
+  to: string;
+};
+
+export type ListMerchantReportSchedules200 = {
+  schedules: AdminReportSchedule[];
+};
+
+export type GetAdminMerchantReportSchedule200 = {
+  schedule: ReportSchedule | null;
+};
+
+export type UpsertAdminMerchantReportScheduleBodyFrequency = typeof UpsertAdminMerchantReportScheduleBodyFrequency[keyof typeof UpsertAdminMerchantReportScheduleBodyFrequency];
+
+
+export const UpsertAdminMerchantReportScheduleBodyFrequency = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export type UpsertAdminMerchantReportScheduleBodyFormat = typeof UpsertAdminMerchantReportScheduleBodyFormat[keyof typeof UpsertAdminMerchantReportScheduleBodyFormat];
+
+
+export const UpsertAdminMerchantReportScheduleBodyFormat = {
+  xlsx: 'xlsx',
+  pdf: 'pdf',
+} as const;
+
+export type UpsertAdminMerchantReportScheduleBody = {
+  frequency?: UpsertAdminMerchantReportScheduleBodyFrequency;
+  format?: UpsertAdminMerchantReportScheduleBodyFormat;
+  isActive?: boolean;
+};
+
+export type UpsertAdminMerchantReportSchedule200 = {
+  schedule: ReportSchedule;
+};
+
+export type DeleteAdminMerchantReportSchedule200 = {
+  ok: boolean;
+};
+
+export type SendAdminMerchantReportNow200 = {
+  ok: boolean;
+  to: string;
+};
 
 export type ListWithdrawalsParams = {
 status?: ListWithdrawalsStatus;

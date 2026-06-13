@@ -61,3 +61,4 @@ export * from "./walletHolds";
 export * from "./walletCharges";
 export * from "./supportTickets";
 export * from "./kycReviewHistory";
+export * from "./reportSchedules";

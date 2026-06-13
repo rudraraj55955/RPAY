@@ -1475,6 +1475,155 @@ export const GetTransactionReportResponse = zod.object({
 
 
 /**
+ * @summary Get the merchant's own report schedule
+ */
+export const GetReportScheduleResponse = zod.object({
+  "schedule": zod.union([zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "frequency": zod.enum(['weekly', 'monthly']),
+  "format": zod.enum(['xlsx', 'pdf']),
+  "isActive": zod.boolean(),
+  "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Create or update the merchant's report schedule
+ */
+export const UpsertReportScheduleBody = zod.object({
+  "frequency": zod.enum(['weekly', 'monthly']).optional(),
+  "format": zod.enum(['xlsx', 'pdf']).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpsertReportScheduleResponse = zod.object({
+  "schedule": zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "frequency": zod.enum(['weekly', 'monthly']),
+  "format": zod.enum(['xlsx', 'pdf']),
+  "isActive": zod.boolean(),
+  "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+})
+
+
+/**
+ * @summary Delete the merchant's report schedule
+ */
+export const DeleteReportScheduleResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Immediately send the scheduled report to the merchant's email
+ */
+export const SendReportNowResponse = zod.object({
+  "ok": zod.boolean(),
+  "to": zod.string()
+})
+
+
+/**
+ * @summary Admin — list all merchants' report schedules
+ */
+export const ListMerchantReportSchedulesResponse = zod.object({
+  "schedules": zod.array(zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "businessName": zod.string(),
+  "merchantEmail": zod.string(),
+  "frequency": zod.enum(['weekly', 'monthly']),
+  "format": zod.enum(['xlsx', 'pdf']),
+  "isActive": zod.boolean(),
+  "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Admin — get a specific merchant's report schedule
+ */
+export const GetAdminMerchantReportScheduleParams = zod.object({
+  "merchantId": zod.coerce.number()
+})
+
+export const GetAdminMerchantReportScheduleResponse = zod.object({
+  "schedule": zod.union([zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "frequency": zod.enum(['weekly', 'monthly']),
+  "format": zod.enum(['xlsx', 'pdf']),
+  "isActive": zod.boolean(),
+  "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Admin — create or update a merchant's report schedule
+ */
+export const UpsertAdminMerchantReportScheduleParams = zod.object({
+  "merchantId": zod.coerce.number()
+})
+
+export const UpsertAdminMerchantReportScheduleBody = zod.object({
+  "frequency": zod.enum(['weekly', 'monthly']).optional(),
+  "format": zod.enum(['xlsx', 'pdf']).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpsertAdminMerchantReportScheduleResponse = zod.object({
+  "schedule": zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "frequency": zod.enum(['weekly', 'monthly']),
+  "format": zod.enum(['xlsx', 'pdf']),
+  "isActive": zod.boolean(),
+  "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+})
+
+
+/**
+ * @summary Admin — remove a merchant's report schedule
+ */
+export const DeleteAdminMerchantReportScheduleParams = zod.object({
+  "merchantId": zod.coerce.number()
+})
+
+export const DeleteAdminMerchantReportScheduleResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Admin — immediately send a merchant's report
+ */
+export const SendAdminMerchantReportNowParams = zod.object({
+  "merchantId": zod.coerce.number()
+})
+
+export const SendAdminMerchantReportNowResponse = zod.object({
+  "ok": zod.boolean(),
+  "to": zod.string()
+})
+
+
+/**
  * @summary List withdrawal requests
  */
 export const ListWithdrawalsQueryParams = zod.object({

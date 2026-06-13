@@ -1,5 +1,15 @@
 import { useState, useCallback } from "react";
-import { useGetTransactionReport, useGetSettlementReport, useListMerchants } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetTransactionReport,
+  useGetSettlementReport,
+  useListMerchants,
+  useListMerchantReportSchedules,
+  useUpsertAdminMerchantReportSchedule,
+  useDeleteAdminMerchantReportSchedule,
+  useSendAdminMerchantReportNow,
+  getListMerchantReportSchedulesQueryOptions,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   FileText,
   Download,
@@ -30,6 +41,11 @@ import {
   Hash,
   Wallet,
   TrendingUp,
+  CalendarClock,
+  Send,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { toast } from "sonner";
@@ -93,6 +109,143 @@ function settlementStatusColor(s: string) {
   if (s === "processing") return "text-amber-400";
   if (s === "rejected" || s === "cancelled") return "text-red-400";
   return "text-muted-foreground";
+}
+
+function ScheduledReportsPanel() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useListMerchantReportSchedules();
+  const schedules = data?.schedules ?? [];
+
+  const upsert = useUpsertAdminMerchantReportSchedule();
+  const del = useDeleteAdminMerchantReportSchedule();
+  const sendNow = useSendAdminMerchantReportNow();
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: getListMerchantReportSchedulesQueryOptions().queryKey });
+  };
+
+  const handleToggle = async (merchantId: number, current: boolean) => {
+    await upsert.mutateAsync({ merchantId, data: { isActive: !current } });
+    invalidate();
+    toast.success(!current ? "Schedule activated" : "Schedule paused");
+  };
+
+  const handleDelete = async (merchantId: number, name: string) => {
+    await del.mutateAsync({ merchantId });
+    invalidate();
+    toast.success(`Schedule removed for ${name}`);
+  };
+
+  const handleSendNow = async (merchantId: number, name: string) => {
+    try {
+      const res = await sendNow.mutateAsync({ merchantId });
+      toast.success(`Report sent to ${res.to} for ${name}`);
+      invalidate();
+    } catch {
+      toast.error(`Failed to send report for ${name}`);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <CalendarClock className="w-4 h-4 text-primary" />
+          Scheduled Report Delivery
+        </div>
+        <p className="text-xs text-muted-foreground">
+          All merchants with an active report schedule — admin can pause, delete, or trigger immediate delivery.
+        </p>
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Loading schedules…</span>
+          </div>
+        ) : schedules.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+            <CalendarClock className="w-10 h-10 opacity-20" />
+            <p className="text-sm">No merchants have configured a report schedule yet</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Merchant</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Frequency</TableHead>
+                <TableHead>Format</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Last Sent</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {schedules.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell className="font-medium text-sm">{s.businessName}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{s.merchantEmail}</TableCell>
+                  <TableCell>
+                    <span className="text-xs capitalize">{s.frequency}</span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs uppercase">{s.format}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`text-xs font-medium ${s.isActive ? "text-emerald-400" : "text-muted-foreground"}`}>
+                      {s.isActive ? "Active" : "Paused"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {s.lastSentAt ? format(new Date(s.lastSentAt), "dd MMM yyyy, HH:mm") : "Never"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={() => handleToggle(s.merchantId, s.isActive)}
+                        disabled={upsert.isPending}
+                        title={s.isActive ? "Pause schedule" : "Activate schedule"}
+                      >
+                        {s.isActive
+                          ? <ToggleRight className="w-4 h-4 text-emerald-400" />
+                          : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={() => handleSendNow(s.merchantId, s.businessName)}
+                        disabled={sendNow.isPending}
+                        title="Send report now"
+                      >
+                        {sendNow.isPending
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Send className="w-3.5 h-3.5" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1 text-red-400 hover:text-red-300"
+                        onClick={() => handleDelete(s.merchantId, s.businessName)}
+                        disabled={del.isPending}
+                        title="Remove schedule"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function AdminReports() {
@@ -1053,6 +1206,8 @@ export default function AdminReports() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ScheduledReportsPanel />
     </div>
   );
 }

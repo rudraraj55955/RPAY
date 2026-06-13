@@ -95,6 +95,8 @@ import type {
   CredentialEventListResponse,
   DashboardStats,
   DeleteAccountDetail200,
+  DeleteAdminMerchantReportSchedule200,
+  DeleteReportSchedule200,
   DeleteRoutingRule200,
   EkqrConfig,
   EkqrConfigInput,
@@ -109,11 +111,13 @@ import type {
   ExportAdminAuditLogsCsvParams,
   ExportMerchantBalanceHistoryParams,
   ExportVaBalanceAuditCsvParams,
+  GetAdminMerchantReportSchedule200,
   GetCallbackSecretHistoryParams,
   GetLedgerBackfillLastRun200,
   GetMerchantsWebhookFailureCountsParams,
   GetQrCodeStatsParams,
   GetReconciliationRunEmailLogs200,
+  GetReportSchedule200,
   GetRoutingLogsParams,
   GetRoutingMetricsParams,
   GetSecurityComplianceSummaryParams,
@@ -161,6 +165,7 @@ import type {
   ListLedgerEntriesParams,
   ListMerchantCredentialEventsParams,
   ListMerchantFeaturesParams,
+  ListMerchantReportSchedules200,
   ListMerchantSavedFilters200,
   ListMerchantSavedFiltersParams,
   ListMerchantsParams,
@@ -277,6 +282,8 @@ import type {
   SecurityEventListResponse,
   SecurityReminderRequest,
   SecurityReminderResponse,
+  SendAdminMerchantReportNow200,
+  SendReportNow200,
   ServiceActivationRequestBody,
   ServiceActivationResponse,
   SetProductVisibilityBody,
@@ -312,6 +319,10 @@ import type {
   UpdateTicketStatusInput,
   UploadUrlRequest,
   UploadUrlResponse,
+  UpsertAdminMerchantReportSchedule200,
+  UpsertAdminMerchantReportScheduleBody,
+  UpsertReportSchedule200,
+  UpsertReportScheduleBody,
   User,
   UserInput,
   UserListResponse,
@@ -4321,6 +4332,660 @@ export function useGetTransactionReport<TData = Awaited<ReturnType<typeof getTra
 
 
 
+
+export const getGetReportScheduleUrl = () => {
+
+
+
+
+  return `/api/reports/schedule`
+}
+
+/**
+ * @summary Get the merchant's own report schedule
+ */
+export const getReportSchedule = async ( options?: RequestInit): Promise<GetReportSchedule200> => {
+
+  return customFetch<GetReportSchedule200>(getGetReportScheduleUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetReportScheduleQueryKey = () => {
+    return [
+    `/api/reports/schedule`
+    ] as const;
+    }
+
+
+export const getGetReportScheduleQueryOptions = <TData = Awaited<ReturnType<typeof getReportSchedule>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReportSchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReportScheduleQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReportSchedule>>> = ({ signal }) => getReportSchedule({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReportSchedule>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetReportScheduleQueryResult = NonNullable<Awaited<ReturnType<typeof getReportSchedule>>>
+export type GetReportScheduleQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the merchant's own report schedule
+ */
+
+export function useGetReportSchedule<TData = Awaited<ReturnType<typeof getReportSchedule>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReportSchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetReportScheduleQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpsertReportScheduleUrl = () => {
+
+
+
+
+  return `/api/reports/schedule`
+}
+
+/**
+ * @summary Create or update the merchant's report schedule
+ */
+export const upsertReportSchedule = async (upsertReportScheduleBody: UpsertReportScheduleBody, options?: RequestInit): Promise<UpsertReportSchedule200> => {
+
+  return customFetch<UpsertReportSchedule200>(getUpsertReportScheduleUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      upsertReportScheduleBody,)
+  }
+);}
+
+
+
+
+export const getUpsertReportScheduleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertReportSchedule>>, TError,{data: BodyType<UpsertReportScheduleBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof upsertReportSchedule>>, TError,{data: BodyType<UpsertReportScheduleBody>}, TContext> => {
+
+const mutationKey = ['upsertReportSchedule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upsertReportSchedule>>, {data: BodyType<UpsertReportScheduleBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  upsertReportSchedule(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpsertReportScheduleMutationResult = NonNullable<Awaited<ReturnType<typeof upsertReportSchedule>>>
+    export type UpsertReportScheduleMutationBody = BodyType<UpsertReportScheduleBody>
+    export type UpsertReportScheduleMutationError = ErrorType<void>
+
+    /**
+ * @summary Create or update the merchant's report schedule
+ */
+export const useUpsertReportSchedule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertReportSchedule>>, TError,{data: BodyType<UpsertReportScheduleBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof upsertReportSchedule>>,
+        TError,
+        {data: BodyType<UpsertReportScheduleBody>},
+        TContext
+      > => {
+      return useMutation(getUpsertReportScheduleMutationOptions(options));
+    }
+
+export const getDeleteReportScheduleUrl = () => {
+
+
+
+
+  return `/api/reports/schedule`
+}
+
+/**
+ * @summary Delete the merchant's report schedule
+ */
+export const deleteReportSchedule = async ( options?: RequestInit): Promise<DeleteReportSchedule200> => {
+
+  return customFetch<DeleteReportSchedule200>(getDeleteReportScheduleUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteReportScheduleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReportSchedule>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteReportSchedule>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteReportSchedule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteReportSchedule>>, void> = () => {
+
+
+          return  deleteReportSchedule(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteReportScheduleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteReportSchedule>>>
+
+    export type DeleteReportScheduleMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete the merchant's report schedule
+ */
+export const useDeleteReportSchedule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReportSchedule>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteReportSchedule>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteReportScheduleMutationOptions(options));
+    }
+
+export const getSendReportNowUrl = () => {
+
+
+
+
+  return `/api/reports/schedule/send-now`
+}
+
+/**
+ * @summary Immediately send the scheduled report to the merchant's email
+ */
+export const sendReportNow = async ( options?: RequestInit): Promise<SendReportNow200> => {
+
+  return customFetch<SendReportNow200>(getSendReportNowUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSendReportNowMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendReportNow>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendReportNow>>, TError,void, TContext> => {
+
+const mutationKey = ['sendReportNow'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendReportNow>>, void> = () => {
+
+
+          return  sendReportNow(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendReportNowMutationResult = NonNullable<Awaited<ReturnType<typeof sendReportNow>>>
+
+    export type SendReportNowMutationError = ErrorType<void>
+
+    /**
+ * @summary Immediately send the scheduled report to the merchant's email
+ */
+export const useSendReportNow = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendReportNow>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendReportNow>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSendReportNowMutationOptions(options));
+    }
+
+export const getListMerchantReportSchedulesUrl = () => {
+
+
+
+
+  return `/api/reports/schedules`
+}
+
+/**
+ * @summary Admin — list all merchants' report schedules
+ */
+export const listMerchantReportSchedules = async ( options?: RequestInit): Promise<ListMerchantReportSchedules200> => {
+
+  return customFetch<ListMerchantReportSchedules200>(getListMerchantReportSchedulesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMerchantReportSchedulesQueryKey = () => {
+    return [
+    `/api/reports/schedules`
+    ] as const;
+    }
+
+
+export const getListMerchantReportSchedulesQueryOptions = <TData = Awaited<ReturnType<typeof listMerchantReportSchedules>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMerchantReportSchedules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMerchantReportSchedulesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMerchantReportSchedules>>> = ({ signal }) => listMerchantReportSchedules({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMerchantReportSchedules>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMerchantReportSchedulesQueryResult = NonNullable<Awaited<ReturnType<typeof listMerchantReportSchedules>>>
+export type ListMerchantReportSchedulesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Admin — list all merchants' report schedules
+ */
+
+export function useListMerchantReportSchedules<TData = Awaited<ReturnType<typeof listMerchantReportSchedules>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMerchantReportSchedules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMerchantReportSchedulesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetAdminMerchantReportScheduleUrl = (merchantId: number,) => {
+
+
+
+
+  return `/api/reports/schedules/${merchantId}`
+}
+
+/**
+ * @summary Admin — get a specific merchant's report schedule
+ */
+export const getAdminMerchantReportSchedule = async (merchantId: number, options?: RequestInit): Promise<GetAdminMerchantReportSchedule200> => {
+
+  return customFetch<GetAdminMerchantReportSchedule200>(getGetAdminMerchantReportScheduleUrl(merchantId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminMerchantReportScheduleQueryKey = (merchantId: number,) => {
+    return [
+    `/api/reports/schedules/${merchantId}`
+    ] as const;
+    }
+
+
+export const getGetAdminMerchantReportScheduleQueryOptions = <TData = Awaited<ReturnType<typeof getAdminMerchantReportSchedule>>, TError = ErrorType<void>>(merchantId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminMerchantReportSchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminMerchantReportScheduleQueryKey(merchantId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminMerchantReportSchedule>>> = ({ signal }) => getAdminMerchantReportSchedule(merchantId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(merchantId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminMerchantReportSchedule>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminMerchantReportScheduleQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminMerchantReportSchedule>>>
+export type GetAdminMerchantReportScheduleQueryError = ErrorType<void>
+
+
+/**
+ * @summary Admin — get a specific merchant's report schedule
+ */
+
+export function useGetAdminMerchantReportSchedule<TData = Awaited<ReturnType<typeof getAdminMerchantReportSchedule>>, TError = ErrorType<void>>(
+ merchantId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminMerchantReportSchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminMerchantReportScheduleQueryOptions(merchantId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpsertAdminMerchantReportScheduleUrl = (merchantId: number,) => {
+
+
+
+
+  return `/api/reports/schedules/${merchantId}`
+}
+
+/**
+ * @summary Admin — create or update a merchant's report schedule
+ */
+export const upsertAdminMerchantReportSchedule = async (merchantId: number,
+    upsertAdminMerchantReportScheduleBody: UpsertAdminMerchantReportScheduleBody, options?: RequestInit): Promise<UpsertAdminMerchantReportSchedule200> => {
+
+  return customFetch<UpsertAdminMerchantReportSchedule200>(getUpsertAdminMerchantReportScheduleUrl(merchantId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      upsertAdminMerchantReportScheduleBody,)
+  }
+);}
+
+
+
+
+export const getUpsertAdminMerchantReportScheduleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertAdminMerchantReportSchedule>>, TError,{merchantId: number;data: BodyType<UpsertAdminMerchantReportScheduleBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof upsertAdminMerchantReportSchedule>>, TError,{merchantId: number;data: BodyType<UpsertAdminMerchantReportScheduleBody>}, TContext> => {
+
+const mutationKey = ['upsertAdminMerchantReportSchedule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upsertAdminMerchantReportSchedule>>, {merchantId: number;data: BodyType<UpsertAdminMerchantReportScheduleBody>}> = (props) => {
+          const {merchantId,data} = props ?? {};
+
+          return  upsertAdminMerchantReportSchedule(merchantId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpsertAdminMerchantReportScheduleMutationResult = NonNullable<Awaited<ReturnType<typeof upsertAdminMerchantReportSchedule>>>
+    export type UpsertAdminMerchantReportScheduleMutationBody = BodyType<UpsertAdminMerchantReportScheduleBody>
+    export type UpsertAdminMerchantReportScheduleMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin — create or update a merchant's report schedule
+ */
+export const useUpsertAdminMerchantReportSchedule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertAdminMerchantReportSchedule>>, TError,{merchantId: number;data: BodyType<UpsertAdminMerchantReportScheduleBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof upsertAdminMerchantReportSchedule>>,
+        TError,
+        {merchantId: number;data: BodyType<UpsertAdminMerchantReportScheduleBody>},
+        TContext
+      > => {
+      return useMutation(getUpsertAdminMerchantReportScheduleMutationOptions(options));
+    }
+
+export const getDeleteAdminMerchantReportScheduleUrl = (merchantId: number,) => {
+
+
+
+
+  return `/api/reports/schedules/${merchantId}`
+}
+
+/**
+ * @summary Admin — remove a merchant's report schedule
+ */
+export const deleteAdminMerchantReportSchedule = async (merchantId: number, options?: RequestInit): Promise<DeleteAdminMerchantReportSchedule200> => {
+
+  return customFetch<DeleteAdminMerchantReportSchedule200>(getDeleteAdminMerchantReportScheduleUrl(merchantId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteAdminMerchantReportScheduleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminMerchantReportSchedule>>, TError,{merchantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAdminMerchantReportSchedule>>, TError,{merchantId: number}, TContext> => {
+
+const mutationKey = ['deleteAdminMerchantReportSchedule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAdminMerchantReportSchedule>>, {merchantId: number}> = (props) => {
+          const {merchantId} = props ?? {};
+
+          return  deleteAdminMerchantReportSchedule(merchantId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAdminMerchantReportScheduleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAdminMerchantReportSchedule>>>
+
+    export type DeleteAdminMerchantReportScheduleMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin — remove a merchant's report schedule
+ */
+export const useDeleteAdminMerchantReportSchedule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminMerchantReportSchedule>>, TError,{merchantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAdminMerchantReportSchedule>>,
+        TError,
+        {merchantId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteAdminMerchantReportScheduleMutationOptions(options));
+    }
+
+export const getSendAdminMerchantReportNowUrl = (merchantId: number,) => {
+
+
+
+
+  return `/api/reports/schedules/${merchantId}/send-now`
+}
+
+/**
+ * @summary Admin — immediately send a merchant's report
+ */
+export const sendAdminMerchantReportNow = async (merchantId: number, options?: RequestInit): Promise<SendAdminMerchantReportNow200> => {
+
+  return customFetch<SendAdminMerchantReportNow200>(getSendAdminMerchantReportNowUrl(merchantId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSendAdminMerchantReportNowMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendAdminMerchantReportNow>>, TError,{merchantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendAdminMerchantReportNow>>, TError,{merchantId: number}, TContext> => {
+
+const mutationKey = ['sendAdminMerchantReportNow'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendAdminMerchantReportNow>>, {merchantId: number}> = (props) => {
+          const {merchantId} = props ?? {};
+
+          return  sendAdminMerchantReportNow(merchantId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendAdminMerchantReportNowMutationResult = NonNullable<Awaited<ReturnType<typeof sendAdminMerchantReportNow>>>
+
+    export type SendAdminMerchantReportNowMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin — immediately send a merchant's report
+ */
+export const useSendAdminMerchantReportNow = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendAdminMerchantReportNow>>, TError,{merchantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendAdminMerchantReportNow>>,
+        TError,
+        {merchantId: number},
+        TContext
+      > => {
+      return useMutation(getSendAdminMerchantReportNowMutationOptions(options));
+    }
 
 export const getListWithdrawalsUrl = (params?: ListWithdrawalsParams,) => {
   const normalizedParams = new URLSearchParams();

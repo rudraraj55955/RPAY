@@ -15,7 +15,7 @@ export interface MailOptions {
   html: string;
   attachments?: Array<{
     filename: string;
-    content: string;
+    content: string | Buffer;
     contentType: string;
   }>;
 }

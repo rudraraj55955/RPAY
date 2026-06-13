@@ -613,11 +613,38 @@ router.get("/schedules", requireAdmin, async (req, res, next) => {
       .innerJoin(merchantsTable, eq(reportSchedulesTable.merchantId, merchantsTable.id))
       .orderBy(merchantsTable.businessName);
 
+    // Batch-fetch recent failure logs for auto-paused schedules (non-zero consecutiveFailures)
+    const pausedMerchantIds = rows
+      .filter(r => !r.schedule.isActive && r.schedule.consecutiveFailures > 0)
+      .map(r => r.schedule.merchantId);
+
+    const recentFailuresByMerchant: Record<number, (typeof reportDeliveryLogsTable.$inferSelect)[]> = {};
+
+    if (pausedMerchantIds.length > 0) {
+      const failureLogs = await db
+        .select()
+        .from(reportDeliveryLogsTable)
+        .where(and(
+          inArray(reportDeliveryLogsTable.merchantId, pausedMerchantIds),
+          eq(reportDeliveryLogsTable.success, false),
+        ))
+        .orderBy(desc(reportDeliveryLogsTable.attemptedAt))
+        .limit(pausedMerchantIds.length * 3);
+
+      for (const log of failureLogs) {
+        if (!recentFailuresByMerchant[log.merchantId]) recentFailuresByMerchant[log.merchantId] = [];
+        if (recentFailuresByMerchant[log.merchantId].length < 3) {
+          recentFailuresByMerchant[log.merchantId].push(log);
+        }
+      }
+    }
+
     res.json({
       schedules: rows.map(r => ({
         ...r.schedule,
         businessName: r.businessName,
         merchantEmail: r.email,
+        recentFailures: recentFailuresByMerchant[r.schedule.merchantId] ?? [],
       })),
     });
   } catch (err) {

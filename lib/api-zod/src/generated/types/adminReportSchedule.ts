@@ -7,6 +7,7 @@
  */
 import type { AdminReportScheduleFormat } from './adminReportScheduleFormat';
 import type { AdminReportScheduleFrequency } from './adminReportScheduleFrequency';
+import type { ReportDeliveryLog } from './reportDeliveryLog';
 
 export interface AdminReportSchedule {
   id: number;
@@ -46,4 +47,6 @@ export interface AdminReportSchedule {
   nextRunAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Last 3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules. */
+  recentFailures?: ReportDeliveryLog[];
 }

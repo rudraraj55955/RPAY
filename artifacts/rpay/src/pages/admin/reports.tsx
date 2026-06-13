@@ -35,6 +35,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   FileText,
   Download,
   Loader2,
@@ -72,6 +83,7 @@ import {
   AlertCircle,
   PauseCircle,
   RotateCcw,
+  Info,
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays, startOfMonth, endOfMonth, subMonths, eachDayOfInterval, parseISO } from "date-fns";
 import {
@@ -81,7 +93,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
 } from "recharts";
 import { toast } from "sonner";
@@ -178,6 +190,93 @@ function TriggeredByBadge({ value }: { value: string | null | undefined }) {
     </span>
   );
   return <span className="text-xs text-muted-foreground capitalize">{value}</span>;
+}
+
+type ReportDeliveryLogEntry = {
+  id: number;
+  attemptedAt: string;
+  failureReason?: string | null;
+  isAutoPause: boolean;
+};
+
+function AutoPausedStatus({
+  consecutiveFailures,
+  autoPauseAfterFailures,
+  recentFailures,
+}: {
+  consecutiveFailures: number;
+  autoPauseAfterFailures: number;
+  recentFailures: ReportDeliveryLogEntry[];
+}) {
+  const lastReason = recentFailures[0]?.failureReason ?? null;
+
+  const trigger = (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors group"
+    >
+      <PauseCircle className="w-3.5 h-3.5 shrink-0" />
+      Auto-paused
+      <Info className="w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
+    </button>
+  );
+
+  if (recentFailures.length === 0) {
+    return (
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            <p className="font-medium">Auto-paused after {consecutiveFailures} failure{consecutiveFailures !== 1 ? "s" : ""}</p>
+            <p className="text-xs opacity-75 mt-0.5">No failure details recorded</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent side="bottom" align="start" className="w-80 p-0">
+        <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+          <PauseCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span className="text-xs font-semibold text-amber-400">
+            Auto-paused — {consecutiveFailures} of {autoPauseAfterFailures} failure{consecutiveFailures !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <div className="p-2 space-y-1.5">
+          {recentFailures.map((log) => (
+            <div key={log.id} className="rounded-md bg-muted/40 px-2.5 py-2 space-y-1">
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <XCircle className="w-3 h-3 text-red-400 shrink-0" />
+                <span>
+                  {format(new Date(log.attemptedAt), "dd MMM yyyy, HH:mm")}
+                </span>
+                <span className="opacity-60">
+                  ({formatDistanceToNow(new Date(log.attemptedAt), { addSuffix: true })})
+                </span>
+                {log.isAutoPause && (
+                  <span className="ml-auto inline-flex items-center gap-0.5 text-amber-400 font-medium">
+                    <PauseCircle className="w-2.5 h-2.5" />
+                    paused here
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-foreground/80 break-words">
+                {log.failureReason ?? <span className="italic text-muted-foreground">No reason recorded</span>}
+              </p>
+            </div>
+          ))}
+        </div>
+        {lastReason && (
+          <div className="px-3 py-1.5 border-t border-border text-[10px] text-muted-foreground">
+            Fix the underlying issue before re-enabling to avoid immediate re-pause.
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function ScheduleHistoryDialog({
@@ -698,9 +797,17 @@ function ScheduledReportsPanel() {
                     <FormatBadge format={s.format} />
                   </TableCell>
                   <TableCell>
-                    <span className={`text-xs font-medium ${s.isActive ? "text-emerald-400" : s.consecutiveFailures > 0 ? "text-amber-400" : "text-muted-foreground"}`}>
-                      {s.isActive ? "Active" : s.consecutiveFailures > 0 ? "Auto-paused" : "Paused"}
-                    </span>
+                    {s.isActive ? (
+                      <span className="text-xs font-medium text-emerald-400">Active</span>
+                    ) : s.consecutiveFailures > 0 ? (
+                      <AutoPausedStatus
+                        consecutiveFailures={s.consecutiveFailures}
+                        autoPauseAfterFailures={s.autoPauseAfterFailures}
+                        recentFailures={(s as any).recentFailures ?? []}
+                      />
+                    ) : (
+                      <span className="text-xs font-medium text-muted-foreground">Paused</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {s.lastSentAt ? (
@@ -1261,7 +1368,7 @@ function DeliveryHistoryPanel() {
                     axisLine={false}
                     tickFormatter={(v: string) => v.length > 16 ? v.slice(0, 15) + "…" : v}
                   />
-                  <Tooltip
+                  <RechartsTooltip
                     cursor={{ fill: "hsl(var(--muted)/0.15)" }}
                     contentStyle={{
                       background: "hsl(var(--card))",
@@ -1317,7 +1424,7 @@ function DeliveryHistoryPanel() {
                       tickLine={false}
                       axisLine={false}
                     />
-                    <Tooltip
+                    <RechartsTooltip
                       cursor={{ fill: "hsl(var(--muted)/0.15)" }}
                       contentStyle={{
                         background: "hsl(var(--card))",

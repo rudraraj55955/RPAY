@@ -1688,7 +1688,19 @@ export const ListMerchantReportSchedulesResponse = zod.object({
   "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
   "nextRunAt": zod.string().nullish().describe('Admin-set override for the next scheduled run. Cleared automatically after the report fires.'),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "recentFailures": zod.array(zod.object({
+  "id": zod.number(),
+  "scheduleId": zod.number(),
+  "merchantId": zod.number(),
+  "attemptedAt": zod.string().describe('ISO timestamp of the delivery attempt'),
+  "success": zod.boolean(),
+  "failureReason": zod.string().nullish().describe('Human-readable failure reason, present when success is false'),
+  "isAutoPause": zod.boolean().describe('Whether this entry represents the moment the schedule was auto-paused'),
+  "frequency": zod.string().nullish().describe('Schedule frequency at time of delivery (weekly or monthly)'),
+  "format": zod.string().nullish().describe('File format used for this delivery (xlsx or pdf)'),
+  "outcome": zod.string().nullish().describe('Distinct outcome marker for special events; \"re-enabled\" when a paused schedule is re-activated')
+})).optional().describe('Last 3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules.')
 }))
 })
 

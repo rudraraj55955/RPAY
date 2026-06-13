@@ -437,8 +437,14 @@ function ScheduledReportsPanel() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedSchedules.map((s) => (
-                <TableRow key={s.id}>
+              {sortedSchedules.map((s) => {
+                const rowNextDue = getNextDue(s.lastSentAt, s.frequency, (s as any).nextRunAt as string | null | undefined);
+                const isRowOverdue = s.isActive && rowNextDue != null && rowNextDue < now;
+                return (
+                <TableRow
+                  key={s.id}
+                  className={isRowOverdue ? "border-l-2 border-amber-500/60 bg-amber-500/[0.04] hover:bg-amber-500/[0.07]" : ""}
+                >
                   <TableCell className="font-medium text-sm">{s.businessName}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{s.merchantEmail}</TableCell>
                   <TableCell>
@@ -458,92 +464,97 @@ function ScheduledReportsPanel() {
                       {s.isActive ? "Active" : "Paused"}
                     </span>
                   </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {s.lastSentAt ? (
-                        <span>
-                          {format(new Date(s.lastSentAt), "dd MMM yyyy, HH:mm")}
-                          <span className="ml-1 text-muted-foreground/60">
-                            ({formatDistanceToNow(new Date(s.lastSentAt), { addSuffix: true })})
-                          </span>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {s.lastSentAt ? (
+                      <span>
+                        {format(new Date(s.lastSentAt), "dd MMM yyyy, HH:mm")}
+                        <span className="ml-1 text-muted-foreground/60">
+                          ({formatDistanceToNow(new Date(s.lastSentAt), { addSuffix: true })})
                         </span>
-                      ) : "Never"}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {(() => {
-                        const nextRunAtVal = (s as any).nextRunAt as string | null | undefined;
-                        const isOverride = !!nextRunAtVal;
-                        const nextDue = getNextDue(s.lastSentAt, s.frequency, nextRunAtVal);
-                        if (!nextDue) {
-                          return <span className="text-muted-foreground">Pending first run</span>;
-                        }
-                        const isOverdue = nextDue < new Date();
-                        return (
-                          <span className={`flex items-center gap-1 ${isOverride ? "text-violet-400 font-medium" : isOverdue ? "text-amber-400 font-medium" : "text-muted-foreground"}`}>
-                            {isOverride && <CalendarDays className="w-3 h-3 shrink-0" />}
-                            {format(nextDue, "dd MMM yyyy, HH:mm")}
-                            <span className="ml-0.5 font-normal opacity-75">
-                              ({formatDistanceToNow(nextDue, { addSuffix: true })})
-                            </span>
-                            {isOverride && <span className="text-violet-500">(override)</span>}
-                            {!isOverride && isOverdue && <span className="text-amber-400">(overdue)</span>}
+                      </span>
+                    ) : "Never"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {(() => {
+                      const nextRunAtVal = (s as any).nextRunAt as string | null | undefined;
+                      const isOverride = !!nextRunAtVal;
+                      const nextDue = getNextDue(s.lastSentAt, s.frequency, nextRunAtVal);
+                      if (!nextDue) {
+                        return <span className="text-muted-foreground">Pending first run</span>;
+                      }
+                      const isOverdue = nextDue < new Date();
+                      return (
+                        <span className={`flex items-center gap-1.5 flex-wrap ${isOverride ? "text-violet-400 font-medium" : isOverdue ? "text-amber-400 font-medium" : "text-muted-foreground"}`}>
+                          {isOverride && <CalendarDays className="w-3 h-3 shrink-0" />}
+                          {format(nextDue, "dd MMM yyyy, HH:mm")}
+                          <span className="ml-0.5 font-normal opacity-75">
+                            ({formatDistanceToNow(nextDue, { addSuffix: true })})
                           </span>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs gap-1"
-                          onClick={() => handleToggle(s.merchantId, s.isActive)}
-                          disabled={upsert.isPending}
-                          title={s.isActive ? "Pause schedule" : "Activate schedule"}
-                        >
-                          {s.isActive
-                            ? <ToggleRight className="w-4 h-4 text-emerald-400" />
-                            : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs gap-1 text-violet-400 hover:text-violet-300"
-                          onClick={() => openOverrideDialog(s.merchantId, s.businessName, (s as any).nextRunAt ?? null)}
-                          title="Set next run date"
-                        >
-                          <CalendarDays className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs gap-1"
-                          onClick={() => handleSendNow(s.merchantId, s.businessName)}
-                          disabled={sendNow.isPending}
-                          title="Send report now"
-                        >
-                          {sendNow.isPending
-                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            : <Send className="w-3.5 h-3.5" />}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs gap-1 text-red-400 hover:text-red-300"
-                          onClick={() => handleDelete(s.merchantId, s.businessName)}
-                          disabled={del.isPending}
-                          title="Remove schedule"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                          {isOverride && <span className="text-violet-500">(override)</span>}
+                          {!isOverride && isOverdue && (
+                            <span className="inline-flex items-center justify-center rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-semibold px-1.5 h-[18px] leading-none border border-amber-500/30">
+                              Overdue
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={() => handleToggle(s.merchantId, s.isActive)}
+                        disabled={upsert.isPending}
+                        title={s.isActive ? "Pause schedule" : "Activate schedule"}
+                      >
+                        {s.isActive
+                          ? <ToggleRight className="w-4 h-4 text-emerald-400" />
+                          : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1 text-violet-400 hover:text-violet-300"
+                        onClick={() => openOverrideDialog(s.merchantId, s.businessName, (s as any).nextRunAt ?? null)}
+                        title="Set next run date"
+                      >
+                        <CalendarDays className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={() => handleSendNow(s.merchantId, s.businessName)}
+                        disabled={sendNow.isPending}
+                        title="Send report now"
+                      >
+                        {sendNow.isPending
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Send className="w-3.5 h-3.5" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1 text-red-400 hover:text-red-300"
+                        onClick={() => handleDelete(s.merchantId, s.businessName)}
+                        disabled={del.isPending}
+                        title="Remove schedule"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
 
       <Dialog open={!!overrideTarget} onOpenChange={(open) => { if (!open) setOverrideTarget(null); }}>
         <DialogContent className="max-w-sm">

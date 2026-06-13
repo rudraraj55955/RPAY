@@ -5,6 +5,7 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { ReportDeliveryLog } from './reportDeliveryLog';
 import type { ReportScheduleFormat } from './reportScheduleFormat';
 import type { ReportScheduleFrequency } from './reportScheduleFrequency';
 
@@ -44,4 +45,6 @@ export interface ReportSchedule {
   nextRunAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Last 1–3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules. */
+  recentFailures?: ReportDeliveryLog[];
 }

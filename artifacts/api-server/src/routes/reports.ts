@@ -340,7 +340,27 @@ router.get("/schedule", async (req, res, next) => {
       .where(eq(reportSchedulesTable.merchantId, user.merchantId!))
       .limit(1);
 
-    res.json({ schedule: row ?? null });
+    if (!row) {
+      res.json({ schedule: null });
+      return;
+    }
+
+    // If the schedule is auto-paused, attach the most recent failure entries
+    const isAutoPaused = !row.isActive && row.consecutiveFailures >= row.autoPauseAfterFailures && row.consecutiveFailures > 0;
+    let recentFailures: (typeof reportDeliveryLogsTable.$inferSelect)[] = [];
+    if (isAutoPaused) {
+      recentFailures = await db
+        .select()
+        .from(reportDeliveryLogsTable)
+        .where(and(
+          eq(reportDeliveryLogsTable.merchantId, user.merchantId!),
+          eq(reportDeliveryLogsTable.success, false),
+        ))
+        .orderBy(desc(reportDeliveryLogsTable.attemptedAt))
+        .limit(3);
+    }
+
+    res.json({ schedule: { ...row, recentFailures } });
   } catch (err) {
     next(err);
   }

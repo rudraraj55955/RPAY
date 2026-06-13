@@ -9065,6 +9065,11 @@ components:
           type: string
         updatedAt:
           type: string
+        recentFailures:
+          type: array
+          description: Last 1–3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules.
+          items:
+            $ref: "#/components/schemas/ReportDeliveryLog"
 
     SettlementReportResponse:
       type: object

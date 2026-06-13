@@ -437,8 +437,29 @@ function SchedulePanel() {
                 Your schedule was automatically paused after {schedule.consecutiveFailures} consecutive delivery{" "}
                 {schedule.consecutiveFailures === 1 ? "failure" : "failures"}. Re-enable it below once the issue is resolved.
               </p>
+
+              {/* ─── Recent failure details ─── */}
+              {(schedule as any).recentFailures && (schedule as any).recentFailures.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  <p className="text-xs font-medium text-amber-300/80">Recent delivery failures:</p>
+                  {((schedule as any).recentFailures as Array<{ id: number; attemptedAt: string; failureReason?: string | null }>).map((f) => (
+                    <div key={f.id} className="flex items-start gap-2 rounded border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5">
+                      <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-amber-400/70">
+                          {format(new Date(f.attemptedAt), "dd MMM yyyy, HH:mm")}
+                        </p>
+                        <p className="text-xs text-amber-300/90 mt-0.5 break-words">
+                          {f.failureReason ?? "Unknown error"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <button
-                className="mt-2 text-xs font-medium text-amber-300 underline underline-offset-2 hover:text-amber-200 transition-colors"
+                className="mt-3 text-xs font-medium text-amber-300 underline underline-offset-2 hover:text-amber-200 transition-colors"
                 onClick={handleReenable}
                 disabled={reenable.isPending}
               >

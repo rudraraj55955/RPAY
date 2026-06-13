@@ -367,6 +367,135 @@ function ScheduledReportsPanel() {
   );
 }
 
+function ReportHistoryPanel() {
+  const { data, isLoading } = useListMerchantReportSchedules();
+  const schedules = data?.schedules ?? [];
+
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyFormatFilter, setHistoryFormatFilter] = useState("all");
+
+  const history = schedules
+    .filter((s) => s.lastSentAt != null)
+    .sort((a, b) => new Date(b.lastSentAt!).getTime() - new Date(a.lastSentAt!).getTime());
+
+  const filtered = history.filter((s) => {
+    const q = historySearch.trim().toLowerCase();
+    if (q && !s.businessName.toLowerCase().includes(q) && !s.merchantEmail.toLowerCase().includes(q)) return false;
+    if (historyFormatFilter !== "all" && s.format !== historyFormatFilter) return false;
+    return true;
+  });
+
+  const hasFilters = historySearch.trim() !== "" || historyFormatFilter !== "all";
+
+  const clearFilters = () => {
+    setHistorySearch("");
+    setHistoryFormatFilter("all");
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <CalendarClock className="w-4 h-4 text-primary" />
+          Report Delivery History
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Past report deliveries across all merchants — most recent first.
+        </p>
+      </CardHeader>
+      <CardContent className="p-0">
+        {/* Filter bar */}
+        <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-1 border-b border-border">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search by merchant or email…"
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              className="h-8 pl-8 text-xs"
+            />
+          </div>
+          <Select value={historyFormatFilter} onValueChange={setHistoryFormatFilter}>
+            <SelectTrigger className="h-8 w-[120px] text-xs">
+              <SelectValue placeholder="Format" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Formats</SelectItem>
+              <SelectItem value="xlsx">XLSX</SelectItem>
+              <SelectItem value="pdf">PDF</SelectItem>
+            </SelectContent>
+          </Select>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1 text-muted-foreground" onClick={clearFilters}>
+              <X className="w-3.5 h-3.5" />
+              Clear
+            </Button>
+          )}
+          {hasFilters && (
+            <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+              {filtered.length} of {history.length} deliver{history.length !== 1 ? "ies" : "y"}
+            </span>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Loading history…</span>
+          </div>
+        ) : history.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+            <CalendarClock className="w-10 h-10 opacity-20" />
+            <p className="text-sm">No reports have been sent yet</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+            <Search className="w-10 h-10 opacity-20" />
+            <p className="text-sm">No deliveries match your filters</p>
+            <Button variant="link" size="sm" className="text-xs" onClick={clearFilters}>Clear filters</Button>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Merchant</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Frequency</TableHead>
+                <TableHead>Format</TableHead>
+                <TableHead>Last Sent</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell className="font-medium text-sm">{s.businessName}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{s.merchantEmail}</TableCell>
+                  <TableCell>
+                    <span className="text-xs capitalize">{s.frequency}</span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs uppercase">{s.format}</Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {s.lastSentAt ? (
+                      <span>
+                        {format(new Date(s.lastSentAt), "dd MMM yyyy, HH:mm")}
+                        <span className="ml-1 text-muted-foreground/60">
+                          ({formatDistanceToNow(new Date(s.lastSentAt), { addSuffix: true })})
+                        </span>
+                      </span>
+                    ) : "Never"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminReports() {
   const [activeTab, setActiveTab] = useState("transactions");
 
@@ -1327,6 +1456,7 @@ export default function AdminReports() {
       </Tabs>
 
       <ScheduledReportsPanel />
+      <ReportHistoryPanel />
     </div>
   );
 }

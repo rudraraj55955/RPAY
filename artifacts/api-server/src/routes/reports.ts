@@ -140,4 +140,88 @@ router.get("/transactions", async (req, res, next) => {
   }
 });
 
+// GET /api/reports/settlements
+// Returns all matching settlements (no pagination, up to 10,000 rows) with aggregate stats.
+// Merchant: auto-scoped. Admin: optionally scoped by merchantId.
+router.get("/settlements", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { status, settlementId, merchantId, dateFrom, dateTo } = req.query as Record<string, string>;
+
+    const conditions = [];
+    if (user.role !== "admin") {
+      conditions.push(eq(settlementsTable.merchantId, user.merchantId!));
+    } else if (merchantId) {
+      conditions.push(eq(settlementsTable.merchantId, parseInt(merchantId as string)));
+    }
+    if (status && status !== "all") conditions.push(eq(settlementsTable.status, status));
+    if (settlementId) conditions.push(eq(settlementsTable.id, parseInt(settlementId as string)));
+    if (dateFrom) conditions.push(gte(settlementsTable.createdAt, new Date(dateFrom)));
+    if (dateTo) {
+      const endOfDay = new Date(dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(lte(settlementsTable.createdAt, endOfDay));
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [aggRows, rows] = await Promise.all([
+      db
+        .select({
+          totalAmount: sql<string>`COALESCE(SUM(CAST(${settlementsTable.amount} AS DECIMAL)), 0)`,
+          paidAmount: sql<string>`COALESCE(SUM(CASE WHEN ${settlementsTable.status} = 'paid' THEN CAST(${settlementsTable.amount} AS DECIMAL) ELSE 0 END), 0)`,
+          pendingAmount: sql<string>`COALESCE(SUM(CASE WHEN ${settlementsTable.status} IN ('pending', 'processing', 'approved') THEN CAST(${settlementsTable.amount} AS DECIMAL) ELSE 0 END), 0)`,
+          rejectedAmount: sql<string>`COALESCE(SUM(CASE WHEN ${settlementsTable.status} IN ('rejected', 'cancelled') THEN CAST(${settlementsTable.amount} AS DECIMAL) ELSE 0 END), 0)`,
+          paidCount: sql<number>`CAST(COUNT(CASE WHEN ${settlementsTable.status} = 'paid' THEN 1 END) AS INTEGER)`,
+          pendingCount: sql<number>`CAST(COUNT(CASE WHEN ${settlementsTable.status} = 'pending' THEN 1 END) AS INTEGER)`,
+          processingCount: sql<number>`CAST(COUNT(CASE WHEN ${settlementsTable.status} IN ('processing', 'approved') THEN 1 END) AS INTEGER)`,
+          rejectedCount: sql<number>`CAST(COUNT(CASE WHEN ${settlementsTable.status} IN ('rejected', 'cancelled') THEN 1 END) AS INTEGER)`,
+          totalCount: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+        })
+        .from(settlementsTable)
+        .where(where),
+      db
+        .select({
+          settlement: settlementsTable,
+          merchantName: merchantsTable.businessName,
+        })
+        .from(settlementsTable)
+        .leftJoin(merchantsTable, eq(settlementsTable.merchantId, merchantsTable.id))
+        .where(where)
+        .limit(10000)
+        .orderBy(sql`${settlementsTable.createdAt} DESC`),
+    ]);
+
+    const agg = aggRows[0];
+
+    res.json({
+      data: rows.map((r) => {
+        const amount = Number(r.settlement.amount);
+        const requestedAmount = r.settlement.requestedAmount != null ? Number(r.settlement.requestedAmount) : null;
+        const fees = requestedAmount != null ? Math.max(requestedAmount - amount, 0) : 0;
+        return {
+          ...r.settlement,
+          amount,
+          requestedAmount,
+          fees,
+          merchantName: r.merchantName ?? null,
+        };
+      }),
+      stats: {
+        totalAmount: Number(agg?.totalAmount ?? 0),
+        paidAmount: Number(agg?.paidAmount ?? 0),
+        pendingAmount: Number(agg?.pendingAmount ?? 0),
+        rejectedAmount: Number(agg?.rejectedAmount ?? 0),
+        paidCount: Number(agg?.paidCount ?? 0),
+        pendingCount: Number(agg?.pendingCount ?? 0),
+        processingCount: Number(agg?.processingCount ?? 0),
+        rejectedCount: Number(agg?.rejectedCount ?? 0),
+        totalCount: Number(agg?.totalCount ?? 0),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

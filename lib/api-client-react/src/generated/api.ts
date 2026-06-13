@@ -117,6 +117,7 @@ import type {
   GetRoutingLogsParams,
   GetRoutingMetricsParams,
   GetSecurityComplianceSummaryParams,
+  GetSettlementReportParams,
   GetSignatureFailureAlertHistoryParams,
   GetTransactionReportParams,
   GetVirtualAccountBalanceHistoryParams,
@@ -282,6 +283,7 @@ import type {
   SettlementActionInput,
   SettlementListResponse,
   SettlementMarkPaidInput,
+  SettlementReportResponse,
   SettlementStats,
   SignatureFailureAlertHistoryResponse,
   SimulatePaymentInput,
@@ -4139,6 +4141,90 @@ export function useSearchByUtr<TData = Awaited<ReturnType<typeof searchByUtr>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getSearchByUtrQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetSettlementReportUrl = (params?: GetSettlementReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/settlements?${stringifiedParams}` : `/api/reports/settlements`
+}
+
+/**
+ * @summary Generate settlement report data (no pagination, up to 10,000 rows)
+ */
+export const getSettlementReport = async (params?: GetSettlementReportParams, options?: RequestInit): Promise<SettlementReportResponse> => {
+
+  return customFetch<SettlementReportResponse>(getGetSettlementReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSettlementReportQueryKey = (params?: GetSettlementReportParams,) => {
+    return [
+    `/api/reports/settlements`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSettlementReportQueryOptions = <TData = Awaited<ReturnType<typeof getSettlementReport>>, TError = ErrorType<void>>(params?: GetSettlementReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettlementReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSettlementReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSettlementReport>>> = ({ signal }) => getSettlementReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSettlementReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSettlementReportQueryResult = NonNullable<Awaited<ReturnType<typeof getSettlementReport>>>
+export type GetSettlementReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Generate settlement report data (no pagination, up to 10,000 rows)
+ */
+
+export function useGetSettlementReport<TData = Awaited<ReturnType<typeof getSettlementReport>>, TError = ErrorType<void>>(
+ params?: GetSettlementReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettlementReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSettlementReportQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

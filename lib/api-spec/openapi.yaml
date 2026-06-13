@@ -1385,6 +1385,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /reports/settlements:
+    get:
+      operationId: getSettlementReport
+      tags: [reports]
+      summary: Generate settlement report data (no pagination, up to 10,000 rows)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, approved, rejected, paid, cancelled, all]
+        - name: settlementId
+          in: query
+          schema:
+            type: integer
+          description: Filter by a specific settlement ID
+        - name: merchantId
+          in: query
+          schema:
+            type: integer
+          description: Admin only — scope report to a specific merchant
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Settlement report data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementReportResponse"
+        "401":
+          description: Unauthorized
+
   /reports/transactions:
     get:
       operationId: getTransactionReport
@@ -7833,6 +7872,76 @@ components:
           type: string
         updatedAt:
           type: string
+
+    ReportSettlement:
+      type: object
+      required: [id, merchantId, amount, currency, status, transactionCount, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        merchantName:
+          type: ["string", "null"]
+        amount:
+          type: number
+        requestedAmount:
+          type: ["number", "null"]
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, approved, rejected, paid, cancelled]
+        periodFrom:
+          type: ["string", "null"]
+        periodTo:
+          type: ["string", "null"]
+        transactionCount:
+          type: integer
+        adminRemark:
+          type: ["string", "null"]
+        referenceNumber:
+          type: ["string", "null"]
+        fees:
+          type: number
+          description: Deduction from requested amount (requestedAmount - amount when positive, else 0)
+        paidAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    SettlementReportResponse:
+      type: object
+      required: [data, stats]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportSettlement"
+        stats:
+          type: object
+          required: [totalAmount, paidAmount, pendingAmount, rejectedAmount, paidCount, pendingCount, processingCount, rejectedCount, totalCount]
+          properties:
+            totalAmount:
+              type: number
+            paidAmount:
+              type: number
+            pendingAmount:
+              type: number
+            rejectedAmount:
+              type: number
+            paidCount:
+              type: integer
+            pendingCount:
+              type: integer
+            processingCount:
+              type: integer
+            rejectedCount:
+              type: integer
+            totalCount:
+              type: integer
 
     TransactionReportResponse:
       type: object

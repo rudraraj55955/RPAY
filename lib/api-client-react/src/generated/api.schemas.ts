@@ -581,6 +581,62 @@ export interface ReportTransaction {
   updatedAt?: string;
 }
 
+export type ReportSettlementStatus = typeof ReportSettlementStatus[keyof typeof ReportSettlementStatus];
+
+
+export const ReportSettlementStatus = {
+  pending: 'pending',
+  processing: 'processing',
+  approved: 'approved',
+  rejected: 'rejected',
+  paid: 'paid',
+  cancelled: 'cancelled',
+} as const;
+
+export interface ReportSettlement {
+  id: number;
+  merchantId: number;
+  /** @nullable */
+  merchantName?: string | null;
+  amount: number;
+  /** @nullable */
+  requestedAmount?: number | null;
+  currency: string;
+  status: ReportSettlementStatus;
+  /** @nullable */
+  periodFrom?: string | null;
+  /** @nullable */
+  periodTo?: string | null;
+  transactionCount: number;
+  /** @nullable */
+  adminRemark?: string | null;
+  /** @nullable */
+  referenceNumber?: string | null;
+  /** Deduction from requested amount (requestedAmount - amount when positive, else 0) */
+  fees?: number;
+  /** @nullable */
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SettlementReportResponseStats = {
+  totalAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  rejectedAmount: number;
+  paidCount: number;
+  pendingCount: number;
+  processingCount: number;
+  rejectedCount: number;
+  totalCount: number;
+};
+
+export interface SettlementReportResponse {
+  data: ReportSettlement[];
+  stats: SettlementReportResponseStats;
+}
+
 export type TransactionReportResponseStats = {
   depositVolume: number;
   withdrawalVolume: number;
@@ -3921,6 +3977,33 @@ export const ListTransactionsConnectionProvider = {
 export type SearchByUtrParams = {
 utr: string;
 };
+
+export type GetSettlementReportParams = {
+status?: GetSettlementReportStatus;
+/**
+ * Filter by a specific settlement ID
+ */
+settlementId?: number;
+/**
+ * Admin only — scope report to a specific merchant
+ */
+merchantId?: number;
+dateFrom?: string;
+dateTo?: string;
+};
+
+export type GetSettlementReportStatus = typeof GetSettlementReportStatus[keyof typeof GetSettlementReportStatus];
+
+
+export const GetSettlementReportStatus = {
+  pending: 'pending',
+  processing: 'processing',
+  approved: 'approved',
+  rejected: 'rejected',
+  paid: 'paid',
+  cancelled: 'cancelled',
+  all: 'all',
+} as const;
 
 export type GetTransactionReportParams = {
 type?: GetTransactionReportType;

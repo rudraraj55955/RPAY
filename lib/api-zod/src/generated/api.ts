@@ -1381,6 +1381,50 @@ export const SearchByUtrResponse = zod.object({
 
 
 /**
+ * @summary Generate settlement report data (no pagination, up to 10,000 rows)
+ */
+export const GetSettlementReportQueryParams = zod.object({
+  "status": zod.enum(['pending', 'processing', 'approved', 'rejected', 'paid', 'cancelled', 'all']).optional(),
+  "settlementId": zod.coerce.number().optional().describe('Filter by a specific settlement ID'),
+  "merchantId": zod.coerce.number().optional().describe('Admin only — scope report to a specific merchant'),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional()
+})
+
+export const GetSettlementReportResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "amount": zod.number(),
+  "requestedAmount": zod.number().nullish(),
+  "currency": zod.string(),
+  "status": zod.enum(['pending', 'processing', 'approved', 'rejected', 'paid', 'cancelled']),
+  "periodFrom": zod.string().nullish(),
+  "periodTo": zod.string().nullish(),
+  "transactionCount": zod.number(),
+  "adminRemark": zod.string().nullish(),
+  "referenceNumber": zod.string().nullish(),
+  "fees": zod.number().optional().describe('Deduction from requested amount (requestedAmount - amount when positive, else 0)'),
+  "paidAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "stats": zod.object({
+  "totalAmount": zod.number(),
+  "paidAmount": zod.number(),
+  "pendingAmount": zod.number(),
+  "rejectedAmount": zod.number(),
+  "paidCount": zod.number(),
+  "pendingCount": zod.number(),
+  "processingCount": zod.number(),
+  "rejectedCount": zod.number(),
+  "totalCount": zod.number()
+})
+})
+
+
+/**
  * @summary Generate transaction report data (no pagination, up to 10,000 rows)
  */
 export const GetTransactionReportQueryParams = zod.object({

@@ -1,11 +1,12 @@
 import { useState, useCallback } from "react";
-import { useGetTransactionReport, useListMerchants } from "@workspace/api-client-react";
+import { useGetTransactionReport, useGetSettlementReport, useListMerchants } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   FileText,
@@ -25,6 +26,10 @@ import {
   Building2,
   Link2,
   Coins,
+  Banknote,
+  Hash,
+  Wallet,
+  TrendingUp,
 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { toast } from "sonner";
@@ -82,55 +87,92 @@ function settlementBadgeColor(s: string) {
   return "text-muted-foreground";
 }
 
+function settlementStatusColor(s: string) {
+  if (s === "paid") return "text-emerald-400";
+  if (s === "approved") return "text-sky-400";
+  if (s === "processing") return "text-amber-400";
+  if (s === "rejected" || s === "cancelled") return "text-red-400";
+  return "text-muted-foreground";
+}
+
 export default function AdminReports() {
-  const [dateFrom, setDateFrom] = useState(() => format(startOfMonth(new Date()), "yyyy-MM-dd"));
-  const [dateTo, setDateTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [activeTab, setActiveTab] = useState("transactions");
+
+  // Transaction filter state
+  const [txDateFrom, setTxDateFrom] = useState(() => format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [txDateTo, setTxDateTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [type, setType] = useState("all");
-  const [status, setStatus] = useState("all");
+  const [txStatus, setTxStatus] = useState("all");
   const [connectionProvider, setConnectionProvider] = useState("all");
   const [source, setSource] = useState("all");
-  const [merchantId, setMerchantId] = useState("all");
-  const [activePreset, setActivePreset] = useState<string | null>(null);
-  const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
+  const [txMerchantId, setTxMerchantId] = useState("all");
+  const [txActivePreset, setTxActivePreset] = useState<string | null>(null);
+  const [txExporting, setTxExporting] = useState<"pdf" | "xlsx" | null>(null);
+
+  // Settlement filter state
+  const [stlDateFrom, setStlDateFrom] = useState(() => format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [stlDateTo, setStlDateTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [stlStatus, setStlStatus] = useState("all");
+  const [settlementId, setSettlementId] = useState("");
+  const [stlMerchantId, setStlMerchantId] = useState("all");
+  const [stlActivePreset, setStlActivePreset] = useState<string | null>(null);
+  const [stlExporting, setStlExporting] = useState<"pdf" | "xlsx" | null>(null);
 
   const { data: merchantsData } = useListMerchants({ page: 1, limit: 200 });
   const merchants = merchantsData?.data ?? [];
 
-  const params = {
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
+  const txParams = {
+    dateFrom: txDateFrom || undefined,
+    dateTo: txDateTo || undefined,
     type: type !== "all" ? (type as "deposit" | "withdrawal") : undefined,
-    status: status !== "all" ? (status as "pending" | "success" | "failed") : undefined,
+    status: txStatus !== "all" ? (txStatus as "pending" | "success" | "failed") : undefined,
     connectionProvider: connectionProvider !== "all" ? (connectionProvider as "phonepe" | "paytm" | "bharatpe" | "yono_sbi" | "hdfc_smarthub" | "upi_id") : undefined,
     source: source !== "all" ? (source as "qr_code" | "virtual_account" | "payment_link" | "direct") : undefined,
-    merchantId: merchantId !== "all" ? parseInt(merchantId) : undefined,
+    merchantId: txMerchantId !== "all" ? parseInt(txMerchantId) : undefined,
   };
 
-  const { data, isLoading, isFetching } = useGetTransactionReport(params);
+  const stlParams = {
+    dateFrom: stlDateFrom || undefined,
+    dateTo: stlDateTo || undefined,
+    status: stlStatus !== "all" ? (stlStatus as "pending" | "processing" | "approved" | "rejected" | "paid" | "cancelled") : undefined,
+    settlementId: settlementId ? parseInt(settlementId) : undefined,
+    merchantId: stlMerchantId !== "all" ? parseInt(stlMerchantId) : undefined,
+  };
 
-  const transactions = data?.data ?? [];
-  const stats = data?.stats;
+  const { data: txData, isLoading: txLoading, isFetching: txFetching } = useGetTransactionReport(txParams);
+  const { data: stlData, isLoading: stlLoading, isFetching: stlFetching } = useGetSettlementReport(stlParams);
 
-  const selectedMerchantName = merchantId !== "all"
-    ? (merchants.find((m) => m.id === parseInt(merchantId))?.businessName ?? `Merchant #${merchantId}`)
+  const transactions = txData?.data ?? [];
+  const txStats = txData?.stats;
+  const settlements = stlData?.data ?? [];
+  const stlStats = stlData?.stats;
+
+  const txMerchantName = txMerchantId !== "all"
+    ? (merchants.find((m) => m.id === parseInt(txMerchantId))?.businessName ?? `Merchant #${txMerchantId}`)
     : "All Merchants";
 
-  const applyPreset = (preset: typeof DATE_PRESETS[number]) => {
+  const stlMerchantName = stlMerchantId !== "all"
+    ? (merchants.find((m) => m.id === parseInt(stlMerchantId))?.businessName ?? `Merchant #${stlMerchantId}`)
+    : "All Merchants";
+
+  const applyTxPreset = (preset: typeof DATE_PRESETS[number]) => {
     const range = preset.getRange();
-    setDateFrom(range.from);
-    setDateTo(range.to);
-    setActivePreset(preset.label);
+    setTxDateFrom(range.from);
+    setTxDateTo(range.to);
+    setTxActivePreset(preset.label);
   };
 
-  const handleDateChange = (field: "from" | "to", val: string) => {
-    if (field === "from") setDateFrom(val);
-    else setDateTo(val);
-    setActivePreset(null);
+  const applyStlPreset = (preset: typeof DATE_PRESETS[number]) => {
+    const range = preset.getRange();
+    setStlDateFrom(range.from);
+    setStlDateTo(range.to);
+    setStlActivePreset(preset.label);
   };
 
-  const exportExcel = useCallback(async () => {
+  // ── Transaction exports ───────────────────────────────────────────────────
+  const exportTxExcel = useCallback(async () => {
     if (!transactions.length) { toast.error("No data to export"); return; }
-    setExporting("xlsx");
+    setTxExporting("xlsx");
     try {
       const XLSX = await import("xlsx");
       const wb = XLSX.utils.book_new();
@@ -138,17 +180,17 @@ export default function AdminReports() {
       const summaryRows = [
         ["RasoKart — Admin Transaction Report"],
         [`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`],
-        [`Merchant: ${selectedMerchantName}`],
-        [`Period: ${dateFrom || "All time"} to ${dateTo || "All time"}`],
+        [`Merchant: ${txMerchantName}`],
+        [`Period: ${txDateFrom || "All time"} to ${txDateTo || "All time"}`],
         [],
         ["Summary"],
         ["Total Transactions", transactions.length],
-        ["Deposit Volume (₹)", stats?.depositVolume ?? 0],
-        ["Withdrawal Volume (₹)", stats?.withdrawalVolume ?? 0],
-        ["Total Fees (₹)", stats?.totalFees ?? 0],
-        ["Successful", stats?.successCount ?? 0],
-        ["Failed", stats?.failedCount ?? 0],
-        ["Pending", stats?.pendingCount ?? 0],
+        ["Deposit Volume (₹)", txStats?.depositVolume ?? 0],
+        ["Withdrawal Volume (₹)", txStats?.withdrawalVolume ?? 0],
+        ["Total Fees (₹)", txStats?.totalFees ?? 0],
+        ["Successful", txStats?.successCount ?? 0],
+        ["Failed", txStats?.failedCount ?? 0],
+        ["Pending", txStats?.pendingCount ?? 0],
       ];
       const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
       ws1["!cols"] = [{ wch: 28 }, { wch: 20 }];
@@ -179,18 +221,18 @@ export default function AdminReports() {
       ws2["!cols"] = [{ wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 18 }, { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 30 }];
       XLSX.utils.book_append_sheet(wb, ws2, "Transactions");
 
-      XLSX.writeFile(wb, `rasokart-admin-report-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+      XLSX.writeFile(wb, `rasokart-admin-tx-report-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
       toast.success("Excel report downloaded");
     } catch {
       toast.error("Failed to export Excel");
     } finally {
-      setExporting(null);
+      setTxExporting(null);
     }
-  }, [transactions, stats, dateFrom, dateTo, selectedMerchantName]);
+  }, [transactions, txStats, txDateFrom, txDateTo, txMerchantName]);
 
-  const exportPDF = useCallback(async () => {
+  const exportTxPDF = useCallback(async () => {
     if (!transactions.length) { toast.error("No data to export"); return; }
-    setExporting("pdf");
+    setTxExporting("pdf");
     try {
       const { jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
@@ -205,8 +247,8 @@ export default function AdminReports() {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(120, 120, 120);
       doc.text(`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 26);
-      doc.text(`Merchant: ${selectedMerchantName}`, 14, 32);
-      doc.text(`Period: ${dateFrom || "All time"} → ${dateTo || "All time"}`, 14, 38);
+      doc.text(`Merchant: ${txMerchantName}`, 14, 32);
+      doc.text(`Period: ${txDateFrom || "All time"} → ${txDateTo || "All time"}`, 14, 38);
       doc.setTextColor(0, 0, 0);
 
       autoTable(doc, {
@@ -214,12 +256,12 @@ export default function AdminReports() {
         head: [["Metric", "Value"]],
         body: [
           ["Total Transactions", transactions.length.toString()],
-          ["Deposit Volume", fmt(stats?.depositVolume ?? 0)],
-          ["Withdrawal Volume", fmt(stats?.withdrawalVolume ?? 0)],
-          ["Total Fees", fmt(stats?.totalFees ?? 0)],
-          ["Successful", (stats?.successCount ?? 0).toString()],
-          ["Failed", (stats?.failedCount ?? 0).toString()],
-          ["Pending", (stats?.pendingCount ?? 0).toString()],
+          ["Deposit Volume", fmt(txStats?.depositVolume ?? 0)],
+          ["Withdrawal Volume", fmt(txStats?.withdrawalVolume ?? 0)],
+          ["Total Fees", fmt(txStats?.totalFees ?? 0)],
+          ["Successful", (txStats?.successCount ?? 0).toString()],
+          ["Failed", (txStats?.failedCount ?? 0).toString()],
+          ["Pending", (txStats?.pendingCount ?? 0).toString()],
         ],
         theme: "grid",
         headStyles: { fillColor: [30, 30, 46] },
@@ -263,17 +305,163 @@ export default function AdminReports() {
         },
       });
 
-      doc.save(`rasokart-admin-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+      doc.save(`rasokart-admin-tx-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
       toast.success("PDF report downloaded");
     } catch {
       toast.error("Failed to export PDF");
     } finally {
-      setExporting(null);
+      setTxExporting(null);
     }
-  }, [transactions, stats, dateFrom, dateTo, selectedMerchantName]);
+  }, [transactions, txStats, txDateFrom, txDateTo, txMerchantName]);
 
-  const isExporting = exporting !== null;
-  const noData = !isLoading && transactions.length === 0;
+  // ── Settlement exports ────────────────────────────────────────────────────
+  const exportStlExcel = useCallback(async () => {
+    if (!settlements.length) { toast.error("No data to export"); return; }
+    setStlExporting("xlsx");
+    try {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.utils.book_new();
+
+      const summaryRows = [
+        ["RasoKart — Admin Settlement Report"],
+        [`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`],
+        [`Merchant: ${stlMerchantName}`],
+        [`Period: ${stlDateFrom || "All time"} to ${stlDateTo || "All time"}`],
+        [],
+        ["Summary"],
+        ["Total Settlements", stlStats?.totalCount ?? 0],
+        ["Total Amount (₹)", stlStats?.totalAmount ?? 0],
+        ["Paid Amount (₹)", stlStats?.paidAmount ?? 0],
+        ["Pending Amount (₹)", stlStats?.pendingAmount ?? 0],
+        ["Rejected Amount (₹)", stlStats?.rejectedAmount ?? 0],
+        ["Paid", stlStats?.paidCount ?? 0],
+        ["Pending", stlStats?.pendingCount ?? 0],
+        ["Processing / Approved", stlStats?.processingCount ?? 0],
+        ["Rejected / Cancelled", stlStats?.rejectedCount ?? 0],
+      ];
+      const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
+      ws1["!cols"] = [{ wch: 28 }, { wch: 20 }];
+      XLSX.utils.book_append_sheet(wb, ws1, "Summary");
+
+      const stlRows = [
+        ["Settlement ID", "Merchant", "Status", "Period From", "Period To", "Requested Amount (₹)", "Settled Amount (₹)", "Fees (₹)", "Transactions", "UTR / Reference", "Paid At", "Created At"],
+        ...settlements.map((s) => [
+          s.id,
+          s.merchantName ?? "",
+          s.status,
+          s.periodFrom ?? "",
+          s.periodTo ?? "",
+          s.requestedAmount != null ? Number(s.requestedAmount) : "",
+          Number(s.amount),
+          Number(s.fees ?? 0),
+          s.transactionCount,
+          s.referenceNumber ?? "",
+          s.paidAt ? format(new Date(s.paidAt), "dd/MM/yyyy HH:mm") : "",
+          format(new Date(s.createdAt), "dd/MM/yyyy HH:mm"),
+        ]),
+      ];
+      const ws2 = XLSX.utils.aoa_to_sheet(stlRows);
+      ws2["!cols"] = [{ wch: 14 }, { wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 22 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 28 }, { wch: 20 }, { wch: 20 }];
+      XLSX.utils.book_append_sheet(wb, ws2, "Settlements");
+
+      XLSX.writeFile(wb, `rasokart-admin-settlement-report-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+      toast.success("Excel report downloaded");
+    } catch {
+      toast.error("Failed to export Excel");
+    } finally {
+      setStlExporting(null);
+    }
+  }, [settlements, stlStats, stlDateFrom, stlDateTo, stlMerchantName]);
+
+  const exportStlPDF = useCallback(async () => {
+    if (!settlements.length) { toast.error("No data to export"); return; }
+    setStlExporting("pdf");
+    try {
+      const { jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+
+      const doc = new jsPDF({ orientation: "landscape" });
+
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("RasoKart — Admin Settlement Report", 14, 18);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(120, 120, 120);
+      doc.text(`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 26);
+      doc.text(`Merchant: ${stlMerchantName}`, 14, 32);
+      doc.text(`Period: ${stlDateFrom || "All time"} → ${stlDateTo || "All time"}`, 14, 38);
+      doc.setTextColor(0, 0, 0);
+
+      autoTable(doc, {
+        startY: 46,
+        head: [["Metric", "Value"]],
+        body: [
+          ["Total Settlements", (stlStats?.totalCount ?? 0).toString()],
+          ["Total Amount", fmt(stlStats?.totalAmount ?? 0)],
+          ["Paid Amount", fmt(stlStats?.paidAmount ?? 0)],
+          ["Pending Amount", fmt(stlStats?.pendingAmount ?? 0)],
+          ["Rejected Amount", fmt(stlStats?.rejectedAmount ?? 0)],
+          ["Paid Count", (stlStats?.paidCount ?? 0).toString()],
+          ["Pending Count", (stlStats?.pendingCount ?? 0).toString()],
+          ["Processing / Approved", (stlStats?.processingCount ?? 0).toString()],
+          ["Rejected / Cancelled", (stlStats?.rejectedCount ?? 0).toString()],
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [30, 30, 46] },
+        columnStyles: { 0: { fontStyle: "bold", cellWidth: 60 }, 1: { cellWidth: 60 } },
+      });
+
+      const afterSummary = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+
+      autoTable(doc, {
+        startY: afterSummary,
+        head: [["ID", "Merchant", "Status", "Period", "Requested (₹)", "Settled (₹)", "Fees (₹)", "Txns", "UTR / Ref", "Paid At", "Created"]],
+        body: settlements.map((s) => [
+          `#${s.id}`,
+          s.merchantName ?? "—",
+          s.status,
+          s.periodFrom && s.periodTo ? `${s.periodFrom} → ${s.periodTo}` : "—",
+          s.requestedAmount != null ? Number(s.requestedAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—",
+          Number(s.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 }),
+          Number(s.fees ?? 0) > 0 ? Number(s.fees).toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—",
+          s.transactionCount.toString(),
+          s.referenceNumber ?? "—",
+          s.paidAt ? format(new Date(s.paidAt), "dd/MM/yy") : "—",
+          format(new Date(s.createdAt), "dd/MM/yy"),
+        ]),
+        theme: "striped",
+        headStyles: { fillColor: [30, 30, 46] },
+        styles: { fontSize: 7.5 },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 24 },
+          2: { cellWidth: 18 },
+          3: { cellWidth: 28 },
+          4: { cellWidth: 22, halign: "right" },
+          5: { cellWidth: 22, halign: "right" },
+          6: { cellWidth: 16, halign: "right" },
+          7: { cellWidth: 10, halign: "right" },
+          8: { cellWidth: 32 },
+          9: { cellWidth: 18 },
+          10: { cellWidth: "auto" },
+        },
+      });
+
+      doc.save(`rasokart-admin-settlement-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+      toast.success("PDF report downloaded");
+    } catch {
+      toast.error("Failed to export PDF");
+    } finally {
+      setStlExporting(null);
+    }
+  }, [settlements, stlStats, stlDateFrom, stlDateTo, stlMerchantName]);
+
+  const isTxExporting = txExporting !== null;
+  const isStlExporting = stlExporting !== null;
+  const txNoData = !txLoading && transactions.length === 0;
+  const stlNoData = !stlLoading && settlements.length === 0;
 
   return (
     <div className="space-y-6">
@@ -281,334 +469,590 @@ export default function AdminReports() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-primary" />
-            Transaction Reports
+            Reports
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Generate and download transaction reports across all merchants
+            Generate and download reports across all merchants
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportExcel}
-            disabled={isExporting || isLoading || transactions.length === 0}
-          >
-            {exporting === "xlsx" ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-1.5" />}
-            {exporting === "xlsx" ? "Exporting…" : "Excel (.xlsx)"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportPDF}
-            disabled={isExporting || isLoading || transactions.length === 0}
-          >
-            {exporting === "pdf" ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileText className="w-4 h-4 mr-1.5" />}
-            {exporting === "pdf" ? "Exporting…" : "PDF (.pdf)"}
-          </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <Filter className="w-4 h-4" />
-            Filters
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Date presets */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <CalendarRange className="w-4 h-4 text-muted-foreground shrink-0" />
-            {DATE_PRESETS.map((p) => (
-              <Button
-                key={p.label}
-                variant={activePreset === p.label ? "secondary" : "outline"}
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => applyPreset(p)}
-              >
-                {p.label}
-              </Button>
-            ))}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="settlements">Settlements</TabsTrigger>
+        </TabsList>
+
+        {/* ── Transactions Tab ───────────────────────────────────────────── */}
+        <TabsContent value="transactions" className="space-y-6">
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportTxExcel}
+              disabled={isTxExporting || txLoading || transactions.length === 0}
+            >
+              {txExporting === "xlsx" ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-1.5" />}
+              {txExporting === "xlsx" ? "Exporting…" : "Excel (.xlsx)"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportTxPDF}
+              disabled={isTxExporting || txLoading || transactions.length === 0}
+            >
+              {txExporting === "pdf" ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileText className="w-4 h-4 mr-1.5" />}
+              {txExporting === "pdf" ? "Exporting…" : "PDF (.pdf)"}
+            </Button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">From</Label>
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => handleDateChange("from", e.target.value)}
-                className="h-8 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">To</Label>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => handleDateChange("to", e.target.value)}
-                className="h-8 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <Store className="w-3 h-3" />
-                Merchant
-              </Label>
-              <Select value={merchantId} onValueChange={setMerchantId}>
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All merchants</SelectItem>
-                  {merchants.map((m) => (
-                    <SelectItem key={m.id} value={m.id.toString()}>
-                      {m.businessName ?? `Merchant #${m.id}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Type</Label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
-                  <SelectItem value="deposit">Deposit</SelectItem>
-                  <SelectItem value="withdrawal">Withdrawal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="success">Success</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Source</Label>
-              <Select value={source} onValueChange={setSource}>
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All sources</SelectItem>
-                  <SelectItem value="qr_code">
-                    <span className="flex items-center gap-1.5"><QrCode className="w-3 h-3" />QR Code</span>
-                  </SelectItem>
-                  <SelectItem value="virtual_account">
-                    <span className="flex items-center gap-1.5"><Building2 className="w-3 h-3" />Virtual Account</span>
-                  </SelectItem>
-                  <SelectItem value="payment_link">
-                    <span className="flex items-center gap-1.5"><Link2 className="w-3 h-3" />Payment Link</span>
-                  </SelectItem>
-                  <SelectItem value="direct">Direct</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Provider</Label>
-              <Select value={connectionProvider} onValueChange={setConnectionProvider}>
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All providers</SelectItem>
-                  {PROVIDERS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Summary stats */}
-      {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* Tx Filters */}
           <Card>
-            <CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                <ArrowDownLeft className="w-3 h-3 text-emerald-400" />
-                Deposit Volume
-              </p>
-              <p className="text-base font-bold text-emerald-400">{fmt(stats.depositVolume)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                <ArrowUpRight className="w-3 h-3 text-orange-400" />
-                Withdrawal Volume
-              </p>
-              <p className="text-base font-bold text-orange-400">{fmt(stats.withdrawalVolume)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                <Coins className="w-3 h-3 text-violet-400" />
-                Total Fees
-              </p>
-              <p className="text-base font-bold text-violet-400">{fmt(stats.totalFees)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                Successful
-              </p>
-              <p className="text-base font-bold">{stats.successCount.toLocaleString("en-IN")}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                <XCircle className="w-3 h-3 text-red-400" />
-                Failed
-              </p>
-              <p className="text-base font-bold text-red-400">{stats.failedCount.toLocaleString("en-IN")}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-amber-400" />
-                Pending
-              </p>
-              <p className="text-base font-bold text-amber-400">{stats.pendingCount.toLocaleString("en-IN")}</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Preview table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">
-              {isLoading || isFetching ? (
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Loading…
-                </span>
-              ) : (
-                <span>{transactions.length.toLocaleString("en-IN")} transaction{transactions.length !== 1 ? "s" : ""} matched</span>
-              )}
-            </p>
-            {transactions.length > 0 && (
-              <div className="flex items-center gap-1.5">
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={exportExcel} disabled={isExporting}>
-                  <Download className="w-3 h-3" />
-                  xlsx
-                </Button>
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={exportPDF} disabled={isExporting}>
-                  <Download className="w-3 h-3" />
-                  pdf
-                </Button>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Filter className="w-4 h-4" />
+                Filters
               </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {noData ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-              <FileText className="w-10 h-10 opacity-20" />
-              <p className="text-sm">No transactions match the selected filters</p>
-              <p className="text-xs opacity-60">Try adjusting the date range, merchant, or clearing filters</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Merchant</TableHead>
-                    <TableHead>UTR</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Settlement</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Provider</TableHead>
-                    <TableHead className="text-right">Fee (₹)</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading
-                    ? Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={i}>
-                          {Array.from({ length: 10 }).map((__, j) => (
-                            <TableCell key={j}>
-                              <div className="h-4 w-full bg-muted animate-pulse rounded" />
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    : transactions.slice(0, 100).map((t) => {
-                        const src = t.qrCodeId ? "QR Code" : t.virtualAccountId ? "Virtual Account" : t.paymentLinkId ? "Payment Link" : "Direct";
-                        return (
-                          <TableRow key={t.id}>
-                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                              {format(new Date(t.createdAt), "dd MMM yyyy, HH:mm")}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">
-                              {t.merchantName ?? "—"}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">{t.utr}</TableCell>
-                            <TableCell>
-                              <span className={`text-xs font-medium capitalize ${t.type === "deposit" ? "text-emerald-400" : "text-orange-400"}`}>
-                                {t.type}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <StatusBadge status={t.status} />
-                            </TableCell>
-                            <TableCell>
-                              <span className={`text-xs capitalize ${settlementBadgeColor(t.settlementStatus)}`}>
-                                {t.settlementStatus}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{src}</TableCell>
-                            <TableCell className="text-xs capitalize text-muted-foreground">
-                              {t.connectionProvider ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-right text-xs text-muted-foreground">
-                              {Number(t.fee) > 0 ? fmt(Number(t.fee)) : "—"}
-                            </TableCell>
-                            <TableCell className="text-right font-medium text-sm">
-                              {fmt(Number(t.amount))}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                </TableBody>
-              </Table>
-              {transactions.length > 100 && (
-                <div className="text-center py-3 text-xs text-muted-foreground border-t border-border/50">
-                  Showing first 100 of {transactions.length.toLocaleString("en-IN")} transactions — download the full report to see all rows
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CalendarRange className="w-4 h-4 text-muted-foreground shrink-0" />
+                {DATE_PRESETS.map((p) => (
+                  <Button
+                    key={p.label}
+                    variant={txActivePreset === p.label ? "secondary" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => applyTxPreset(p)}
+                  >
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">From</Label>
+                  <Input
+                    type="date"
+                    value={txDateFrom}
+                    onChange={(e) => { setTxDateFrom(e.target.value); setTxActivePreset(null); }}
+                    className="h-8 text-sm"
+                  />
                 </div>
-              )}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">To</Label>
+                  <Input
+                    type="date"
+                    value={txDateTo}
+                    onChange={(e) => { setTxDateTo(e.target.value); setTxActivePreset(null); }}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Store className="w-3 h-3" />Merchant
+                  </Label>
+                  <Select value={txMerchantId} onValueChange={setTxMerchantId}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All merchants</SelectItem>
+                      {merchants.map((m) => (
+                        <SelectItem key={m.id} value={m.id.toString()}>
+                          {m.businessName ?? `Merchant #${m.id}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Type</Label>
+                  <Select value={type} onValueChange={setType}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All types</SelectItem>
+                      <SelectItem value="deposit">Deposit</SelectItem>
+                      <SelectItem value="withdrawal">Withdrawal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <Select value={txStatus} onValueChange={setTxStatus}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="success">Success</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Source</Label>
+                  <Select value={source} onValueChange={setSource}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All sources</SelectItem>
+                      <SelectItem value="qr_code">
+                        <span className="flex items-center gap-1.5"><QrCode className="w-3 h-3" />QR Code</span>
+                      </SelectItem>
+                      <SelectItem value="virtual_account">
+                        <span className="flex items-center gap-1.5"><Building2 className="w-3 h-3" />Virtual Account</span>
+                      </SelectItem>
+                      <SelectItem value="payment_link">
+                        <span className="flex items-center gap-1.5"><Link2 className="w-3 h-3" />Payment Link</span>
+                      </SelectItem>
+                      <SelectItem value="direct">Direct</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Provider</Label>
+                  <Select value={connectionProvider} onValueChange={setConnectionProvider}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All providers</SelectItem>
+                      {PROVIDERS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tx Stats */}
+          {txStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <ArrowDownLeft className="w-3 h-3 text-emerald-400" />Deposit Volume
+                  </p>
+                  <p className="text-base font-bold text-emerald-400">{fmt(txStats.depositVolume)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <ArrowUpRight className="w-3 h-3 text-orange-400" />Withdrawal Volume
+                  </p>
+                  <p className="text-base font-bold text-orange-400">{fmt(txStats.withdrawalVolume)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <Coins className="w-3 h-3 text-violet-400" />Total Fees
+                  </p>
+                  <p className="text-base font-bold text-violet-400">{fmt(txStats.totalFees)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />Successful
+                  </p>
+                  <p className="text-base font-bold">{txStats.successCount.toLocaleString("en-IN")}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <XCircle className="w-3 h-3 text-red-400" />Failed
+                  </p>
+                  <p className="text-base font-bold text-red-400">{txStats.failedCount.toLocaleString("en-IN")}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-amber-400" />Pending
+                  </p>
+                  <p className="text-base font-bold text-amber-400">{txStats.pendingCount.toLocaleString("en-IN")}</p>
+                </CardContent>
+              </Card>
             </div>
           )}
-        </CardContent>
-      </Card>
+
+          {/* Tx Table */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">
+                  {txLoading || txFetching ? (
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />Loading…
+                    </span>
+                  ) : (
+                    <span>{transactions.length.toLocaleString("en-IN")} transaction{transactions.length !== 1 ? "s" : ""} matched</span>
+                  )}
+                </p>
+                {transactions.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={exportTxExcel} disabled={isTxExporting}>
+                      <Download className="w-3 h-3" />xlsx
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={exportTxPDF} disabled={isTxExporting}>
+                      <Download className="w-3 h-3" />pdf
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {txNoData ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+                  <FileText className="w-10 h-10 opacity-20" />
+                  <p className="text-sm">No transactions match the selected filters</p>
+                  <p className="text-xs opacity-60">Try adjusting the date range, merchant, or clearing filters</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Merchant</TableHead>
+                        <TableHead>UTR</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Settlement</TableHead>
+                        <TableHead>Source</TableHead>
+                        <TableHead>Provider</TableHead>
+                        <TableHead className="text-right">Fee (₹)</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {txLoading
+                        ? Array.from({ length: 5 }).map((_, i) => (
+                            <TableRow key={i}>
+                              {Array.from({ length: 10 }).map((__, j) => (
+                                <TableCell key={j}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableCell>
+                              ))}
+                            </TableRow>
+                          ))
+                        : transactions.slice(0, 100).map((t) => {
+                            const src = t.qrCodeId ? "QR Code" : t.virtualAccountId ? "Virtual Account" : t.paymentLinkId ? "Payment Link" : "Direct";
+                            return (
+                              <TableRow key={t.id}>
+                                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                  {format(new Date(t.createdAt), "dd MMM yyyy, HH:mm")}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                  {t.merchantName ?? "—"}
+                                </TableCell>
+                                <TableCell className="font-mono text-xs">{t.utr}</TableCell>
+                                <TableCell>
+                                  <span className={`text-xs font-medium capitalize ${t.type === "deposit" ? "text-emerald-400" : "text-orange-400"}`}>
+                                    {t.type}
+                                  </span>
+                                </TableCell>
+                                <TableCell><StatusBadge status={t.status} /></TableCell>
+                                <TableCell>
+                                  <span className={`text-xs capitalize ${settlementBadgeColor(t.settlementStatus)}`}>
+                                    {t.settlementStatus}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">{src}</TableCell>
+                                <TableCell className="text-xs capitalize text-muted-foreground">
+                                  {t.connectionProvider ?? "—"}
+                                </TableCell>
+                                <TableCell className="text-right text-xs text-muted-foreground">
+                                  {Number(t.fee) > 0 ? fmt(Number(t.fee)) : "—"}
+                                </TableCell>
+                                <TableCell className="text-right font-medium text-sm">
+                                  {fmt(Number(t.amount))}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                    </TableBody>
+                  </Table>
+                  {transactions.length > 100 && (
+                    <div className="text-center py-3 text-xs text-muted-foreground border-t border-border/50">
+                      Showing first 100 of {transactions.length.toLocaleString("en-IN")} transactions — download the full report to see all rows
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Settlements Tab ────────────────────────────────────────────── */}
+        <TabsContent value="settlements" className="space-y-6">
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportStlExcel}
+              disabled={isStlExporting || stlLoading || settlements.length === 0}
+            >
+              {stlExporting === "xlsx" ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-1.5" />}
+              {stlExporting === "xlsx" ? "Exporting…" : "Excel (.xlsx)"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportStlPDF}
+              disabled={isStlExporting || stlLoading || settlements.length === 0}
+            >
+              {stlExporting === "pdf" ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileText className="w-4 h-4 mr-1.5" />}
+              {stlExporting === "pdf" ? "Exporting…" : "PDF (.pdf)"}
+            </Button>
+          </div>
+
+          {/* Settlement Filters */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Filter className="w-4 h-4" />
+                Filters
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CalendarRange className="w-4 h-4 text-muted-foreground shrink-0" />
+                {DATE_PRESETS.map((p) => (
+                  <Button
+                    key={p.label}
+                    variant={stlActivePreset === p.label ? "secondary" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => applyStlPreset(p)}
+                  >
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">From</Label>
+                  <Input
+                    type="date"
+                    value={stlDateFrom}
+                    onChange={(e) => { setStlDateFrom(e.target.value); setStlActivePreset(null); }}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">To</Label>
+                  <Input
+                    type="date"
+                    value={stlDateTo}
+                    onChange={(e) => { setStlDateTo(e.target.value); setStlActivePreset(null); }}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Store className="w-3 h-3" />Merchant
+                  </Label>
+                  <Select value={stlMerchantId} onValueChange={setStlMerchantId}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All merchants</SelectItem>
+                      {merchants.map((m) => (
+                        <SelectItem key={m.id} value={m.id.toString()}>
+                          {m.businessName ?? `Merchant #${m.id}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <Select value={stlStatus} onValueChange={setStlStatus}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="processing">Processing</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Hash className="w-3 h-3" />Settlement ID
+                  </Label>
+                  <Input
+                    type="number"
+                    value={settlementId}
+                    onChange={(e) => setSettlementId(e.target.value)}
+                    placeholder="e.g. 42"
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Settlement Stats */}
+          {stlStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3 text-primary" />Total Amount
+                  </p>
+                  <p className="text-base font-bold">{fmt(stlStats.totalAmount)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <Banknote className="w-3 h-3 text-emerald-400" />Paid Amount
+                  </p>
+                  <p className="text-base font-bold text-emerald-400">{fmt(stlStats.paidAmount)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <Wallet className="w-3 h-3 text-amber-400" />Pending Amount
+                  </p>
+                  <p className="text-base font-bold text-amber-400">{fmt(stlStats.pendingAmount)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />Paid
+                  </p>
+                  <p className="text-base font-bold">{stlStats.paidCount.toLocaleString("en-IN")}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-amber-400" />Pending / Processing
+                  </p>
+                  <p className="text-base font-bold text-amber-400">
+                    {(stlStats.pendingCount + stlStats.processingCount).toLocaleString("en-IN")}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Settlement Table */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">
+                  {stlLoading || stlFetching ? (
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />Loading…
+                    </span>
+                  ) : (
+                    <span>{settlements.length.toLocaleString("en-IN")} settlement{settlements.length !== 1 ? "s" : ""} matched</span>
+                  )}
+                </p>
+                {settlements.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={exportStlExcel} disabled={isStlExporting}>
+                      <Download className="w-3 h-3" />xlsx
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={exportStlPDF} disabled={isStlExporting}>
+                      <Download className="w-3 h-3" />pdf
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {stlNoData ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+                  <Banknote className="w-10 h-10 opacity-20" />
+                  <p className="text-sm">No settlements match the selected filters</p>
+                  <p className="text-xs opacity-60">Try adjusting the date range, merchant, or clearing filters</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Merchant</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Period</TableHead>
+                        <TableHead className="text-right">Requested (₹)</TableHead>
+                        <TableHead className="text-right">Settled (₹)</TableHead>
+                        <TableHead className="text-right">Fees (₹)</TableHead>
+                        <TableHead className="text-right">Txns</TableHead>
+                        <TableHead>UTR / Reference</TableHead>
+                        <TableHead>Paid At</TableHead>
+                        <TableHead>Created</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stlLoading
+                        ? Array.from({ length: 5 }).map((_, i) => (
+                            <TableRow key={i}>
+                              {Array.from({ length: 10 }).map((__, j) => (
+                                <TableCell key={j}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableCell>
+                              ))}
+                            </TableRow>
+                          ))
+                        : settlements.slice(0, 100).map((s) => (
+                            <TableRow key={s.id}>
+                              <TableCell className="font-mono text-xs text-muted-foreground">#{s.id}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {s.merchantName ?? "—"}
+                              </TableCell>
+                              <TableCell>
+                                <span className={`text-xs font-medium capitalize ${settlementStatusColor(s.status)}`}>
+                                  {s.status}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {s.periodFrom && s.periodTo ? `${s.periodFrom} → ${s.periodTo}` : "—"}
+                              </TableCell>
+                              <TableCell className="text-right text-xs text-muted-foreground">
+                                {s.requestedAmount != null ? fmt(Number(s.requestedAmount)) : "—"}
+                              </TableCell>
+                              <TableCell className="text-right font-medium text-sm">
+                                {fmt(Number(s.amount))}
+                              </TableCell>
+                              <TableCell className="text-right text-xs text-muted-foreground">
+                                {Number(s.fees ?? 0) > 0 ? fmt(Number(s.fees)) : "—"}
+                              </TableCell>
+                              <TableCell className="text-right text-xs text-muted-foreground">
+                                {s.transactionCount.toLocaleString("en-IN")}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-muted-foreground">
+                                {s.referenceNumber ?? "—"}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {s.paidAt ? format(new Date(s.paidAt), "dd MMM yyyy") : "—"}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {format(new Date(s.createdAt), "dd MMM yyyy")}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                    </TableBody>
+                  </Table>
+                  {settlements.length > 100 && (
+                    <div className="text-center py-3 text-xs text-muted-foreground border-t border-border/50">
+                      Showing first 100 of {settlements.length.toLocaleString("en-IN")} settlements — download the full report to see all rows
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

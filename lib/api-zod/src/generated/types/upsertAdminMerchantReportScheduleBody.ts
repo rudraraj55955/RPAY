@@ -24,4 +24,9 @@ export type UpsertAdminMerchantReportScheduleBody = {
      * @maximum 28
      */
   dayOfMonth?: number;
+  /**
+     * Override the next scheduled run date. Pass null to clear an existing override.
+     * @nullable
+     */
+  nextRunAt?: string | null;
 };

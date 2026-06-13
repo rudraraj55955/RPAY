@@ -1829,6 +1829,9 @@ paths:
                   minimum: 1
                   maximum: 28
                   description: Day of month for monthly reports (1–28)
+                nextRunAt:
+                  type: ["string", "null"]
+                  description: Override the next scheduled run date. Pass null to clear an existing override.
       responses:
         "200":
           description: Updated schedule
@@ -8468,6 +8471,9 @@ components:
         autoPauseAfterFailures:
           type: integer
           description: Threshold — schedule is auto-paused when consecutiveFailures reaches this value
+        nextRunAt:
+          type: ["string", "null"]
+          description: Admin-set override for the next scheduled run. Cleared automatically after the report fires.
         createdAt:
           type: string
         updatedAt:
@@ -8537,6 +8543,9 @@ components:
         lastSentAt:
           type: ["string", "null"]
           description: ISO timestamp of last successful send
+        nextRunAt:
+          type: ["string", "null"]
+          description: Admin-set override for the next scheduled run. Cleared automatically after the report fires.
         createdAt:
           type: string
         updatedAt:

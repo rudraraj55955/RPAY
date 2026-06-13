@@ -24,6 +24,11 @@ function getDateRange(frequency: string): { dateFrom: Date; dateTo: Date } {
 function isDue(schedule: typeof reportSchedulesTable.$inferSelect, lastSentAt: Date | null): boolean {
   const now = new Date();
 
+  // Admin override: if nextRunAt is set and in the past, it's due regardless of cadence
+  if (schedule.nextRunAt != null) {
+    return now >= schedule.nextRunAt;
+  }
+
   if (schedule.frequency === "weekly") {
     if (schedule.dayOfWeek != null) {
       // Must be the configured day of week (even for first-ever send)
@@ -477,7 +482,7 @@ export async function sendMerchantReport(
 
     if (sent) {
       await db.update(reportSchedulesTable)
-        .set({ lastSentAt: new Date(), consecutiveFailures: 0, updatedAt: new Date() })
+        .set({ lastSentAt: new Date(), consecutiveFailures: 0, nextRunAt: null, updatedAt: new Date() })
         .where(eq(reportSchedulesTable.id, schedule.id));
       await db.insert(reportDeliveryLogsTable).values({
         scheduleId: schedule.id,
@@ -522,21 +527,26 @@ async function runDueReports(): Promise<void> {
     for (const row of active) {
       const { schedule, email, businessName } = row;
       if (!email || !businessName) continue;
-      // Re-fetch to get the latest consecutiveFailures, autoPauseAfterFailures, and lastSentAt
+      // Re-fetch to get the latest consecutiveFailures, autoPauseAfterFailures, lastSentAt, and nextRunAt
       // after previous iterations may have updated them
       const [fresh] = await db
         .select({
           lastSentAt: reportSchedulesTable.lastSentAt,
           consecutiveFailures: reportSchedulesTable.consecutiveFailures,
           autoPauseAfterFailures: reportSchedulesTable.autoPauseAfterFailures,
+          nextRunAt: reportSchedulesTable.nextRunAt,
         })
         .from(reportSchedulesTable)
         .where(eq(reportSchedulesTable.id, schedule.id))
         .limit(1);
-      if (!isDue(schedule, fresh?.lastSentAt ?? schedule.lastSentAt)) continue;
+      // Merge fresh nextRunAt into schedule before isDue check
+      const scheduleForDueCheck = fresh
+        ? { ...schedule, nextRunAt: fresh.nextRunAt }
+        : schedule;
+      if (!isDue(scheduleForDueCheck, fresh?.lastSentAt ?? schedule.lastSentAt)) continue;
 
       const freshSchedule = fresh
-        ? { ...schedule, consecutiveFailures: fresh.consecutiveFailures, autoPauseAfterFailures: fresh.autoPauseAfterFailures }
+        ? { ...schedule, consecutiveFailures: fresh.consecutiveFailures, autoPauseAfterFailures: fresh.autoPauseAfterFailures, nextRunAt: fresh.nextRunAt }
         : schedule;
 
       await sendMerchantReport(freshSchedule, email, businessName).catch(err => {

@@ -1529,6 +1529,7 @@ export const GetReportScheduleResponse = zod.object({
   "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
   "consecutiveFailures": zod.number().describe('Count of consecutive delivery failures since the last success'),
   "autoPauseAfterFailures": zod.number().describe('Threshold — schedule is auto-paused when consecutiveFailures reaches this value'),
+  "nextRunAt": zod.string().nullish().describe('Admin-set override for the next scheduled run. Cleared automatically after the report fires.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }),zod.null()])
@@ -1572,6 +1573,7 @@ export const UpsertReportScheduleResponse = zod.object({
   "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
   "consecutiveFailures": zod.number().describe('Count of consecutive delivery failures since the last success'),
   "autoPauseAfterFailures": zod.number().describe('Threshold — schedule is auto-paused when consecutiveFailures reaches this value'),
+  "nextRunAt": zod.string().nullish().describe('Admin-set override for the next scheduled run. Cleared automatically after the report fires.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -1608,6 +1610,7 @@ export const ReenableReportScheduleResponse = zod.object({
   "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
   "consecutiveFailures": zod.number().describe('Count of consecutive delivery failures since the last success'),
   "autoPauseAfterFailures": zod.number().describe('Threshold — schedule is auto-paused when consecutiveFailures reaches this value'),
+  "nextRunAt": zod.string().nullish().describe('Admin-set override for the next scheduled run. Cleared automatically after the report fires.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -1670,6 +1673,7 @@ export const ListMerchantReportSchedulesResponse = zod.object({
   "dayOfWeek": zod.number().min(listMerchantReportSchedulesResponseSchedulesItemDayOfWeekMin).max(listMerchantReportSchedulesResponseSchedulesItemDayOfWeekMax).nullish().describe('Day of week for weekly reports (0=Sun, 1=Mon, …, 6=Sat). Null uses rolling 7-day cadence.'),
   "dayOfMonth": zod.number().min(1).max(listMerchantReportSchedulesResponseSchedulesItemDayOfMonthMax).nullish().describe('Day of month for monthly reports (1–28). Null uses rolling 30-day cadence.'),
   "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
+  "nextRunAt": zod.string().nullish().describe('Admin-set override for the next scheduled run. Cleared automatically after the report fires.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }))
@@ -1702,6 +1706,7 @@ export const GetAdminMerchantReportScheduleResponse = zod.object({
   "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
   "consecutiveFailures": zod.number().describe('Count of consecutive delivery failures since the last success'),
   "autoPauseAfterFailures": zod.number().describe('Threshold — schedule is auto-paused when consecutiveFailures reaches this value'),
+  "nextRunAt": zod.string().nullish().describe('Admin-set override for the next scheduled run. Cleared automatically after the report fires.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }),zod.null()])
@@ -1727,7 +1732,8 @@ export const UpsertAdminMerchantReportScheduleBody = zod.object({
   "format": zod.enum(['xlsx', 'pdf']).optional(),
   "isActive": zod.boolean().optional(),
   "dayOfWeek": zod.number().min(upsertAdminMerchantReportScheduleBodyDayOfWeekMin).max(upsertAdminMerchantReportScheduleBodyDayOfWeekMax).optional().describe('Day of week for weekly reports (0=Sun, 1=Mon, …, 6=Sat)'),
-  "dayOfMonth": zod.number().min(1).max(upsertAdminMerchantReportScheduleBodyDayOfMonthMax).optional().describe('Day of month for monthly reports (1–28)')
+  "dayOfMonth": zod.number().min(1).max(upsertAdminMerchantReportScheduleBodyDayOfMonthMax).optional().describe('Day of month for monthly reports (1–28)'),
+  "nextRunAt": zod.string().nullish().describe('Override the next scheduled run date. Pass null to clear an existing override.')
 })
 
 export const upsertAdminMerchantReportScheduleResponseScheduleDayOfWeekMin = 0;
@@ -1749,6 +1755,7 @@ export const UpsertAdminMerchantReportScheduleResponse = zod.object({
   "lastSentAt": zod.string().nullish().describe('ISO timestamp of last successful send'),
   "consecutiveFailures": zod.number().describe('Count of consecutive delivery failures since the last success'),
   "autoPauseAfterFailures": zod.number().describe('Threshold — schedule is auto-paused when consecutiveFailures reaches this value'),
+  "nextRunAt": zod.string().nullish().describe('Admin-set override for the next scheduled run. Cleared automatically after the report fires.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })

@@ -562,12 +562,13 @@ router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
       return;
     }
 
-    const { frequency, format, isActive, dayOfWeek, dayOfMonth } = req.body as {
+    const { frequency, format, isActive, dayOfWeek, dayOfMonth, nextRunAt } = req.body as {
       frequency?: string;
       format?: string;
       isActive?: boolean;
       dayOfWeek?: number;
       dayOfMonth?: number;
+      nextRunAt?: string | null;
     };
 
     if (frequency && !["weekly", "monthly"].includes(frequency)) {
@@ -586,6 +587,13 @@ router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
       res.status(400).json({ error: "dayOfMonth must be 1–28" });
       return;
     }
+    if (nextRunAt !== undefined && nextRunAt !== null) {
+      const parsed = new Date(nextRunAt);
+      if (isNaN(parsed.getTime())) {
+        res.status(400).json({ error: "nextRunAt must be a valid ISO 8601 timestamp or null" });
+        return;
+      }
+    }
 
     // Verify merchant exists
     const [merchant] = await db
@@ -598,7 +606,7 @@ router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
       return;
     }
 
-    const schedule = await upsertSchedule(mid, { frequency, format, isActive, dayOfWeek, dayOfMonth });
+    const schedule = await upsertSchedule(mid, { frequency, format, isActive, dayOfWeek, dayOfMonth, nextRunAt });
     res.json({ schedule });
   } catch (err) {
     next(err);
@@ -672,7 +680,7 @@ router.post("/schedules/:merchantId/send-now", requireAdmin, async (req, res, ne
 
 async function upsertSchedule(
   merchantId: number,
-  patch: { frequency?: string; format?: string; isActive?: boolean; dayOfWeek?: number; dayOfMonth?: number },
+  patch: { frequency?: string; format?: string; isActive?: boolean; dayOfWeek?: number; dayOfMonth?: number; nextRunAt?: string | null },
 ): Promise<typeof reportSchedulesTable.$inferSelect> {
   const now = new Date();
   const [existing] = await db
@@ -683,6 +691,11 @@ async function upsertSchedule(
 
   // Determine effective frequency for normalization
   const effectiveFrequency = patch.frequency ?? existing?.frequency ?? "weekly";
+
+  // Resolve nextRunAt: explicit null clears it, a string sets it, undefined leaves it unchanged
+  const nextRunAtValue = patch.nextRunAt !== undefined
+    ? (patch.nextRunAt === null ? null : new Date(patch.nextRunAt))
+    : undefined;
 
   if (existing) {
     // When frequency is set to weekly, clear dayOfMonth (and vice versa) to keep records consistent
@@ -701,6 +714,7 @@ async function upsertSchedule(
         ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
         dayOfWeek: effectiveFrequency === "weekly" ? dayWeekValue : null,
         dayOfMonth: effectiveFrequency === "monthly" ? dayMonthValue : null,
+        ...(nextRunAtValue !== undefined ? { nextRunAt: nextRunAtValue } : {}),
         updatedAt: now,
       })
       .where(eq(reportSchedulesTable.merchantId, merchantId))
@@ -717,6 +731,7 @@ async function upsertSchedule(
       isActive: patch.isActive ?? true,
       dayOfWeek: effectiveFrequency === "weekly" ? (patch.dayOfWeek ?? null) : null,
       dayOfMonth: effectiveFrequency === "monthly" ? (patch.dayOfMonth ?? null) : null,
+      nextRunAt: nextRunAtValue ?? null,
       updatedAt: now,
     })
     .returning();

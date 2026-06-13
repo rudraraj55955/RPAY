@@ -37,6 +37,11 @@ export interface ReportSchedule {
   consecutiveFailures: number;
   /** Threshold — schedule is auto-paused when consecutiveFailures reaches this value */
   autoPauseAfterFailures: number;
+  /**
+     * Admin-set override for the next scheduled run. Cleared automatically after the report fires.
+     * @nullable
+     */
+  nextRunAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

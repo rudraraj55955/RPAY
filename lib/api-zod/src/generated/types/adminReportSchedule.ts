@@ -35,6 +35,11 @@ export interface AdminReportSchedule {
      * @nullable
      */
   lastSentAt?: string | null;
+  /**
+     * Admin-set override for the next scheduled run. Cleared automatically after the report fires.
+     * @nullable
+     */
+  nextRunAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

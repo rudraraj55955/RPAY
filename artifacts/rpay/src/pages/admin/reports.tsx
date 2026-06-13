@@ -21,6 +21,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   FileText,
   Download,
   Loader2,
@@ -48,6 +55,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Search,
+  CalendarDays,
   X,
   ChevronUp,
   ChevronDown,
@@ -117,11 +125,17 @@ function settlementStatusColor(s: string) {
   return "text-muted-foreground";
 }
 
-function getNextDue(lastSentAt: string | null | undefined, frequency: string): Date | null {
+function getNextDue(lastSentAt: string | null | undefined, frequency: string, nextRunAt?: string | null): Date | null {
+  if (nextRunAt) return new Date(nextRunAt);
   if (!lastSentAt) return null;
   const last = new Date(lastSentAt);
   const days = frequency === "monthly" ? 28 : frequency === "daily" ? 1 : 7;
   return new Date(last.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function toLocalDatetimeInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function ScheduledReportsPanel() {
@@ -156,6 +170,10 @@ function ScheduledReportsPanel() {
     next.set("dir", newDir);
     navigate(`${location}?${next.toString()}`);
   };
+
+  const [overrideTarget, setOverrideTarget] = useState<{ merchantId: number; name: string; current: string | null } | null>(null);
+  const [overrideValue, setOverrideValue] = useState("");
+  const [overrideSaving, setOverrideSaving] = useState(false);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getListMerchantReportSchedulesQueryOptions().queryKey });
@@ -249,6 +267,14 @@ function ScheduledReportsPanel() {
     return sortDir === "asc" ? cmp : -cmp;
   });
 
+  const openOverrideDialog = (merchantId: number, name: string, currentNextRunAt: string | null) => {
+    const defaultValue = currentNextRunAt
+      ? toLocalDatetimeInput(new Date(currentNextRunAt))
+      : toLocalDatetimeInput(new Date(Date.now() + 60 * 60 * 1000));
+    setOverrideTarget({ merchantId, name, current: currentNextRunAt });
+    setOverrideValue(defaultValue);
+  };
+
   const clearFilters = () => {
     setSearch("");
     setStatusFilter("all");
@@ -256,100 +282,117 @@ function ScheduledReportsPanel() {
     setFormatFilter("all");
   };
 
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <CalendarClock className="w-4 h-4 text-primary" />
-          Scheduled Report Delivery
-        </div>
-        <p className="text-xs text-muted-foreground">
-          All merchants with an active report schedule — admin can pause, delete, or trigger immediate delivery.
-        </p>
-      </CardHeader>
-      <CardContent className="p-0">
-        {/* Filter bar */}
-        <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-1 border-b border-border">
-          <div className="relative flex-1 min-w-[180px]">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Search by merchant or email…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 text-xs"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-8 w-[130px] text-xs">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses ({schedules.length})</SelectItem>
-              <SelectItem value="active">Active ({statusCounts.active})</SelectItem>
-              <SelectItem value="paused">Paused ({statusCounts.paused})</SelectItem>
-              <SelectItem value="overdue">
-                <span className="flex items-center gap-1.5">
-                  Overdue
-                  {overdueCount > 0 && (
-                    <span className="inline-flex items-center justify-center rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px] leading-none">
-                      {overdueCount}
-                    </span>
-                  )}
-                </span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={frequencyFilter} onValueChange={setFrequencyFilter}>
-            <SelectTrigger className="h-8 w-[130px] text-xs">
-              <SelectValue placeholder="Frequency" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Frequencies ({schedules.length})</SelectItem>
-              <SelectItem value="daily">Daily ({frequencyCounts.daily})</SelectItem>
-              <SelectItem value="weekly">Weekly ({frequencyCounts.weekly})</SelectItem>
-              <SelectItem value="monthly">Monthly ({frequencyCounts.monthly})</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={formatFilter} onValueChange={setFormatFilter}>
-            <SelectTrigger className="h-8 w-[120px] text-xs">
-              <SelectValue placeholder="Format" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Formats ({schedules.length})</SelectItem>
-              <SelectItem value="xlsx">XLSX ({formatCounts.xlsx})</SelectItem>
-              <SelectItem value="pdf">PDF ({formatCounts.pdf})</SelectItem>
-            </SelectContent>
-          </Select>
-          {hasFilters && (
-            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1 text-muted-foreground" onClick={clearFilters}>
-              <X className="w-3.5 h-3.5" />
-              Clear
-            </Button>
-          )}
-          {hasFilters && (
-            <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap flex items-center gap-2">
-              {statusFilter === "overdue" && filteredSchedules.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-amber-400 font-medium">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  {filteredSchedules.length} overdue
-                </span>
-              )}
-              {filteredSchedules.length} of {schedules.length} schedule{schedules.length !== 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
+  const handleOverrideSave = async () => {
+    if (!overrideTarget) return;
+    setOverrideSaving(true);
+    try {
+      const isoValue = overrideValue ? new Date(overrideValue).toISOString() : null;
+      await upsert.mutateAsync({ merchantId: overrideTarget.merchantId, data: { nextRunAt: isoValue } });
+      invalidate();
+      toast.success(isoValue
+        ? `Next run set to ${format(new Date(isoValue), "dd MMM yyyy, HH:mm")} for ${overrideTarget.name}`
+        : `Next run override cleared for ${overrideTarget.name}`);
+      setOverrideTarget(null);
+    } catch {
+      toast.error("Failed to set next run date");
+    } finally {
+      setOverrideSaving(false);
+    }
+  };
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">Loading schedules…</span>
+  const handleOverrideClear = async () => {
+    if (!overrideTarget) return;
+    setOverrideSaving(true);
+    try {
+      await upsert.mutateAsync({ merchantId: overrideTarget.merchantId, data: { nextRunAt: null } });
+      invalidate();
+      toast.success(`Next run override cleared for ${overrideTarget.name}`);
+      setOverrideTarget(null);
+    } catch {
+      toast.error("Failed to clear next run override");
+    } finally {
+      setOverrideSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <CalendarClock className="w-4 h-4 text-primary" />
+            Scheduled Report Delivery
           </div>
-        ) : schedules.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
-            <CalendarClock className="w-10 h-10 opacity-20" />
-            <p className="text-sm">No merchants have configured a report schedule yet</p>
+          <p className="text-xs text-muted-foreground">
+            All merchants with an active report schedule — admin can pause, delete, trigger immediate delivery, or set a custom next run date.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0">
+          {/* Filter bar */}
+          <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-1 border-b border-border">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search by merchant or email…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-8 pl-8 text-xs"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={frequencyFilter} onValueChange={setFrequencyFilter}>
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue placeholder="Frequency" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Frequencies</SelectItem>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={formatFilter} onValueChange={setFormatFilter}>
+              <SelectTrigger className="h-8 w-[120px] text-xs">
+                <SelectValue placeholder="Format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Formats</SelectItem>
+                <SelectItem value="xlsx">XLSX</SelectItem>
+                <SelectItem value="pdf">PDF</SelectItem>
+              </SelectContent>
+            </Select>
+            {hasFilters && (
+              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1 text-muted-foreground" onClick={clearFilters}>
+                <X className="w-3.5 h-3.5" />
+                Clear
+              </Button>
+            )}
+            {hasFilters && (
+              <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+                {filteredSchedules.length} of {schedules.length} schedule{schedules.length !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
-        ) : filteredSchedules.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Loading schedules…</span>
+            </div>
+          ) : schedules.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+              <CalendarClock className="w-10 h-10 opacity-20" />
+              <p className="text-sm">No merchants have configured a report schedule yet</p>
+            </div>
+          ) : filteredSchedules.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
             <Search className="w-10 h-10 opacity-20" />
             <p className="text-sm">No schedules match your filters</p>
@@ -419,78 +462,141 @@ function ScheduledReportsPanel() {
                       {s.isActive ? "Active" : "Paused"}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {s.lastSentAt ? (
-                      <span>
-                        {format(new Date(s.lastSentAt), "dd MMM yyyy, HH:mm")}
-                        <span className="ml-1 text-muted-foreground/60">
-                          ({formatDistanceToNow(new Date(s.lastSentAt), { addSuffix: true })})
-                        </span>
-                      </span>
-                    ) : "Never"}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {(() => {
-                      const nextDue = getNextDue(s.lastSentAt, s.frequency);
-                      if (!nextDue) {
-                        return <span className="text-muted-foreground">Pending first run</span>;
-                      }
-                      const isOverdue = nextDue < new Date();
-                      return (
-                        <span className={isOverdue ? "text-amber-400 font-medium" : "text-muted-foreground"}>
-                          {format(nextDue, "dd MMM yyyy, HH:mm")}
-                          <span className="ml-1 font-normal opacity-75">
-                            ({formatDistanceToNow(nextDue, { addSuffix: true })})
+                    <TableCell className="text-xs text-muted-foreground">
+                      {s.lastSentAt ? (
+                        <span>
+                          {format(new Date(s.lastSentAt), "dd MMM yyyy, HH:mm")}
+                          <span className="ml-1 text-muted-foreground/60">
+                            ({formatDistanceToNow(new Date(s.lastSentAt), { addSuffix: true })})
                           </span>
                         </span>
-                      );
-                    })()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs gap-1"
-                        onClick={() => handleToggle(s.merchantId, s.isActive)}
-                        disabled={upsert.isPending}
-                        title={s.isActive ? "Pause schedule" : "Activate schedule"}
-                      >
-                        {s.isActive
-                          ? <ToggleRight className="w-4 h-4 text-emerald-400" />
-                          : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs gap-1"
-                        onClick={() => handleSendNow(s.merchantId, s.businessName)}
-                        disabled={sendNow.isPending}
-                        title="Send report now"
-                      >
-                        {sendNow.isPending
-                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          : <Send className="w-3.5 h-3.5" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs gap-1 text-red-400 hover:text-red-300"
-                        onClick={() => handleDelete(s.merchantId, s.businessName)}
-                        disabled={del.isPending}
-                        title="Remove schedule"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+                      ) : "Never"}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {(() => {
+                        const nextRunAtVal = (s as any).nextRunAt as string | null | undefined;
+                        const isOverride = !!nextRunAtVal;
+                        const nextDue = getNextDue(s.lastSentAt, s.frequency, nextRunAtVal);
+                        if (!nextDue) {
+                          return <span className="text-muted-foreground">Pending first run</span>;
+                        }
+                        const isOverdue = nextDue < new Date();
+                        return (
+                          <span className={`flex items-center gap-1 ${isOverride ? "text-violet-400 font-medium" : isOverdue ? "text-amber-400 font-medium" : "text-muted-foreground"}`}>
+                            {isOverride && <CalendarDays className="w-3 h-3 shrink-0" />}
+                            {format(nextDue, "dd MMM yyyy, HH:mm")}
+                            <span className="ml-0.5 font-normal opacity-75">
+                              ({formatDistanceToNow(nextDue, { addSuffix: true })})
+                            </span>
+                            {isOverride && <span className="text-violet-500">(override)</span>}
+                            {!isOverride && isOverdue && <span className="text-amber-400">(overdue)</span>}
+                          </span>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs gap-1"
+                          onClick={() => handleToggle(s.merchantId, s.isActive)}
+                          disabled={upsert.isPending}
+                          title={s.isActive ? "Pause schedule" : "Activate schedule"}
+                        >
+                          {s.isActive
+                            ? <ToggleRight className="w-4 h-4 text-emerald-400" />
+                            : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs gap-1 text-violet-400 hover:text-violet-300"
+                          onClick={() => openOverrideDialog(s.merchantId, s.businessName, (s as any).nextRunAt ?? null)}
+                          title="Set next run date"
+                        >
+                          <CalendarDays className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs gap-1"
+                          onClick={() => handleSendNow(s.merchantId, s.businessName)}
+                          disabled={sendNow.isPending}
+                          title="Send report now"
+                        >
+                          {sendNow.isPending
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Send className="w-3.5 h-3.5" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs gap-1 text-red-400 hover:text-red-300"
+                          onClick={() => handleDelete(s.merchantId, s.businessName)}
+                          disabled={del.isPending}
+                          title="Remove schedule"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!overrideTarget} onOpenChange={(open) => { if (!open) setOverrideTarget(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">Set Next Run Date</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            {overrideTarget && (
+              <p className="text-xs text-muted-foreground">
+                Override the next scheduled delivery for <strong className="text-foreground">{overrideTarget.name}</strong>.
+                The schedule will fire at this time and then resume its normal cadence.
+              </p>
+            )}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Next run date &amp; time</Label>
+              <Input
+                type="datetime-local"
+                value={overrideValue}
+                onChange={(e) => setOverrideValue(e.target.value)}
+                className="text-xs h-8"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 flex-wrap">
+            {overrideTarget?.current && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 text-muted-foreground gap-1"
+                onClick={handleOverrideClear}
+                disabled={overrideSaving}
+              >
+                <X className="w-3 h-3" />
+                Clear override
+              </Button>
+            )}
+            <Button
+              size="sm"
+              className="text-xs h-7"
+              onClick={handleOverrideSave}
+              disabled={overrideSaving || !overrideValue}
+            >
+              {overrideSaving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

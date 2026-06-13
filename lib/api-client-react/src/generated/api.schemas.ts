@@ -697,6 +697,11 @@ export interface ReportSchedule {
   consecutiveFailures: number;
   /** Threshold — schedule is auto-paused when consecutiveFailures reaches this value */
   autoPauseAfterFailures: number;
+  /**
+     * Admin-set override for the next scheduled run. Cleared automatically after the report fires.
+     * @nullable
+     */
+  nextRunAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -761,6 +766,11 @@ export interface AdminReportSchedule {
      * @nullable
      */
   lastSentAt?: string | null;
+  /**
+     * Admin-set override for the next scheduled run. Cleared automatically after the report fires.
+     * @nullable
+     */
+  nextRunAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -4385,6 +4395,11 @@ export type UpsertAdminMerchantReportScheduleBody = {
      * @maximum 28
      */
   dayOfMonth?: number;
+  /**
+     * Override the next scheduled run date. Pass null to clear an existing override.
+     * @nullable
+     */
+  nextRunAt?: string | null;
 };
 
 export type UpsertAdminMerchantReportSchedule200 = {

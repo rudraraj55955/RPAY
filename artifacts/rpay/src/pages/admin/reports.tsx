@@ -20,6 +20,7 @@ import {
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -517,6 +518,7 @@ function ScheduledReportsPanel() {
   const [historyMerchant, setHistoryMerchant] = useState<{ id: number; name: string } | null>(null);
   const [sendFailures, setSendFailures] = useState<{ merchantId: number; merchantName: string; email: string; reason: string }[] | null>(null);
   const [clearedMerchantIds, setClearedMerchantIds] = useState<Set<number>>(new Set());
+  const [selectedFailureIds, setSelectedFailureIds] = useState<Set<number>>(new Set());
   const clearFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
@@ -1257,7 +1259,7 @@ function ScheduledReportsPanel() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={sendFailures != null} onOpenChange={(open) => { if (!open) { if (clearFlashTimer.current != null) { clearTimeout(clearFlashTimer.current); clearFlashTimer.current = null; } setSendFailures(null); setClearedMerchantIds(new Set()); } }}>
+      <Dialog open={sendFailures != null} onOpenChange={(open) => { if (!open) { if (clearFlashTimer.current != null) { clearTimeout(clearFlashTimer.current); clearFlashTimer.current = null; } setSendFailures(null); setClearedMerchantIds(new Set()); setSelectedFailureIds(new Set()); } }}>
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-sm">
@@ -1272,13 +1274,31 @@ function ScheduledReportsPanel() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
-            The following merchants did not receive their overdue report. Use "Retry" on a single row to re-attempt just that merchant, or "Retry All" to re-attempt all at once.
+            The following merchants did not receive their overdue report. Check rows to select a subset, then use "Retry Selected" — or use "Retry All" to re-attempt every failure at once.
           </p>
           <div className="flex-1 overflow-y-auto min-h-0">
-            {sendFailures && sendFailures.length > 0 ? (
+            {sendFailures && sendFailures.length > 0 ? (() => {
+              const activeFailures = sendFailures.filter(f => !clearedMerchantIds.has(f.merchantId));
+              const allActiveSelected = activeFailures.length > 0 && activeFailures.every(f => selectedFailureIds.has(f.merchantId));
+              const someActiveSelected = activeFailures.some(f => selectedFailureIds.has(f.merchantId));
+              return (
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8 pl-3">
+                      <Checkbox
+                        checked={allActiveSelected ? true : someActiveSelected ? "indeterminate" : false}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedFailureIds(new Set(activeFailures.map(f => f.merchantId)));
+                          } else {
+                            setSelectedFailureIds(new Set());
+                          }
+                        }}
+                        aria-label="Select all failures"
+                        className="data-[state=checked]:bg-primary data-[state=indeterminate]:bg-primary/50"
+                      />
+                    </TableHead>
                     <TableHead className="text-xs">Merchant</TableHead>
                     <TableHead className="text-xs">Email</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
@@ -1288,8 +1308,39 @@ function ScheduledReportsPanel() {
                 <TableBody>
                   {sendFailures.map((f) => {
                     const isCleared = clearedMerchantIds.has(f.merchantId);
+                    const isSelected = selectedFailureIds.has(f.merchantId);
                     return (
-                      <TableRow key={f.merchantId} className={isCleared ? "opacity-60 transition-opacity" : ""}>
+                      <TableRow
+                        key={f.merchantId}
+                        className={isCleared ? "opacity-60 transition-opacity" : isSelected ? "bg-primary/5" : ""}
+                        onClick={() => {
+                          if (isCleared) return;
+                          setSelectedFailureIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(f.merchantId)) next.delete(f.merchantId);
+                            else next.add(f.merchantId);
+                            return next;
+                          });
+                        }}
+                        style={{ cursor: isCleared ? "default" : "pointer" }}
+                      >
+                        <TableCell className="pl-3 pr-0">
+                          {!isCleared && (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => {
+                                setSelectedFailureIds(prev => {
+                                  const next = new Set(prev);
+                                  if (checked) next.add(f.merchantId);
+                                  else next.delete(f.merchantId);
+                                  return next;
+                                });
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Select ${f.merchantName}`}
+                            />
+                          )}
+                        </TableCell>
                         <TableCell className="text-xs font-medium text-foreground whitespace-nowrap">
                           {f.merchantName}
                         </TableCell>
@@ -1314,10 +1365,12 @@ function ScheduledReportsPanel() {
                               className="h-6 px-2 text-xs gap-1 text-sky-400 hover:text-sky-300"
                               disabled={retryingFailureMerchantId === f.merchantId || sendAllOverdue.isPending}
                               title={`Retry delivery for ${f.merchantName}`}
-                              onClick={async () => {
+                              onClick={async (e) => {
+                                e.stopPropagation();
                                 setRetryingFailureMerchantId(f.merchantId);
                                 try {
                                   await sendNow.mutateAsync({ merchantId: f.merchantId });
+                                  setSelectedFailureIds((prev) => { const next = new Set(prev); next.delete(f.merchantId); return next; });
                                   invalidate();
                                   const remaining = (sendFailures ?? []).filter((r) => r.merchantId !== f.merchantId);
                                   if (remaining.length === 0) {
@@ -1350,25 +1403,87 @@ function ScheduledReportsPanel() {
                   })}
                 </TableBody>
               </Table>
-            ) : (
+              );
+            })() : (
               <p className="text-xs text-muted-foreground py-4 text-center">No failure details available.</p>
             )}
           </div>
           <DialogFooter className="gap-2 flex-wrap">
-            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { if (clearFlashTimer.current != null) { clearTimeout(clearFlashTimer.current); clearFlashTimer.current = null; } setSendFailures(null); setClearedMerchantIds(new Set()); }}>
+            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { if (clearFlashTimer.current != null) { clearTimeout(clearFlashTimer.current); clearFlashTimer.current = null; } setSendFailures(null); setClearedMerchantIds(new Set()); setSelectedFailureIds(new Set()); }}>
               Close
             </Button>
+            {sendFailures && selectedFailureIds.size > 0 && (
+              <Button
+                size="sm"
+                className="text-xs h-7 gap-1.5 bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:bg-sky-500/30 hover:text-sky-200"
+                disabled={sendAllOverdue.isPending || retryingFailureMerchantId != null}
+                onClick={async () => {
+                  if (!sendFailures) return;
+                  const selectedIds = [...selectedFailureIds];
+                  try {
+                    const res = await sendAllOverdue.mutateAsync({ data: { merchantIds: selectedIds } });
+                    if (clearFlashTimer.current != null) { clearTimeout(clearFlashTimer.current); clearFlashTimer.current = null; }
+                    setSelectedFailureIds(new Set());
+                    if (res.failed === 0) {
+                      const remaining = sendFailures.filter(f => !selectedIds.includes(f.merchantId));
+                      if (remaining.length === 0) {
+                        toast.success(`Retried ${res.sent} selected report${res.sent !== 1 ? "s" : ""} — all delivered`);
+                        setSendFailures(null);
+                        setClearedMerchantIds(new Set());
+                      } else {
+                        toast.success(`Retried ${res.sent} selected report${res.sent !== 1 ? "s" : ""} — all delivered`);
+                        setSendFailures(remaining);
+                      }
+                    } else if (res.sent === 0) {
+                      toast.error(`All ${res.failed} selected retr${res.failed !== 1 ? "ies" : "y"} failed again`);
+                      setSendFailures(prev =>
+                        prev?.map(f => {
+                          const updated = (res.failures ?? []).find((r: { merchantId: number; reason: string }) => r.merchantId === f.merchantId);
+                          return updated ? { ...f, reason: updated.reason } : f;
+                        }) ?? null
+                      );
+                    } else {
+                      toast.warning(`Sent ${res.sent}, still failed ${res.failed}`);
+                      const newFailedIds = new Set((res.failures ?? []).map((r: { merchantId: number }) => r.merchantId));
+                      const justCleared = new Set(selectedIds.filter(id => !newFailedIds.has(id)));
+                      setClearedMerchantIds(justCleared);
+                      setSendFailures(prev =>
+                        prev?.map(f => {
+                          const updated = (res.failures ?? []).find((r: { merchantId: number; reason: string }) => r.merchantId === f.merchantId);
+                          return updated ? { ...f, reason: updated.reason } : f;
+                        }) ?? null
+                      );
+                      clearFlashTimer.current = setTimeout(() => {
+                        clearFlashTimer.current = null;
+                        setSendFailures(prev => prev?.filter(f => !justCleared.has(f.merchantId)) ?? null);
+                        setClearedMerchantIds(new Set());
+                      }, 2500);
+                    }
+                    invalidate();
+                  } catch {
+                    toast.error("Retry failed — check SMTP configuration");
+                    setSelectedFailureIds(new Set());
+                  }
+                }}
+              >
+                {sendAllOverdue.isPending
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <RotateCcw className="w-3.5 h-3.5" />}
+                Retry Selected ({selectedFailureIds.size})
+              </Button>
+            )}
             {sendFailures && sendFailures.filter(f => !clearedMerchantIds.has(f.merchantId)).length > 0 && (
               <Button
                 size="sm"
                 className="text-xs h-7 gap-1.5 bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 hover:text-red-200"
-                disabled={sendAllOverdue.isPending}
+                disabled={sendAllOverdue.isPending || retryingFailureMerchantId != null}
                 onClick={async () => {
                   try {
                     if (!sendFailures) return;
                     const failedIds = sendFailures.filter(f => !clearedMerchantIds.has(f.merchantId)).map((f) => f.merchantId);
                     const res = await sendAllOverdue.mutateAsync({ data: { merchantIds: failedIds } });
                     if (clearFlashTimer.current != null) { clearTimeout(clearFlashTimer.current); clearFlashTimer.current = null; }
+                    setSelectedFailureIds(new Set());
                     if (res.failed === 0) {
                       toast.success(`Retried ${res.sent} report${res.sent !== 1 ? "s" : ""} — all delivered successfully`);
                       setSendFailures(null);

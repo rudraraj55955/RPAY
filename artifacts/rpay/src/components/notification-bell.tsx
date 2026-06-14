@@ -63,7 +63,7 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
   useEffect(() => {
     const id = setInterval(() => {
       qc.invalidateQueries({ queryKey: ["/api/notifications"] });
-      qc.invalidateQueries({ queryKey: ["/api/notifications/unread-counts"] });
+      qc.invalidateQueries({ queryKey: getGetNotificationUnreadCountsQueryKey() });
     }, 60_000);
     return () => clearInterval(id);
   }, [qc]);
@@ -75,7 +75,7 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
     markAll.mutate(undefined, {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: ["/api/notifications"] });
-        qc.invalidateQueries({ queryKey: ["/api/notifications/unread-counts"] });
+        qc.invalidateQueries({ queryKey: getGetNotificationUnreadCountsQueryKey() });
         refetch();
       },
     });
@@ -86,7 +86,7 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
     markOne.mutate({ id }, {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: ["/api/notifications"] });
-        qc.invalidateQueries({ queryKey: ["/api/notifications/unread-counts"] });
+        qc.invalidateQueries({ queryKey: getGetNotificationUnreadCountsQueryKey() });
         if (target) {
           setOpen(false);
           navigate(target);

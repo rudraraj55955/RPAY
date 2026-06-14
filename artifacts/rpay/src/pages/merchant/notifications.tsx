@@ -138,7 +138,7 @@ export default function NotificationsPage() {
   }
 
   function invalidateUnreadCounts() {
-    qc.invalidateQueries({ queryKey: ["/api/notifications/unread-counts"] });
+    qc.invalidateQueries({ queryKey: getGetNotificationUnreadCountsQueryKey() });
   }
 
   function handleMarkAll() {
@@ -177,6 +177,7 @@ export default function NotificationsPage() {
           markOne.mutate({ id: notifId }, {
             onSuccess: () => {
               qc.invalidateQueries({ queryKey: ["/api/notifications"] });
+              invalidateUnreadCounts();
               refetch();
             },
           });

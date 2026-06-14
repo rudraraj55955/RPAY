@@ -163,6 +163,7 @@ const SCHEDULE_FREQUENCY_KEY = "rasokart_schedule_frequency";
 const SCHEDULE_FORMAT_KEY = "rasokart_schedule_format";
 const SCHEDULE_DAY_OF_WEEK_KEY = "rasokart_schedule_day_of_week";
 const SCHEDULE_DAY_OF_MONTH_KEY = "rasokart_schedule_day_of_month";
+const ACTIVE_REPORT_TAB_KEY = "rasokart_reports_active_tab";
 
 interface CustomDatePreset {
   id: string;
@@ -1030,7 +1031,19 @@ function SchedulePanel() {
 }
 
 export default function MerchantReports() {
-  const [activeTab, setActiveTab] = useState("transactions");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      const v = localStorage.getItem(ACTIVE_REPORT_TAB_KEY);
+      return v === "settlements" ? "settlements" : "transactions";
+    } catch {
+      return "transactions";
+    }
+  });
+
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab);
+    try { localStorage.setItem(ACTIVE_REPORT_TAB_KEY, tab); } catch {}
+  }, []);
 
   // Transaction filter state
   const [txDateFrom, setTxDateFrom] = useState(() => {
@@ -2025,7 +2038,7 @@ export default function MerchantReports() {
       </div>
       <SchedulePanel />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <TabsList>
             <TabsTrigger value="transactions" className="gap-2">

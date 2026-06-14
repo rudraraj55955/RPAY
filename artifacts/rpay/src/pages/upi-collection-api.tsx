@@ -15,7 +15,7 @@ import {
   CheckCircle2, Code2, Landmark, Link2, Bell,
   Activity, FileText, Lock, FlaskConical, Play,
   AlertCircle, ChevronDown, ChevronUp, Loader2,
-  Clock, Trash2, Send, ExternalLink,
+  Clock, Trash2, Send, ExternalLink, RotateCcw,
 } from "lucide-react";
 
 function CodeBlock({ code, language = "json" }: { code: string; language?: string }) {
@@ -195,6 +195,7 @@ const SANDBOX_HISTORY_LS_KEY = "rasokart_sandbox_history";
 type HistoryEntry = {
   id: number;
   endpoint: SandboxEndpoint;
+  fieldValues: Record<string, string>;
   resolvedPath: string;
   requestPreview: string;
   result: { status: number; body: object };
@@ -333,7 +334,7 @@ function SandboxTester() {
       const nextId = historyIdSeq + 1;
       setHistoryIdSeq(nextId);
       setHistory((prev) => [
-        { id: nextId, endpoint, resolvedPath: rpath, requestPreview: rp, result: res, timestamp: new Date(), expanded: false },
+        { id: nextId, endpoint, fieldValues: { ...merged }, resolvedPath: rpath, requestPreview: rp, result: res, timestamp: new Date(), expanded: false },
         ...prev,
       ].slice(0, MAX_HISTORY));
     }, 600 + Math.random() * 400);
@@ -341,6 +342,15 @@ function SandboxTester() {
 
   const toggleHistoryEntry = (id: number) =>
     setHistory((prev) => prev.map((h) => h.id === id ? { ...h, expanded: !h.expanded } : h));
+
+  const handleReplay = (entry: HistoryEntry) => {
+    setSelectedId(entry.endpoint.id);
+    setFieldValues(entry.fieldValues);
+    setResult(null);
+    setShowRequest(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast.success("Request pre-filled — ready to send");
+  };
 
   const resolvedPath = endpoint.path.replace(
     ":id",
@@ -561,9 +571,20 @@ function SandboxTester() {
                           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Response</p>
                           <CodeBlock code={JSON.stringify(entry.result.body, null, 2)} />
                         </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          {entry.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] text-muted-foreground">
+                            {entry.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1.5 text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+                            onClick={(e) => { e.stopPropagation(); handleReplay(entry); }}
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Replay
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>

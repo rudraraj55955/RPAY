@@ -1556,6 +1556,24 @@ function DeliveryHistoryPanel() {
     } catch { /* ignore */ }
     return null;
   });
+  const [location, navigate] = useLocation();
+
+  const SUMMARY_SORT_COLS = ["merchant", "rate", "attempts"] as const;
+  type SummarySortCol = typeof SUMMARY_SORT_COLS[number];
+
+  const rawDlSort = new URLSearchParams(searchStr).get("dlSort") ?? "rate";
+  const rawDlDir = new URLSearchParams(searchStr).get("dlDir") ?? "asc";
+  const summarySortCol: SummarySortCol = (SUMMARY_SORT_COLS.includes(rawDlSort as SummarySortCol) ? rawDlSort : "rate") as SummarySortCol;
+  const summarySortDir: "asc" | "desc" = rawDlDir === "desc" ? "desc" : "asc";
+
+  const handleSummarySort = (col: SummarySortCol) => {
+    const newDir = col === summarySortCol ? (summarySortDir === "asc" ? "desc" : "asc") : "asc";
+    const next = new URLSearchParams(searchStr);
+    next.set("dlSort", col);
+    next.set("dlDir", newDir);
+    navigate(`${location}?${next.toString()}`);
+  };
+
   const [reEnabling, setReEnabling] = useState<number | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
   const [collapsedMerchants, setCollapsedMerchants] = useState<number[]>([]);
@@ -1724,11 +1742,19 @@ function DeliveryHistoryPanel() {
       map.set(log.merchantId, entry);
     }
     return Array.from(map.values()).sort((a, b) => {
-      const rateA = a.total > 0 ? a.delivered / a.total : 1;
-      const rateB = b.total > 0 ? b.delivered / b.total : 1;
-      return rateA - rateB;
+      let cmp = 0;
+      if (summarySortCol === "merchant") {
+        cmp = a.name.localeCompare(b.name);
+      } else if (summarySortCol === "attempts") {
+        cmp = a.total - b.total;
+      } else {
+        const rateA = a.total > 0 ? a.delivered / a.total : 1;
+        const rateB = b.total > 0 ? b.delivered / b.total : 1;
+        cmp = rateA - rateB;
+      }
+      return summarySortDir === "desc" ? -cmp : cmp;
     });
-  }, [logs]);
+  }, [logs, summarySortCol, summarySortDir]);
 
   const logsByMerchant = useMemo(() => {
     const map = new Map<number, typeof logs>();
@@ -2016,28 +2042,79 @@ function DeliveryHistoryPanel() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Attempted At</TableHead>
                   <TableHead>
-                    <button
-                      className="flex items-center gap-1 hover:text-foreground transition-colors"
-                      onClick={() => setSortDir((d) => d === null ? "asc" : d === "asc" ? "desc" : null)}
-                      title="Sort by success rate"
-                    >
-                      Merchant
-                      {sortDir === "asc" ? (
-                        <ChevronUp className="w-3.5 h-3.5 text-primary" />
-                      ) : sortDir === "desc" ? (
-                        <ChevronDown className="w-3.5 h-3.5 text-primary" />
-                      ) : (
-                        <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />
-                      )}
-                    </button>
+                    {merchantFilter === "all" ? (
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                        onClick={() => handleSummarySort("attempts")}
+                        title="Sort by total attempts"
+                      >
+                        Attempts
+                        {summarySortCol === "attempts" ? (
+                          summarySortDir === "asc"
+                            ? <ChevronUp className="w-3.5 h-3.5 text-primary" />
+                            : <ChevronDown className="w-3.5 h-3.5 text-primary" />
+                        ) : (
+                          <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />
+                        )}
+                      </button>
+                    ) : "Attempted At"}
+                  </TableHead>
+                  <TableHead>
+                    {merchantFilter === "all" ? (
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                        onClick={() => handleSummarySort("merchant")}
+                        title="Sort by merchant name"
+                      >
+                        Merchant
+                        {summarySortCol === "merchant" ? (
+                          summarySortDir === "asc"
+                            ? <ChevronUp className="w-3.5 h-3.5 text-primary" />
+                            : <ChevronDown className="w-3.5 h-3.5 text-primary" />
+                        ) : (
+                          <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                        onClick={() => setSortDir((d) => d === null ? "asc" : d === "asc" ? "desc" : null)}
+                        title="Sort by success rate"
+                      >
+                        Merchant
+                        {sortDir === "asc" ? (
+                          <ChevronUp className="w-3.5 h-3.5 text-primary" />
+                        ) : sortDir === "desc" ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-primary" />
+                        ) : (
+                          <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />
+                        )}
+                      </button>
+                    )}
                   </TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Triggered By</TableHead>
                   <TableHead>Frequency</TableHead>
                   <TableHead>Format</TableHead>
-                  <TableHead>Outcome</TableHead>
+                  <TableHead>
+                    {merchantFilter === "all" ? (
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                        onClick={() => handleSummarySort("rate")}
+                        title="Sort by success rate"
+                      >
+                        Success Rate
+                        {summarySortCol === "rate" ? (
+                          summarySortDir === "asc"
+                            ? <ChevronUp className="w-3.5 h-3.5 text-primary" />
+                            : <ChevronDown className="w-3.5 h-3.5 text-primary" />
+                        ) : (
+                          <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />
+                        )}
+                      </button>
+                    ) : "Outcome"}
+                  </TableHead>
                   <TableHead>Auto-pause</TableHead>
                   <TableHead>Failure Reason</TableHead>
                   <TableHead className="text-right">Actions</TableHead>

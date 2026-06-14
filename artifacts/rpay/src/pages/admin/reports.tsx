@@ -659,9 +659,28 @@ function ScheduledReportsPanel() {
   const [retryingFailureMerchantId, setRetryingFailureMerchantId] = useState<number | null>(null);
   const [emailPreview, setEmailPreview] = useState<{ html: string; subject: string } | null>(null);
   const [emailPreviewLoading, setEmailPreviewLoading] = useState(false);
+  const [retryingLogId, setRetryingLogId] = useState<number | null>(null);
+  const inlineRetryMutation = useRetryAdminReportDeliveryLog();
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getListMerchantReportSchedulesQueryOptions().queryKey });
+  };
+
+  const handleInlineRetry = async (merchantId: number, logId: number, merchantName: string) => {
+    setRetryingLogId(logId);
+    try {
+      await inlineRetryMutation.mutateAsync({ merchantId, logId });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: getListMerchantReportSchedulesQueryOptions().queryKey }),
+        qc.invalidateQueries({ queryKey: getGetAdminReportDeliveryHistoryQueryKey() }),
+      ]);
+      toast.success(`Retry sent for ${merchantName}`);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg ?? "Retry failed — check SMTP configuration");
+    } finally {
+      setRetryingLogId(null);
+    }
   };
 
   const handleToggle = async (merchantId: number, current: boolean) => {
@@ -1158,6 +1177,7 @@ function ScheduledReportsPanel() {
                 const isZeroSuccess = sevenDayTotal > 0 && sevenDaySuccesses === 0;
                 const lastDeliveryAt = (s as any).lastDeliveryAt as string | null ?? null;
                 const lastDeliverySuccess = (s as any).lastDeliverySuccess as boolean | null ?? null;
+                const lastDeliveryLogId = (s as any).lastDeliveryLogId as number | null ?? null;
                 return (
                 <TableRow
                   key={s.id}
@@ -1231,6 +1251,20 @@ function ScheduledReportsPanel() {
                         <span className={lastDeliverySuccess === false ? "text-red-400" : "text-muted-foreground"}>
                           {format(new Date(lastDeliveryAt), "dd MMM yyyy")}
                         </span>
+                        {lastDeliverySuccess === false && lastDeliveryLogId != null && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-1.5 text-[10px] gap-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30"
+                            disabled={retryingLogId === lastDeliveryLogId}
+                            onClick={() => handleInlineRetry(s.merchantId, lastDeliveryLogId, s.businessName)}
+                          >
+                            {retryingLogId === lastDeliveryLogId
+                              ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              : <RotateCcw className="w-2.5 h-2.5" />}
+                            Retry
+                          </Button>
+                        )}
                       </div>
                     ) : (
                       <span className="text-muted-foreground/50">—</span>

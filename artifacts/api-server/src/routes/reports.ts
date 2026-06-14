@@ -937,6 +937,7 @@ router.get("/schedules", requireAdmin, async (req, res, next) => {
       allMerchantIds.length > 0
         ? db
             .selectDistinctOn([reportDeliveryLogsTable.merchantId], {
+              id: reportDeliveryLogsTable.id,
               merchantId: reportDeliveryLogsTable.merchantId,
               attemptedAt: reportDeliveryLogsTable.attemptedAt,
               success: reportDeliveryLogsTable.success,
@@ -944,7 +945,7 @@ router.get("/schedules", requireAdmin, async (req, res, next) => {
             .from(reportDeliveryLogsTable)
             .where(inArray(reportDeliveryLogsTable.merchantId, allMerchantIds))
             .orderBy(reportDeliveryLogsTable.merchantId, desc(reportDeliveryLogsTable.attemptedAt))
-        : Promise.resolve([] as { merchantId: number; attemptedAt: Date; success: boolean }[]),
+        : Promise.resolve([] as { id: number; merchantId: number; attemptedAt: Date; success: boolean }[]),
 
       allMerchantIds.length > 0
         ? db
@@ -969,9 +970,9 @@ router.get("/schedules", requireAdmin, async (req, res, next) => {
       }
     }
 
-    const latestDeliveryByMerchant: Record<number, { attemptedAt: Date; success: boolean }> = {};
+    const latestDeliveryByMerchant: Record<number, { id: number; attemptedAt: Date; success: boolean }> = {};
     for (const log of latestDeliveries) {
-      latestDeliveryByMerchant[log.merchantId] = { attemptedAt: log.attemptedAt, success: log.success };
+      latestDeliveryByMerchant[log.merchantId] = { id: log.id, attemptedAt: log.attemptedAt, success: log.success };
     }
 
     const sevenDayStatsByMerchant: Record<number, { total: number; successes: number }> = {};
@@ -990,6 +991,7 @@ router.get("/schedules", requireAdmin, async (req, res, next) => {
           recentFailures: recentFailuresByMerchant[r.schedule.merchantId] ?? [],
           lastDeliveryAt: lastDelivery?.attemptedAt?.toISOString() ?? null,
           lastDeliverySuccess: lastDelivery != null ? lastDelivery.success : null,
+          lastDeliveryLogId: lastDelivery?.id ?? null,
           sevenDayTotal: sevenDay?.total ?? 0,
           sevenDaySuccesses: sevenDay?.successes ?? 0,
         };

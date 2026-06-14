@@ -1952,6 +1952,7 @@ export const ListMerchantReportSchedulesResponse = zod.object({
   "nextRunAt": zod.string().nullish().describe('Admin-set override for the next scheduled run. Cleared automatically after the report fires.'),
   "lastDeliveryAt": zod.string().nullish().describe('ISO timestamp of the most recent delivery attempt (success or failure). Null if no attempts exist.'),
   "lastDeliverySuccess": zod.boolean().nullish().describe('Whether the most recent delivery attempt succeeded. Null if no attempts exist.'),
+  "lastDeliveryLogId": zod.number().nullish().describe('ID of the most recent delivery log entry. Enables inline retry of failed deliveries.'),
   "sevenDayTotal": zod.number().describe('Total delivery attempts in the last 7 days.'),
   "sevenDaySuccesses": zod.number().describe('Successful delivery attempts in the last 7 days.'),
   "createdAt": zod.string(),

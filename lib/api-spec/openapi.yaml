@@ -9689,6 +9689,9 @@ components:
         lastDeliverySuccess:
           type: ["boolean", "null"]
           description: Whether the most recent delivery attempt succeeded. Null if no attempts exist.
+        lastDeliveryLogId:
+          type: ["integer", "null"]
+          description: ID of the most recent delivery log entry. Enables inline retry of failed deliveries.
         sevenDayTotal:
           type: integer
           description: Total delivery attempts in the last 7 days.

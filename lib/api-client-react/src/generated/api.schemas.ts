@@ -943,6 +943,11 @@ export interface AdminReportSchedule {
      * @nullable
      */
   lastDeliverySuccess?: boolean | null;
+  /**
+     * ID of the most recent delivery log entry. Enables inline retry of failed deliveries.
+     * @nullable
+     */
+  lastDeliveryLogId?: number | null;
   /** Total delivery attempts in the last 7 days. */
   sevenDayTotal: number;
   /** Successful delivery attempts in the last 7 days. */

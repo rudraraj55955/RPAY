@@ -1616,6 +1616,8 @@ export const upsertReportScheduleBodyDayOfWeekMax = 6;
 
 export const upsertReportScheduleBodyDayOfMonthMax = 28;
 
+export const upsertReportScheduleBodyAutoPauseAfterFailuresMax = 10;
+
 
 
 export const UpsertReportScheduleBody = zod.object({
@@ -1623,7 +1625,8 @@ export const UpsertReportScheduleBody = zod.object({
   "format": zod.enum(['xlsx', 'pdf']).optional(),
   "isActive": zod.boolean().optional(),
   "dayOfWeek": zod.number().min(upsertReportScheduleBodyDayOfWeekMin).max(upsertReportScheduleBodyDayOfWeekMax).optional().describe('Day of week for weekly reports (0=Sun, 1=Mon, …, 6=Sat)'),
-  "dayOfMonth": zod.number().min(1).max(upsertReportScheduleBodyDayOfMonthMax).optional().describe('Day of month for monthly reports (1–28)')
+  "dayOfMonth": zod.number().min(1).max(upsertReportScheduleBodyDayOfMonthMax).optional().describe('Day of month for monthly reports (1–28)'),
+  "autoPauseAfterFailures": zod.number().min(1).max(upsertReportScheduleBodyAutoPauseAfterFailuresMax).optional().describe('Number of consecutive delivery failures before the schedule is auto-paused (1–10)')
 })
 
 export const upsertReportScheduleResponseScheduleDayOfWeekMin = 0;

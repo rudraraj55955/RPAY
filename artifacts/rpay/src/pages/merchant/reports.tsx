@@ -318,6 +318,7 @@ function SchedulePanel() {
   const [fileFormat, setFileFormat] = useState<"xlsx" | "pdf">("xlsx");
   const [dayOfWeek, setDayOfWeek] = useState<number | null>(1);
   const [dayOfMonth, setDayOfMonth] = useState<number | null>(1);
+  const [autoPauseAfterFailures, setAutoPauseAfterFailures] = useState<number>(3);
   const [hasInitialized, setHasInitialized] = useState(false);
 
   if (!hasInitialized && !scheduleLoading && schedule) {
@@ -325,6 +326,7 @@ function SchedulePanel() {
     setFileFormat(schedule.format as "xlsx" | "pdf");
     setDayOfWeek((schedule as any).dayOfWeek ?? 1);
     setDayOfMonth((schedule as any).dayOfMonth ?? 1);
+    setAutoPauseAfterFailures(schedule.autoPauseAfterFailures);
     setHasInitialized(true);
   }
   if (!hasInitialized && !scheduleLoading && !schedule) {
@@ -372,7 +374,7 @@ function SchedulePanel() {
   };
 
   const handleSave = () => {
-    const data: Record<string, unknown> = { frequency, format: fileFormat, isActive: true };
+    const data: Record<string, unknown> = { frequency, format: fileFormat, isActive: true, autoPauseAfterFailures };
     if (frequency === "weekly") data["dayOfWeek"] = dayOfWeek;
     else data["dayOfMonth"] = dayOfMonth;
     upsert.mutate(
@@ -569,6 +571,28 @@ function SchedulePanel() {
               </SelectContent>
             </Select>
           )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Auto-pause after</Label>
+          <Select
+            value={String(autoPauseAfterFailures)}
+            onValueChange={(v) => setAutoPauseAfterFailures(parseInt(v))}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n} consecutive {n === 1 ? "failure" : "failures"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground/70">
+            The schedule pauses automatically when delivery fails this many times in a row.
+          </p>
         </div>
 
         {schedule && !schedule.isActive && !isAutoPaused && (

@@ -488,12 +488,13 @@ router.put("/schedule", async (req, res, next) => {
       return;
     }
 
-    const { frequency, format, isActive, dayOfWeek, dayOfMonth } = req.body as {
+    const { frequency, format, isActive, dayOfWeek, dayOfMonth, autoPauseAfterFailures } = req.body as {
       frequency?: string;
       format?: string;
       isActive?: boolean;
       dayOfWeek?: number;
       dayOfMonth?: number;
+      autoPauseAfterFailures?: number;
     };
 
     if (frequency && !["weekly", "monthly"].includes(frequency)) {
@@ -512,6 +513,10 @@ router.put("/schedule", async (req, res, next) => {
       res.status(400).json({ error: "dayOfMonth must be 1–28" });
       return;
     }
+    if (autoPauseAfterFailures !== undefined && (typeof autoPauseAfterFailures !== "number" || !Number.isInteger(autoPauseAfterFailures) || autoPauseAfterFailures < 1 || autoPauseAfterFailures > 10)) {
+      res.status(400).json({ error: "autoPauseAfterFailures must be an integer between 1 and 10" });
+      return;
+    }
 
     // Capture existing state before upsert so we can detect re-activation
     const [existingBefore] = await db
@@ -520,7 +525,7 @@ router.put("/schedule", async (req, res, next) => {
       .where(eq(reportSchedulesTable.merchantId, user.merchantId!))
       .limit(1);
 
-    const schedule = await upsertSchedule(user.merchantId!, { frequency, format, isActive, dayOfWeek, dayOfMonth });
+    const schedule = await upsertSchedule(user.merchantId!, { frequency, format, isActive, dayOfWeek, dayOfMonth, autoPauseAfterFailures });
 
     // If this PUT explicitly re-activates a previously-inactive schedule, log it
     if (isActive === true && existingBefore && !existingBefore.isActive) {
@@ -1367,7 +1372,7 @@ router.post("/schedules/:merchantId/send-now", requireAdmin, async (req, res, ne
 
 async function upsertSchedule(
   merchantId: number,
-  patch: { frequency?: string; format?: string; isActive?: boolean; dayOfWeek?: number; dayOfMonth?: number; nextRunAt?: string | null },
+  patch: { frequency?: string; format?: string; isActive?: boolean; dayOfWeek?: number; dayOfMonth?: number; nextRunAt?: string | null; autoPauseAfterFailures?: number },
 ): Promise<typeof reportSchedulesTable.$inferSelect> {
   const now = new Date();
   const [existing] = await db
@@ -1404,6 +1409,7 @@ async function upsertSchedule(
         dayOfWeek: effectiveFrequency === "weekly" ? dayWeekValue : null,
         dayOfMonth: effectiveFrequency === "monthly" ? dayMonthValue : null,
         ...(nextRunAtValue !== undefined ? { nextRunAt: nextRunAtValue } : {}),
+        ...(patch.autoPauseAfterFailures !== undefined ? { autoPauseAfterFailures: patch.autoPauseAfterFailures } : {}),
         updatedAt: now,
       })
       .where(eq(reportSchedulesTable.merchantId, merchantId))
@@ -1421,6 +1427,7 @@ async function upsertSchedule(
       dayOfWeek: effectiveFrequency === "weekly" ? (patch.dayOfWeek ?? null) : null,
       dayOfMonth: effectiveFrequency === "monthly" ? (patch.dayOfMonth ?? null) : null,
       nextRunAt: nextRunAtValue ?? null,
+      ...(patch.autoPauseAfterFailures !== undefined ? { autoPauseAfterFailures: patch.autoPauseAfterFailures } : {}),
       updatedAt: now,
     })
     .returning();

@@ -4677,6 +4677,12 @@ export type UpsertReportScheduleBody = {
      * @maximum 28
      */
   dayOfMonth?: number;
+  /**
+     * Number of consecutive delivery failures before the schedule is auto-paused (1–10)
+     * @minimum 1
+     * @maximum 10
+     */
+  autoPauseAfterFailures?: number;
 };
 
 export type UpsertReportSchedule200 = {

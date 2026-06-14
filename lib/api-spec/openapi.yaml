@@ -1694,6 +1694,11 @@ paths:
                   minimum: 1
                   maximum: 28
                   description: Day of month for monthly reports (1–28)
+                autoPauseAfterFailures:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  description: Number of consecutive delivery failures before the schedule is auto-paused (1–10)
       responses:
         "200":
           description: Updated report schedule

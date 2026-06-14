@@ -662,8 +662,10 @@ router.get("/schedule/history", async (req, res, next) => {
       endOfDay.setHours(23, 59, 59, 999);
       conditions.push(lte(reportDeliveryLogsTable.attemptedAt, endOfDay));
     }
-    if (triggeredBy === "manual" || triggeredBy === "scheduler") {
-      conditions.push(eq(reportDeliveryLogsTable.triggeredBy, triggeredBy));
+    if (triggeredBy === "manual") {
+      conditions.push(inArray(reportDeliveryLogsTable.triggeredBy, ["manual", "bulk"]));
+    } else if (triggeredBy === "scheduler") {
+      conditions.push(eq(reportDeliveryLogsTable.triggeredBy, "scheduler"));
     }
 
     const logs = await db

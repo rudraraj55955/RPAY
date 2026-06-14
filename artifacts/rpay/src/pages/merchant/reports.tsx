@@ -1054,6 +1054,81 @@ function SchedulePanel() {
   );
 }
 
+function DeliveryHealthBanner() {
+  const queryClient = useQueryClient();
+  const { data: scheduleData, isLoading } = useGetReportSchedule();
+  const reenable = useReenableReportSchedule();
+  const schedule = scheduleData?.schedule ?? null;
+
+  if (isLoading || !schedule) return null;
+
+  const isAutoPaused =
+    !schedule.isActive &&
+    schedule.consecutiveFailures >= schedule.autoPauseAfterFailures &&
+    schedule.consecutiveFailures > 0;
+
+  const hasFailures = schedule.consecutiveFailures > 0;
+
+  if (!hasFailures) return null;
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/reports/schedule"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/reports/schedule/history"] });
+  };
+
+  const handleReenable = () => {
+    reenable.mutate(undefined, {
+      onSuccess: () => {
+        toast.success("Schedule re-enabled — your reports will resume as normal.");
+        invalidate();
+      },
+      onError: () => toast.error("Failed to re-enable schedule"),
+    });
+  };
+
+  if (isAutoPaused) {
+    return (
+      <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 flex items-start gap-3">
+        <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-red-300">Report schedule auto-paused</p>
+          <p className="text-xs text-red-400/80 mt-0.5">
+            Delivery failed{" "}
+            <span className="font-semibold text-red-300">
+              {schedule.consecutiveFailures} consecutive {schedule.consecutiveFailures === 1 ? "time" : "times"}
+            </span>{" "}
+            and the schedule has been auto-paused. Fix your email settings, then re-enable below.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleReenable}
+          disabled={reenable.isPending}
+          className="shrink-0 h-8 text-xs gap-1.5 border-red-500/40 text-red-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/60"
+        >
+          {reenable.isPending
+            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            : <PlayCircle className="w-3.5 h-3.5" />}
+          Re-enable
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
+      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+      <p className="flex-1 text-sm text-amber-300">
+        <span className="font-semibold">
+          {schedule.consecutiveFailures} consecutive delivery {schedule.consecutiveFailures === 1 ? "failure" : "failures"}
+        </span>{" "}
+        — your schedule is still active but may be auto-paused if failures continue. Check the Schedule section below for details.
+      </p>
+    </div>
+  );
+}
+
 export default function MerchantReports() {
   const [activeTab, setActiveTab] = useState<string>(() => {
     try {
@@ -2060,6 +2135,7 @@ export default function MerchantReports() {
           </p>
         </div>
       </div>
+      <DeliveryHealthBanner />
       <SchedulePanel />
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">

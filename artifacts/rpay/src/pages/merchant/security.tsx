@@ -111,6 +111,16 @@ function storeCustomDatePresets(presets: CustomDatePreset[]): void {
 }
 
 const SEC_TIMELINE_CUSTOM_DATE_PRESETS_KEY = "rasokart_custom_date_presets_sec_timeline";
+const SEC_TIMELINE_LAST_DATE_FROM_KEY = "rasokart_sec_timeline_last_date_from";
+const SEC_TIMELINE_LAST_DATE_TO_KEY = "rasokart_sec_timeline_last_date_to";
+
+function loadSecTimelineLastDateFrom(): string {
+  try { return localStorage.getItem(SEC_TIMELINE_LAST_DATE_FROM_KEY) ?? ""; } catch { return ""; }
+}
+
+function loadSecTimelineLastDateTo(): string {
+  try { return localStorage.getItem(SEC_TIMELINE_LAST_DATE_TO_KEY) ?? ""; } catch { return ""; }
+}
 
 function loadSecTimelineCustomDatePresets(): CustomDatePreset[] {
   try {
@@ -797,11 +807,14 @@ export default function MerchantSecurity() {
 
   // Security events state
   const [secEventType, setSecEventType] = useState("all");
-  const [secDateFrom, setSecDateFrom] = useState("");
-  const [secDateTo, setSecDateTo] = useState("");
+  const [secDateFrom, setSecDateFrom] = useState(() => loadSecTimelineLastDateFrom());
+  const [secDateTo, setSecDateTo] = useState(() => loadSecTimelineLastDateTo());
   const [secSearch, setSecSearch] = useState("");
   const [secPage, setSecPage] = useState(1);
   const SEC_PAGE_SIZE = 20;
+
+  useEffect(() => { try { localStorage.setItem(SEC_TIMELINE_LAST_DATE_FROM_KEY, secDateFrom); } catch {} }, [secDateFrom]);
+  useEffect(() => { try { localStorage.setItem(SEC_TIMELINE_LAST_DATE_TO_KEY, secDateTo); } catch {} }, [secDateTo]);
 
   const [secCustomDatePresets, setSecCustomDatePresets] = useState<CustomDatePreset[]>(() => loadSecTimelineCustomDatePresets());
   const [secShowSaveDatePreset, setSecShowSaveDatePreset] = useState(false);

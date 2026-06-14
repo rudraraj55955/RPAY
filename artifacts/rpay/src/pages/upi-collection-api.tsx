@@ -14,6 +14,7 @@ import {
   CheckCircle2, Code2, Landmark, Link2, Bell,
   Activity, FileText, Lock, FlaskConical, Play,
   AlertCircle, ChevronDown, ChevronUp, Loader2,
+  Clock, Trash2,
 } from "lucide-react";
 
 function CodeBlock({ code, language = "json" }: { code: string; language?: string }) {
@@ -187,6 +188,18 @@ const SANDBOX_ENDPOINTS: SandboxEndpoint[] = [
   },
 ];
 
+const MAX_HISTORY = 10;
+
+type HistoryEntry = {
+  id: number;
+  endpoint: SandboxEndpoint;
+  resolvedPath: string;
+  requestPreview: string;
+  result: { status: number; body: object };
+  timestamp: Date;
+  expanded: boolean;
+};
+
 const METHOD_COLOR: Record<string, string> = {
   GET:    "bg-blue-500/20 text-blue-400 border-blue-500/30",
   POST:   "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
@@ -196,6 +209,32 @@ const METHOD_COLOR: Record<string, string> = {
 const STATUS_COLOR = (status: number) =>
   status >= 200 && status < 300 ? "text-emerald-400" : "text-rose-400";
 
+function buildRequestPreview(ep: SandboxEndpoint, merged: Record<string, string>): string {
+  const rpath = ep.path.replace(":id", merged["id"] ?? "");
+  const bodyFields = ep.fields.filter((f) => f.name !== "id" && !["limit", "status"].includes(f.name));
+  const hasBody = ep.method === "POST" && bodyFields.length > 0;
+  const bodyObj: Record<string, string | number> = {};
+  if (hasBody) {
+    for (const f of bodyFields) {
+      bodyObj[f.name] = f.type === "number" ? parseFloat(merged[f.name] || "0") : merged[f.name] || "";
+    }
+  }
+  return [
+    `${ep.method} ${rpath}`,
+    `Authorization: Bearer rasokart_live_••••••••••••••••`,
+    hasBody ? `\n${JSON.stringify(bodyObj, null, 2)}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function formatRelativeTime(date: Date): string {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 5)  return "just now";
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ago`;
+}
+
 function SandboxTester() {
   const [selectedId, setSelectedId]     = useState<string>("create-qr");
   const [fieldValues, setFieldValues]   = useState<Record<string, string>>({});
@@ -203,6 +242,9 @@ function SandboxTester() {
   const [result, setResult]             = useState<{ status: number; body: object } | null>(null);
   const [showRequest, setShowRequest]   = useState(false);
   const [copied, setCopied]             = useState(false);
+  const [history, setHistory]           = useState<HistoryEntry[]>([]);
+  const [historyOpen, setHistoryOpen]   = useState(false);
+  const [historyIdSeq, setHistoryIdSeq] = useState(0);
 
   const endpoint = SANDBOX_ENDPOINTS.find((e) => e.id === selectedId)!;
 
@@ -219,11 +261,27 @@ function SandboxTester() {
     setLoading(true);
     setResult(null);
     setTimeout(() => {
-      setResult(endpoint.mockResponse(merged));
+      const res = endpoint.mockResponse(merged);
+      setResult(res);
       setLoading(false);
       setShowRequest(false);
+
+      const rp = buildRequestPreview(endpoint, merged);
+      const rpath = endpoint.path.replace(
+        ":id",
+        merged[endpoint.fields.find((f) => f.name === "id")?.name ?? ""] ?? "",
+      );
+      const nextId = historyIdSeq + 1;
+      setHistoryIdSeq(nextId);
+      setHistory((prev) => [
+        { id: nextId, endpoint, resolvedPath: rpath, requestPreview: rp, result: res, timestamp: new Date(), expanded: false },
+        ...prev,
+      ].slice(0, MAX_HISTORY));
     }, 600 + Math.random() * 400);
   };
+
+  const toggleHistoryEntry = (id: number) =>
+    setHistory((prev) => prev.map((h) => h.id === id ? { ...h, expanded: !h.expanded } : h));
 
   const resolvedPath = endpoint.path.replace(
     ":id",
@@ -233,22 +291,7 @@ function SandboxTester() {
   const requestPreview = (() => {
     const merged: Record<string, string> = {};
     for (const f of endpoint.fields) merged[f.name] = getValue(f);
-
-    const bodyFields = endpoint.fields.filter((f) => f.name !== "id" && !["limit", "status"].includes(f.name));
-    const hasBody = endpoint.method === "POST" && bodyFields.length > 0;
-
-    const bodyObj: Record<string, string | number> = {};
-    if (hasBody) {
-      for (const f of bodyFields) {
-        bodyObj[f.name] = f.type === "number" ? parseFloat(merged[f.name] || "0") : merged[f.name] || "";
-      }
-    }
-
-    return [
-      `${endpoint.method} ${resolvedPath}`,
-      `Authorization: Bearer rasokart_live_••••••••••••••••`,
-      hasBody ? `\n${JSON.stringify(bodyObj, null, 2)}` : "",
-    ].filter(Boolean).join("\n");
+    return buildRequestPreview(endpoint, merged);
   })();
 
   const handleCopyResponse = () => {
@@ -386,6 +429,88 @@ function SandboxTester() {
               <FlaskConical className="w-3 h-3 text-amber-400/70" />
               This is a simulated sandbox response. No API key is required and no data is stored.
             </p>
+          </div>
+        )}
+
+        {/* ── Recent requests history ───────────────────────────────────────── */}
+        {history.length > 0 && (
+          <div className="space-y-2 pt-1">
+            <Separator className="bg-border/40" />
+            <div className="flex items-center justify-between">
+              <button
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setHistoryOpen((p) => !p)}
+              >
+                {historyOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                <Clock className="w-3 h-3" />
+                Recent requests
+                <span className="ml-0.5 bg-border/60 text-[10px] rounded-full px-1.5 py-px font-semibold">
+                  {history.length}
+                </span>
+              </button>
+              <button
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-rose-400 transition-colors"
+                onClick={() => setHistory([])}
+                title="Clear history"
+              >
+                <Trash2 className="w-3 h-3" />
+                Clear
+              </button>
+            </div>
+
+            {historyOpen && (
+              <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                {history.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="rounded-lg border border-border/40 bg-black/30 overflow-hidden"
+                  >
+                    {/* Entry header — always visible */}
+                    <button
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/5 transition-colors"
+                      onClick={() => toggleHistoryEntry(entry.id)}
+                    >
+                      <Badge
+                        className={`text-[10px] font-bold shrink-0 border ${METHOD_COLOR[entry.endpoint.method]}`}
+                      >
+                        {entry.endpoint.method}
+                      </Badge>
+                      <code className="text-xs font-mono text-foreground/80 flex-1 truncate">
+                        {entry.resolvedPath}
+                      </code>
+                      <span
+                        className={`text-[11px] font-semibold shrink-0 ${STATUS_COLOR(entry.result.status)}`}
+                      >
+                        {entry.result.status}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground shrink-0 w-14 text-right">
+                        {formatRelativeTime(entry.timestamp)}
+                      </span>
+                      {entry.expanded
+                        ? <ChevronUp className="w-3 h-3 text-muted-foreground shrink-0" />
+                        : <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />}
+                    </button>
+
+                    {/* Entry detail — expandable */}
+                    {entry.expanded && (
+                      <div className="border-t border-border/30 px-3 py-3 space-y-3">
+                        <div className="space-y-1">
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Request</p>
+                          <CodeBlock code={entry.requestPreview} language="http" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Response</p>
+                          <CodeBlock code={JSON.stringify(entry.result.body, null, 2)} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {entry.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

@@ -766,6 +766,8 @@ export default function MerchantSecurity() {
 
   // Known login IPs
   const { data: knownIpsData, isLoading: knownIpsLoading } = useListKnownLoginIps();
+  const unlabelledCount = (knownIpsData?.data ?? []).filter(ip => !ip.label).length;
+  const knownLoginLocationsRef = useRef<HTMLDivElement>(null);
 
   // Trusted IPs
   const { data: trustedIpsData, isLoading: trustedIpsLoading } = useListTrustedIps();
@@ -1430,8 +1432,34 @@ export default function MerchantSecurity() {
         )}
       </Card>
 
+      {/* Unlabelled IP alert callout */}
+      {!knownIpsLoading && unlabelledCount > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3.5">
+          <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-300">
+              {unlabelledCount === 1
+                ? "1 unreviewed login location"
+                : `${unlabelledCount} unreviewed login locations`}
+            </p>
+            <p className="text-xs text-amber-400/80 mt-0.5">
+              {unlabelledCount === 1
+                ? "An IP address that has signed into your account hasn't been labelled yet."
+                : "Some IP addresses that have signed into your account haven't been labelled yet."}{" "}
+              Mark each as trusted or flag it as suspicious to keep your account secure.
+            </p>
+          </div>
+          <button
+            onClick={() => knownLoginLocationsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="shrink-0 text-xs font-medium text-amber-300 hover:text-amber-200 underline underline-offset-2 transition-colors"
+          >
+            Review now
+          </button>
+        </div>
+      )}
+
       {/* Known login locations */}
-      <Card>
+      <Card ref={knownLoginLocationsRef}>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <MapPin className="w-4 h-4 text-muted-foreground" />

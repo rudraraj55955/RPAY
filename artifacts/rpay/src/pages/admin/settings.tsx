@@ -217,6 +217,10 @@ export default function AdminSettings() {
   const [retryDelay3, setRetryDelay3] = useState<number>(3600);
   const [retryInitialized, setRetryInitialized] = useState(false);
 
+  const [reportRetryMaxAttempts, setReportRetryMaxAttempts] = useState<number>(3);
+  const [reportRetryBackoffMs, setReportRetryBackoffMs] = useState<number>(1000);
+  const [reportRetryInitialized, setReportRetryInitialized] = useState(false);
+
   const [webhookAlertCooldownHours, setWebhookAlertCooldownHours] = useState<number>(1);
   const [webhookAlertCooldownInitialized, setWebhookAlertCooldownInitialized] = useState(false);
   const [webhookAlertMerchantFilter, setWebhookAlertMerchantFilter] = useState<number | null>(null);
@@ -689,6 +693,31 @@ export default function AdminSettings() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const { data: reportRetryData, isLoading: reportRetryLoading } = useQuery<{ maxAttempts: number; backoffBaseMs: number }>({
+    queryKey: ["/api/settings/report-delivery-retries"],
+    queryFn: () => apiGet("/settings/report-delivery-retries"),
+    onSuccess: (d: { maxAttempts: number; backoffBaseMs: number }) => {
+      if (!reportRetryInitialized) {
+        setReportRetryMaxAttempts(d.maxAttempts);
+        setReportRetryBackoffMs(d.backoffBaseMs);
+        setReportRetryInitialized(true);
+      }
+    },
+  } as any);
+
+  const currentReportRetryMaxAttempts = reportRetryData?.maxAttempts ?? 3;
+  const currentReportRetryBackoffMs = reportRetryData?.backoffBaseMs ?? 1000;
+  const reportRetryUnchanged = reportRetryMaxAttempts === currentReportRetryMaxAttempts && reportRetryBackoffMs === currentReportRetryBackoffMs;
+
+  const { mutate: saveReportRetry, isPending: savingReportRetry } = useMutation({
+    mutationFn: () => apiPut("/settings/report-delivery-retries", { maxAttempts: reportRetryMaxAttempts, backoffBaseMs: reportRetryBackoffMs }),
+    onSuccess: () => {
+      toast.success("Report delivery retry settings saved");
+      qc.invalidateQueries({ queryKey: ["/api/settings/report-delivery-retries"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const [cleanupResult, setCleanupResult] = useState<{ totalScanned: number; deleted: number; errors: number } | null>(null);
 
   const CLEANUP_RUNS_PARAMS = { limit: 20 } as const;
@@ -1070,6 +1099,71 @@ export default function AdminSettings() {
                 Fill in host, port, username, and password above, then save before sending a test.
               </p>
             )}
+          </div>
+
+          {/* Report delivery retries */}
+          <div className="border-t border-border/50 pt-4 space-y-4">
+            <div>
+              <p className="text-sm font-medium text-foreground mb-0.5">Report delivery retries</p>
+              <p className="text-xs text-muted-foreground">
+                Controls how many times the scheduler retries a failed report email before pausing the schedule,
+                and the exponential backoff base delay between attempts.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="report-retry-max" className="text-sm">Max delivery retries</Label>
+                <Input
+                  id="report-retry-max"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={reportRetryMaxAttempts}
+                  onChange={e => setReportRetryMaxAttempts(parseInt(e.target.value, 10) || 1)}
+                  disabled={reportRetryLoading}
+                />
+                <p className="text-xs text-muted-foreground">Allowed: 1–10. Default: 3.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="report-retry-backoff" className="text-sm">Retry backoff (ms)</Label>
+                <Input
+                  id="report-retry-backoff"
+                  type="number"
+                  min={100}
+                  max={60000}
+                  step={100}
+                  value={reportRetryBackoffMs}
+                  onChange={e => setReportRetryBackoffMs(parseInt(e.target.value, 10) || 100)}
+                  disabled={reportRetryLoading}
+                />
+                <p className="text-xs text-muted-foreground">Base delay for exponential backoff. Default: 1000 ms.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => saveReportRetry()}
+                disabled={savingReportRetry || reportRetryLoading || reportRetryUnchanged}
+              >
+                <Save className="w-3.5 h-3.5 mr-1.5" />
+                {savingReportRetry ? "Saving…" : "Save"}
+              </Button>
+              {!reportRetryUnchanged && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setReportRetryMaxAttempts(currentReportRetryMaxAttempts);
+                    setReportRetryBackoffMs(currentReportRetryBackoffMs);
+                  }}
+                  disabled={savingReportRetry}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

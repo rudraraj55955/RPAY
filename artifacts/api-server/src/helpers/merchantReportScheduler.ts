@@ -1,8 +1,8 @@
 import cron, { type ScheduledTask } from "node-cron";
 import XLSX from "xlsx";
 import PDFDocument from "pdfkit";
-import { db, reportSchedulesTable, reportDeliveryLogsTable, transactionsTable, merchantsTable, merchantConnectionsTable, ledgerEntriesTable, settlementsTable, usersTable } from "@workspace/db";
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { db, reportSchedulesTable, reportDeliveryLogsTable, transactionsTable, merchantsTable, merchantConnectionsTable, ledgerEntriesTable, settlementsTable, usersTable, systemSettingsTable } from "@workspace/db";
+import { eq, and, gte, lte, sql, desc, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendMail, type MailOptions } from "./mailer";
 import { createNotification, createBulkNotifications } from "./notifications";
@@ -11,12 +11,34 @@ import { sendReportScheduleAutoPausedMerchantEmail } from "./reportScheduleEmail
 
 let scheduledTask: ScheduledTask | null = null;
 
-const REPORT_DELIVERY_MAX_ATTEMPTS = 3;
-const REPORT_DELIVERY_BACKOFF_BASE_MS = 1000;
+const REPORT_DELIVERY_MAX_ATTEMPTS_DEFAULT = 3;
+const REPORT_DELIVERY_BACKOFF_BASE_MS_DEFAULT = 1000;
 const AUTO_PAUSE_EMAIL_DEDUP_WINDOW_MS = 30 * 60 * 1000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function getReportDeliveryConfig(): Promise<{ maxAttempts: number; backoffBaseMs: number }> {
+  try {
+    const rows = await db
+      .select()
+      .from(systemSettingsTable)
+      .where(inArray(systemSettingsTable.key, ["report_delivery_max_attempts", "report_delivery_backoff_base_ms"]));
+    const dbMap = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    const maxAttempts = dbMap["report_delivery_max_attempts"] != null
+      ? parseInt(dbMap["report_delivery_max_attempts"] as string, 10)
+      : REPORT_DELIVERY_MAX_ATTEMPTS_DEFAULT;
+    const backoffBaseMs = dbMap["report_delivery_backoff_base_ms"] != null
+      ? parseInt(dbMap["report_delivery_backoff_base_ms"] as string, 10)
+      : REPORT_DELIVERY_BACKOFF_BASE_MS_DEFAULT;
+    return {
+      maxAttempts: isNaN(maxAttempts) ? REPORT_DELIVERY_MAX_ATTEMPTS_DEFAULT : maxAttempts,
+      backoffBaseMs: isNaN(backoffBaseMs) ? REPORT_DELIVERY_BACKOFF_BASE_MS_DEFAULT : backoffBaseMs,
+    };
+  } catch {
+    return { maxAttempts: REPORT_DELIVERY_MAX_ATTEMPTS_DEFAULT, backoffBaseMs: REPORT_DELIVERY_BACKOFF_BASE_MS_DEFAULT };
+  }
 }
 
 async function sendMailWithRetry(
@@ -24,15 +46,17 @@ async function sendMailWithRetry(
   scheduleId: number,
   merchantId: number,
 ): Promise<boolean> {
-  for (let attempt = 1; attempt <= REPORT_DELIVERY_MAX_ATTEMPTS; attempt++) {
+  const { maxAttempts, backoffBaseMs } = await getReportDeliveryConfig();
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let ok: boolean;
     try {
       ok = await sendMail(opts);
     } catch (err) {
-      if (attempt < REPORT_DELIVERY_MAX_ATTEMPTS) {
-        const delayMs = REPORT_DELIVERY_BACKOFF_BASE_MS * Math.pow(2, attempt - 1);
+      if (attempt < maxAttempts) {
+        const delayMs = backoffBaseMs * Math.pow(2, attempt - 1);
         logger.warn(
-          { err, scheduleId, merchantId, attempt, maxAttempts: REPORT_DELIVERY_MAX_ATTEMPTS, nextRetryMs: delayMs },
+          { err, scheduleId, merchantId, attempt, maxAttempts, nextRetryMs: delayMs },
           "Report delivery threw an exception — will retry",
         );
         await sleep(delayMs);
@@ -43,10 +67,10 @@ async function sendMailWithRetry(
 
     if (ok) return true;
 
-    if (attempt < REPORT_DELIVERY_MAX_ATTEMPTS) {
-      const delayMs = REPORT_DELIVERY_BACKOFF_BASE_MS * Math.pow(2, attempt - 1);
+    if (attempt < maxAttempts) {
+      const delayMs = backoffBaseMs * Math.pow(2, attempt - 1);
       logger.warn(
-        { scheduleId, merchantId, attempt, maxAttempts: REPORT_DELIVERY_MAX_ATTEMPTS, nextRetryMs: delayMs },
+        { scheduleId, merchantId, attempt, maxAttempts, nextRetryMs: delayMs },
         "Report delivery failed — will retry",
       );
       await sleep(delayMs);

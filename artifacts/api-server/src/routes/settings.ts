@@ -17,6 +17,10 @@ type ReconciliationSchedule = (typeof RECONCILIATION_SCHEDULE_VALUES)[number];
 
 const SMTP_KEYS = ["smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_from"] as const;
 
+const REPORT_DELIVERY_MAX_ATTEMPTS_DEFAULT = 3;
+const REPORT_DELIVERY_BACKOFF_BASE_MS_DEFAULT = 1000;
+const REPORT_DELIVERY_KEYS = ["report_delivery_max_attempts", "report_delivery_backoff_base_ms"] as const;
+
 // GET /api/settings
 router.get("/", async (req, res, next) => {
   try {
@@ -115,6 +119,94 @@ router.put("/smtp", async (req, res, next) => {
     }
 
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/settings/report-delivery-retries — returns current retry config with fallback to defaults
+router.get("/report-delivery-retries", async (_req, res, next) => {
+  try {
+    const rows = await db
+      .select()
+      .from(systemSettingsTable)
+      .where(inArray(systemSettingsTable.key, [...REPORT_DELIVERY_KEYS]));
+
+    const dbMap = Object.fromEntries(rows.map(r => [r.key, r.value]));
+
+    const maxAttempts = dbMap["report_delivery_max_attempts"] != null
+      ? parseInt(dbMap["report_delivery_max_attempts"] as string, 10)
+      : REPORT_DELIVERY_MAX_ATTEMPTS_DEFAULT;
+    const backoffBaseMs = dbMap["report_delivery_backoff_base_ms"] != null
+      ? parseInt(dbMap["report_delivery_backoff_base_ms"] as string, 10)
+      : REPORT_DELIVERY_BACKOFF_BASE_MS_DEFAULT;
+
+    res.json({
+      maxAttempts: isNaN(maxAttempts) ? REPORT_DELIVERY_MAX_ATTEMPTS_DEFAULT : maxAttempts,
+      backoffBaseMs: isNaN(backoffBaseMs) ? REPORT_DELIVERY_BACKOFF_BASE_MS_DEFAULT : backoffBaseMs,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/settings/report-delivery-retries — saves report delivery retry config
+router.put("/report-delivery-retries", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { maxAttempts, backoffBaseMs } = req.body as { maxAttempts?: unknown; backoffBaseMs?: unknown };
+
+    if (maxAttempts === undefined || maxAttempts === null) {
+      res.status(400).json({ error: "maxAttempts is required" });
+      return;
+    }
+    const parsedMax = parseInt(String(maxAttempts), 10);
+    if (isNaN(parsedMax) || parsedMax < 1 || parsedMax > 10) {
+      res.status(400).json({ error: "maxAttempts must be between 1 and 10" });
+      return;
+    }
+
+    if (backoffBaseMs === undefined || backoffBaseMs === null) {
+      res.status(400).json({ error: "backoffBaseMs is required" });
+      return;
+    }
+    const parsedBackoff = parseInt(String(backoffBaseMs), 10);
+    if (isNaN(parsedBackoff) || parsedBackoff < 100 || parsedBackoff > 60000) {
+      res.status(400).json({ error: "backoffBaseMs must be between 100 and 60000" });
+      return;
+    }
+
+    const now = new Date();
+    const upserts = [
+      { key: "report_delivery_max_attempts", value: String(parsedMax) },
+      { key: "report_delivery_backoff_base_ms", value: String(parsedBackoff) },
+    ];
+
+    for (const { key, value } of upserts) {
+      await db
+        .insert(systemSettingsTable)
+        .values({ key, value, updatedBy: user.id, updatedAt: now })
+        .onConflictDoUpdate({
+          target: systemSettingsTable.key,
+          set: { value, updatedBy: user.id, updatedAt: now },
+        });
+    }
+
+    try {
+      await db.insert(auditLogsTable).values({
+        adminId: user.id,
+        adminEmail: user.email,
+        action: "setting_updated",
+        targetType: "system_config",
+        targetId: null,
+        details: JSON.stringify({ key: "report_delivery_retries", maxAttempts: parsedMax, backoffBaseMs: parsedBackoff }),
+        ipAddress: req.ip ?? null,
+      });
+    } catch (auditErr) {
+      req.log.error({ err: auditErr }, "Failed to write audit log for report_delivery_retries update");
+    }
+
+    res.json({ maxAttempts: parsedMax, backoffBaseMs: parsedBackoff });
   } catch (err) {
     next(err);
   }

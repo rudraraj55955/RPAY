@@ -1103,13 +1103,14 @@ router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
       return;
     }
 
-    const { frequency, format, isActive, dayOfWeek, dayOfMonth, nextRunAt } = req.body as {
+    const { frequency, format, isActive, dayOfWeek, dayOfMonth, nextRunAt, autoPauseAfterFailures } = req.body as {
       frequency?: string;
       format?: string;
       isActive?: boolean;
       dayOfWeek?: number;
       dayOfMonth?: number;
       nextRunAt?: string | null;
+      autoPauseAfterFailures?: number;
     };
 
     if (frequency && !["weekly", "monthly"].includes(frequency)) {
@@ -1126,6 +1127,10 @@ router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
     }
     if (dayOfMonth !== undefined && (typeof dayOfMonth !== "number" || dayOfMonth < 1 || dayOfMonth > 28)) {
       res.status(400).json({ error: "dayOfMonth must be 1–28" });
+      return;
+    }
+    if (autoPauseAfterFailures !== undefined && (typeof autoPauseAfterFailures !== "number" || !Number.isInteger(autoPauseAfterFailures) || autoPauseAfterFailures < 1 || autoPauseAfterFailures > 10)) {
+      res.status(400).json({ error: "autoPauseAfterFailures must be an integer between 1 and 10" });
       return;
     }
     if (nextRunAt !== undefined && nextRunAt !== null) {
@@ -1154,7 +1159,7 @@ router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
       .limit(1);
     const isCreate = existingSchedule.length === 0;
 
-    const schedule = await upsertSchedule(mid, { frequency, format, isActive, dayOfWeek, dayOfMonth, nextRunAt });
+    const schedule = await upsertSchedule(mid, { frequency, format, isActive, dayOfWeek, dayOfMonth, nextRunAt, autoPauseAfterFailures });
 
     // Always write a created/updated audit log for the schedule lifecycle
     {
@@ -1171,6 +1176,24 @@ router.put("/schedules/:merchantId", requireAdmin, async (req, res, next) => {
           frequency: schedule.frequency,
           format: schedule.format,
           nextRunAt: schedule.nextRunAt ? schedule.nextRunAt.toISOString() : null,
+        }),
+        ipAddress: req.ip ?? null,
+      });
+    }
+
+    // Write a dedicated audit log when the admin changes the auto-pause threshold
+    if (autoPauseAfterFailures !== undefined) {
+      const admin = (req as any).user;
+      await db.insert(auditLogsTable).values({
+        adminId: admin.id,
+        adminEmail: admin.email,
+        action: "report_schedule_threshold_updated",
+        targetType: "report_schedule",
+        targetId: mid,
+        details: JSON.stringify({
+          merchantId: mid,
+          businessName: merchant.businessName,
+          autoPauseAfterFailures,
         }),
         ipAddress: req.ip ?? null,
       });

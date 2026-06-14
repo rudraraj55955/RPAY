@@ -651,8 +651,10 @@ function ScheduledReportsPanel() {
     navigate(`${location}?${next.toString()}`);
   };
 
-  const [overrideTarget, setOverrideTarget] = useState<{ merchantId: number; name: string; current: string | null } | null>(null);
+  const [overrideTarget, setOverrideTarget] = useState<{ merchantId: number; name: string; current: string | null; currentAutoPause: number } | null>(null);
   const [overrideValue, setOverrideValue] = useState("");
+  const [overrideDateOriginal, setOverrideDateOriginal] = useState("");
+  const [overrideThreshold, setOverrideThreshold] = useState("3");
   const [overrideSaving, setOverrideSaving] = useState(false);
   const [sendingMerchantId, setSendingMerchantId] = useState<number | null>(null);
   const [confirmSend, setConfirmSend] = useState<{ merchantId: number; name: string; email: string; frequency: string; format: string } | null>(null);
@@ -850,12 +852,12 @@ function ScheduledReportsPanel() {
     return sortDir === "asc" ? cmp : -cmp;
   });
 
-  const openOverrideDialog = (merchantId: number, name: string, currentNextRunAt: string | null) => {
-    const defaultValue = currentNextRunAt
-      ? toLocalDatetimeInput(new Date(currentNextRunAt))
-      : toLocalDatetimeInput(new Date(Date.now() + 60 * 60 * 1000));
-    setOverrideTarget({ merchantId, name, current: currentNextRunAt });
-    setOverrideValue(defaultValue);
+  const openOverrideDialog = (merchantId: number, name: string, currentNextRunAt: string | null, currentAutoPause: number) => {
+    const existingValue = currentNextRunAt ? toLocalDatetimeInput(new Date(currentNextRunAt)) : "";
+    setOverrideTarget({ merchantId, name, current: currentNextRunAt, currentAutoPause });
+    setOverrideValue(existingValue);
+    setOverrideDateOriginal(existingValue);
+    setOverrideThreshold(String(currentAutoPause));
   };
 
   const clearFilters = () => {
@@ -867,17 +869,28 @@ function ScheduledReportsPanel() {
 
   const handleOverrideSave = async () => {
     if (!overrideTarget) return;
+    const newThreshold = parseInt(overrideThreshold, 10);
+    if (isNaN(newThreshold) || newThreshold < 1 || newThreshold > 10) {
+      toast.error("Auto-pause threshold must be between 1 and 10");
+      return;
+    }
+    const thresholdChanged = newThreshold !== overrideTarget.currentAutoPause;
+    const dateChanged = overrideValue !== "" && overrideValue !== overrideDateOriginal;
+    if (!thresholdChanged && !dateChanged) return;
     setOverrideSaving(true);
     try {
-      const isoValue = overrideValue ? new Date(overrideValue).toISOString() : null;
-      await upsert.mutateAsync({ merchantId: overrideTarget.merchantId, data: { nextRunAt: isoValue } });
+      const data: Record<string, unknown> = {};
+      if (dateChanged) data["nextRunAt"] = new Date(overrideValue).toISOString();
+      if (thresholdChanged) data["autoPauseAfterFailures"] = newThreshold;
+      await upsert.mutateAsync({ merchantId: overrideTarget.merchantId, data });
       invalidate();
-      toast.success(isoValue
-        ? `Next run set to ${format(new Date(isoValue), "dd MMM yyyy, HH:mm")} for ${overrideTarget.name}`
-        : `Next run override cleared for ${overrideTarget.name}`);
+      const msgs: string[] = [];
+      if (dateChanged) msgs.push(`Next run set to ${format(new Date(overrideValue), "dd MMM yyyy, HH:mm")}`);
+      if (thresholdChanged) msgs.push(`threshold updated to ${newThreshold}`);
+      toast.success(`${msgs.join(", ")} for ${overrideTarget.name}`);
       setOverrideTarget(null);
     } catch {
-      toast.error("Failed to set next run date");
+      toast.error("Failed to save schedule settings");
     } finally {
       setOverrideSaving(false);
     }
@@ -1192,17 +1205,22 @@ function ScheduledReportsPanel() {
                     <FormatBadge format={s.format} />
                   </TableCell>
                   <TableCell>
-                    {s.isActive ? (
-                      <span className="text-xs font-medium text-emerald-400">Active</span>
-                    ) : s.consecutiveFailures > 0 ? (
-                      <AutoPausedStatus
-                        consecutiveFailures={s.consecutiveFailures}
-                        autoPauseAfterFailures={s.autoPauseAfterFailures}
-                        recentFailures={(s as any).recentFailures ?? []}
-                      />
-                    ) : (
-                      <span className="text-xs font-medium text-muted-foreground">Paused</span>
-                    )}
+                    <div className="flex flex-col gap-0.5">
+                      {s.isActive ? (
+                        <span className="text-xs font-medium text-emerald-400">Active</span>
+                      ) : s.consecutiveFailures > 0 ? (
+                        <AutoPausedStatus
+                          consecutiveFailures={s.consecutiveFailures}
+                          autoPauseAfterFailures={s.autoPauseAfterFailures}
+                          recentFailures={(s as any).recentFailures ?? []}
+                        />
+                      ) : (
+                        <span className="text-xs font-medium text-muted-foreground">Paused</span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground/50 leading-tight">
+                        pause at {s.autoPauseAfterFailures} fail{s.autoPauseAfterFailures !== 1 ? "s" : ""}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {s.lastSentAt ? (
@@ -1354,8 +1372,8 @@ function ScheduledReportsPanel() {
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2 text-xs gap-1 text-violet-400 hover:text-violet-300"
-                        onClick={() => openOverrideDialog(s.merchantId, s.businessName, (s as any).nextRunAt ?? null)}
-                        title="Set next run date"
+                        onClick={() => openOverrideDialog(s.merchantId, s.businessName, (s as any).nextRunAt ?? null, s.autoPauseAfterFailures)}
+                        title="Schedule settings: next run date and auto-pause threshold"
                       >
                         <CalendarDays className="w-3.5 h-3.5" />
                       </Button>
@@ -1731,15 +1749,45 @@ function ScheduledReportsPanel() {
       <Dialog open={!!overrideTarget} onOpenChange={(open) => { if (!open) { setOverrideTarget(null); setEmailPreview(null); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold">Set Next Run Date</DialogTitle>
+            <DialogTitle className="text-sm font-semibold">Schedule Settings</DialogTitle>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto py-2 space-y-3">
             {overrideTarget && (
               <p className="text-xs text-muted-foreground">
-                Override the next scheduled delivery for <strong className="text-foreground">{overrideTarget.name}</strong>.
-                The schedule will fire at this time and then resume its normal cadence.
+                Adjust settings for <strong className="text-foreground">{overrideTarget.name}</strong>.
+                The next-run override will fire at the chosen time and then resume its normal cadence.
               </p>
             )}
+
+            {/* Auto-pause threshold */}
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <PauseCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="text-xs font-medium text-amber-400">Auto-pause threshold</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-24 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Failures (1–10)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={overrideThreshold}
+                    onChange={(e) => setOverrideThreshold(e.target.value)}
+                    className="text-xs h-8 w-24"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  The schedule will auto-pause after this many consecutive delivery failures.
+                  {overrideTarget && parseInt(overrideThreshold, 10) !== overrideTarget.currentAutoPause && !isNaN(parseInt(overrideThreshold, 10)) && (
+                    <span className="ml-1 text-amber-400 font-medium">
+                      (was {overrideTarget.currentAutoPause})
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
             <div className="flex items-end gap-3">
               <div className="flex-1 space-y-1.5">
                 <Label className="text-xs">Next run date &amp; time</Label>
@@ -1841,7 +1889,12 @@ function ScheduledReportsPanel() {
               size="sm"
               className="text-xs h-7"
               onClick={handleOverrideSave}
-              disabled={overrideSaving || !overrideValue}
+              disabled={overrideSaving || (() => {
+                const t = parseInt(overrideThreshold, 10);
+                const thresholdChanged = !isNaN(t) && t >= 1 && t <= 10 && overrideTarget != null && t !== overrideTarget.currentAutoPause;
+                const dateChanged = overrideValue !== "" && overrideValue !== overrideDateOriginal;
+                return !thresholdChanged && !dateChanged;
+              })()}
             >
               {overrideSaving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
               Save

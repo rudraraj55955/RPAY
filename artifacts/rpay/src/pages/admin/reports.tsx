@@ -230,6 +230,25 @@ function AutoPausedStatus({
 }) {
   const lastReason = recentFailures[0]?.failureReason ?? null;
 
+  const autoPauseLog = recentFailures.find((l) => l.isAutoPause);
+  const autoPauseMaxAttempts = autoPauseLog?.maxAttempts ?? null;
+  const autoPauseBackoffMs = autoPauseLog?.backoffBaseMs ?? null;
+
+  const retryBadges = (autoPauseMaxAttempts != null || autoPauseBackoffMs != null) ? (
+    <div className="flex items-center gap-1 flex-wrap mt-0.5">
+      {autoPauseMaxAttempts != null && (
+        <span className="inline-flex items-center text-[10px] text-amber-400/80 bg-amber-400/10 rounded px-1.5 py-0.5 font-medium whitespace-nowrap">
+          {autoPauseMaxAttempts} max retries
+        </span>
+      )}
+      {autoPauseBackoffMs != null && (
+        <span className="inline-flex items-center text-[10px] text-amber-400/80 bg-amber-400/10 rounded px-1.5 py-0.5 font-medium whitespace-nowrap">
+          {autoPauseBackoffMs}ms backoff
+        </span>
+      )}
+    </div>
+  ) : null;
+
   const trigger = (
     <button
       type="button"
@@ -243,21 +262,25 @@ function AutoPausedStatus({
 
   if (recentFailures.length === 0) {
     return (
-      <TooltipProvider delayDuration={200}>
-        <Tooltip>
-          <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs">
-            <p className="font-medium">Auto-paused after {consecutiveFailures} failure{consecutiveFailures !== 1 ? "s" : ""}</p>
-            <p className="text-xs opacity-75 mt-0.5">No failure details recorded</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div>
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">
+              <p className="font-medium">Auto-paused after {consecutiveFailures} failure{consecutiveFailures !== 1 ? "s" : ""}</p>
+              <p className="text-xs opacity-75 mt-0.5">No failure details recorded</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        {retryBadges}
+      </div>
     );
   }
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+    <div>
+      <Popover>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-80 p-0">
         <div className="px-3 py-2 border-b border-border flex items-center gap-2">
           <PauseCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -309,7 +332,9 @@ function AutoPausedStatus({
           </div>
         )}
       </PopoverContent>
-    </Popover>
+      </Popover>
+      {retryBadges}
+    </div>
   );
 }
 

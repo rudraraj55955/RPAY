@@ -735,12 +735,13 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
             .catch(() => true);
 
           if (!isTrusted) {
+            const trustToken = generateTrustToken(user.id, ip);
             createNotification({
               userId: user.id,
               type: "preference_change_unknown_device",
               title: "Notification preferences changed from an unrecognised device",
               body: `Your notification preferences were updated from IP ${ip}. If this wasn't you, review your Security Activity immediately.`,
-              metadata: { ip, target: "/merchant/security" },
+              metadata: { ip, target: "/merchant/security", trustToken },
             }).catch((err: unknown) => {
               req.log.warn({ err, userId: user.id }, "Failed to create preference_change_unknown_device notification");
             });

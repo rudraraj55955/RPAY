@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useListNotifications, useMarkAllNotificationsRead, useMarkNotificationRead, useGetNotificationUnreadCounts, getGetNotificationUnreadCountsQueryKey, useGetQuietHoursQueueCount, getGetQuietHoursQueueCountQueryKey } from "@workspace/api-client-react";
-import { Bell, Check, CheckCheck, CreditCard, Zap, AlertCircle, Megaphone, BarChart3, ShieldAlert, Mail } from "lucide-react";
+import { Bell, Check, CheckCheck, CreditCard, Zap, AlertCircle, Megaphone, BarChart3, ShieldAlert, Mail, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useQueryClient } from "@tanstack/react-query";
@@ -171,6 +171,22 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
                         {!n.isRead && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-2">{n.body}</p>
+                      {n.type === "preference_change_unknown_device" && (() => {
+                        const meta = n.metadata as Record<string, unknown> | null;
+                        const trustToken = typeof meta?.["trustToken"] === "string" ? meta["trustToken"] : null;
+                        return trustToken ? (
+                          <a
+                            href={`/api/auth/trust-ip?token=${encodeURIComponent(trustToken)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 mt-1"
+                          >
+                            <ShieldCheck className="w-3 h-3" />
+                            Trust this device
+                          </a>
+                        ) : null;
+                      })()}
                       <p className="text-[10px] text-muted-foreground/50 mt-0.5">
                         {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                       </p>

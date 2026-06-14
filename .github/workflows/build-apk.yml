@@ -8,6 +8,9 @@ on:
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build Debug APK
@@ -22,9 +25,30 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
-      # ── Generate PNG launcher icons using Pillow ──────────────────────────
+      # ── Install Gradle 8.5 directly (no gradlew in repo) ───────────────────
+      - name: Install Gradle 8.5
+        run: |
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.5-bin.zip \
+            -o /tmp/gradle-8.5-bin.zip
+          unzip -q /tmp/gradle-8.5-bin.zip -d /opt/gradle
+          echo "/opt/gradle/gradle-8.5/bin" >> "$GITHUB_PATH"
+
+      # ── Accept Android SDK licenses ────────────────────────────────────────
+      - name: Accept Android SDK licenses
+        run: |
+          CMDLINE="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [ -f "$CMDLINE" ]; then
+            yes | "$CMDLINE" --licenses > /dev/null 2>&1 || true
+          else
+            CMDLINE="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+            [ -f "$CMDLINE" ] && yes | "$CMDLINE" --licenses > /dev/null 2>&1 || true
+          fi
+          echo "SDK licenses accepted"
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+
+      # ── Generate PNG launcher icons using Pillow ───────────────────────────
       - name: Install Pillow
         run: pip install Pillow
 
@@ -43,8 +67,8 @@ jobs:
               'mipmap-xxxhdpi': 192,
           }
 
-          BG  = (15, 23, 42)      # #0f172a  dark navy
-          FG  = (245, 158, 11)    # #f59e0b  amber gold
+          BG  = (15, 23, 42)    # #0f172a dark navy
+          FG  = (245, 158, 11)  # #f59e0b amber gold
           FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
           for folder, size in SIZES.items():
@@ -54,12 +78,10 @@ jobs:
               img  = Image.new('RGBA', (size, size), (0, 0, 0, 0))
               draw = ImageDraw.Draw(img)
 
-              # Rounded-square background
-              r  = size // 5
-              m  = size // 12
+              r = size // 5
+              m = size // 12
               draw.rounded_rectangle([m, m, size - m, size - m], radius=r, fill=BG)
 
-              # "RK" text centred
               font_size = max(10, size // 3)
               try:
                   font = ImageFont.truetype(FONT_PATH, font_size)
@@ -68,10 +90,10 @@ jobs:
 
               text = "RK"
               bbox = draw.textbbox((0, 0), text, font=font)
-              tw   = bbox[2] - bbox[0]
-              th   = bbox[3] - bbox[1]
-              x    = (size - tw) // 2 - bbox[0]
-              y    = (size - th) // 2 - bbox[1]
+              tw = bbox[2] - bbox[0]
+              th = bbox[3] - bbox[1]
+              x  = (size - tw) // 2 - bbox[0]
+              y  = (size - th) // 2 - bbox[1]
               draw.text((x, y), text, fill=FG, font=font)
 
               img.save(f"{path}/ic_launcher.png",       'PNG')
@@ -81,21 +103,14 @@ jobs:
           print("Icon generation complete.")
           PYEOF
 
-      # ── Gradle build ──────────────────────────────────────────────────────
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Make gradlew executable (if present)
-        working-directory: artifacts/rasokart-apk
-        run: chmod +x gradlew 2>/dev/null || true
-
+      # ── Gradle build ───────────────────────────────────────────────────────
       - name: Build debug APK
         working-directory: artifacts/rasokart-apk
         run: gradle assembleDebug
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false"
 
-      # ── Rename and upload ─────────────────────────────────────────────────
+      # ── Rename and upload ──────────────────────────────────────────────────
       - name: Rename APK
         run: |
           mkdir -p artifacts/rasokart-apk/output
@@ -119,7 +134,7 @@ jobs:
           echo "| App name | RasoKart |" >> $GITHUB_STEP_SUMMARY
           echo "| Package | com.rasokart.app.debug |" >> $GITHUB_STEP_SUMMARY
           echo "| Version | 1.0.1 (code 2) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Min SDK | 26 (Android 8.0) |" >> $GITHUB_STEP_SUMMARY
-          echo "| URL | https://rasokart.com |" >> $GITHUB_STEP_SUMMARY
+          echo "| Min SDK | 26 (Android 8.0+) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target URL | https://rasokart.com |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Download the APK from the **Artifacts** section above." >> $GITHUB_STEP_SUMMARY
+          echo "Download from the **Artifacts** section above." >> $GITHUB_STEP_SUMMARY

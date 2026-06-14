@@ -7,7 +7,7 @@ import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { getMerchantPlanUsage } from "../helpers/planLimits";
 import { sendRejectionEmail } from "../helpers/rejectionEmail";
 import { sendCallbackSecretResetEmail } from "../helpers/callbackSecretResetEmail";
-import { buildPlanAssignedHtml, buildPlanSuspendedHtml, buildPlanReinstatedHtml } from "../helpers/merchantNotifyEmail";
+import { notifyMerchantOfPlanChange, buildPlanAssignedHtml, buildPlanSuspendedHtml, buildPlanReinstatedHtml } from "../helpers/merchantNotifyEmail";
 import { ObjectStorageService, ObjectNotFoundError, InvalidImageError } from "../lib/objectStorage";
 import { consumeUploadIntent } from "../lib/uploadIntentStore";
 
@@ -900,6 +900,16 @@ router.post("/:id/assign-plan", requireAdmin, async (req, res) => {
     ipAddress: (req as any).ip ?? null,
   });
 
+  void notifyMerchantOfPlanChange({
+    merchantId: id,
+    merchantEmail: merchant.email,
+    businessName: merchant.businessName,
+    planName: plan.name,
+    action: "assigned",
+    expiresAt: result.expiresAt?.toISOString() ?? null,
+    notes: notes ?? null,
+  });
+
   res.json({ ...result, planName: plan.name, expiresAt: result.expiresAt ?? null, scheduledRenewalAt: result.scheduledRenewalAt?.toISOString() ?? null });
 });
 
@@ -966,6 +976,22 @@ router.post("/:id/plan/suspend", requireAdmin, async (req, res) => {
     .set({ status: "suspended", notes: notes ?? existing[0].notes })
     .where(eq(merchantPlansTable.merchantId, id)).returning();
   await logPlanHistory({ merchantId: id, fromPlanId: existing[0].planId, toPlanId: existing[0].planId, action: "suspended", adminId: user.id, adminEmail: user.email, notes });
+
+  const [merchant, plan] = await Promise.all([
+    db.select({ email: merchantsTable.email, businessName: merchantsTable.businessName }).from(merchantsTable).where(eq(merchantsTable.id, id)).limit(1),
+    db.select({ name: plansTable.name }).from(plansTable).where(eq(plansTable.id, existing[0].planId)).limit(1),
+  ]);
+  if (merchant[0] && plan[0]) {
+    void notifyMerchantOfPlanChange({
+      merchantId: id,
+      merchantEmail: merchant[0].email,
+      businessName: merchant[0].businessName,
+      planName: plan[0].name,
+      action: "suspended",
+      notes: notes ?? null,
+    });
+  }
+
   res.json({ ...result, expiresAt: result.expiresAt ?? null });
 });
 
@@ -982,6 +1008,22 @@ router.post("/:id/plan/reinstate", requireAdmin, async (req, res) => {
     .set({ status: "active", notes: notes ?? existing[0].notes })
     .where(eq(merchantPlansTable.merchantId, id)).returning();
   await logPlanHistory({ merchantId: id, fromPlanId: existing[0].planId, toPlanId: existing[0].planId, action: "reinstated", adminId: user.id, adminEmail: user.email, notes });
+
+  const [merchant, plan] = await Promise.all([
+    db.select({ email: merchantsTable.email, businessName: merchantsTable.businessName }).from(merchantsTable).where(eq(merchantsTable.id, id)).limit(1),
+    db.select({ name: plansTable.name }).from(plansTable).where(eq(plansTable.id, existing[0].planId)).limit(1),
+  ]);
+  if (merchant[0] && plan[0]) {
+    void notifyMerchantOfPlanChange({
+      merchantId: id,
+      merchantEmail: merchant[0].email,
+      businessName: merchant[0].businessName,
+      planName: plan[0].name,
+      action: "reinstated",
+      notes: notes ?? null,
+    });
+  }
+
   res.json({ ...result, expiresAt: result.expiresAt ?? null });
 });
 

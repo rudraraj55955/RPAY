@@ -23,6 +23,7 @@ export const usersTable = pgTable("users", {
   loginAlertEmails: boolean("login_alert_emails").notNull().default(true),
   reportScheduleChangedEmails: boolean("report_schedule_changed_emails").notNull().default(true),
   settlementStateChangedEmails: boolean("settlement_state_changed_emails").notNull().default(true),
+  planChangeEmails: boolean("plan_change_emails").notNull().default(true),
   lastSeenIp: text("last_seen_ip"),
   passwordUpdatedAt: timestamp("password_updated_at", { withTimezone: true }),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),

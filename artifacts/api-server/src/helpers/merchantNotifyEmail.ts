@@ -3,6 +3,73 @@ import { eq } from "drizzle-orm";
 import { sendMail } from "./mailer";
 import { logger } from "../lib/logger";
 
+// ---------------------------------------------------------------------------
+// Plan change notification emails → merchant
+// (actual sending; HTML builders are defined further below)
+// ---------------------------------------------------------------------------
+
+export async function notifyMerchantOfPlanChange(opts: {
+  merchantId: number;
+  merchantEmail: string;
+  businessName: string;
+  planName: string;
+  action: "assigned" | "suspended" | "reinstated";
+  expiresAt?: string | null;
+  notes?: string | null;
+}): Promise<void> {
+  try {
+    const [user] = await db
+      .select({ planChangeEmails: usersTable.planChangeEmails })
+      .from(usersTable)
+      .where(eq(usersTable.merchantId, opts.merchantId))
+      .limit(1);
+
+    if (!user) {
+      logger.info({ merchantId: opts.merchantId }, "No user found for merchant — skipping plan change email");
+      return;
+    }
+
+    if (!user.planChangeEmails) {
+      logger.info({ merchantId: opts.merchantId }, "Merchant opted out of plan change emails — skipping");
+      return;
+    }
+
+    let subject: string;
+    let html: string;
+
+    if (opts.action === "assigned") {
+      subject = `[RasoKart] Your plan has been assigned — ${opts.planName}`;
+      html = buildPlanAssignedHtml({
+        businessName: opts.businessName,
+        planName: opts.planName,
+        expiresAt: opts.expiresAt ?? null,
+        notes: opts.notes ?? null,
+      });
+    } else if (opts.action === "suspended") {
+      subject = `[RasoKart] Your plan has been suspended — ${opts.planName}`;
+      html = buildPlanSuspendedHtml({
+        businessName: opts.businessName,
+        planName: opts.planName,
+        notes: opts.notes ?? null,
+      });
+    } else {
+      subject = `[RasoKart] Your plan has been reinstated — ${opts.planName}`;
+      html = buildPlanReinstatedHtml({
+        businessName: opts.businessName,
+        planName: opts.planName,
+        notes: opts.notes ?? null,
+      });
+    }
+
+    const sent = await sendMail({ to: opts.merchantEmail, subject, html });
+    if (!sent) {
+      logger.warn({ merchantId: opts.merchantId, action: opts.action }, "Plan change email could not be sent (SMTP not configured or failed)");
+    }
+  } catch (err) {
+    logger.error({ err, merchantId: opts.merchantId, action: opts.action }, "Failed to send plan change email");
+  }
+}
+
 const APP_DOMAIN = process.env["APP_DOMAIN"] ?? "https://rasokart.com";
 
 function formatAmount(val: string | number | null | undefined): string {

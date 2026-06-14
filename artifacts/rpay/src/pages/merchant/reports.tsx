@@ -720,6 +720,48 @@ function SchedulePanel() {
                 </div>
               );
             })()}
+
+            {/* ─── Delivery health ─── */}
+            {schedule.lastDeliveryAt != null && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                {schedule.lastDeliverySuccess
+                  ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                  : <XCircle className="w-3.5 h-3.5 shrink-0 text-red-400" />}
+                <span className="text-xs">
+                  Last delivery:{" "}
+                  <span className={schedule.lastDeliverySuccess ? "text-emerald-400" : "text-red-400"}>
+                    {schedule.lastDeliverySuccess ? "succeeded" : "failed"}
+                  </span>
+                  {" "}· {format(new Date(schedule.lastDeliveryAt), "dd MMM yyyy, HH:mm")}{" "}
+                  <span className="text-muted-foreground/60">
+                    ({formatDistanceToNow(new Date(schedule.lastDeliveryAt), { addSuffix: true })})
+                  </span>
+                </span>
+              </div>
+            )}
+            {schedule.sevenDayTotal != null && schedule.sevenDayTotal > 0 && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <BarChart3 className="w-3.5 h-3.5 shrink-0 text-primary" />
+                <span className="text-xs">
+                  7-day delivery:{" "}
+                  <span className={
+                    (schedule.sevenDaySuccesses ?? 0) === schedule.sevenDayTotal
+                      ? "text-emerald-400"
+                      : (schedule.sevenDaySuccesses ?? 0) === 0
+                      ? "text-red-400"
+                      : "text-amber-400"
+                  }>
+                    {schedule.sevenDaySuccesses ?? 0} of {schedule.sevenDayTotal} delivered
+                  </span>
+                </span>
+              </div>
+            )}
+            {schedule.sevenDayTotal != null && schedule.sevenDayTotal === 0 && schedule.lastDeliveryAt == null && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-xs text-muted-foreground/60">No deliveries in the last 7 days</span>
+              </div>
+            )}
           </div>
         )}
 

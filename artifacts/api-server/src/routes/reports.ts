@@ -459,22 +459,58 @@ router.get("/schedule", async (req, res, next) => {
       return;
     }
 
-    // If the schedule is auto-paused, attach the most recent failure entries
+    const merchantId = user.merchantId!;
     const isAutoPaused = !row.isActive && row.consecutiveFailures >= row.autoPauseAfterFailures && row.consecutiveFailures > 0;
-    let recentFailures: (typeof reportDeliveryLogsTable.$inferSelect)[] = [];
-    if (isAutoPaused) {
-      recentFailures = await db
-        .select()
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [recentFailures, latestDelivery, sevenDayStats] = await Promise.all([
+      isAutoPaused
+        ? db
+            .select()
+            .from(reportDeliveryLogsTable)
+            .where(and(
+              eq(reportDeliveryLogsTable.merchantId, merchantId),
+              eq(reportDeliveryLogsTable.success, false),
+            ))
+            .orderBy(desc(reportDeliveryLogsTable.attemptedAt))
+            .limit(3)
+        : Promise.resolve([] as (typeof reportDeliveryLogsTable.$inferSelect)[]),
+
+      db
+        .select({
+          attemptedAt: reportDeliveryLogsTable.attemptedAt,
+          success: reportDeliveryLogsTable.success,
+        })
+        .from(reportDeliveryLogsTable)
+        .where(eq(reportDeliveryLogsTable.merchantId, merchantId))
+        .orderBy(desc(reportDeliveryLogsTable.attemptedAt))
+        .limit(1),
+
+      db
+        .select({
+          total: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+          successes: sql<number>`CAST(COUNT(CASE WHEN ${reportDeliveryLogsTable.success} = true THEN 1 END) AS INTEGER)`,
+        })
         .from(reportDeliveryLogsTable)
         .where(and(
-          eq(reportDeliveryLogsTable.merchantId, user.merchantId!),
-          eq(reportDeliveryLogsTable.success, false),
-        ))
-        .orderBy(desc(reportDeliveryLogsTable.attemptedAt))
-        .limit(3);
-    }
+          eq(reportDeliveryLogsTable.merchantId, merchantId),
+          gte(reportDeliveryLogsTable.attemptedAt, sevenDaysAgo),
+        )),
+    ]);
 
-    res.json({ schedule: { ...row, recentFailures } });
+    const last = latestDelivery[0] ?? null;
+    const stats = sevenDayStats[0] ?? { total: 0, successes: 0 };
+
+    res.json({
+      schedule: {
+        ...row,
+        recentFailures,
+        lastDeliveryAt: last?.attemptedAt?.toISOString() ?? null,
+        lastDeliverySuccess: last != null ? last.success : null,
+        sevenDayTotal: Number(stats.total),
+        sevenDaySuccesses: Number(stats.successes),
+      },
+    });
   } catch (err) {
     next(err);
   }

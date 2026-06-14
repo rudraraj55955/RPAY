@@ -88,6 +88,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   report_schedule_override_cleared:      { label: "Report Schedule Override Cleared",     color: "bg-slate-500/10 text-slate-400 border-slate-500/20" },
   report_schedule_deleted:               { label: "Report Schedule Deleted",              color: "bg-red-500/10 text-red-400 border-red-500/20" },
   report_schedule_auto_paused:           { label: "Report Schedule Auto-Paused",          color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
+  scheduled_report_failure:              { label: "Scheduled Report Failure",              color: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
   notification_preferences_updated:      { label: "Notification Preferences Updated",      color: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" },
 };
 
@@ -1026,6 +1027,24 @@ function ReportScheduleReenabledDetails({ log }: { log: any }) {
     try { nextRunFormatted = format(parseISO(parsed.nextRunAt), "MMM d, yyyy 'at' HH:mm"); } catch { nextRunFormatted = parsed.nextRunAt; }
   }
 
+  const [reenabled, setReenabled] = useState(false);
+  const queryClient = useQueryClient();
+  const reenable = useReenableAdminMerchantReportSchedule();
+
+  function handleReenable() {
+    if (parsed.merchantId == null) return;
+    reenable.mutate({ merchantId: parsed.merchantId }, {
+      onSuccess: () => {
+        setReenabled(true);
+        queryClient.invalidateQueries({ queryKey: getListAdminAuditLogsQueryKey() });
+        toast.success("Report schedule re-enabled successfully.");
+      },
+      onError: () => {
+        toast.error("Failed to re-enable the report schedule. Please try again.");
+      },
+    });
+  }
+
   return (
     <div className="space-y-3">
       <SummaryCard
@@ -1043,6 +1062,139 @@ function ReportScheduleReenabledDetails({ log }: { log: any }) {
         {fmtLabel && <DetailRow label="Report format" value={fmtLabel} />}
         {nextRunFormatted && <DetailRow label="Next run" value={<span className="font-mono">{nextRunFormatted}</span>} />}
       </div>
+      {parsed.merchantId != null && (
+        reenabled ? (
+          <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <p className="text-xs text-emerald-300">Schedule re-enabled. The audit log has been refreshed.</p>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
+            onClick={handleReenable}
+            disabled={reenable.isPending}
+          >
+            {reenable.isPending ? (
+              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Re-enabling…</>
+            ) : (
+              <><RotateCcw className="w-3.5 h-3.5 mr-1.5" />Re-enable Schedule</>
+            )}
+          </Button>
+        )
+      )}
+    </div>
+  );
+}
+
+function ScheduledReportFailureDetails({ log }: { log: any }) {
+  let parsed: {
+    merchantId?: number | null;
+    businessName?: string | null;
+    consecutiveFailures?: number | null;
+    autoPauseAfterFailures?: number | null;
+    frequency?: string | null;
+    format?: string | null;
+    errorMessage?: string | null;
+  } = {};
+  try { if (log.details) parsed = JSON.parse(log.details); } catch { /* ignore */ }
+
+  const FREQUENCY_LABELS_LOCAL: Record<string, string> = {
+    daily: "Daily",
+    weekly: "Weekly",
+    monthly: "Monthly",
+  };
+  const FORMAT_LABELS: Record<string, string> = {
+    xlsx: "XLSX",
+    csv: "CSV",
+    pdf: "PDF",
+    json: "JSON",
+  };
+
+  const freqLabel = parsed.frequency ? (FREQUENCY_LABELS_LOCAL[parsed.frequency] ?? parsed.frequency) : null;
+  const fmtLabel = parsed.format ? (FORMAT_LABELS[parsed.format] ?? parsed.format.toUpperCase()) : null;
+  const failureCount = parsed.consecutiveFailures ?? null;
+  const threshold = parsed.autoPauseAfterFailures ?? null;
+
+  const [reenabled, setReenabled] = useState(false);
+  const queryClient = useQueryClient();
+  const reenable = useReenableAdminMerchantReportSchedule();
+
+  function handleReenable() {
+    if (parsed.merchantId == null) return;
+    reenable.mutate({ merchantId: parsed.merchantId }, {
+      onSuccess: () => {
+        setReenabled(true);
+        queryClient.invalidateQueries({ queryKey: getListAdminAuditLogsQueryKey() });
+        toast.success("Report schedule re-enabled successfully.");
+      },
+      onError: () => {
+        toast.error("Failed to re-enable the report schedule. Please try again.");
+      },
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      <SummaryCard
+        icon={<AlertTriangle className="w-5 h-5 text-rose-400" />}
+        title="Scheduled report delivery failed"
+        subtitle={
+          parsed.businessName
+            ? `Merchant: ${parsed.businessName}`
+            : parsed.merchantId != null
+            ? `Merchant #${parsed.merchantId}`
+            : undefined
+        }
+        colorClass="bg-rose-500/10 border-rose-500/20"
+      />
+      <div className="rounded-lg bg-muted/20 p-3 space-y-1.5">
+        {parsed.businessName && <DetailRow label="Merchant" value={parsed.businessName} />}
+        {parsed.merchantId != null && (
+          <DetailRow label="Merchant ID" value={<span className="font-mono">#{parsed.merchantId}</span>} />
+        )}
+        {failureCount != null && threshold != null && (
+          <DetailRow
+            label="Failure count"
+            value={
+              <span className="font-medium text-rose-400">
+                {failureCount} of {threshold} consecutive failures
+              </span>
+            }
+          />
+        )}
+        {freqLabel && <DetailRow label="Frequency" value={freqLabel} />}
+        {fmtLabel && <DetailRow label="Report format" value={fmtLabel} />}
+        {parsed.errorMessage && (
+          <div className="pt-1">
+            <span className="text-xs text-muted-foreground">Error: </span>
+            <span className="text-xs font-mono text-rose-300">{parsed.errorMessage}</span>
+          </div>
+        )}
+      </div>
+      {parsed.merchantId != null && (
+        reenabled ? (
+          <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <p className="text-xs text-emerald-300">Schedule re-enabled. The audit log has been refreshed.</p>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full border-rose-500/30 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+            onClick={handleReenable}
+            disabled={reenable.isPending}
+          >
+            {reenable.isPending ? (
+              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Re-enabling…</>
+            ) : (
+              <><RotateCcw className="w-3.5 h-3.5 mr-1.5" />Re-enable Schedule</>
+            )}
+          </Button>
+        )
+      )}
     </div>
   );
 }
@@ -1508,6 +1660,8 @@ function ActionDetails({ log }: { log: any }) {
       return <ReportScheduleDeletedDetails log={log} />;
     case "report_schedule_auto_paused":
       return <ReportScheduleAutoPausedDetails log={log} />;
+    case "scheduled_report_failure":
+      return <ScheduledReportFailureDetails log={log} />;
     case "notification_preferences_updated":
       return <NotificationPreferencesUpdatedDetails log={log} />;
     default:

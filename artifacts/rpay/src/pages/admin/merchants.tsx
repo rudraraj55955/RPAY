@@ -2492,6 +2492,26 @@ export default function AdminMerchants() {
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-muted-foreground shrink-0" />
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notification Preferences</p>
+                {(() => {
+                  const allEmailKeys = [
+                    "loginAlertEmails", "signatureFailureAlertEmails", "webhookFailureEmails",
+                    "apiKeyGeneratedEmails", "apiKeyRevokedEmails",
+                    "reportScheduleChangedEmails", "settlementStateChangedEmails", "planExpiryAlertEmails",
+                  ] as const;
+                  const disabledCount = allEmailKeys.filter(k => assignPlanMerchant?.[k] === false).length;
+                  const total = allEmailKeys.length;
+                  return disabledCount > 0 ? (
+                    <span className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                      <BellOff className="w-2.5 h-2.5 shrink-0" />
+                      {disabledCount} of {total} disabled
+                    </span>
+                  ) : (
+                    <span className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                      <CheckCircle className="w-2.5 h-2.5 shrink-0" />
+                      All enabled
+                    </span>
+                  );
+                })()}
               </div>
               <div className="flex flex-wrap gap-2">
                 {(

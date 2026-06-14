@@ -189,6 +189,30 @@ function toLocalDatetimeInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function formatSnoozeRemaining(snoozeUntil: number): string {
+  const remaining = snoozeUntil - Date.now();
+  if (remaining <= 0) return "Expiring…";
+  const totalMinutes = Math.ceil(remaining / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0 && minutes > 0) return `Snoozed for ${hours} h ${minutes} m`;
+  if (hours > 0) return `Snoozed for ${hours} h`;
+  return `Snoozed for ${minutes} m`;
+}
+
+function useSnoozeCountdown(snoozeUntil: number | null): string | null {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (snoozeUntil == null) return;
+    const id = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [snoozeUntil]);
+  if (snoozeUntil == null || snoozeUntil <= Date.now()) return null;
+  return formatSnoozeRemaining(snoozeUntil);
+}
+
 function TriggeredByBadge({ value, email }: { value: string | null | undefined; email?: string | null }) {
   if (!value) return <span className="text-xs text-muted-foreground/50">—</span>;
   if (value === "manual") {
@@ -687,6 +711,7 @@ function ScheduledReportsPanel() {
 
   const snoozeUntil = serverSnoozeActive ? serverSnoozeTs : localSnoozeUntil;
   const isSnoozed = snoozeUntil != null && snoozeUntil > Date.now();
+  const snoozeCountdown = useSnoozeCountdown(snoozeUntil);
 
   const handleSnooze = (hours: number) => {
     const until = Date.now() + hours * 60 * 60 * 1000;
@@ -1066,7 +1091,7 @@ function ScheduledReportsPanel() {
             {isSnoozed && snoozeUntil != null && (
               <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-500/30 bg-slate-500/10 px-2.5 py-0.5 text-[11px] font-medium text-slate-400">
                 <BellOff className="w-3 h-3 shrink-0" />
-                Badge snoozed until {format(new Date(snoozeUntil), "HH:mm, dd MMM")}
+                {snoozeCountdown ?? `Expires at ${format(new Date(snoozeUntil), "HH:mm")}`}
                 <button
                   type="button"
                   onClick={handleCancelSnooze}
@@ -3161,6 +3186,7 @@ export default function AdminReports() {
   }, [dhSnoozeKey]);
 
   const isDhSnoozed = dhSnoozeUntil != null && dhSnoozeUntil > Date.now();
+  const dhSnoozeCountdown = useSnoozeCountdown(dhSnoozeUntil);
 
   const handleDhSnooze = (hours: number) => {
     const until = Date.now() + hours * 60 * 60 * 1000;
@@ -4542,7 +4568,7 @@ export default function AdminReports() {
                 {isDhSnoozed && dhSnoozeUntil != null && (
                   <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-500/30 bg-slate-500/10 px-2.5 py-0.5 text-[11px] font-medium text-slate-400">
                     <BellOff className="w-3 h-3 shrink-0" />
-                    Snoozed until {format(new Date(dhSnoozeUntil), "HH:mm, dd MMM")}
+                    {dhSnoozeCountdown ?? `Expires at ${format(new Date(dhSnoozeUntil), "HH:mm")}`}
                     <button
                       type="button"
                       onClick={handleDhCancelSnooze}
@@ -4602,7 +4628,7 @@ export default function AdminReports() {
                 {isDhSnoozed && dhSnoozeUntil != null && (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-500/30 bg-slate-500/10 px-2.5 py-0.5 text-[11px] font-medium text-slate-400">
                     <BellOff className="w-3 h-3 shrink-0" />
-                    Snoozed until {format(new Date(dhSnoozeUntil), "HH:mm, dd MMM")}
+                    {dhSnoozeCountdown ?? `Expires at ${format(new Date(dhSnoozeUntil), "HH:mm")}`}
                     <button
                       type="button"
                       onClick={handleDhCancelSnooze}

@@ -63,7 +63,7 @@ function CashfreePayinCard({ onConfigure }: { onConfigure: () => void }) {
             {!isLoading && data && <EnvBadge env={data.env} />}
           </div>
         </div>
-        <CardTitle className="text-sm font-semibold mt-2">Cashfree Payin</CardTitle>
+        <CardTitle className="text-sm font-semibold mt-2">Payin Gateway</CardTitle>
         <CardDescription className="text-xs">
           Payment gateway for collecting payments via UPI, Cards, Netbanking
         </CardDescription>
@@ -109,7 +109,7 @@ function CashfreePayoutCard({ onConfigure }: { onConfigure: () => void }) {
             {!isLoading && data && <EnvBadge env={data.env} />}
           </div>
         </div>
-        <CardTitle className="text-sm font-semibold mt-2">Cashfree Payout</CardTitle>
+        <CardTitle className="text-sm font-semibold mt-2">Payout Gateway</CardTitle>
         <CardDescription className="text-xs">
           Disburse funds to merchant bank accounts via IMPS, NEFT, UPI
         </CardDescription>
@@ -476,7 +476,7 @@ function CashfreePayinPanel() {
           <CreditCard className="w-4 h-4 text-violet-400" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-medium">Cashfree Payin</p>
+          <p className="text-sm font-medium">Payin Gateway</p>
           <p className="text-xs text-muted-foreground">Full configuration available on the dedicated page</p>
         </div>
         {!isLoading && data && (
@@ -518,7 +518,7 @@ function CashfreePayoutPanel() {
           <Landmark className="w-4 h-4 text-blue-400" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-medium">Cashfree Payout</p>
+          <p className="text-sm font-medium">Payout Gateway</p>
           <p className="text-xs text-muted-foreground">Full configuration available on the dedicated page</p>
         </div>
         {!isLoading && data && (
@@ -640,8 +640,8 @@ function MerchantAccessPanel() {
           <div>
             <p className="text-xs font-medium text-amber-300">White-label policy</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Merchant-facing UI always shows generic names: <strong className="text-foreground/80">RasoKart Payments</strong> (Cashfree),
-              {" "}<strong className="text-foreground/80">RasoKart QR Gateway</strong> (EKQR). Provider names only appear in this admin portal.
+              Merchant-facing UI always shows generic names: <strong className="text-foreground/80">RasoKart Payments</strong>,
+              {" "}<strong className="text-foreground/80">RasoKart QR Gateway</strong>. Provider names are never exposed to merchants.
               API keys and secrets are never exposed in frontend responses.
             </p>
           </div>
@@ -717,10 +717,10 @@ export default function AdminPaymentGateways() {
             <Tabs value={configTab} onValueChange={setConfigTab}>
               <TabsList className="h-8 mb-5">
                 <TabsTrigger value="cashfree-payin" className="text-xs px-3">
-                  <CreditCard className="w-3 h-3 mr-1.5" />Cashfree Payin
+                  <CreditCard className="w-3 h-3 mr-1.5" />Payin Gateway
                 </TabsTrigger>
                 <TabsTrigger value="cashfree-payout" className="text-xs px-3">
-                  <Landmark className="w-3 h-3 mr-1.5" />Cashfree Payout
+                  <Landmark className="w-3 h-3 mr-1.5" />Payout Gateway
                 </TabsTrigger>
                 <TabsTrigger value="ekqr" className="text-xs px-3">
                   <Zap className="w-3 h-3 mr-1.5" />EKQR / UPI Gateway

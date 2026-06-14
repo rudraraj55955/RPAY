@@ -210,7 +210,9 @@ export const ListMerchantsQueryParams = zod.object({
   "rejectionReason": zod.coerce.string().optional(),
   "callbackSecretSet": zod.enum(['true', 'false']).optional().describe('Filter by whether merchants have a callback secret configured. \"true\" = secret set, \"false\" = no secret.'),
   "loginAlertEmails": zod.enum(['true', 'false']).optional().describe('Filter by login alert email preference. \"false\" = alerts disabled, \"true\" = alerts enabled.'),
-  "securityEmailsDisabled": zod.enum(['true']).optional().describe('When \"true\", return only merchants who have at least one security email alert disabled (signature failure, webhook failure, API key generated, or API key revoked).')
+  "securityEmailsDisabled": zod.enum(['true']).optional().describe('When \"true\", return only merchants who have at least one security email alert disabled (signature failure, webhook failure, API key generated, or API key revoked).'),
+  "settlementStateEmails": zod.enum(['false']).optional().describe('Filter by settlement state email preference. \"false\" = settlement state emails disabled.'),
+  "reportScheduleEmails": zod.enum(['false']).optional().describe('Filter by report schedule email preference. \"false\" = report schedule emails disabled.')
 })
 
 export const ListMerchantsResponse = zod.object({
@@ -2116,6 +2118,7 @@ export const GetReportDeliveryHealthResponse = zod.object({
   "scheduleActive": zod.boolean().nullish()
 }))
 })
+
 
 /**
  * Re-attempts delivery for the given failed delivery log entry. Only entries where success=false and isAutoPause=false are retryable. The merchant must own the log entry.

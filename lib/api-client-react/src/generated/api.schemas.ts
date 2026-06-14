@@ -4367,6 +4367,14 @@ loginAlertEmails?: ListMerchantsLoginAlertEmails;
  * When "true", return only merchants who have at least one security email alert disabled (signature failure, webhook failure, API key generated, or API key revoked).
  */
 securityEmailsDisabled?: ListMerchantsSecurityEmailsDisabled;
+/**
+ * Filter by settlement state email preference. "false" = settlement state emails disabled.
+ */
+settlementStateEmails?: ListMerchantsSettlementStateEmails;
+/**
+ * Filter by report schedule email preference. "false" = report schedule emails disabled.
+ */
+reportScheduleEmails?: ListMerchantsReportScheduleEmails;
 };
 
 export type ListMerchantsStatus = typeof ListMerchantsStatus[keyof typeof ListMerchantsStatus];
@@ -4408,6 +4416,20 @@ export type ListMerchantsSecurityEmailsDisabled = typeof ListMerchantsSecurityEm
 
 export const ListMerchantsSecurityEmailsDisabled = {
   true: 'true',
+} as const;
+
+export type ListMerchantsSettlementStateEmails = typeof ListMerchantsSettlementStateEmails[keyof typeof ListMerchantsSettlementStateEmails];
+
+
+export const ListMerchantsSettlementStateEmails = {
+  false: 'false',
+} as const;
+
+export type ListMerchantsReportScheduleEmails = typeof ListMerchantsReportScheduleEmails[keyof typeof ListMerchantsReportScheduleEmails];
+
+
+export const ListMerchantsReportScheduleEmails = {
+  false: 'false',
 } as const;
 
 export type GetMerchantsWebhookFailureCountsParams = {

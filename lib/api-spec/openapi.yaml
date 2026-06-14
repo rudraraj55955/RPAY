@@ -364,6 +364,18 @@ paths:
           schema:
             type: string
             enum: ["true"]
+        - name: settlementStateEmails
+          in: query
+          description: Filter by settlement state email preference. "false" = settlement state emails disabled.
+          schema:
+            type: string
+            enum: ["false"]
+        - name: reportScheduleEmails
+          in: query
+          description: Filter by report schedule email preference. "false" = report schedule emails disabled.
+          schema:
+            type: string
+            enum: ["false"]
       responses:
         "200":
           description: List of merchants

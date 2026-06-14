@@ -5775,29 +5775,6 @@ export const getReportDeliveryHealth = async (params?: GetReportDeliveryHealthPa
   }
 );}
 
-export const getRetryReportDeliveryLogUrl = (id: number,) => {
-
-
-
-
-  return `/api/reports/schedules/${id}/retry`
-}
-
-/**
- * Re-attempts delivery for the given failed delivery log entry. Only entries where success=false and isAutoPause=false are retryable. The merchant must own the log entry.
- * @summary Merchant — retry a specific failed delivery log entry immediately
- */
-export const retryReportDeliveryLog = async (id: number, options?: RequestInit): Promise<RetryReportDeliveryLog200> => {
-
-  return customFetch<RetryReportDeliveryLog200>(getRetryReportDeliveryLogUrl(id),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
 
 
 
@@ -5853,6 +5830,34 @@ export function useGetReportDeliveryHealth<TData = Awaited<ReturnType<typeof get
 
 
 
+<<<<<<< HEAD
+=======
+export const getRetryReportDeliveryLogUrl = (id: number,) => {
+
+
+
+
+  return `/api/reports/schedules/${id}/retry`
+}
+
+/**
+ * Re-attempts delivery for the given failed delivery log entry. Only entries where success=false and isAutoPause=false are retryable. The merchant must own the log entry.
+ * @summary Merchant — retry a specific failed delivery log entry immediately
+ */
+export const retryReportDeliveryLog = async (id: number, options?: RequestInit): Promise<RetryReportDeliveryLog200> => {
+
+  return customFetch<RetryReportDeliveryLog200>(getRetryReportDeliveryLogUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+>>>>>>> 7ddec03a (feat: let admins filter merchant list by notification opt-out status)
 
 export const getRetryReportDeliveryLogMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryReportDeliveryLog>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}

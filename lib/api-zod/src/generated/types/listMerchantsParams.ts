@@ -8,7 +8,9 @@
 import type { ListMerchantsCallbackSecretSet } from './listMerchantsCallbackSecretSet';
 import type { ListMerchantsExpiryStatus } from './listMerchantsExpiryStatus';
 import type { ListMerchantsLoginAlertEmails } from './listMerchantsLoginAlertEmails';
+import type { ListMerchantsReportScheduleEmails } from './listMerchantsReportScheduleEmails';
 import type { ListMerchantsSecurityEmailsDisabled } from './listMerchantsSecurityEmailsDisabled';
+import type { ListMerchantsSettlementStateEmails } from './listMerchantsSettlementStateEmails';
 import type { ListMerchantsStatus } from './listMerchantsStatus';
 
 export type ListMerchantsParams = {
@@ -30,4 +32,12 @@ loginAlertEmails?: ListMerchantsLoginAlertEmails;
  * When "true", return only merchants who have at least one security email alert disabled (signature failure, webhook failure, API key generated, or API key revoked).
  */
 securityEmailsDisabled?: ListMerchantsSecurityEmailsDisabled;
+/**
+ * Filter by settlement state email preference. "false" = settlement state emails disabled.
+ */
+settlementStateEmails?: ListMerchantsSettlementStateEmails;
+/**
+ * Filter by report schedule email preference. "false" = report schedule emails disabled.
+ */
+reportScheduleEmails?: ListMerchantsReportScheduleEmails;
 };

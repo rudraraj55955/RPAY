@@ -11,6 +11,7 @@ export const reportDeliveryLogsTable = pgTable("report_delivery_logs", {
   success: boolean("success").notNull(),
   failureReason: text("failure_reason"),
   isAutoPause: boolean("is_auto_pause").notNull().default(false),
+  retryCount: integer("retry_count").notNull().default(0),
   frequency: text("frequency"),
   format: text("format"),
   outcome: text("outcome"),

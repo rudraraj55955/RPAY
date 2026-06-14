@@ -9266,6 +9266,9 @@ components:
         isAutoPause:
           type: boolean
           description: Whether this entry represents the moment the schedule was auto-paused
+        retryCount:
+          type: integer
+          description: Number of retry attempts made before the final outcome (0 means succeeded or failed on the first try)
         frequency:
           type: ["string", "null"]
           description: Schedule frequency at time of delivery (weekly or monthly)

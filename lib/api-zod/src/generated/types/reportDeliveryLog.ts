@@ -20,6 +20,8 @@ export interface ReportDeliveryLog {
   failureReason?: string | null;
   /** Whether this entry represents the moment the schedule was auto-paused */
   isAutoPause: boolean;
+  /** Number of retry attempts made before the final outcome (0 means succeeded or failed on the first try) */
+  retryCount?: number;
   /**
      * Schedule frequency at time of delivery (weekly or monthly)
      * @nullable

@@ -45,7 +45,7 @@ async function sendMailWithRetry(
   opts: MailOptions,
   scheduleId: number,
   merchantId: number,
-): Promise<boolean> {
+): Promise<{ sent: boolean; attempts: number }> {
   const { maxAttempts, backoffBaseMs } = await getReportDeliveryConfig();
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -65,7 +65,7 @@ async function sendMailWithRetry(
       throw err;
     }
 
-    if (ok) return true;
+    if (ok) return { sent: true, attempts: attempt };
 
     if (attempt < maxAttempts) {
       const delayMs = backoffBaseMs * Math.pow(2, attempt - 1);
@@ -76,7 +76,7 @@ async function sendMailWithRetry(
       await sleep(delayMs);
     }
   }
-  return false;
+  return { sent: false, attempts: maxAttempts };
 }
 
 function fmt(amount: number): string {
@@ -450,6 +450,7 @@ async function handleReportFailure(
   failureReason?: string,
   triggeredBy?: string,
   triggeredByEmail?: string,
+  retryCount?: number,
 ): Promise<void> {
   const newConsecutiveFailures = schedule.consecutiveFailures + 1;
   const shouldAutoPause = newConsecutiveFailures >= schedule.autoPauseAfterFailures;
@@ -474,6 +475,7 @@ async function handleReportFailure(
     success: false,
     failureReason: failureReason ?? null,
     isAutoPause: false,
+    retryCount: retryCount ?? 0,
     frequency: schedule.frequency,
     format: schedule.format,
     triggeredBy: triggeredBy ?? null,
@@ -700,7 +702,7 @@ export async function sendMerchantReport(
     const subject = `[RasoKart] ${schedule.frequency.charAt(0).toUpperCase() + schedule.frequency.slice(1)} Transaction Report — ${dateFrom.toISOString().slice(0, 10)} to ${dateTo.toISOString().slice(0, 10)}`;
     const html = buildEmailHtml(businessName, schedule.frequency, schedule.format, dateFrom, dateTo, stats, transactions.length);
 
-    const sent = await sendMailWithRetry({ to: merchantEmail, subject, html, attachments: [attachment] }, schedule.id, schedule.merchantId);
+    const { sent, attempts } = await sendMailWithRetry({ to: merchantEmail, subject, html, attachments: [attachment] }, schedule.id, schedule.merchantId);
 
     if (sent) {
       await db.update(reportSchedulesTable)
@@ -712,12 +714,13 @@ export async function sendMerchantReport(
         success: true,
         failureReason: null,
         isAutoPause: false,
+        retryCount: attempts - 1,
         frequency: schedule.frequency,
         format: schedule.format,
         triggeredBy: triggeredBy ?? null,
         triggeredByEmail: triggeredByEmail ?? null,
       });
-      logger.info({ scheduleId: schedule.id, merchantId: schedule.merchantId, txCount: transactions.length, triggeredBy, triggeredByEmail }, "Merchant report emailed successfully");
+      logger.info({ scheduleId: schedule.id, merchantId: schedule.merchantId, txCount: transactions.length, attempts, triggeredBy, triggeredByEmail }, "Merchant report emailed successfully");
       if (schedule.consecutiveFailures > 0) {
         notifyAdminsOfReportScheduleResumed({
           merchantId: schedule.merchantId,
@@ -729,8 +732,8 @@ export async function sendMerchantReport(
         });
       }
     } else {
-      logger.warn({ scheduleId: schedule.id, merchantId: schedule.merchantId }, "Failed to send merchant report email");
-      await handleReportFailure(schedule, "Email delivery failed — SMTP returned an error.", triggeredBy, triggeredByEmail).catch(notifyErr => {
+      logger.warn({ scheduleId: schedule.id, merchantId: schedule.merchantId, attempts }, "Failed to send merchant report email");
+      await handleReportFailure(schedule, "Email delivery failed — SMTP returned an error.", triggeredBy, triggeredByEmail, attempts - 1).catch(notifyErr => {
         logger.error({ err: notifyErr, scheduleId: schedule.id, merchantId: schedule.merchantId }, "Failed to handle merchant report failure");
       });
     }
@@ -739,7 +742,7 @@ export async function sendMerchantReport(
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     logger.error({ err, scheduleId: schedule.id, merchantId: schedule.merchantId }, "Error sending merchant report");
-    await handleReportFailure(schedule, reason, triggeredBy, triggeredByEmail).catch(notifyErr => {
+    await handleReportFailure(schedule, reason, triggeredBy, triggeredByEmail, REPORT_DELIVERY_MAX_ATTEMPTS_DEFAULT - 1).catch(notifyErr => {
       logger.error({ err: notifyErr, scheduleId: schedule.id, merchantId: schedule.merchantId }, "Failed to handle merchant report failure after exception");
     });
     return false;

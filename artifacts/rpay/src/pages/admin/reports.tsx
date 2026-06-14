@@ -437,6 +437,7 @@ function ScheduleHistoryDialog({
                   <TableHead className="text-xs">Format</TableHead>
                   <TableHead className="text-xs">Triggered By</TableHead>
                   <TableHead className="text-xs">Outcome</TableHead>
+                  <TableHead className="text-xs">Retries</TableHead>
                   <TableHead className="text-xs">Failure Reason</TableHead>
                 </TableRow>
               </TableHeader>
@@ -480,6 +481,16 @@ function ScheduleHistoryDialog({
                         {outcomeIcon(log)}
                         {outcomeLabel(log)}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {!log.success && (log as any).retryCount != null && (log as any).retryCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5">
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          {(log as any).retryCount}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/40">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[200px] break-words">
                       {log.failureReason ?? <span className="opacity-40">—</span>}
@@ -2307,6 +2318,7 @@ function DeliveryHistoryPanel() {
                     ) : "Outcome"}
                   </TableHead>
                   <TableHead>Auto-pause</TableHead>
+                  <TableHead>Retries</TableHead>
                   <TableHead>Failure Reason</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -2353,7 +2365,7 @@ function DeliveryHistoryPanel() {
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell colSpan={6} className="py-2">
+                          <TableCell colSpan={7} className="py-2">
                             <div className="flex items-center gap-4 text-xs">
                               <span className="text-emerald-400 flex items-center gap-1">
                                 <CheckCircle2 className="w-3 h-3" />
@@ -2411,6 +2423,16 @@ function DeliveryHistoryPanel() {
                               {log.isAutoPause ? (
                                 <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
                                   <Clock className="w-3.5 h-3.5" />Yes
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {!log.success && (log as any).retryCount != null && (log as any).retryCount > 0 ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5">
+                                  <RotateCcw className="w-2.5 h-2.5" />
+                                  {(log as any).retryCount}
                                 </span>
                               ) : (
                                 <span className="text-xs text-muted-foreground">—</span>
@@ -2525,6 +2547,16 @@ function DeliveryHistoryPanel() {
                         {log.isAutoPause ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
                             <Clock className="w-3.5 h-3.5" />Yes
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {!log.success && (log as any).retryCount != null && (log as any).retryCount > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5">
+                            <RotateCcw className="w-2.5 h-2.5" />
+                            {(log as any).retryCount}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>

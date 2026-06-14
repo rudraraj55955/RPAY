@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useListNotifications, useMarkAllNotificationsRead, useMarkNotificationRead, useGetNotificationUnreadCounts, getGetNotificationUnreadCountsQueryKey } from "@workspace/api-client-react";
-import { Bell, Check, CheckCheck, CreditCard, Zap, AlertCircle, Megaphone, BarChart3, ShieldAlert } from "lucide-react";
+import { useListNotifications, useMarkAllNotificationsRead, useMarkNotificationRead, useGetNotificationUnreadCounts, getGetNotificationUnreadCountsQueryKey, useGetQuietHoursQueueCount, getGetQuietHoursQueueCountQueryKey } from "@workspace/api-client-react";
+import { Bell, Check, CheckCheck, CreditCard, Zap, AlertCircle, Megaphone, BarChart3, ShieldAlert, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useQueryClient } from "@tanstack/react-query";
@@ -62,6 +62,14 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
       refetchIntervalInBackground: false,
     },
   });
+  const { data: queueCountData } = useGetQuietHoursQueueCount({
+    query: {
+      queryKey: getGetQuietHoursQueueCountQueryKey(),
+      refetchInterval: 60_000,
+      refetchIntervalInBackground: false,
+      enabled: !isAdmin,
+    },
+  });
   const markAll = useMarkAllNotificationsRead();
   const markOne = useMarkNotificationRead();
 
@@ -69,11 +77,15 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
     const id = setInterval(() => {
       qc.invalidateQueries({ queryKey: ["/api/notifications"] });
       qc.invalidateQueries({ queryKey: getGetNotificationUnreadCountsQueryKey() });
+      if (!isAdmin) {
+        qc.invalidateQueries({ queryKey: getGetQuietHoursQueueCountQueryKey() });
+      }
     }, 60_000);
     return () => clearInterval(id);
-  }, [qc]);
+  }, [qc, isAdmin]);
 
   const unread = unreadCountsData?.total ?? 0;
+  const queueCount = (!isAdmin ? (queueCountData?.count ?? 0) : 0);
   const items = data?.data ?? [];
 
   function handleMarkAll() {
@@ -112,6 +124,18 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
           {unread > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
               {unread > 99 ? "99+" : unread}
+            </span>
+          )}
+          {queueCount > 0 && (
+            <span
+              className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-black cursor-pointer"
+              title={`${queueCount} email${queueCount === 1 ? "" : "s"} queued during quiet hours — click to view`}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate("/merchant/security#quiet-hours");
+              }}
+            >
+              {queueCount > 9 ? "9+" : queueCount}
             </span>
           )}
         </Button>
@@ -168,8 +192,23 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
           )}
         </div>
 
+        {!isAdmin && queueCount > 0 && (
+          <div className="border-t border-border/50 px-4 py-2.5">
+            <Link
+              href="/merchant/security#quiet-hours"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 w-full rounded-md px-2 py-1.5 text-xs text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+            >
+              <Mail className="w-3.5 h-3.5 shrink-0" />
+              <span className="flex-1 font-medium">
+                {queueCount} email{queueCount === 1 ? "" : "s"} queued (quiet hours)
+              </span>
+              <span className="text-amber-400/70 text-[10px]">View →</span>
+            </Link>
+          </div>
+        )}
         {!isAdmin && (
-          <div className="border-t border-border/50 px-4 py-2">
+          <div className={`${queueCount > 0 ? "" : "border-t border-border/50 "}px-4 py-2`}>
             <Link href="/merchant/notifications" onClick={() => setOpen(false)}>
               <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground">
                 View all notifications

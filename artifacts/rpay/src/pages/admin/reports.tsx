@@ -412,7 +412,15 @@ function ScheduledReportsPanel() {
   const [formatFilter, setFormatFilter] = useState("all");
   const [historyMerchant, setHistoryMerchant] = useState<{ id: number; name: string } | null>(null);
   const [sendFailures, setSendFailures] = useState<{ merchantId: number; merchantName: string; email: string; reason: string }[] | null>(null);
+  const [clearedMerchantIds, setClearedMerchantIds] = useState<Set<number>>(new Set());
+  const clearFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (clearFlashTimer.current != null) clearTimeout(clearFlashTimer.current);
+    };
+  }, []);
 
   type SortCol = "merchant" | "email" | "frequency" | "format" | "status" | "lastSent" | "nextDue" | "lastDelivery" | "successRate";
   const VALID_SORT_COLS: SortCol[] = ["merchant", "email", "frequency", "format", "status", "lastSent", "nextDue", "lastDelivery", "successRate"];
@@ -492,9 +500,13 @@ function ScheduledReportsPanel() {
         toast.success(`Sent ${res.sent} overdue report${res.sent !== 1 ? "s" : ""} successfully`);
       } else if (res.sent === 0) {
         toast.error(`All ${res.failed} overdue report${res.failed !== 1 ? "s" : ""} failed — see details`);
+        if (clearFlashTimer.current != null) clearTimeout(clearFlashTimer.current);
+        setClearedMerchantIds(new Set());
         setSendFailures(res.failures);
       } else {
         toast.warning(`Sent ${res.sent}, failed ${res.failed} of ${res.total} overdue reports`);
+        if (clearFlashTimer.current != null) clearTimeout(clearFlashTimer.current);
+        setClearedMerchantIds(new Set());
         setSendFailures(res.failures);
       }
       invalidate();
@@ -1140,12 +1152,18 @@ function ScheduledReportsPanel() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={sendFailures != null} onOpenChange={(open) => { if (!open) setSendFailures(null); }}>
+      <Dialog open={sendFailures != null} onOpenChange={(open) => { if (!open) { if (clearFlashTimer.current != null) { clearTimeout(clearFlashTimer.current); clearFlashTimer.current = null; } setSendFailures(null); setClearedMerchantIds(new Set()); } }}>
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-sm">
               <XCircle className="w-4 h-4 text-red-400" />
-              Failed Deliveries ({sendFailures?.length ?? 0})
+              Failed Deliveries ({sendFailures?.filter(f => !clearedMerchantIds.has(f.merchantId)).length ?? 0})
+              {clearedMerchantIds.size > 0 && (
+                <span className="flex items-center gap-1 text-emerald-400 text-xs font-normal ml-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {clearedMerchantIds.size} cleared
+                </span>
+              )}
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
@@ -1158,53 +1176,65 @@ function ScheduledReportsPanel() {
                   <TableRow>
                     <TableHead className="text-xs">Merchant</TableHead>
                     <TableHead className="text-xs">Email</TableHead>
-                    <TableHead className="text-xs">Error</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
                     <TableHead className="text-xs w-16"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sendFailures.map((f) => (
-                    <TableRow key={f.merchantId}>
-                      <TableCell className="text-xs font-medium text-foreground whitespace-nowrap">
-                        {f.merchantName}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {f.email}
-                      </TableCell>
-                      <TableCell className="text-xs text-red-400 max-w-[180px]">
-                        {f.reason}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 px-2 text-xs gap-1 text-sky-400 hover:text-sky-300"
-                          disabled={retryingFailureMerchantId === f.merchantId || sendAllOverdue.isPending}
-                          title={`Retry delivery for ${f.merchantName}`}
-                          onClick={async () => {
-                            setRetryingFailureMerchantId(f.merchantId);
-                            try {
-                              await sendNow.mutateAsync({ merchantId: f.merchantId });
-                              setSendFailures((prev) => prev?.filter((r) => r.merchantId !== f.merchantId) ?? null);
-                              invalidate();
-                            } catch (err: unknown) {
-                              const msg = err instanceof Error ? err.message : "Send failed";
-                              setSendFailures((prev) =>
-                                prev?.map((r) => r.merchantId === f.merchantId ? { ...r, reason: msg } : r) ?? null
-                              );
-                            } finally {
-                              setRetryingFailureMerchantId(null);
-                            }
-                          }}
-                        >
-                          {retryingFailureMerchantId === f.merchantId
-                            ? <Loader2 className="w-3 h-3 animate-spin" />
-                            : <RotateCcw className="w-3 h-3" />}
-                          Retry
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {sendFailures.map((f) => {
+                    const isCleared = clearedMerchantIds.has(f.merchantId);
+                    return (
+                      <TableRow key={f.merchantId} className={isCleared ? "opacity-60 transition-opacity" : ""}>
+                        <TableCell className="text-xs font-medium text-foreground whitespace-nowrap">
+                          {f.merchantName}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {f.email}
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[180px]">
+                          {isCleared ? (
+                            <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Sent
+                            </span>
+                          ) : (
+                            <span className="text-red-400">{f.reason}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {!isCleared && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-xs gap-1 text-sky-400 hover:text-sky-300"
+                              disabled={retryingFailureMerchantId === f.merchantId || sendAllOverdue.isPending}
+                              title={`Retry delivery for ${f.merchantName}`}
+                              onClick={async () => {
+                                setRetryingFailureMerchantId(f.merchantId);
+                                try {
+                                  await sendNow.mutateAsync({ merchantId: f.merchantId });
+                                  setSendFailures((prev) => prev?.filter((r) => r.merchantId !== f.merchantId) ?? null);
+                                  invalidate();
+                                } catch (err: unknown) {
+                                  const msg = err instanceof Error ? err.message : "Send failed";
+                                  setSendFailures((prev) =>
+                                    prev?.map((r) => r.merchantId === f.merchantId ? { ...r, reason: msg } : r) ?? null
+                                  );
+                                } finally {
+                                  setRetryingFailureMerchantId(null);
+                                }
+                              }}
+                            >
+                              {retryingFailureMerchantId === f.merchantId
+                                ? <Loader2 className="w-3 h-3 animate-spin" />
+                                : <RotateCcw className="w-3 h-3" />}
+                              Retry
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (
@@ -1212,10 +1242,10 @@ function ScheduledReportsPanel() {
             )}
           </div>
           <DialogFooter className="gap-2 flex-wrap">
-            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setSendFailures(null)}>
+            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { if (clearFlashTimer.current != null) { clearTimeout(clearFlashTimer.current); clearFlashTimer.current = null; } setSendFailures(null); setClearedMerchantIds(new Set()); }}>
               Close
             </Button>
-            {sendFailures && sendFailures.length > 0 && (
+            {sendFailures && sendFailures.filter(f => !clearedMerchantIds.has(f.merchantId)).length > 0 && (
               <Button
                 size="sm"
                 className="text-xs h-7 gap-1.5 bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 hover:text-red-200"
@@ -1223,17 +1253,28 @@ function ScheduledReportsPanel() {
                 onClick={async () => {
                   try {
                     if (!sendFailures) return;
-                    const failedIds = sendFailures.map((f) => f.merchantId);
+                    const failedIds = sendFailures.filter(f => !clearedMerchantIds.has(f.merchantId)).map((f) => f.merchantId);
                     const res = await sendAllOverdue.mutateAsync({ data: { merchantIds: failedIds } });
+                    if (clearFlashTimer.current != null) { clearTimeout(clearFlashTimer.current); clearFlashTimer.current = null; }
                     if (res.failed === 0) {
                       toast.success(`Retried ${res.sent} report${res.sent !== 1 ? "s" : ""} — all delivered successfully`);
                       setSendFailures(null);
+                      setClearedMerchantIds(new Set());
                     } else if (res.sent === 0) {
                       toast.error(`All ${res.failed} retr${res.failed !== 1 ? "ies" : "y"} failed again`);
                       setSendFailures(res.failures);
+                      setClearedMerchantIds(new Set());
                     } else {
                       toast.warning(`Sent ${res.sent}, still failed ${res.failed}`);
-                      setSendFailures(res.failures);
+                      const newFailedIds = new Set((res.failures ?? []).map((f: { merchantId: number }) => f.merchantId));
+                      const justCleared = new Set(failedIds.filter(id => !newFailedIds.has(id)));
+                      if (clearFlashTimer.current != null) clearTimeout(clearFlashTimer.current);
+                      setClearedMerchantIds(justCleared);
+                      clearFlashTimer.current = setTimeout(() => {
+                        clearFlashTimer.current = null;
+                        setSendFailures(res.failures);
+                        setClearedMerchantIds(new Set());
+                      }, 2500);
                     }
                     invalidate();
                   } catch {

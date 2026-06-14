@@ -2069,36 +2069,36 @@ function DeliveryHistoryPanel() {
   const merchants = merchantsData?.data ?? [];
 
   const searchStr = useSearch();
-  const urlMerchantId = new URLSearchParams(searchStr).get("merchantId") ?? "all";
-  const urlSuccess = new URLSearchParams(searchStr).get("success") ?? "all";
+  const [location, navigate] = useLocation();
 
-  const [merchantFilter, setMerchantFilter] = useState(urlMerchantId);
-  const [successFilter, setSuccessFilter] = useState(urlSuccess);
-  const [triggeredByFilter, setTriggeredByFilter] = useState("all");
+  const _qp = new URLSearchParams(searchStr);
+  const merchantFilter = _qp.get("merchantId") ?? "all";
+  const successFilter = _qp.get("success") ?? "all";
+  const triggeredByFilter = _qp.get("triggeredBy") ?? "all";
+  const dateFrom = _qp.get("dateFrom") ?? "";
+  const dateTo = _qp.get("dateTo") ?? "";
+  const timelinePreset: string | null = _qp.get("timelinePreset") ?? null;
+
   const STORAGE_KEY = "rasokart_delivery_history_filter";
 
-  const [dateFrom, setDateFrom] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return (JSON.parse(saved) as { dateFrom?: string }).dateFrom ?? "";
-    } catch { /* ignore */ }
-    return "";
-  });
-  const [dateTo, setDateTo] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return (JSON.parse(saved) as { dateTo?: string }).dateTo ?? "";
-    } catch { /* ignore */ }
-    return "";
-  });
-  const [timelinePreset, setTimelinePreset] = useState<string | null>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return (JSON.parse(saved) as { timelinePreset?: string | null }).timelinePreset ?? null;
-    } catch { /* ignore */ }
-    return null;
-  });
-  const [location, navigate] = useLocation();
+  const setFilter = (updates: Record<string, string | null>) => {
+    const next = new URLSearchParams(searchStr);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value == null || value === "") {
+        next.delete(key);
+      } else {
+        next.set(key, value);
+      }
+    }
+    navigate(`${location}?${next.toString()}`);
+  };
+
+  const setMerchantFilter = (v: string) => setFilter({ merchantId: v === "all" ? null : v });
+  const setSuccessFilter = (v: string) => setFilter({ success: v === "all" ? null : v });
+  const setTriggeredByFilter = (v: string) => setFilter({ triggeredBy: v === "all" ? null : v });
+  const setDateFrom = (v: string) => setFilter({ dateFrom: v || null, timelinePreset: null });
+  const setDateTo = (v: string) => setFilter({ dateTo: v || null, timelinePreset: null });
+  const setTimelinePreset = (v: string | null) => setFilter({ timelinePreset: v });
 
   const SUMMARY_SORT_COLS = ["merchant", "rate", "attempts"] as const;
   type SummarySortCol = typeof SUMMARY_SORT_COLS[number];
@@ -2175,22 +2175,15 @@ function DeliveryHistoryPanel() {
   const applyPreset = (days: number) => {
     const to = format(new Date(), "yyyy-MM-dd");
     const from = format(subDays(new Date(), days - 1), "yyyy-MM-dd");
-    setDateFrom(from);
-    setDateTo(to);
-    setTimelinePreset(String(days));
+    setFilter({ dateFrom: from, dateTo: to, timelinePreset: String(days) });
   };
 
   const hasFilters = merchantFilter !== "all" || successFilter !== "all" || triggeredByFilter !== "all" || !!dateFrom || !!dateTo || problemOnly;
 
   const clearFilters = () => {
-    setMerchantFilter("all");
-    setSuccessFilter("all");
-    setTriggeredByFilter("all");
-    setDateFrom("");
-    setDateTo("");
-    setTimelinePreset(null);
     setProblemOnly(false);
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    setFilter({ merchantId: null, success: null, triggeredBy: null, dateFrom: null, dateTo: null, timelinePreset: null });
   };
 
   const failureCount = logs.filter((l) => !l.success).length;
@@ -2439,7 +2432,7 @@ function DeliveryHistoryPanel() {
             <Input
               type="date"
               value={dateFrom}
-              onChange={(e) => { setDateFrom(e.target.value); setTimelinePreset(null); }}
+              onChange={(e) => { setDateFrom(e.target.value); }}
               className="h-8 text-xs w-[130px]"
             />
           </div>
@@ -2448,7 +2441,7 @@ function DeliveryHistoryPanel() {
             <Input
               type="date"
               value={dateTo}
-              onChange={(e) => { setDateTo(e.target.value); setTimelinePreset(null); }}
+              onChange={(e) => { setDateTo(e.target.value); }}
               className="h-8 text-xs w-[130px]"
             />
           </div>

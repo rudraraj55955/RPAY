@@ -10,7 +10,7 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -228,6 +228,9 @@ export default function AdminSettings() {
   const [githubSyncEnabled, setGithubSyncEnabled] = useState<boolean>(true);
   const [githubSyncSchedule, setGithubSyncSchedule] = useState<string>("0 2 * * *");
   const [githubSyncInitialized, setGithubSyncInitialized] = useState(false);
+
+  const [quietHoursFlushInterval, setQuietHoursFlushInterval] = useState<number>(60);
+  const [quietHoursFlushInitialized, setQuietHoursFlushInitialized] = useState(false);
 
 
   // SMTP config form state
@@ -858,6 +861,33 @@ export default function AdminSettings() {
     },
   });
 
+
+  const { data: quietHoursFlushData, isLoading: quietHoursFlushLoading } = useGetQuietHoursFlushConfig({
+    query: {
+      onSuccess: (d: { intervalSeconds: number }) => {
+        if (!quietHoursFlushInitialized) {
+          setQuietHoursFlushInterval(d.intervalSeconds);
+          setQuietHoursFlushInitialized(true);
+        }
+      },
+    },
+  } as any);
+
+  const currentQuietHoursFlushInterval = quietHoursFlushData?.intervalSeconds ?? 60;
+  const quietHoursFlushUnchanged = quietHoursFlushInterval === currentQuietHoursFlushInterval;
+
+  const { mutate: saveQuietHoursFlush, isPending: savingQuietHoursFlush } = useUpdateQuietHoursFlushConfig({
+    mutation: {
+      onSuccess: (updated: { intervalSeconds: number }) => {
+        toast.success("Quiet hours flush interval saved");
+        setQuietHoursFlushInitialized(false);
+        qc.invalidateQueries({ queryKey: getGetQuietHoursFlushConfigQueryKey() });
+        setQuietHoursFlushInterval(updated.intervalSeconds);
+        setQuietHoursFlushInitialized(true);
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
 
   const testEmailTrimmed = testEmailTo.trim();
   const testEmailInvalid = testEmailTrimmed.length > 0 && !EMAIL_REGEX.test(testEmailTrimmed);
@@ -2872,6 +2902,61 @@ export default function AdminSettings() {
                   setGithubSyncSchedule(currentGithubSyncSchedule);
                 }}
                 disabled={savingGithubSyncConfig}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quiet Hours Flush Interval */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            <CardTitle className="text-base">Quiet Hours Flush Interval</CardTitle>
+          </div>
+          <CardDescription className="text-sm">
+            How often the quiet hours email sweeper scans for messages ready to deliver.
+            Lower values reduce delivery latency after quiet hours end; higher values reduce DB load.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="qh-flush-interval" className="text-sm">Flush interval (seconds)</Label>
+            <Input
+              id="qh-flush-interval"
+              type="number"
+              min={10}
+              max={86400}
+              step={1}
+              value={quietHoursFlushInterval}
+              onChange={e => setQuietHoursFlushInterval(parseInt(e.target.value, 10) || 60)}
+              disabled={quietHoursFlushLoading}
+              className="max-w-xs"
+            />
+            <p className="text-xs text-muted-foreground">
+              Allowed: 10–86 400 s (10 s to 24 h). Default: 60 s. The new value takes
+              effect at the next scheduled tick — no restart required.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => saveQuietHoursFlush({ data: { intervalSeconds: quietHoursFlushInterval } })}
+              disabled={savingQuietHoursFlush || quietHoursFlushLoading || quietHoursFlushUnchanged}
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              {savingQuietHoursFlush ? "Saving…" : "Save"}
+            </Button>
+            {!quietHoursFlushUnchanged && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setQuietHoursFlushInterval(currentQuietHoursFlushInterval)}
+                disabled={savingQuietHoursFlush}
               >
                 Cancel
               </Button>

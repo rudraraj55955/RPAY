@@ -6045,6 +6045,41 @@ export const RunAuditReportRetentionCleanupResponse = zod.object({
 
 
 /**
+ * @summary Get quiet hours flush interval configuration (admin only)
+ */
+export const getQuietHoursFlushConfigResponseIntervalSecondsMin = 10;
+export const getQuietHoursFlushConfigResponseIntervalSecondsMax = 86400;
+
+
+
+export const GetQuietHoursFlushConfigResponse = zod.object({
+  "intervalSeconds": zod.number().min(getQuietHoursFlushConfigResponseIntervalSecondsMin).max(getQuietHoursFlushConfigResponseIntervalSecondsMax).describe('How often (in seconds) the quiet hours email sweeper scans for ready queues. Minimum 10 s, maximum 86 400 s (24 h). Default 60 s.\n')
+})
+
+
+/**
+ * @summary Update quiet hours flush interval configuration (admin only)
+ */
+export const updateQuietHoursFlushConfigBodyIntervalSecondsMin = 10;
+export const updateQuietHoursFlushConfigBodyIntervalSecondsMax = 86400;
+
+
+
+export const UpdateQuietHoursFlushConfigBody = zod.object({
+  "intervalSeconds": zod.number().min(updateQuietHoursFlushConfigBodyIntervalSecondsMin).max(updateQuietHoursFlushConfigBodyIntervalSecondsMax).describe('How often (in seconds) the quiet hours email sweeper scans for ready queues. Minimum 10 s, maximum 86 400 s (24 h). Default 60 s.\n')
+})
+
+export const updateQuietHoursFlushConfigResponseIntervalSecondsMin = 10;
+export const updateQuietHoursFlushConfigResponseIntervalSecondsMax = 86400;
+
+
+
+export const UpdateQuietHoursFlushConfigResponse = zod.object({
+  "intervalSeconds": zod.number().min(updateQuietHoursFlushConfigResponseIntervalSecondsMin).max(updateQuietHoursFlushConfigResponseIntervalSecondsMax).describe('How often (in seconds) the quiet hours email sweeper scans for ready queues. Minimum 10 s, maximum 86 400 s (24 h). Default 60 s.\n')
+})
+
+
+/**
  * @summary Get last cleanup run time and rows deleted for each cleanup job (admin only)
  */
 export const GetCleanupStatsResponse = zod.object({

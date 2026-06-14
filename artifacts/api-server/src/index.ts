@@ -21,6 +21,8 @@ import { initOverdueReportScheduler, runOverdueReportScan } from "./helpers/over
 import { initDeliveryHealthDigestScheduler } from "./helpers/reportDeliveryHealthEmail";
 import { initDeliverySuccessRateAlertScheduler, runDeliverySuccessRateAlertScan } from "./helpers/deliverySuccessRateAlertScheduler";
 import { flushAllReadyQuietHoursQueues } from "./helpers/quietHours";
+import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { initNotifReminderScheduler, runNotifReminderScan } from "./helpers/notifReminderScheduler";
 
 const rawPort = process.env["PORT"];
@@ -49,10 +51,27 @@ function scheduleCallbackRetryWorker() {
   logger.info("Callback retry worker registered (runs every minute)");
 }
 
-function initQuietHoursFlushScheduler() {
-  const intervalMs = parseInt(process.env["QUIET_HOURS_FLUSH_INTERVAL_MS"] ?? "60000", 10);
+async function getQuietHoursFlushIntervalMs(): Promise<number> {
+  try {
+    const [row] = await db
+      .select({ value: systemConfigTable.value })
+      .from(systemConfigTable)
+      .where(eq(systemConfigTable.key, SYSTEM_CONFIG_KEYS.QUIET_HOURS_FLUSH_INTERVAL_SECONDS))
+      .limit(1);
+    const seconds = parseInt(
+      row?.value ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.QUIET_HOURS_FLUSH_INTERVAL_SECONDS]
+    );
+    return Math.max(10, seconds) * 1000;
+  } catch {
+    const fallbackMs = parseInt(process.env["QUIET_HOURS_FLUSH_INTERVAL_MS"] ?? "60000", 10);
+    return fallbackMs;
+  }
+}
 
-  setInterval(async () => {
+function initQuietHoursFlushScheduler() {
+  const envFallbackMs = parseInt(process.env["QUIET_HOURS_FLUSH_INTERVAL_MS"] ?? "60000", 10);
+
+  async function tick() {
     try {
       logger.info("Quiet hours flush: scanning for ready queues");
       const { usersProcessed, totalFlushed } = await flushAllReadyQuietHoursQueues();
@@ -62,9 +81,19 @@ function initQuietHoursFlushScheduler() {
     } catch (err) {
       logger.error({ err }, "Quiet hours flush sweep failed");
     }
-  }, intervalMs);
+    const intervalMs = await getQuietHoursFlushIntervalMs();
+    setTimeout(tick, intervalMs);
+  }
 
-  logger.info({ intervalMs }, "Quiet hours flush scheduler registered");
+  getQuietHoursFlushIntervalMs()
+    .then((intervalMs) => {
+      logger.info({ intervalMs }, "Quiet hours flush scheduler registered");
+      setTimeout(tick, intervalMs);
+    })
+    .catch(() => {
+      logger.info({ intervalMs: envFallbackMs }, "Quiet hours flush scheduler registered (env fallback)");
+      setTimeout(tick, envFallbackMs);
+    });
 }
 
 async function main() {

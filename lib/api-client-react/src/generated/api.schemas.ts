@@ -3340,6 +3340,16 @@ export interface VaCleanupConfig {
   lastDeleted: number | null;
 }
 
+export interface QuietHoursFlushConfig {
+  /**
+     * How often (in seconds) the quiet hours email sweeper scans for ready queues. Minimum 10 s, maximum 86 400 s (24 h). Default 60 s.
+
+     * @minimum 10
+     * @maximum 86400
+     */
+  intervalSeconds: number;
+}
+
 export interface TestEmailRetentionConfig {
   /**
      * Days to retain test email audit log entries before auto-deleting them. Set to 0 to disable automatic cleanup.

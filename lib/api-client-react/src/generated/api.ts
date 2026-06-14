@@ -278,6 +278,7 @@ import type {
   QrCodeListResponse,
   QrCodeStats,
   QrCodeUpdateInput,
+  QuietHoursFlushConfig,
   RasokartServicesResponse,
   ReconciliationItem,
   ReconciliationItemListResponse,
@@ -18661,6 +18662,154 @@ export const useRunAuditReportRetentionCleanup = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRunAuditReportRetentionCleanupMutationOptions(options));
+    }
+
+export const getGetQuietHoursFlushConfigUrl = () => {
+
+
+
+
+  return `/api/system-config/quiet-hours-flush`
+}
+
+/**
+ * @summary Get quiet hours flush interval configuration (admin only)
+ */
+export const getQuietHoursFlushConfig = async ( options?: RequestInit): Promise<QuietHoursFlushConfig> => {
+
+  return customFetch<QuietHoursFlushConfig>(getGetQuietHoursFlushConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetQuietHoursFlushConfigQueryKey = () => {
+    return [
+    `/api/system-config/quiet-hours-flush`
+    ] as const;
+    }
+
+
+export const getGetQuietHoursFlushConfigQueryOptions = <TData = Awaited<ReturnType<typeof getQuietHoursFlushConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQuietHoursFlushConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetQuietHoursFlushConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getQuietHoursFlushConfig>>> = ({ signal }) => getQuietHoursFlushConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getQuietHoursFlushConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetQuietHoursFlushConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getQuietHoursFlushConfig>>>
+export type GetQuietHoursFlushConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get quiet hours flush interval configuration (admin only)
+ */
+
+export function useGetQuietHoursFlushConfig<TData = Awaited<ReturnType<typeof getQuietHoursFlushConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getQuietHoursFlushConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetQuietHoursFlushConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateQuietHoursFlushConfigUrl = () => {
+
+
+
+
+  return `/api/system-config/quiet-hours-flush`
+}
+
+/**
+ * @summary Update quiet hours flush interval configuration (admin only)
+ */
+export const updateQuietHoursFlushConfig = async (quietHoursFlushConfig: QuietHoursFlushConfig, options?: RequestInit): Promise<QuietHoursFlushConfig> => {
+
+  return customFetch<QuietHoursFlushConfig>(getUpdateQuietHoursFlushConfigUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      quietHoursFlushConfig,)
+  }
+);}
+
+
+
+
+export const getUpdateQuietHoursFlushConfigMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateQuietHoursFlushConfig>>, TError,{data: BodyType<QuietHoursFlushConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateQuietHoursFlushConfig>>, TError,{data: BodyType<QuietHoursFlushConfig>}, TContext> => {
+
+const mutationKey = ['updateQuietHoursFlushConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateQuietHoursFlushConfig>>, {data: BodyType<QuietHoursFlushConfig>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateQuietHoursFlushConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateQuietHoursFlushConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateQuietHoursFlushConfig>>>
+    export type UpdateQuietHoursFlushConfigMutationBody = BodyType<QuietHoursFlushConfig>
+    export type UpdateQuietHoursFlushConfigMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update quiet hours flush interval configuration (admin only)
+ */
+export const useUpdateQuietHoursFlushConfig = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateQuietHoursFlushConfig>>, TError,{data: BodyType<QuietHoursFlushConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateQuietHoursFlushConfig>>,
+        TError,
+        {data: BodyType<QuietHoursFlushConfig>},
+        TContext
+      > => {
+      return useMutation(getUpdateQuietHoursFlushConfigMutationOptions(options));
     }
 
 export const getGetCleanupStatsUrl = () => {

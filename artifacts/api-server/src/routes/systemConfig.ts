@@ -1415,6 +1415,74 @@ router.post("/ekqr/test-webhook", async (req, res, next) => {
   }
 });
 
+// GET /api/system-config/quiet-hours-flush
+router.get("/quiet-hours-flush", async (req, res, next) => {
+  try {
+    const [row] = await db
+      .select({ value: systemConfigTable.value })
+      .from(systemConfigTable)
+      .where(eq(systemConfigTable.key, SYSTEM_CONFIG_KEYS.QUIET_HOURS_FLUSH_INTERVAL_SECONDS))
+      .limit(1);
+
+    const intervalSeconds = parseInt(
+      row?.value ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.QUIET_HOURS_FLUSH_INTERVAL_SECONDS]
+    );
+    res.json({ intervalSeconds });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/system-config/quiet-hours-flush
+router.put("/quiet-hours-flush", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const { intervalSeconds } = req.body;
+
+    if (typeof intervalSeconds !== "number" || !Number.isInteger(intervalSeconds)) {
+      res.status(400).json({ error: "intervalSeconds must be an integer" });
+      return;
+    }
+
+    if (intervalSeconds < 10 || intervalSeconds > 86400) {
+      res.status(400).json({ error: "intervalSeconds must be between 10 and 86400" });
+      return;
+    }
+
+    await db
+      .insert(systemConfigTable)
+      .values({
+        key: SYSTEM_CONFIG_KEYS.QUIET_HOURS_FLUSH_INTERVAL_SECONDS,
+        value: String(intervalSeconds),
+        updatedByEmail: user.email,
+      })
+      .onConflictDoUpdate({
+        target: systemConfigTable.key,
+        set: {
+          value: String(intervalSeconds),
+          updatedByEmail: user.email,
+          updatedAt: sql`now()`,
+        },
+      });
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id,
+      adminEmail: user.email,
+      action: "system_config_updated",
+      targetType: "system_config",
+      targetId: null,
+      details: JSON.stringify({ section: "quiet_hours_flush", intervalSeconds }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ intervalSeconds }, "Quiet hours flush interval config updated");
+
+    res.json({ intervalSeconds });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/system-config/ekqr/test
 // Places a test create_order call to verify the API key works.
 router.post("/ekqr/test", async (req, res, next) => {

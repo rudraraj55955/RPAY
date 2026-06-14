@@ -6302,6 +6302,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuditReportRetentionRunResult"
 
+  /system-config/quiet-hours-flush:
+    get:
+      operationId: getQuietHoursFlushConfig
+      tags: [system-config]
+      summary: Get quiet hours flush interval configuration (admin only)
+      responses:
+        "200":
+          description: Current quiet hours flush interval config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuietHoursFlushConfig"
+    put:
+      operationId: updateQuietHoursFlushConfig
+      tags: [system-config]
+      summary: Update quiet hours flush interval configuration (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuietHoursFlushConfig"
+      responses:
+        "200":
+          description: Updated quiet hours flush interval config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuietHoursFlushConfig"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /system-config/cleanup-stats:
     get:
       operationId: getCleanupStats
@@ -12775,6 +12811,18 @@ components:
           type: integer
           nullable: true
           description: Number of virtual accounts deleted in the last cleanup run, or null if never run.
+
+    QuietHoursFlushConfig:
+      type: object
+      required: [intervalSeconds]
+      properties:
+        intervalSeconds:
+          type: integer
+          minimum: 10
+          maximum: 86400
+          description: >
+            How often (in seconds) the quiet hours email sweeper scans for ready queues.
+            Minimum 10 s, maximum 86 400 s (24 h). Default 60 s.
 
     TestEmailRetentionConfig:
       type: object

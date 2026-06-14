@@ -416,6 +416,7 @@ export * from './qrCodeStatus';
 export * from './qrCodeType';
 export * from './qrCodeUpdateInput';
 export * from './qrCodeUpdateInputStatus';
+export * from './quietHoursFlushConfig';
 export * from './rasokartServicesResponse';
 export * from './reconciliationEmailLog';
 export * from './reconciliationItem';

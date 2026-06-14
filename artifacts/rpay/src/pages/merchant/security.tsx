@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useListCallbackLogs, useGetMe, useUpdateMyPreferences, getGetMeQueryKey, useListMySecurityActivity, useListSecurityEvents, useListKnownLoginIps, useListTrustedIps, useDeleteTrustedIp, getListTrustedIpsQueryKey, useLabelKnownLoginIp, getListKnownLoginIpsQueryKey, useGetQuietHoursQueueCount } from "@workspace/api-client-react";
+import { useListCallbackLogs, useGetMe, useUpdateMyPreferences, getGetMeQueryKey, useListMySecurityActivity, useListSecurityEvents, useListKnownLoginIps, useListTrustedIps, useDeleteTrustedIp, getListTrustedIpsQueryKey, useLabelKnownLoginIp, getListKnownLoginIpsQueryKey, useGetQuietHoursQueueCount, getGetQuietHoursQueueCountQueryKey } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -488,7 +488,7 @@ export default function MerchantSecurity() {
   const [qhTimezone, setQhTimezone] = useState<string>("");
   const [qhEnabled, setQhEnabled] = useState<boolean>(false);
   const [flushingQueue, setFlushingQueue] = useState(false);
-  const { data: queueCountData, refetch: refetchQueueCount } = useGetQuietHoursQueueCount();
+  const { data: queueCountData, refetch: refetchQueueCount } = useGetQuietHoursQueueCount({ query: { queryKey: getGetQuietHoursQueueCountQueryKey(), refetchInterval: 60_000 } });
 
   // Sync quiet hours draft state from server data when me loads
   useEffect(() => {

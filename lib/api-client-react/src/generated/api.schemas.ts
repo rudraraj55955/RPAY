@@ -4359,6 +4359,41 @@ export type GetMerchantsWebhookFailureCountsParams = {
 merchantIds: string;
 };
 
+export type PreviewMerchantPlanEmailParams = {
+/**
+ * Which email variant to preview
+ */
+variant: PreviewMerchantPlanEmailVariant;
+/**
+ * Plan ID to use for the preview (defaults to merchant's current plan)
+ */
+planId?: number;
+/**
+ * Optional notes to include in the preview
+ */
+notes?: string;
+/**
+ * ISO 8601 expiry date for the assigned variant preview
+ */
+expiresAt?: string;
+};
+
+export type PreviewMerchantPlanEmailVariant = typeof PreviewMerchantPlanEmailVariant[keyof typeof PreviewMerchantPlanEmailVariant];
+
+
+export const PreviewMerchantPlanEmailVariant = {
+  assigned: 'assigned',
+  suspended: 'suspended',
+  reinstated: 'reinstated',
+} as const;
+
+export type PreviewMerchantPlanEmail200 = {
+  /** Full HTML body of the email */
+  html: string;
+  /** Subject line of the email */
+  subject: string;
+};
+
 export type ListMerchantCredentialEventsParams = {
 eventType?: ListMerchantCredentialEventsEventType;
 };

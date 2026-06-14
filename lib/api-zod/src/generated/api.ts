@@ -835,6 +835,26 @@ export const ScheduleMerchantPlanRenewalResponse = zod.object({
 
 
 /**
+ * @summary Admin — preview the plan notification email that would be sent to a merchant (no email sent)
+ */
+export const PreviewMerchantPlanEmailParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PreviewMerchantPlanEmailQueryParams = zod.object({
+  "variant": zod.enum(['assigned', 'suspended', 'reinstated']).describe('Which email variant to preview'),
+  "planId": zod.coerce.number().optional().describe('Plan ID to use for the preview (defaults to merchant\'s current plan)'),
+  "notes": zod.coerce.string().optional().describe('Optional notes to include in the preview'),
+  "expiresAt": zod.coerce.string().optional().describe('ISO 8601 expiry date for the assigned variant preview')
+})
+
+export const PreviewMerchantPlanEmailResponse = zod.object({
+  "html": zod.string().describe('Full HTML body of the email'),
+  "subject": zod.string().describe('Subject line of the email')
+})
+
+
+/**
  * @summary Update merchant branding (logo URL and brand colour). Merchant updates own; admin can update any.
  */
 export const UpdateMerchantBrandingParams = zod.object({

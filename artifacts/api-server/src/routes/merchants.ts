@@ -7,6 +7,7 @@ import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { getMerchantPlanUsage } from "../helpers/planLimits";
 import { sendRejectionEmail } from "../helpers/rejectionEmail";
 import { sendCallbackSecretResetEmail } from "../helpers/callbackSecretResetEmail";
+import { buildPlanAssignedHtml, buildPlanSuspendedHtml, buildPlanReinstatedHtml } from "../helpers/merchantNotifyEmail";
 import { ObjectStorageService, ObjectNotFoundError, InvalidImageError } from "../lib/objectStorage";
 import { consumeUploadIntent } from "../lib/uploadIntentStore";
 
@@ -1116,6 +1117,66 @@ router.get("/:id/credential-events", requireAdmin, async (req, res) => {
   });
 
   res.json(events);
+});
+
+// GET /api/merchants/:id/plan/email-preview — admin: preview plan notification email (no email sent)
+router.get("/:id/plan/email-preview", requireAdmin, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params['id'] as string);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const variant = req.query["variant"] as string | undefined;
+    if (!variant || !["assigned", "suspended", "reinstated"].includes(variant)) {
+      res.status(400).json({ error: "variant must be one of: assigned, suspended, reinstated" });
+      return;
+    }
+
+    const [merchant] = await db
+      .select({ id: merchantsTable.id, businessName: merchantsTable.businessName })
+      .from(merchantsTable)
+      .where(eq(merchantsTable.id, id))
+      .limit(1);
+    if (!merchant) { res.status(404).json({ error: "Merchant not found" }); return; }
+
+    const rawPlanId = req.query["planId"] as string | undefined;
+    const planIdOverride = rawPlanId ? parseInt(rawPlanId) : null;
+    const notesOverride = (req.query["notes"] as string | undefined) ?? null;
+    const expiresAtOverride = (req.query["expiresAt"] as string | undefined) ?? null;
+
+    let planName: string;
+
+    if (planIdOverride && !isNaN(planIdOverride)) {
+      const [planRow] = await db.select({ name: plansTable.name }).from(plansTable).where(eq(plansTable.id, planIdOverride)).limit(1);
+      planName = planRow?.name ?? "Selected Plan";
+    } else {
+      const [mp] = await db
+        .select({ name: plansTable.name })
+        .from(merchantPlansTable)
+        .innerJoin(plansTable, eq(merchantPlansTable.planId, plansTable.id))
+        .where(eq(merchantPlansTable.merchantId, id))
+        .limit(1);
+      planName = mp?.name ?? "Your Plan";
+    }
+
+    const businessName = merchant.businessName;
+
+    if (variant === "assigned") {
+      const expiresAt = expiresAtOverride ?? null;
+      const html = buildPlanAssignedHtml({ businessName, planName, expiresAt, notes: notesOverride });
+      const subject = `[RasoKart] Your ${planName} plan is now active`;
+      res.json({ html, subject });
+    } else if (variant === "suspended") {
+      const html = buildPlanSuspendedHtml({ businessName, planName, notes: notesOverride });
+      const subject = `[RasoKart] Your ${planName} plan has been suspended`;
+      res.json({ html, subject });
+    } else {
+      const html = buildPlanReinstatedHtml({ businessName, planName, notes: notesOverride });
+      const subject = `[RasoKart] Your ${planName} plan has been reinstated`;
+      res.json({ html, subject });
+    }
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

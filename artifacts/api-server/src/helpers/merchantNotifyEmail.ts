@@ -154,3 +154,225 @@ export async function notifyMerchantOfSettlementStateChange(opts: {
     logger.error({ err, merchantId: opts.merchantId, settlementId: opts.settlementId }, "Failed to send merchant settlement state change email");
   }
 }
+
+// ---------------------------------------------------------------------------
+// Plan change notification emails → merchant
+// ---------------------------------------------------------------------------
+
+export function buildPlanAssignedHtml(opts: {
+  businessName: string;
+  planName: string;
+  expiresAt: string | null;
+  notes: string | null;
+}): string {
+  const { businessName, planName, expiresAt, notes } = opts;
+  const dashboardLink = `${APP_DOMAIN}/merchant/dashboard`;
+  const expiryLine = expiresAt
+    ? new Date(expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; background: #0f0f0f; color: #e5e5e5; margin: 0; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #2a2a2a;">
+    <div style="background: #14532d; padding: 20px 24px;">
+      <h1 style="margin: 0; font-size: 20px; color: #fff; letter-spacing: 0.5px;">RasoKart — Plan Assigned</h1>
+      <p style="margin: 4px 0 0; color: #86efac; font-size: 13px;">Your subscription plan has been set up</p>
+    </div>
+    <div style="padding: 24px;">
+      <p style="margin: 0 0 16px; color: #e5e5e5; font-size: 15px;">
+        Dear <strong>${businessName}</strong>,
+      </p>
+      <p style="margin: 0 0 20px; color: #d1d5db; font-size: 14px; line-height: 1.6;">
+        Your account has been assigned the <strong style="color: #4ade80;">${planName}</strong> plan. You now have access to all features included in this plan.
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px; width: 40%;">Plan</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600; color: #4ade80;">${planName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Status</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600; color: #4ade80;">Active</td>
+        </tr>
+        ${expiryLine ? `
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Valid Until</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600;">${expiryLine}</td>
+        </tr>` : `
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Valid Until</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; color: #71717a;">No expiry date</td>
+        </tr>`}
+        ${notes ? `
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Note</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; color: #d1d5db;">${notes}</td>
+        </tr>` : ""}
+      </table>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <a href="${dashboardLink}"
+           style="display: inline-block; background: #7c3aed; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: 600; letter-spacing: 0.3px;">
+          Go to My Dashboard
+        </a>
+      </div>
+
+      <p style="margin: 0; color: #71717a; font-size: 12px;">
+        If the link above doesn't work, copy this URL into your browser:<br>
+        <span style="color: #818cf8;">${dashboardLink}</span>
+      </p>
+    </div>
+    <div style="padding: 14px 24px; background: #111; border-top: 1px solid #2a2a2a;">
+      <p style="margin: 0; color: #52525b; font-size: 11px;">
+        This notification was sent by RasoKart because your subscription plan was updated.
+        For support, contact <a href="mailto:support@rasokart.com" style="color: #818cf8; text-decoration: none;">support@rasokart.com</a>.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`.trim();
+}
+
+export function buildPlanSuspendedHtml(opts: {
+  businessName: string;
+  planName: string;
+  notes: string | null;
+}): string {
+  const { businessName, planName, notes } = opts;
+  const supportLink = `mailto:support@rasokart.com`;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; background: #0f0f0f; color: #e5e5e5; margin: 0; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #2a2a2a;">
+    <div style="background: #78350f; padding: 20px 24px;">
+      <h1 style="margin: 0; font-size: 20px; color: #fff; letter-spacing: 0.5px;">RasoKart — Plan Suspended</h1>
+      <p style="margin: 4px 0 0; color: #fde68a; font-size: 13px;">Your subscription plan has been temporarily suspended</p>
+    </div>
+    <div style="padding: 24px;">
+      <p style="margin: 0 0 16px; color: #e5e5e5; font-size: 15px;">
+        Dear <strong>${businessName}</strong>,
+      </p>
+      <p style="margin: 0 0 20px; color: #d1d5db; font-size: 14px; line-height: 1.6;">
+        Your <strong>${planName}</strong> plan has been temporarily suspended. Access to plan features is restricted until your plan is reinstated.
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px; width: 40%;">Plan</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600;">${planName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Status</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600; color: #fb923c;">Suspended</td>
+        </tr>
+        ${notes ? `
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Reason</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; color: #d1d5db;">${notes}</td>
+        </tr>` : ""}
+      </table>
+
+      <div style="background: #1c1917; border: 1px solid #2a2a2a; border-radius: 6px; padding: 16px; margin-bottom: 24px;">
+        <p style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #fde68a;">What this means for your account</p>
+        <ul style="margin: 0; padding-left: 18px; color: #a1a1aa; font-size: 13px; line-height: 1.8;">
+          <li>API access and webhook deliveries are paused</li>
+          <li>New QR code and virtual account creation is disabled</li>
+          <li>Existing deposits continue to be recorded</li>
+          <li>Your account data is preserved</li>
+        </ul>
+      </div>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <a href="${supportLink}"
+           style="display: inline-block; background: #7c3aed; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: 600; letter-spacing: 0.3px;">
+          Contact Support
+        </a>
+      </div>
+
+      <p style="margin: 0; color: #71717a; font-size: 12px;">
+        If you believe this was done in error, please reach out to us at<br>
+        <a href="${supportLink}" style="color: #818cf8; text-decoration: none;">support@rasokart.com</a>
+      </p>
+    </div>
+    <div style="padding: 14px 24px; background: #111; border-top: 1px solid #2a2a2a;">
+      <p style="margin: 0; color: #52525b; font-size: 11px;">
+        This notification was sent by RasoKart because your subscription plan status changed.
+        For support, contact <a href="mailto:support@rasokart.com" style="color: #818cf8; text-decoration: none;">support@rasokart.com</a>.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`.trim();
+}
+
+export function buildPlanReinstatedHtml(opts: {
+  businessName: string;
+  planName: string;
+  notes: string | null;
+}): string {
+  const { businessName, planName, notes } = opts;
+  const dashboardLink = `${APP_DOMAIN}/merchant/dashboard`;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; background: #0f0f0f; color: #e5e5e5; margin: 0; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #2a2a2a;">
+    <div style="background: #14532d; padding: 20px 24px;">
+      <h1 style="margin: 0; font-size: 20px; color: #fff; letter-spacing: 0.5px;">RasoKart — Plan Reinstated</h1>
+      <p style="margin: 4px 0 0; color: #86efac; font-size: 13px;">Your subscription plan has been restored</p>
+    </div>
+    <div style="padding: 24px;">
+      <p style="margin: 0 0 16px; color: #e5e5e5; font-size: 15px;">
+        Dear <strong>${businessName}</strong>,
+      </p>
+      <p style="margin: 0 0 20px; color: #d1d5db; font-size: 14px; line-height: 1.6;">
+        Good news — your <strong style="color: #4ade80;">${planName}</strong> plan has been reinstated and is now fully active. All features have been restored to your account.
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px; width: 40%;">Plan</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600; color: #4ade80;">${planName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Status</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600; color: #4ade80;">Active</td>
+        </tr>
+        ${notes ? `
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Note</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; color: #d1d5db;">${notes}</td>
+        </tr>` : ""}
+      </table>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <a href="${dashboardLink}"
+           style="display: inline-block; background: #7c3aed; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: 600; letter-spacing: 0.3px;">
+          Go to My Dashboard
+        </a>
+      </div>
+
+      <p style="margin: 0; color: #71717a; font-size: 12px;">
+        If the link above doesn't work, copy this URL into your browser:<br>
+        <span style="color: #818cf8;">${dashboardLink}</span>
+      </p>
+    </div>
+    <div style="padding: 14px 24px; background: #111; border-top: 1px solid #2a2a2a;">
+      <p style="margin: 0; color: #52525b; font-size: 11px;">
+        This notification was sent by RasoKart because your subscription plan status changed.
+        For support, contact <a href="mailto:support@rasokart.com" style="color: #818cf8; text-decoration: none;">support@rasokart.com</a>.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`.trim();
+}

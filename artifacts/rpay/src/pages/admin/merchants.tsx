@@ -21,6 +21,7 @@ import {
   useGetKycSummary, useListKycDocuments, useReviewKycDocument,
   getListMerchantsQueryKey,
   listMerchants,
+  previewMerchantPlanEmail,
   type WebhookFailureAlertLogEntry,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,7 +39,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw, Upload, Loader2, X, Info, KeyRound, Clock, BellOff, Activity, ExternalLink, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
+import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw, Upload, Loader2, X, Info, KeyRound, Clock, BellOff, Activity, ExternalLink, ChevronDown, ChevronRight, CheckCircle2, Eye, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, differenceInSeconds } from "date-fns";
 import { getApiErrorMessage } from "@/lib/utils";
@@ -255,6 +256,8 @@ export default function AdminMerchants() {
   const [webhookLogsPage, setWebhookLogsPage] = useState(1);
   const [scrollToAlerts, setScrollToAlerts] = useState(false);
   const webhookAlertsRef = useRef<HTMLDivElement>(null);
+  const [planEmailPreview, setPlanEmailPreview] = useState<{ html: string; subject: string } | null>(null);
+  const [planEmailPreviewLoading, setPlanEmailPreviewLoading] = useState(false);
 
   // KYC review state — tracks inline note per document id and pending review action
   const [kycReviewState, setKycReviewState] = useState<Record<number, { action: "approved" | "rejected"; note: string } | null>>({});
@@ -586,6 +589,26 @@ export default function AdminMerchants() {
   };
 
   const isActionPending = upgradeMutation.isPending || downgradeMutation.isPending || suspendPlanMutation.isPending || reinstatePlanMutation.isPending || renewMutation.isPending || scheduleRenewalMutation.isPending;
+
+  const handlePreviewPlanEmail = async (
+    variant: "assigned" | "suspended" | "reinstated",
+    opts?: { planId?: number; notes?: string; expiresAt?: string }
+  ) => {
+    if (!assignPlanMerchant) return;
+    setPlanEmailPreviewLoading(true);
+    try {
+      const params: { variant: "assigned" | "suspended" | "reinstated"; planId?: number; notes?: string; expiresAt?: string } = { variant };
+      if (opts?.planId) params.planId = opts.planId;
+      if (opts?.notes) params.notes = opts.notes;
+      if (opts?.expiresAt) params.expiresAt = opts.expiresAt;
+      const result = await previewMerchantPlanEmail(assignPlanMerchant.id, params);
+      setPlanEmailPreview(result);
+    } catch {
+      toast.error("Failed to load email preview");
+    } finally {
+      setPlanEmailPreviewLoading(false);
+    }
+  };
 
   const handleApprove = (id: number) => {
     approveMutation.mutate({ id }, {
@@ -3062,8 +3085,32 @@ export default function AdminMerchants() {
                       <Label className="text-xs">Notes (optional)</Label>
                       <Input className="h-8 text-sm" value={actionNotes} onChange={e => setActionNotes(e.target.value)} placeholder="Internal note..." />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" onClick={() => { setConfirmAction(null); setActionNotes(""); setActionExpiresAt(""); setScheduleRenewalDate(""); }}>Cancel</Button>
+                      {(confirmAction === "suspend" || confirmAction === "reinstate" || confirmAction === "upgrade" || confirmAction === "downgrade") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-violet-400 border-violet-500/30 hover:bg-violet-500/10 gap-1.5"
+                          disabled={planEmailPreviewLoading || ((confirmAction === "upgrade" || confirmAction === "downgrade") && !selectedPlanId)}
+                          onClick={() => {
+                            if (confirmAction === "suspend") {
+                              handlePreviewPlanEmail("suspended", { notes: actionNotes || undefined });
+                            } else if (confirmAction === "reinstate") {
+                              handlePreviewPlanEmail("reinstated", { notes: actionNotes || undefined });
+                            } else {
+                              handlePreviewPlanEmail("assigned", {
+                                planId: selectedPlanId ? parseInt(selectedPlanId) : undefined,
+                                expiresAt: actionExpiresAt || undefined,
+                                notes: actionNotes || undefined,
+                              });
+                            }
+                          }}
+                        >
+                          {planEmailPreviewLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+                          Preview Email
+                        </Button>
+                      )}
                       <Button size="sm" onClick={() => handlePlanAction(confirmAction)} disabled={isActionPending || ((confirmAction === "upgrade" || confirmAction === "downgrade") && (!selectedPlanId || (() => { const tp = plans?.find(p => String(p.id) === selectedPlanId); return !!(tp && tp.monthlyFee !== "0" && tp.name.toLowerCase() !== "custom" && !actionExpiresAt); })()))}>
                         {isActionPending ? "Processing..." : confirmAction === "schedule-renewal"
                           ? (scheduleRenewalDate ? "Set Auto-Renewal" : "Cancel Auto-Renewal")
@@ -3231,6 +3278,21 @@ export default function AdminMerchants() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeAssignPlan}>Cancel</Button>
+            {selectedPlanId && (
+              <Button
+                variant="outline"
+                className="text-violet-400 border-violet-500/30 hover:bg-violet-500/10 gap-1.5"
+                disabled={planEmailPreviewLoading}
+                onClick={() => handlePreviewPlanEmail("assigned", {
+                  planId: parseInt(selectedPlanId),
+                  expiresAt: expiresAt || undefined,
+                  notes: assignNotes || undefined,
+                })}
+              >
+                {planEmailPreviewLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+                Preview Email
+              </Button>
+            )}
             {(() => {
               const plan = selectedPlanId ? plans?.find(p => String(p.id) === selectedPlanId) : undefined;
               const isPaid = plan && plan.monthlyFee !== "0" && plan.name.toLowerCase() !== "custom";
@@ -3241,6 +3303,44 @@ export default function AdminMerchants() {
                 </Button>
               );
             })()}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Plan Email Preview Modal */}
+      <Dialog open={!!planEmailPreview} onOpenChange={(open) => { if (!open) setPlanEmailPreview(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Mail className="w-4 h-4 text-violet-400" />
+              Email Preview
+            </DialogTitle>
+          </DialogHeader>
+          {planEmailPreview && (
+            <>
+              <div className="rounded-md bg-muted/40 border border-border px-3 py-2 text-xs text-muted-foreground space-y-1 shrink-0">
+                <div className="flex items-start gap-1.5">
+                  <span className="opacity-60 shrink-0">Subject:</span>
+                  <span className="text-foreground font-medium break-all">{planEmailPreview.subject}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground/70 italic">
+                  This is a preview only — no email has been sent.
+                </p>
+              </div>
+              <div className="flex-1 min-h-0 rounded-md border border-border overflow-hidden">
+                <iframe
+                  srcDoc={planEmailPreview.html}
+                  title="Email preview"
+                  className="w-full h-full min-h-[420px]"
+                  sandbox="allow-same-origin"
+                />
+              </div>
+            </>
+          )}
+          <DialogFooter>
+            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setPlanEmailPreview(null)}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -247,6 +247,8 @@ import type {
   PreviewAdminMerchantReportScheduleEmail200,
   PreviewAdminMerchantReportScheduleEmailParams,
   PreviewAuditReportEmailParams,
+  PreviewMerchantPlanEmail200,
+  PreviewMerchantPlanEmailParams,
   ProductVisibility,
   Provider,
   ProviderBulkVisibilityInput,
@@ -2750,6 +2752,95 @@ export const useScheduleMerchantPlanRenewal = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getScheduleMerchantPlanRenewalMutationOptions(options));
     }
+
+export const getPreviewMerchantPlanEmailUrl = (id: number,
+    params: PreviewMerchantPlanEmailParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/merchants/${id}/plan/email-preview?${stringifiedParams}` : `/api/merchants/${id}/plan/email-preview`
+}
+
+/**
+ * @summary Admin — preview the plan notification email that would be sent to a merchant (no email sent)
+ */
+export const previewMerchantPlanEmail = async (id: number,
+    params: PreviewMerchantPlanEmailParams, options?: RequestInit): Promise<PreviewMerchantPlanEmail200> => {
+
+  return customFetch<PreviewMerchantPlanEmail200>(getPreviewMerchantPlanEmailUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPreviewMerchantPlanEmailQueryKey = (id: number,
+    params?: PreviewMerchantPlanEmailParams,) => {
+    return [
+    `/api/merchants/${id}/plan/email-preview`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getPreviewMerchantPlanEmailQueryOptions = <TData = Awaited<ReturnType<typeof previewMerchantPlanEmail>>, TError = ErrorType<void>>(id: number,
+    params: PreviewMerchantPlanEmailParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewMerchantPlanEmail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPreviewMerchantPlanEmailQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof previewMerchantPlanEmail>>> = ({ signal }) => previewMerchantPlanEmail(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof previewMerchantPlanEmail>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type PreviewMerchantPlanEmailQueryResult = NonNullable<Awaited<ReturnType<typeof previewMerchantPlanEmail>>>
+export type PreviewMerchantPlanEmailQueryError = ErrorType<void>
+
+
+/**
+ * @summary Admin — preview the plan notification email that would be sent to a merchant (no email sent)
+ */
+
+export function usePreviewMerchantPlanEmail<TData = Awaited<ReturnType<typeof previewMerchantPlanEmail>>, TError = ErrorType<void>>(
+ id: number,
+    params: PreviewMerchantPlanEmailParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewMerchantPlanEmail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getPreviewMerchantPlanEmailQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getUpdateMerchantBrandingUrl = (id: number,) => {
 

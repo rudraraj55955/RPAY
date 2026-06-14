@@ -837,6 +837,66 @@ paths:
               schema:
                 $ref: "#/components/schemas/MerchantPlan"
 
+  /merchants/{id}/plan/email-preview:
+    get:
+      operationId: previewMerchantPlanEmail
+      tags: [merchants]
+      summary: Admin — preview the plan notification email that would be sent to a merchant (no email sent)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: variant
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [assigned, suspended, reinstated]
+          description: Which email variant to preview
+        - name: planId
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Plan ID to use for the preview (defaults to merchant's current plan)
+        - name: notes
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional notes to include in the preview
+        - name: expiresAt
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO 8601 expiry date for the assigned variant preview
+      responses:
+        "200":
+          description: Email preview (no email is sent)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [html, subject]
+                properties:
+                  html:
+                    type: string
+                    description: Full HTML body of the email
+                  subject:
+                    type: string
+                    description: Subject line of the email
+        "400":
+          description: Invalid request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Merchant not found
+
   /merchants/{id}/branding:
     patch:
       operationId: updateMerchantBranding

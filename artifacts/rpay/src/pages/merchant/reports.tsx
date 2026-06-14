@@ -1023,6 +1023,20 @@ function SchedulePanel() {
                                   {log.failureReason}
                                 </p>
                               )}
+                              {(log.maxAttempts != null || log.backoffBaseMs != null) && (
+                                <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                                  {log.maxAttempts != null && (
+                                    <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                                      Max retries: <span className="text-foreground/70 font-medium">{log.maxAttempts}</span>
+                                    </span>
+                                  )}
+                                  {log.backoffBaseMs != null && (
+                                    <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                                      Backoff base: <span className="text-foreground/70 font-medium">{log.backoffBaseMs}ms</span>
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           ) : log.success ? (
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">

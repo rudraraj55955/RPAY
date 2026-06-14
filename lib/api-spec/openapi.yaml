@@ -195,6 +195,12 @@ paths:
                 settlementStateChangedEmails:
                   type: boolean
                   description: Whether the merchant wants an email when their settlement request changes state.
+                ekqrSyncAlertEmails:
+                  type: boolean
+                  description: Whether the merchant wants an email when an EKQR synchronisation issue is detected.
+                planChangeEmails:
+                  type: boolean
+                  description: Whether the merchant wants an email when their subscription plan is changed by an admin.
       responses:
         "200":
           description: Updated preferences
@@ -8725,6 +8731,12 @@ components:
         settlementStateChangedEmails:
           type: boolean
           description: Whether the merchant wants an email when their settlement request changes state. Defaults to true.
+        ekqrSyncAlertEmails:
+          type: boolean
+          description: Whether the merchant wants an email when an EKQR synchronisation issue is detected. Defaults to true.
+        planChangeEmails:
+          type: boolean
+          description: Whether the merchant wants an email when their subscription plan is changed by an admin. Defaults to true.
         createdAt:
           type: string
 
@@ -8797,6 +8809,24 @@ components:
         planExpiryAlertEmails:
           type: boolean
           description: Whether the merchant will receive plan expiry alert emails. Defaults to true.
+        reconciliationAlertEmails:
+          type: boolean
+          description: Whether the merchant will receive reconciliation alert emails. Defaults to true.
+        settlementStateEmails:
+          type: boolean
+          description: Whether the merchant will receive settlement state emails. Defaults to true.
+        reportFailureAlertEmails:
+          type: boolean
+          description: Whether the merchant will receive report failure alert emails. Defaults to true.
+        weeklyDeliveryDigestEmails:
+          type: boolean
+          description: Whether the merchant will receive the weekly delivery digest email. Defaults to true.
+        ekqrSyncAlertEmails:
+          type: boolean
+          description: Whether the merchant will receive EKQR sync alert emails. Defaults to true.
+        planChangeEmails:
+          type: boolean
+          description: Whether the merchant will receive plan change emails. Defaults to true.
         createdAt:
           type: string
 

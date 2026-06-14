@@ -22,4 +22,8 @@ export type UpdateMyPreferencesBody = {
   reportScheduleChangedEmails?: boolean;
   /** Whether the merchant wants an email when their settlement request changes state. */
   settlementStateChangedEmails?: boolean;
+  /** Whether the merchant wants an email when an EKQR synchronisation issue is detected. */
+  ekqrSyncAlertEmails?: boolean;
+  /** Whether the merchant wants an email when their subscription plan is changed by an admin. */
+  planChangeEmails?: boolean;
 };

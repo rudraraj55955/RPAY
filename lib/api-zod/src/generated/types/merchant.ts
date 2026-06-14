@@ -56,5 +56,17 @@ export interface Merchant {
   settlementStateChangedEmails?: boolean;
   /** Whether the merchant will receive plan expiry alert emails. Defaults to true. */
   planExpiryAlertEmails?: boolean;
+  /** Whether the merchant will receive reconciliation alert emails. Defaults to true. */
+  reconciliationAlertEmails?: boolean;
+  /** Whether the merchant will receive settlement state emails. Defaults to true. */
+  settlementStateEmails?: boolean;
+  /** Whether the merchant will receive report failure alert emails. Defaults to true. */
+  reportFailureAlertEmails?: boolean;
+  /** Whether the merchant will receive the weekly delivery digest email. Defaults to true. */
+  weeklyDeliveryDigestEmails?: boolean;
+  /** Whether the merchant will receive EKQR sync alert emails. Defaults to true. */
+  ekqrSyncAlertEmails?: boolean;
+  /** Whether the merchant will receive plan change emails. Defaults to true. */
+  planChangeEmails?: boolean;
   createdAt: string;
 }

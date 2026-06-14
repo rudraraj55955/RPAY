@@ -5830,8 +5830,6 @@ export function useGetReportDeliveryHealth<TData = Awaited<ReturnType<typeof get
 
 
 
-<<<<<<< HEAD
-=======
 export const getRetryReportDeliveryLogUrl = (id: number,) => {
 
 
@@ -5857,7 +5855,6 @@ export const retryReportDeliveryLog = async (id: number, options?: RequestInit):
 
 
 
->>>>>>> 7ddec03a (feat: let admins filter merchant list by notification opt-out status)
 
 export const getRetryReportDeliveryLogMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryReportDeliveryLog>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}

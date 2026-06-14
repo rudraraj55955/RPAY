@@ -46,6 +46,8 @@ export const LoginResponse = zod.object({
   "loginAlertEmails": zod.boolean().optional(),
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their settlement request changes state. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an EKQR synchronisation issue is detected. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their subscription plan is changed by an admin. Defaults to true.'),
   "createdAt": zod.string()
 })
 })
@@ -87,6 +89,8 @@ export const GetMeResponse = zod.object({
   "loginAlertEmails": zod.boolean().optional(),
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their settlement request changes state. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an EKQR synchronisation issue is detected. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their subscription plan is changed by an admin. Defaults to true.'),
   "createdAt": zod.string()
 })
 
@@ -106,7 +110,9 @@ export const UpdateMyPreferencesBody = zod.object({
   "apiKeyRevokedEmails": zod.boolean().optional(),
   "loginAlertEmails": zod.boolean().optional(),
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an admin changes their report schedule.'),
-  "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their settlement request changes state.')
+  "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their settlement request changes state.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an EKQR synchronisation issue is detected.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their subscription plan is changed by an admin.')
 })
 
 export const UpdateMyPreferencesResponse = zod.object({
@@ -129,6 +135,8 @@ export const UpdateMyPreferencesResponse = zod.object({
   "loginAlertEmails": zod.boolean().optional(),
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their settlement request changes state. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an EKQR synchronisation issue is detected. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their subscription plan is changed by an admin. Defaults to true.'),
   "createdAt": zod.string()
 })
 
@@ -244,6 +252,12 @@ export const ListMerchantsResponse = zod.object({
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when their settlement request changes state. Defaults to true.'),
   "planExpiryAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive plan expiry alert emails. Defaults to true.'),
+  "reconciliationAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive reconciliation alert emails. Defaults to true.'),
+  "settlementStateEmails": zod.boolean().optional().describe('Whether the merchant will receive settlement state emails. Defaults to true.'),
+  "reportFailureAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive report failure alert emails. Defaults to true.'),
+  "weeklyDeliveryDigestEmails": zod.boolean().optional().describe('Whether the merchant will receive the weekly delivery digest email. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive EKQR sync alert emails. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant will receive plan change emails. Defaults to true.'),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -287,6 +301,12 @@ export const GetMerchantResponse = zod.object({
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when their settlement request changes state. Defaults to true.'),
   "planExpiryAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive plan expiry alert emails. Defaults to true.'),
+  "reconciliationAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive reconciliation alert emails. Defaults to true.'),
+  "settlementStateEmails": zod.boolean().optional().describe('Whether the merchant will receive settlement state emails. Defaults to true.'),
+  "reportFailureAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive report failure alert emails. Defaults to true.'),
+  "weeklyDeliveryDigestEmails": zod.boolean().optional().describe('Whether the merchant will receive the weekly delivery digest email. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive EKQR sync alert emails. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant will receive plan change emails. Defaults to true.'),
   "createdAt": zod.string()
 })
 
@@ -369,6 +389,12 @@ export const ApproveMerchantResponse = zod.object({
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when their settlement request changes state. Defaults to true.'),
   "planExpiryAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive plan expiry alert emails. Defaults to true.'),
+  "reconciliationAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive reconciliation alert emails. Defaults to true.'),
+  "settlementStateEmails": zod.boolean().optional().describe('Whether the merchant will receive settlement state emails. Defaults to true.'),
+  "reportFailureAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive report failure alert emails. Defaults to true.'),
+  "weeklyDeliveryDigestEmails": zod.boolean().optional().describe('Whether the merchant will receive the weekly delivery digest email. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive EKQR sync alert emails. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant will receive plan change emails. Defaults to true.'),
   "createdAt": zod.string()
 })
 
@@ -412,6 +438,12 @@ export const RejectMerchantResponse = zod.object({
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when their settlement request changes state. Defaults to true.'),
   "planExpiryAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive plan expiry alert emails. Defaults to true.'),
+  "reconciliationAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive reconciliation alert emails. Defaults to true.'),
+  "settlementStateEmails": zod.boolean().optional().describe('Whether the merchant will receive settlement state emails. Defaults to true.'),
+  "reportFailureAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive report failure alert emails. Defaults to true.'),
+  "weeklyDeliveryDigestEmails": zod.boolean().optional().describe('Whether the merchant will receive the weekly delivery digest email. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive EKQR sync alert emails. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant will receive plan change emails. Defaults to true.'),
   "createdAt": zod.string()
 })
 
@@ -451,6 +483,12 @@ export const SuspendMerchantResponse = zod.object({
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when their settlement request changes state. Defaults to true.'),
   "planExpiryAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive plan expiry alert emails. Defaults to true.'),
+  "reconciliationAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive reconciliation alert emails. Defaults to true.'),
+  "settlementStateEmails": zod.boolean().optional().describe('Whether the merchant will receive settlement state emails. Defaults to true.'),
+  "reportFailureAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive report failure alert emails. Defaults to true.'),
+  "weeklyDeliveryDigestEmails": zod.boolean().optional().describe('Whether the merchant will receive the weekly delivery digest email. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive EKQR sync alert emails. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant will receive plan change emails. Defaults to true.'),
   "createdAt": zod.string()
 })
 
@@ -490,6 +528,12 @@ export const UnsuspendMerchantResponse = zod.object({
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when their settlement request changes state. Defaults to true.'),
   "planExpiryAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive plan expiry alert emails. Defaults to true.'),
+  "reconciliationAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive reconciliation alert emails. Defaults to true.'),
+  "settlementStateEmails": zod.boolean().optional().describe('Whether the merchant will receive settlement state emails. Defaults to true.'),
+  "reportFailureAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive report failure alert emails. Defaults to true.'),
+  "weeklyDeliveryDigestEmails": zod.boolean().optional().describe('Whether the merchant will receive the weekly delivery digest email. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive EKQR sync alert emails. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant will receive plan change emails. Defaults to true.'),
   "createdAt": zod.string()
 })
 
@@ -918,6 +962,12 @@ export const UpdateMerchantBrandingResponse = zod.object({
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when their settlement request changes state. Defaults to true.'),
   "planExpiryAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive plan expiry alert emails. Defaults to true.'),
+  "reconciliationAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive reconciliation alert emails. Defaults to true.'),
+  "settlementStateEmails": zod.boolean().optional().describe('Whether the merchant will receive settlement state emails. Defaults to true.'),
+  "reportFailureAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive report failure alert emails. Defaults to true.'),
+  "weeklyDeliveryDigestEmails": zod.boolean().optional().describe('Whether the merchant will receive the weekly delivery digest email. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive EKQR sync alert emails. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant will receive plan change emails. Defaults to true.'),
   "createdAt": zod.string()
 })
 
@@ -992,6 +1042,12 @@ export const UpdateMerchantCallbackWindowResponse = zod.object({
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when their settlement request changes state. Defaults to true.'),
   "planExpiryAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive plan expiry alert emails. Defaults to true.'),
+  "reconciliationAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive reconciliation alert emails. Defaults to true.'),
+  "settlementStateEmails": zod.boolean().optional().describe('Whether the merchant will receive settlement state emails. Defaults to true.'),
+  "reportFailureAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive report failure alert emails. Defaults to true.'),
+  "weeklyDeliveryDigestEmails": zod.boolean().optional().describe('Whether the merchant will receive the weekly delivery digest email. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive EKQR sync alert emails. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant will receive plan change emails. Defaults to true.'),
   "createdAt": zod.string()
 })
 
@@ -3112,6 +3168,8 @@ export const ListUsersResponse = zod.object({
   "loginAlertEmails": zod.boolean().optional(),
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their settlement request changes state. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an EKQR synchronisation issue is detected. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their subscription plan is changed by an admin. Defaults to true.'),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -3165,6 +3223,8 @@ export const UpdateUserResponse = zod.object({
   "loginAlertEmails": zod.boolean().optional(),
   "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an admin changes their report schedule. Defaults to true.'),
   "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their settlement request changes state. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an EKQR synchronisation issue is detected. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their subscription plan is changed by an admin. Defaults to true.'),
   "createdAt": zod.string()
 })
 

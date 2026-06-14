@@ -241,6 +241,10 @@ export interface User {
   reportScheduleChangedEmails?: boolean;
   /** Whether the merchant wants an email when their settlement request changes state. Defaults to true. */
   settlementStateChangedEmails?: boolean;
+  /** Whether the merchant wants an email when an EKQR synchronisation issue is detected. Defaults to true. */
+  ekqrSyncAlertEmails?: boolean;
+  /** Whether the merchant wants an email when their subscription plan is changed by an admin. Defaults to true. */
+  planChangeEmails?: boolean;
   createdAt: string;
 }
 
@@ -308,6 +312,18 @@ export interface Merchant {
   settlementStateChangedEmails?: boolean;
   /** Whether the merchant will receive plan expiry alert emails. Defaults to true. */
   planExpiryAlertEmails?: boolean;
+  /** Whether the merchant will receive reconciliation alert emails. Defaults to true. */
+  reconciliationAlertEmails?: boolean;
+  /** Whether the merchant will receive settlement state emails. Defaults to true. */
+  settlementStateEmails?: boolean;
+  /** Whether the merchant will receive report failure alert emails. Defaults to true. */
+  reportFailureAlertEmails?: boolean;
+  /** Whether the merchant will receive the weekly delivery digest email. Defaults to true. */
+  weeklyDeliveryDigestEmails?: boolean;
+  /** Whether the merchant will receive EKQR sync alert emails. Defaults to true. */
+  ekqrSyncAlertEmails?: boolean;
+  /** Whether the merchant will receive plan change emails. Defaults to true. */
+  planChangeEmails?: boolean;
   createdAt: string;
 }
 
@@ -4346,6 +4362,10 @@ export type UpdateMyPreferencesBody = {
   reportScheduleChangedEmails?: boolean;
   /** Whether the merchant wants an email when their settlement request changes state. */
   settlementStateChangedEmails?: boolean;
+  /** Whether the merchant wants an email when an EKQR synchronisation issue is detected. */
+  ekqrSyncAlertEmails?: boolean;
+  /** Whether the merchant wants an email when their subscription plan is changed by an admin. */
+  planChangeEmails?: boolean;
 };
 
 export type ListMerchantsParams = {

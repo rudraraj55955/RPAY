@@ -321,6 +321,8 @@ router.get("/me", requireAuth, async (req, res, next) => {
         loginAlertEmails: usersTable.loginAlertEmails,
         reportScheduleChangedEmails: usersTable.reportScheduleChangedEmails,
         settlementStateChangedEmails: usersTable.settlementStateChangedEmails,
+        ekqrSyncAlertEmails: usersTable.ekqrSyncAlertEmails,
+        planChangeEmails: usersTable.planChangeEmails,
       })
       .from(usersTable)
       .where(eq(usersTable.id, user.id))
@@ -345,6 +347,8 @@ router.get("/me", requireAuth, async (req, res, next) => {
       loginAlertEmails: row?.loginAlertEmails ?? true,
       reportScheduleChangedEmails: row?.reportScheduleChangedEmails ?? true,
       settlementStateChangedEmails: row?.settlementStateChangedEmails ?? true,
+      ekqrSyncAlertEmails: row?.ekqrSyncAlertEmails ?? true,
+      planChangeEmails: row?.planChangeEmails ?? true,
       createdAt: user.createdAt,
     });
   } catch (err) {
@@ -356,7 +360,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
 router.put("/preferences", requireAuth, async (req, res, next) => {
   try {
     const user = (req as any).user;
-    const { reconciliationAlertEmails, planExpiryAlertEmails, settlementStateEmails, signatureFailureAlertEmails, webhookFailureEmails, reportFailureAlertEmails, weeklyDeliveryDigestEmails, apiKeyGeneratedEmails, apiKeyRevokedEmails, loginAlertEmails, reportScheduleChangedEmails, settlementStateChangedEmails } = req.body;
+    const { reconciliationAlertEmails, planExpiryAlertEmails, settlementStateEmails, signatureFailureAlertEmails, webhookFailureEmails, reportFailureAlertEmails, weeklyDeliveryDigestEmails, apiKeyGeneratedEmails, apiKeyRevokedEmails, loginAlertEmails, reportScheduleChangedEmails, settlementStateChangedEmails, ekqrSyncAlertEmails, planChangeEmails } = req.body;
 
     const patch: Record<string, boolean> = {};
 
@@ -456,6 +460,22 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
       patch["settlementStateChangedEmails"] = settlementStateChangedEmails;
     }
 
+    if (ekqrSyncAlertEmails !== undefined) {
+      if (typeof ekqrSyncAlertEmails !== "boolean") {
+        res.status(400).json({ error: "ekqrSyncAlertEmails must be a boolean" });
+        return;
+      }
+      patch["ekqrSyncAlertEmails"] = ekqrSyncAlertEmails;
+    }
+
+    if (planChangeEmails !== undefined) {
+      if (typeof planChangeEmails !== "boolean") {
+        res.status(400).json({ error: "planChangeEmails must be a boolean" });
+        return;
+      }
+      patch["planChangeEmails"] = planChangeEmails;
+    }
+
     if (Object.keys(patch).length === 0) {
       res.status(400).json({ error: "No valid preference fields provided" });
       return;
@@ -474,6 +494,8 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
       "loginAlertEmails",
       "reportScheduleChangedEmails",
       "settlementStateChangedEmails",
+      "ekqrSyncAlertEmails",
+      "planChangeEmails",
     ] as const;
 
     const [current] = await db
@@ -490,6 +512,8 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
         loginAlertEmails: usersTable.loginAlertEmails,
         reportScheduleChangedEmails: usersTable.reportScheduleChangedEmails,
         settlementStateChangedEmails: usersTable.settlementStateChangedEmails,
+        ekqrSyncAlertEmails: usersTable.ekqrSyncAlertEmails,
+        planChangeEmails: usersTable.planChangeEmails,
       })
       .from(usersTable)
       .where(eq(usersTable.id, user.id))
@@ -553,6 +577,8 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
       loginAlertEmails: updated.loginAlertEmails,
       reportScheduleChangedEmails: updated.reportScheduleChangedEmails,
       settlementStateChangedEmails: updated.settlementStateChangedEmails,
+      ekqrSyncAlertEmails: updated.ekqrSyncAlertEmails,
+      planChangeEmails: updated.planChangeEmails,
       createdAt: updated.createdAt,
     });
   } catch (err) {

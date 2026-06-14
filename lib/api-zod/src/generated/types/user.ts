@@ -32,5 +32,9 @@ export interface User {
   reportScheduleChangedEmails?: boolean;
   /** Whether the merchant wants an email when their settlement request changes state. Defaults to true. */
   settlementStateChangedEmails?: boolean;
+  /** Whether the merchant wants an email when an EKQR synchronisation issue is detected. Defaults to true. */
+  ekqrSyncAlertEmails?: boolean;
+  /** Whether the merchant wants an email when their subscription plan is changed by an admin. Defaults to true. */
+  planChangeEmails?: boolean;
   createdAt: string;
 }

@@ -1339,6 +1339,37 @@ export interface SecurityEvent {
   occurredAt: string;
 }
 
+export type SecurityActivityItemSource = typeof SecurityActivityItemSource[keyof typeof SecurityActivityItemSource];
+
+
+export const SecurityActivityItemSource = {
+  credential: 'credential',
+  audit: 'audit',
+} as const;
+
+export interface SecurityActivityItem {
+  id: number;
+  source: SecurityActivityItemSource;
+  /** Event type: merchant_login, api_key_generated, api_key_revoked, callback_secret_rotated, notification_preferences_updated */
+  eventType: string;
+  actorEmail: string;
+  /** @nullable */
+  ipAddress?: string | null;
+  /**
+     * JSON string with extra context (e.g. keyPrefix for key events, changes array for preference updates)
+     * @nullable
+     */
+  details?: string | null;
+  occurredAt: string;
+}
+
+export interface SecurityActivityListResponse {
+  data: SecurityActivityItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface SecurityEventListResponse {
   data: SecurityEvent[];
   total: number;
@@ -5346,6 +5377,34 @@ export const ListApiKeyHistoryEventType = {
   api_key_generated: 'api_key_generated',
   api_key_revoked: 'api_key_revoked',
 } as const;
+
+export type ListSecurityActivityParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * Filter by event type (merchant_login, api_key_generated, api_key_revoked, callback_secret_rotated, notification_preferences_updated). Omit or use 'all' for all types.
+ */
+eventType?: string;
+/**
+ * Filter events on or after this date (YYYY-MM-DD)
+ */
+dateFrom?: string;
+/**
+ * Filter events on or before this date (YYYY-MM-DD)
+ */
+dateTo?: string;
+/**
+ * Filter credential events by IP address (exact match)
+ */
+ipAddress?: string;
+};
 
 export type ListSecurityEventsParams = {
 /**

@@ -2902,6 +2902,58 @@ paths:
         "403":
           description: Merchant access only
 
+  /security/activity:
+    get:
+      operationId: listSecurityActivity
+      tags: [security]
+      summary: List unified merchant security activity timeline
+      description: Returns a paginated, chronologically-sorted list of security events merged from credential events (logins, API key changes, secret rotations) and audit log entries (notification preference changes). Merchant access only.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - name: eventType
+          in: query
+          schema:
+            type: string
+          description: "Filter by event type (merchant_login, api_key_generated, api_key_revoked, callback_secret_rotated, notification_preferences_updated). Omit or use 'all' for all types."
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+          description: "Filter events on or after this date (YYYY-MM-DD)"
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+          description: "Filter events on or before this date (YYYY-MM-DD)"
+        - name: ipAddress
+          in: query
+          schema:
+            type: string
+          description: "Filter credential events by IP address (exact match)"
+      responses:
+        "200":
+          description: Paginated unified security activity list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityActivityListResponse"
+        "403":
+          description: Merchant access only
+
   /security/events:
     get:
       operationId: listSecurityEvents
@@ -10289,6 +10341,44 @@ components:
         occurredAt:
           type: string
           format: date-time
+
+    SecurityActivityItem:
+      type: object
+      required: [id, source, eventType, actorEmail, occurredAt]
+      properties:
+        id:
+          type: integer
+        source:
+          type: string
+          enum: [credential, audit]
+        eventType:
+          type: string
+          description: "Event type: merchant_login, api_key_generated, api_key_revoked, callback_secret_rotated, notification_preferences_updated"
+        actorEmail:
+          type: string
+        ipAddress:
+          type: ["string", "null"]
+        details:
+          type: ["string", "null"]
+          description: JSON string with extra context (e.g. keyPrefix for key events, changes array for preference updates)
+        occurredAt:
+          type: string
+          format: date-time
+
+    SecurityActivityListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityActivityItem"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
 
     SecurityEventListResponse:
       type: object

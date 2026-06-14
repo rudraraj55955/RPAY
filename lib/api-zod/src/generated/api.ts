@@ -2714,6 +2714,42 @@ export const LabelKnownLoginIpResponse = zod.object({
 
 
 /**
+ * Returns a paginated, chronologically-sorted list of security events merged from credential events (logins, API key changes, secret rotations) and audit log entries (notification preference changes). Merchant access only.
+ * @summary List unified merchant security activity timeline
+ */
+export const listSecurityActivityQueryPageDefault = 1;
+
+export const listSecurityActivityQueryLimitDefault = 50;
+export const listSecurityActivityQueryLimitMax = 200;
+
+
+
+export const ListSecurityActivityQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listSecurityActivityQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listSecurityActivityQueryLimitMax).default(listSecurityActivityQueryLimitDefault),
+  "eventType": zod.coerce.string().optional().describe('Filter by event type (merchant_login, api_key_generated, api_key_revoked, callback_secret_rotated, notification_preferences_updated). Omit or use \'all\' for all types.'),
+  "dateFrom": zod.date().optional().describe('Filter events on or after this date (YYYY-MM-DD)'),
+  "dateTo": zod.date().optional().describe('Filter events on or before this date (YYYY-MM-DD)'),
+  "ipAddress": zod.coerce.string().optional().describe('Filter credential events by IP address (exact match)')
+})
+
+export const ListSecurityActivityResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "source": zod.enum(['credential', 'audit']),
+  "eventType": zod.string().describe('Event type: merchant_login, api_key_generated, api_key_revoked, callback_secret_rotated, notification_preferences_updated'),
+  "actorEmail": zod.string(),
+  "ipAddress": zod.string().nullish(),
+  "details": zod.string().nullish().describe('JSON string with extra context (e.g. keyPrefix for key events, changes array for preference updates)'),
+  "occurredAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
  * Returns a paginated list of security events for the authenticated merchant — logins, API key generation, API key revocation, and callback secret rotations. Merchant access only.
  * @summary List merchant security events
  */

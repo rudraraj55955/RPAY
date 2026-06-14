@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useListCallbackLogs, useGetMe, useUpdateMyPreferences, getGetMeQueryKey, useListMySecurityActivity, useListSecurityEvents, useListKnownLoginIps, useListTrustedIps, useDeleteTrustedIp, getListTrustedIpsQueryKey, useLabelKnownLoginIp, getListKnownLoginIpsQueryKey, useGetQuietHoursQueueCount, getGetQuietHoursQueueCountQueryKey } from "@workspace/api-client-react";
+import { useListCallbackLogs, useGetMe, useUpdateMyPreferences, getGetMeQueryKey, useListMySecurityActivity, useListSecurityActivity, useListKnownLoginIps, useListTrustedIps, useDeleteTrustedIp, getListTrustedIpsQueryKey, useLabelKnownLoginIp, getListKnownLoginIpsQueryKey, useGetQuietHoursQueueCount, getGetQuietHoursQueueCountQueryKey } from "@workspace/api-client-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -194,14 +194,24 @@ function buildUnifiedCsvText(callbackData: any[], securityData: any[]): string {
 
 // ─── Security event helpers ───────────────────────────────────────────────────
 
-type SecurityEventType = "merchant_login" | "api_key_generated" | "api_key_revoked" | "callback_secret_rotated";
+type SecurityEventType =
+  | "merchant_login"
+  | "api_key_generated"
+  | "api_key_revoked"
+  | "callback_secret_rotated"
+  | "notification_preferences_updated"
+  | "ip_trusted";
 
 interface LocalSecurityEvent {
   id: number;
+  source?: "credential" | "audit";
   eventType: SecurityEventType;
   actorEmail: string;
+  /** For credential events: populated via the details JSON { keyPrefix } */
   keyPrefix?: string | null;
   ipAddress?: string | null;
+  /** Raw JSON details string from the server */
+  details?: string | null;
   occurredAt: string;
 }
 
@@ -231,12 +241,35 @@ function securityEventMeta(eventType: SecurityEventType) {
         label: "Key Revoked",
         badgeClass: "bg-rose-500/10 text-rose-400 border-rose-500/20",
       };
+    case "notification_preferences_updated":
+      return {
+        icon: <Bell className="w-4 h-4" />,
+        label: "Preferences Changed",
+        badgeClass: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+      };
+    case "ip_trusted":
+      return {
+        icon: <ShieldCheck className="w-4 h-4" />,
+        label: "IP Trusted",
+        badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+      };
     default:
       return {
         icon: <Monitor className="w-4 h-4" />,
-        label: eventType,
+        label: (eventType as string).replace(/_/g, " "),
         badgeClass: "bg-muted/10 text-muted-foreground border-border/50",
       };
+  }
+}
+
+/** Extract keyPrefix from a details JSON string (used for credential events). */
+function extractKeyPrefix(details: string | null | undefined): string | null {
+  if (!details) return null;
+  try {
+    const parsed = JSON.parse(details);
+    return parsed?.keyPrefix ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -258,12 +291,15 @@ function HighlightText({ text, query }: { text: string; query: string }) {
 function SecurityEventRow({ event, highlight = "", myEmail = "" }: { event: LocalSecurityEvent; highlight?: string; myEmail?: string }) {
   const meta = securityEventMeta(event.eventType);
   const isLogin = event.eventType === "merchant_login";
-  const isAdminAction = !isLogin && !!myEmail && !!event.actorEmail && event.actorEmail !== myEmail;
+  const isPrefChange = event.eventType === "notification_preferences_updated";
+  // keyPrefix can come from the dedicated field or from details JSON
+  const keyPrefix = event.keyPrefix ?? extractKeyPrefix(event.details);
+  const isAdminAction = !isLogin && !isPrefChange && !!myEmail && !!event.actorEmail && event.actorEmail !== myEmail;
   const descText =
-    isLogin
+    isLogin || isPrefChange
       ? null
-      : event.keyPrefix
-      ? `${event.eventType === "api_key_generated" ? "API key generated" : event.eventType === "api_key_revoked" ? "API key revoked" : "Callback secret rotated"} (${event.keyPrefix})`
+      : keyPrefix
+      ? `${event.eventType === "api_key_generated" ? "API key generated" : event.eventType === "api_key_revoked" ? "API key revoked" : "Callback secret rotated"} (${keyPrefix})`
       : event.eventType === "callback_secret_rotated"
       ? "Callback signing secret rotated"
       : meta.label;
@@ -280,9 +316,9 @@ function SecurityEventRow({ event, highlight = "", myEmail = "" }: { event: Loca
           <Badge variant="outline" className={`text-xs font-medium ${meta.badgeClass}`}>
             {meta.label}
           </Badge>
-          {event.keyPrefix && (
+          {keyPrefix && (
             <code className="text-xs font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
-              <HighlightText text={event.keyPrefix} query={highlight} />
+              <HighlightText text={keyPrefix} query={highlight} />
             </code>
           )}
         </div>
@@ -290,6 +326,11 @@ function SecurityEventRow({ event, highlight = "", myEmail = "" }: { event: Loca
           <p className="text-sm text-muted-foreground">
             Signed in{event.ipAddress ? <> from <code className="text-xs font-mono text-muted-foreground bg-muted/50 px-1 py-0.5 rounded"><HighlightText text={event.ipAddress} query={highlight} /></code></> : null}
           </p>
+        ) : isPrefChange ? (
+          <div>
+            <p className="text-sm text-muted-foreground mb-0.5">Notification preferences updated</p>
+            <NotifPrefChanges details={event.details} />
+          </div>
         ) : descText ? (
           <p className="text-sm text-muted-foreground">
             <HighlightText text={descText} query={highlight} />
@@ -696,7 +737,7 @@ export default function MerchantSecurity() {
   const [secPage, setSecPage] = useState(1);
   const SEC_PAGE_SIZE = 20;
 
-  const { data: secEventsData, isLoading: secEventsLoading } = useListSecurityEvents({
+  const { data: secEventsData, isLoading: secEventsLoading } = useListSecurityActivity({
     limit: SEC_PAGE_SIZE,
     page: secPage,
     eventType: secEventType === "all" ? undefined : (secEventType as any),
@@ -705,12 +746,16 @@ export default function MerchantSecurity() {
     ipAddress: ipFilter || undefined,
   });
 
-  const allSecEvents = (secEventsData?.data ?? []) as LocalSecurityEvent[];
+  const allSecEvents = (secEventsData?.data ?? []).map((ev: any) => ({
+    ...ev,
+    keyPrefix: extractKeyPrefix(ev.details),
+  })) as LocalSecurityEvent[];
   const secPageSlice = secSearch
     ? allSecEvents.filter(ev => {
         const q = secSearch.toLowerCase();
         const meta = securityEventMeta(ev.eventType);
-        return [ev.keyPrefix ?? "", meta.label, ev.eventType.replace(/_/g, " "), ev.actorEmail ?? "", ev.ipAddress ?? ""]
+        const keyPrefix = ev.keyPrefix ?? extractKeyPrefix(ev.details);
+        return [keyPrefix ?? "", meta.label, ev.eventType.replace(/_/g, " "), ev.actorEmail ?? "", ev.ipAddress ?? ""]
           .join(" ").toLowerCase().includes(q);
       })
     : allSecEvents;
@@ -780,10 +825,10 @@ export default function MerchantSecurity() {
 
   const [exportingSecEvents, setExportingSecEvents] = useState(false);
 
-  async function fetchAllSecurityEvents(params: { eventType?: string; dateFrom?: string; dateTo?: string }): Promise<LocalSecurityEvent[]> {
+  async function fetchAllSecurityActivity(params: { eventType?: string; dateFrom?: string; dateTo?: string }): Promise<LocalSecurityEvent[]> {
     const token = localStorage.getItem("rasokart_token");
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    const results: LocalSecurityEvent[] = [];
+    const results: any[] = [];
     let fetchPage = 1;
     const FETCH_LIMIT = 200;
     while (true) {
@@ -791,14 +836,14 @@ export default function MerchantSecurity() {
       if (params.eventType && params.eventType !== "all") qp.set("eventType", params.eventType);
       if (params.dateFrom) qp.set("dateFrom", params.dateFrom);
       if (params.dateTo) qp.set("dateTo", params.dateTo);
-      const res = await fetch(`/api/security/events?${qp}`, { headers });
-      if (!res.ok) throw new Error("Failed to fetch security events");
+      const res = await fetch(`/api/security/activity?${qp}`, { headers });
+      if (!res.ok) throw new Error("Failed to fetch security activity");
       const json = await res.json();
-      results.push(...(json.data as LocalSecurityEvent[]));
+      results.push(...json.data);
       if (results.length >= json.total || json.data.length < FETCH_LIMIT) break;
       fetchPage++;
     }
-    return results;
+    return results.map((ev: any) => ({ ...ev, keyPrefix: extractKeyPrefix(ev.details) }));
   }
 
   async function fetchAllCallbackLogs(params: { status?: string; signatureVerified?: string; dateFrom?: string; dateTo?: string }): Promise<any[]> {
@@ -827,15 +872,15 @@ export default function MerchantSecurity() {
   async function handleExportCsv() {
     setExporting(true);
     try {
-      const [allSecEvents, allCallbackLogs] = await Promise.all([
-        fetchAllSecurityEvents({ eventType: secEventType, dateFrom: secDateFrom, dateTo: secDateTo }),
+      const [allSecActivity, allCallbackLogs] = await Promise.all([
+        fetchAllSecurityActivity({ eventType: secEventType, dateFrom: secDateFrom, dateTo: secDateTo }),
         fetchAllCallbackLogs({ status, signatureVerified: sigFilter, dateFrom, dateTo }),
       ]);
-      if (!allCallbackLogs.length && !allSecEvents.length) {
+      if (!allCallbackLogs.length && !allSecActivity.length) {
         toast.info("No records to export");
         return;
       }
-      const csv = buildUnifiedCsvText(allCallbackLogs, allSecEvents);
+      const csv = buildUnifiedCsvText(allCallbackLogs, allSecActivity);
       const lines = csv.split("\n").filter(l => l.trim() !== "");
       const rowCount = Math.max(0, lines.length - 1);
       setLastExportCount(rowCount);
@@ -854,16 +899,16 @@ export default function MerchantSecurity() {
   async function handleExportSecEventsCsv() {
     setExportingSecEvents(true);
     try {
-      const allSecEvents = await fetchAllSecurityEvents({ eventType: secEventType, dateFrom: secDateFrom, dateTo: secDateTo });
-      if (!allSecEvents.length) {
+      const allSecActivity = await fetchAllSecurityActivity({ eventType: secEventType, dateFrom: secDateFrom, dateTo: secDateTo });
+      if (!allSecActivity.length) {
         toast.info("No events to export");
         return;
       }
-      const csv = buildCredentialEventCsvText(allSecEvents);
-      const rowCount = allSecEvents.length;
+      const csv = buildCredentialEventCsvText(allSecActivity);
+      const rowCount = allSecActivity.length;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-      a.download = `credential-events-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `security-activity-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       toast.success(`Exported ${rowCount} event${rowCount !== 1 ? "s" : ""}`);
     } catch {
@@ -1617,13 +1662,13 @@ export default function MerchantSecurity() {
         </CardContent>
       </Card>
 
-      {/* Security event history */}
+      {/* Security activity timeline */}
       <Card ref={credEventRef}>
         <CardHeader className="pb-3 space-y-3">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base flex items-center gap-2 flex-1">
-              <Shield className="w-4 h-4 text-muted-foreground" />
-              Credential Event History
+              <Shield className="w-4 h-4 text-violet-400" />
+              Security Activity Timeline
             </CardTitle>
             <Button
               variant="outline"
@@ -1682,6 +1727,8 @@ export default function MerchantSecurity() {
               {[
                 { value: "all", label: "All" },
                 { value: "merchant_login", label: "Logins" },
+                { value: "ip_trusted", label: "IP Trusted" },
+                { value: "notification_preferences_updated", label: "Preferences" },
                 { value: "api_key_generated", label: "Key Generated" },
                 { value: "api_key_revoked", label: "Key Revoked" },
                 { value: "callback_secret_rotated", label: "Secret Rotated" },
@@ -1752,14 +1799,14 @@ export default function MerchantSecurity() {
                     ? `No events match "${secSearch}"`
                     : anySecFilterActive
                     ? "No events match your filters"
-                    : "No security events recorded yet"}
+                    : "No security activity recorded yet"}
                 </p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   {secSearch
-                    ? "Try a different key prefix or description term."
+                    ? "Try a different search term."
                     : anySecFilterActive
                     ? "Try clearing the filters to see all events."
-                    : "Login events, key generation, and secret rotations will appear here."}
+                    : "Logins, key changes, secret rotations, and preference updates will appear here."}
                 </p>
               </div>
             </div>

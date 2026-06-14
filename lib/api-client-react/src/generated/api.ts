@@ -203,6 +203,7 @@ import type {
   ListReconciliationRunItemsParams,
   ListReconciliationRunsParams,
   ListSavedFilters200,
+  ListSecurityActivityParams,
   ListSecurityEventsParams,
   ListSettlementsParams,
   ListStorageCleanupRuns200,
@@ -315,6 +316,7 @@ import type {
   SavedFilter,
   ScheduleRenewalInput,
   SearchByUtrParams,
+  SecurityActivityListResponse,
   SecurityComplianceSummaryResponse,
   SecurityEventListResponse,
   SecurityReminderRequest,
@@ -7426,6 +7428,91 @@ export const useLabelKnownLoginIp = <TError = ErrorType<MessageResponse | void>,
       > => {
       return useMutation(getLabelKnownLoginIpMutationOptions(options));
     }
+
+export const getListSecurityActivityUrl = (params?: ListSecurityActivityParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/security/activity?${stringifiedParams}` : `/api/security/activity`
+}
+
+/**
+ * Returns a paginated, chronologically-sorted list of security events merged from credential events (logins, API key changes, secret rotations) and audit log entries (notification preference changes). Merchant access only.
+ * @summary List unified merchant security activity timeline
+ */
+export const listSecurityActivity = async (params?: ListSecurityActivityParams, options?: RequestInit): Promise<SecurityActivityListResponse> => {
+
+  return customFetch<SecurityActivityListResponse>(getListSecurityActivityUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSecurityActivityQueryKey = (params?: ListSecurityActivityParams,) => {
+    return [
+    `/api/security/activity`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListSecurityActivityQueryOptions = <TData = Awaited<ReturnType<typeof listSecurityActivity>>, TError = ErrorType<void>>(params?: ListSecurityActivityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSecurityActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSecurityActivityQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSecurityActivity>>> = ({ signal }) => listSecurityActivity(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSecurityActivity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSecurityActivityQueryResult = NonNullable<Awaited<ReturnType<typeof listSecurityActivity>>>
+export type ListSecurityActivityQueryError = ErrorType<void>
+
+
+/**
+ * @summary List unified merchant security activity timeline
+ */
+
+export function useListSecurityActivity<TData = Awaited<ReturnType<typeof listSecurityActivity>>, TError = ErrorType<void>>(
+ params?: ListSecurityActivityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSecurityActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSecurityActivityQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListSecurityEventsUrl = (params?: ListSecurityEventsParams,) => {
   const normalizedParams = new URLSearchParams();

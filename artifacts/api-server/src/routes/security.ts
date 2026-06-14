@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, credentialEventsTable, merchantTrustedIpsTable } from "@workspace/db";
-import { eq, and, gte, lte, desc, count, min, max, isNotNull } from "drizzle-orm";
+import { db, credentialEventsTable, merchantTrustedIpsTable, auditLogsTable, usersTable } from "@workspace/db";
+import { eq, and, gte, lte, desc, count, min, max, isNotNull, or, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
 const router = Router();
@@ -230,6 +230,106 @@ router.patch("/known-ips/:ipAddress/label", async (req, res, next) => {
       label,
       labeledAt: now.toISOString(),
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/security/activity — unified chronological security timeline (credential events + audit log)
+router.get("/activity", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== "merchant" || !user.merchantId) {
+      res.status(403).json({ error: "Merchant access only" });
+      return;
+    }
+
+    const { page = "1", limit = "50", dateFrom, dateTo, eventType, ipAddress } = req.query as Record<string, string>;
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
+
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    let fromDate: Date | null = null;
+    let toDate: Date | null = null;
+    if (dateFrom && dateRe.test(dateFrom)) {
+      const [y, m, d] = dateFrom.split("-").map(Number);
+      const f = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+      if (!isNaN(f.getTime())) fromDate = f;
+    }
+    if (dateTo && dateRe.test(dateTo)) {
+      const [y, m, d] = dateTo.split("-").map(Number);
+      const t = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+      if (!isNaN(t.getTime())) toDate = t;
+    }
+
+    const credentialEventTypes = ["merchant_login", "api_key_generated", "api_key_revoked", "callback_secret_rotated", "ip_trusted"];
+    const auditSecurityActions = ["notification_preferences_updated"];
+
+    const wantCredential = !eventType || eventType === "all" || credentialEventTypes.includes(eventType);
+    const wantAudit = !eventType || eventType === "all" || auditSecurityActions.includes(eventType);
+
+    // Fetch credential events
+    let credentialRows: Array<typeof credentialEventsTable.$inferSelect> = [];
+    if (wantCredential) {
+      const conds: any[] = [eq(credentialEventsTable.merchantId, user.merchantId)];
+      if (eventType && eventType !== "all" && credentialEventTypes.includes(eventType)) {
+        conds.push(eq(credentialEventsTable.eventType, eventType));
+      }
+      if (ipAddress) conds.push(eq(credentialEventsTable.ipAddress, ipAddress));
+      if (fromDate) conds.push(gte(credentialEventsTable.createdAt, fromDate));
+      if (toDate) conds.push(lte(credentialEventsTable.createdAt, toDate));
+      credentialRows = await db.select().from(credentialEventsTable).where(and(...conds));
+    }
+
+    // Fetch audit log events — scoped to ALL users belonging to this merchant account
+    let auditRows: Array<typeof auditLogsTable.$inferSelect> = [];
+    if (wantAudit) {
+      const merchantUsers = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.merchantId, user.merchantId));
+      const merchantUserIds = merchantUsers.map(u => u.id);
+
+      if (merchantUserIds.length > 0) {
+        const merchantCondition = merchantUserIds.length === 1
+          ? eq(auditLogsTable.adminId, merchantUserIds[0]!)
+          : inArray(auditLogsTable.adminId, merchantUserIds);
+        const aConds: any[] = [merchantCondition, inArray(auditLogsTable.action, auditSecurityActions)];
+        if (fromDate) aConds.push(gte(auditLogsTable.createdAt, fromDate));
+        if (toDate) aConds.push(lte(auditLogsTable.createdAt, toDate));
+        auditRows = await db.select().from(auditLogsTable).where(and(...aConds));
+      }
+    }
+
+    // Merge and sort descending by time
+    const merged = [
+      ...credentialRows.map(r => ({
+        id: r.id,
+        source: "credential" as const,
+        eventType: r.eventType,
+        ipAddress: r.ipAddress ?? null,
+        actorEmail: r.actorEmail,
+        details: r.keyPrefix ? JSON.stringify({ keyPrefix: r.keyPrefix }) : null,
+        occurredAt: r.createdAt.toISOString(),
+        _ts: r.createdAt.getTime(),
+      })),
+      ...auditRows.map(r => ({
+        id: r.id,
+        source: "audit" as const,
+        eventType: r.action,
+        ipAddress: r.ipAddress ?? null,
+        actorEmail: r.adminEmail,
+        details: r.details ?? null,
+        occurredAt: r.createdAt.toISOString(),
+        _ts: r.createdAt.getTime(),
+      })),
+    ].sort((a, b) => b._ts - a._ts);
+
+    const total = merged.length;
+    const pageData = merged.slice(offset, offset + limitNum).map(({ _ts, ...rest }) => rest);
+
+    res.json({ data: pageData, total, page: pageNum, limit: limitNum });
   } catch (err) {
     next(err);
   }

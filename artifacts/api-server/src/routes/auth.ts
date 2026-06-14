@@ -205,7 +205,7 @@ router.get("/trust-ip", async (req, res) => {
   }
 
   const [user] = await db
-    .select({ id: usersTable.id, merchantId: usersTable.merchantId, role: usersTable.role })
+    .select({ id: usersTable.id, email: usersTable.email, merchantId: usersTable.merchantId, role: usersTable.role })
     .from(usersTable)
     .where(eq(usersTable.id, payload.userId))
     .limit(1)
@@ -256,6 +256,15 @@ router.get("/trust-ip", async (req, res) => {
           ),
         );
     }
+
+    // Record the trust action in the credential event log for the security timeline
+    await db.insert(credentialEventsTable).values({
+      merchantId: user.merchantId,
+      eventType: "ip_trusted",
+      actorId: user.id,
+      actorEmail: user.email,
+      ipAddress: payload.ip,
+    }).catch(err => logger.warn({ err, userId: user.id, ip: payload.ip }, "Failed to record ip_trusted credential event"));
 
     res.send(htmlPage(true, "This IP address has been added to your trusted list. You will no longer receive login alerts when signing in from this location."));
   } catch (err) {

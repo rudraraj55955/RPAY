@@ -5801,7 +5801,6 @@ export const retryReportDeliveryLog = async (id: number, options?: RequestInit):
 
 
 
-<<<<<<< HEAD
 
 export const getGetReportDeliveryHealthQueryKey = (params?: GetReportDeliveryHealthParams,) => {
     return [
@@ -5854,7 +5853,6 @@ export function useGetReportDeliveryHealth<TData = Awaited<ReturnType<typeof get
 
 
 
-=======
 export const getRetryReportDeliveryLogMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryReportDeliveryLog>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof retryReportDeliveryLog>>, TError,{id: number}, TContext> => {
@@ -5900,7 +5898,6 @@ export const useRetryReportDeliveryLog = <TError = ErrorType<void>,
       return useMutation(getRetryReportDeliveryLogMutationOptions(options));
     }
 
->>>>>>> 06155ec7 (feat: add per-row Retry button to failed delivery log entries (task-1619))
 export const getGetAdminMerchantReportScheduleHistoryUrl = (merchantId: number,
     params?: GetAdminMerchantReportScheduleHistoryParams,) => {
   const normalizedParams = new URLSearchParams();

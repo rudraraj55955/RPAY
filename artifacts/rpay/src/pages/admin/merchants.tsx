@@ -610,6 +610,24 @@ export default function AdminMerchants() {
     }
   };
 
+  const handlePreviewBulkPlanEmail = async () => {
+    const sampleId = selected.values().next().value;
+    if (!sampleId || !bulkPlanId) return;
+    setPlanEmailPreviewLoading(true);
+    try {
+      const params: { variant: "assigned"; planId?: number; notes?: string; expiresAt?: string } = { variant: "assigned" };
+      params.planId = parseInt(bulkPlanId);
+      if (bulkExpiresAt) params.expiresAt = bulkExpiresAt;
+      if (bulkNotes) params.notes = bulkNotes;
+      const result = await previewMerchantPlanEmail(sampleId, params);
+      setPlanEmailPreview(result);
+    } catch {
+      toast.error("Failed to load email preview");
+    } finally {
+      setPlanEmailPreviewLoading(false);
+    }
+  };
+
   const handleApprove = (id: number) => {
     approveMutation.mutate({ id }, {
       onSuccess: (merchant) => {
@@ -2042,6 +2060,17 @@ export default function AdminMerchants() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeBulkDialog}>Cancel</Button>
+            {bulkPlanId && (
+              <Button
+                variant="outline"
+                className="text-violet-400 border-violet-500/30 hover:bg-violet-500/10 gap-1.5"
+                disabled={planEmailPreviewLoading}
+                onClick={handlePreviewBulkPlanEmail}
+              >
+                {planEmailPreviewLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+                Preview Email
+              </Button>
+            )}
             {(() => {
               const plan = bulkPlanId ? plans?.find(p => String(p.id) === bulkPlanId) : undefined;
               const isPaid = plan && plan.monthlyFee !== "0" && plan.name.toLowerCase() !== "custom";

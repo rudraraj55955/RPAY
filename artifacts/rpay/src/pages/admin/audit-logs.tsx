@@ -33,7 +33,7 @@ import {
   Users, Loader2, QrCode, Landmark,
   Clock, Mail, Plus, Ban, Send, History, ChevronDown, ChevronUp, AlertCircle, Settings,
   MonitorPlay, RefreshCw, KeyRound, RotateCcw, ClipboardCheck, AlertTriangle, Building2, BellRing,
-  ArrowUpRight, AtSign, Network, CalendarDays,
+  ArrowUpRight, AtSign, Network, CalendarDays, Bot,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -3866,10 +3866,17 @@ export default function AdminAuditLogs() {
                   className={isDirectMerchantMatch ? "bg-orange-500/5 hover:bg-orange-500/10" : undefined}
                 >
                   <TableCell>
-                    <div>
-                      <p className="text-sm font-medium">{log.adminEmail}</p>
-                      <p className="text-xs text-muted-foreground">ID #{log.adminId}</p>
-                    </div>
+                    {log.adminEmail === "system" || log.adminId === 0 ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-xs font-medium text-slate-400">
+                        <Bot className="w-3 h-3" />
+                        System
+                      </span>
+                    ) : (
+                      <div>
+                        <p className="text-sm font-medium">{log.adminEmail}</p>
+                        <p className="text-xs text-muted-foreground">ID #{log.adminId}</p>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -3949,8 +3956,15 @@ export default function AdminAuditLogs() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg bg-muted/20 p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Admin</p>
-                  <p className="text-sm">{selected.adminEmail}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Performed by</p>
+                  {selected.adminEmail === "system" || selected.adminId === 0 ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-xs font-medium text-slate-400">
+                      <Bot className="w-3 h-3" />
+                      System
+                    </span>
+                  ) : (
+                    <p className="text-sm">{selected.adminEmail}</p>
+                  )}
                 </div>
                 <div className="rounded-lg bg-muted/20 p-3">
                   <p className="text-xs text-muted-foreground mb-1">Timestamp</p>

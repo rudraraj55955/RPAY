@@ -247,6 +247,12 @@ export default function MerchantDashboard() {
     return `You have had one or more email notifications disabled for over ${notifDisabledDaysLegacy} days. Re-enable them to stay informed about important security and account events.`;
   })();
 
+  // Immediate "currently disabled" summary — shows as soon as any preference is off
+  const currentlyDisabledNotifs = user == null ? [] :
+    Object.entries(NOTIF_FIELD_LABELS)
+      .filter(([field]) => (user as unknown as Record<string, unknown>)[field] === false)
+      .map(([, label]) => label);
+
   const isExpiringSoon = myPlan && !myPlan.isExpired && myPlan.daysUntilExpiry != null && myPlan.daysUntilExpiry <= 7;
 
   const secretAgeInDays = secretStatus?.isSet && secretStatus.lastRotatedAt != null
@@ -423,7 +429,7 @@ export default function MerchantDashboard() {
         </Card>
       )}
 
-      {/* Notification reminder banner */}
+      {/* Notification reminder banner (30+ days) */}
       {showNotifReminderBanner && (
         <Card className="border-amber-500/40 bg-amber-950/20">
           <CardContent className="py-4 flex items-center gap-3">
@@ -456,6 +462,32 @@ export default function MerchantDashboard() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Disabled notifications summary callout — immediate, shown whenever any preference is off */}
+      {!showNotifReminderBanner && currentlyDisabledNotifs.length > 0 && (
+        <Link href="/merchant/security?section=notifications" className="block">
+          <Card className="border-slate-500/30 bg-slate-900/40 hover:border-slate-400/50 hover:bg-slate-900/60 transition-colors cursor-pointer">
+            <CardContent className="py-3 flex items-center gap-3">
+              <BellOff className="w-4 h-4 text-slate-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-300">
+                  {currentlyDisabledNotifs.length === 1
+                    ? "1 email notification is turned off"
+                    : `${currentlyDisabledNotifs.length} email notifications are turned off`}
+                </p>
+                <p className="text-xs text-slate-400/70 mt-0.5 truncate">
+                  {currentlyDisabledNotifs.length <= 3
+                    ? currentlyDisabledNotifs.join(", ")
+                    : `${currentlyDisabledNotifs.slice(0, 3).join(", ")} and ${currentlyDisabledNotifs.length - 3} more`}
+                </p>
+              </div>
+              <span className="text-xs text-slate-400 flex items-center gap-0.5 shrink-0">
+                Review <ChevronRight className="w-3.5 h-3.5" />
+              </span>
+            </CardContent>
+          </Card>
+        </Link>
       )}
 
       {/* Provider Status */}

@@ -349,6 +349,47 @@ function CredentialEventSkeletonRows() {
   );
 }
 
+// ─── Notification preference change helpers ───────────────────────────────────
+
+const PREF_FIELD_LABELS: Record<string, string> = {
+  apiKeyGeneratedEmails: "API key generated",
+  apiKeyRevokedEmails: "API key revoked",
+  signatureFailureAlertEmails: "Signature failure alerts",
+  loginAlertEmails: "New login alerts",
+  reportScheduleChangedEmails: "Report schedule changed",
+  settlementStateChangedEmails: "Settlement state changed",
+  reconciliationAlertEmails: "Reconciliation alerts",
+  planExpiryAlertEmails: "Plan expiry alerts",
+  settlementStateEmails: "Settlement state emails",
+  webhookFailureEmails: "Webhook failure emails",
+  reportFailureAlertEmails: "Report failure alerts",
+  weeklyDeliveryDigestEmails: "Weekly delivery digest",
+};
+
+function NotifPrefChanges({ details }: { details: string | null | undefined }) {
+  if (!details) return null;
+  let parsed: { changes?: Array<{ field: string; oldValue: boolean; newValue: boolean }> };
+  try { parsed = JSON.parse(details); } catch { return null; }
+  const changes = parsed?.changes;
+  if (!Array.isArray(changes) || changes.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-0.5 mt-0.5">
+      {changes.map((c, i) => (
+        <span key={i} className="inline-flex items-center gap-1 flex-wrap text-xs">
+          <span className="text-muted-foreground/70">{PREF_FIELD_LABELS[c.field] ?? c.field}:</span>
+          <span className={`font-medium ${c.oldValue ? "text-emerald-400" : "text-rose-400"}`}>
+            {c.oldValue ? "On" : "Off"}
+          </span>
+          <span className="text-muted-foreground/40">→</span>
+          <span className={`font-medium ${c.newValue ? "text-emerald-400" : "text-rose-400"}`}>
+            {c.newValue ? "On" : "Off"}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function MerchantSecurity() {
@@ -1112,7 +1153,7 @@ export default function MerchantSecurity() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <CardTitle className="text-base flex items-center gap-2">
               <ClipboardList className="w-4 h-4 text-violet-400" />
-              Admin Activity Log
+              Account Activity Log
             </CardTitle>
             <div className="flex items-center gap-2">
               <TooltipProvider>
@@ -1139,7 +1180,7 @@ export default function MerchantSecurity() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Actions taken on your account by RasoKart administrators
+            Admin actions on your account and your own notification preference changes
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <span className="text-xs text-muted-foreground font-medium">Date range:</span>
@@ -1177,7 +1218,7 @@ export default function MerchantSecurity() {
               <TableRow>
                 <TableHead className="w-16">ID</TableHead>
                 <TableHead>Action</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Details</TableHead>
                 <TableHead>IP Address</TableHead>
                 <TableHead>Date</TableHead>
               </TableRow>
@@ -1196,7 +1237,7 @@ export default function MerchantSecurity() {
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
                     <div className="flex flex-col items-center gap-2">
                       <ClipboardList className="w-8 h-8 text-muted-foreground/30" />
-                      <p>{(activityDateFrom || activityDateTo) ? "No activity in this date range" : "No admin activity recorded yet"}</p>
+                      <p>{(activityDateFrom || activityDateTo) ? "No activity in this date range" : "No account activity recorded yet"}</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1205,12 +1246,21 @@ export default function MerchantSecurity() {
                   <TableRow key={row.id}>
                     <TableCell className="font-mono text-xs text-muted-foreground">#{row.id}</TableCell>
                     <TableCell>
-                      <span className="font-mono text-xs text-violet-400">{formatAction(row.action)}</span>
+                      <div>
+                        <span className="font-mono text-xs text-violet-400">{formatAction(row.action)}</span>
+                        {row.action === "notification_preferences_updated" && (
+                          <Badge variant="outline" className="ml-2 text-xs font-normal text-sky-400 border-sky-500/30">
+                            by you
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
-                        {row.targetType}
-                      </Badge>
+                    <TableCell className="max-w-[260px]">
+                      {row.action === "notification_preferences_updated" ? (
+                        <NotifPrefChanges details={row.details} />
+                      ) : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {row.ipAddress ?? <span className="text-muted-foreground/40">—</span>}

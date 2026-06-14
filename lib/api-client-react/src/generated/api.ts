@@ -5853,6 +5853,7 @@ export function useGetReportDeliveryHealth<TData = Awaited<ReturnType<typeof get
 
 
 
+
 export const getRetryReportDeliveryLogMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryReportDeliveryLog>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof retryReportDeliveryLog>>, TError,{id: number}, TContext> => {

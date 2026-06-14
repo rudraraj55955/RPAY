@@ -394,7 +394,15 @@ router.get("/my-activity", async (req, res) => {
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
 
-  const conditions: any[] = [eq(auditLogsTable.targetId, user.merchantId)];
+  const baseCondition = or(
+    eq(auditLogsTable.targetId, user.merchantId),
+    and(
+      eq(auditLogsTable.action, "notification_preferences_updated"),
+      eq(auditLogsTable.adminId, user.id),
+    ),
+  )!;
+
+  const conditions: any[] = [baseCondition];
   if (dateFrom) {
     const from = new Date(dateFrom);
     from.setUTCHours(0, 0, 0, 0);
@@ -432,10 +440,18 @@ router.get("/my-activity/export", async (req, res) => {
     return;
   }
 
+  const exportCondition = or(
+    eq(auditLogsTable.targetId, user.merchantId),
+    and(
+      eq(auditLogsTable.action, "notification_preferences_updated"),
+      eq(auditLogsTable.adminId, user.id),
+    ),
+  )!;
+
   const rows = await db
     .select()
     .from(auditLogsTable)
-    .where(eq(auditLogsTable.targetId, user.merchantId))
+    .where(exportCondition)
     .orderBy(sql`${auditLogsTable.createdAt} DESC`);
 
   function escapeCsv(val: string | null | undefined): string {

@@ -210,6 +210,8 @@ type ReportDeliveryLogEntry = {
   attemptedAt: string;
   failureReason?: string | null;
   isAutoPause: boolean;
+  maxAttempts?: number | null;
+  backoffBaseMs?: number | null;
 };
 
 function AutoPausedStatus({
@@ -279,6 +281,20 @@ function AutoPausedStatus({
               <p className="text-xs text-foreground/80 break-words">
                 {log.failureReason ?? <span className="italic text-muted-foreground">No reason recorded</span>}
               </p>
+              {log.isAutoPause && (log.maxAttempts != null || log.backoffBaseMs != null) && (
+                <div className="flex items-center gap-2 pt-0.5">
+                  {log.maxAttempts != null && (
+                    <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                      Max retries: <span className="text-foreground/70 font-medium">{log.maxAttempts}</span>
+                    </span>
+                  )}
+                  {log.backoffBaseMs != null && (
+                    <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                      Backoff base: <span className="text-foreground/70 font-medium">{log.backoffBaseMs}ms</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -507,7 +523,23 @@ function ScheduleHistoryDialog({
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[200px] break-words">
-                      {log.failureReason ?? <span className="opacity-40">—</span>}
+                      <div className="space-y-1">
+                        <span>{log.failureReason ?? <span className="opacity-40">—</span>}</span>
+                        {log.isAutoPause && ((log as any).maxAttempts != null || (log as any).backoffBaseMs != null) && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {(log as any).maxAttempts != null && (
+                              <span className="inline-flex items-center text-[10px] text-amber-400/80 bg-amber-400/10 rounded px-1.5 py-0.5 font-medium whitespace-nowrap">
+                                {(log as any).maxAttempts} max retries
+                              </span>
+                            )}
+                            {(log as any).backoffBaseMs != null && (
+                              <span className="inline-flex items-center text-[10px] text-amber-400/80 bg-amber-400/10 rounded px-1.5 py-0.5 font-medium whitespace-nowrap">
+                                {(log as any).backoffBaseMs}ms backoff
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

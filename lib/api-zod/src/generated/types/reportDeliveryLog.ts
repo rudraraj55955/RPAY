@@ -57,4 +57,14 @@ export interface ReportDeliveryLog {
      * @nullable
      */
   performedByAdminEmail?: string | null;
+  /**
+     * Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)
+     * @nullable
+     */
+  maxAttempts?: number | null;
+  /**
+     * Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)
+     * @nullable
+     */
+  backoffBaseMs?: number | null;
 }

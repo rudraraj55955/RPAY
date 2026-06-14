@@ -1694,7 +1694,9 @@ export const GetReportScheduleResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 })).optional().describe('Last 1–3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules.')
 }),zod.null()])
 })
@@ -1762,7 +1764,9 @@ export const UpsertReportScheduleResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 })).optional().describe('Last 1–3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules.')
 })
 })
@@ -1820,7 +1824,9 @@ export const ReenableReportScheduleResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 })).optional().describe('Last 1–3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules.')
 })
 })
@@ -1858,7 +1864,9 @@ export const GetReportScheduleHistoryResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 }))
 })
 
@@ -1918,7 +1926,9 @@ export const ListMerchantReportSchedulesResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 })).optional().describe('Last 3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules.')
 }))
 })
@@ -1972,7 +1982,9 @@ export const GetAdminMerchantReportScheduleResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 })).optional().describe('Last 1–3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules.')
 }),zod.null()])
 })
@@ -2042,7 +2054,9 @@ export const UpsertAdminMerchantReportScheduleResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 })).optional().describe('Last 1–3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules.')
 })
 })
@@ -2113,7 +2127,9 @@ export const GetAdminReportDeliveryHistoryResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 }).and(zod.object({
   "businessName": zod.string().nullish().describe('Merchant\'s business name'),
   "merchantEmail": zod.string().nullish().describe('Merchant\'s email address')
@@ -2169,7 +2185,9 @@ export const ReenableAdminMerchantReportScheduleResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 })).optional().describe('Last 1–3 delivery failure log entries for auto-paused schedules. Empty for active or manually-paused schedules.')
 })
 })
@@ -2344,7 +2362,9 @@ export const RetryReportDeliveryLogResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 }).nullish().describe('The newly created delivery log entry from this retry attempt')
 })
 
@@ -2381,7 +2401,9 @@ export const GetAdminMerchantReportScheduleHistoryResponse = zod.object({
   "triggeredBy": zod.string().nullish().describe('What triggered this delivery attempt — manual (admin or merchant send-now), bulk (admin send-all-overdue), or scheduler (automated cron)'),
   "triggeredByEmail": zod.string().nullish().describe('Email of the admin who manually triggered the delivery, if applicable'),
   "performedByAdminId": zod.number().nullish().describe('ID of the admin who performed this action (e.g. re-enabling a paused schedule)'),
-  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join')
+  "performedByAdminEmail": zod.string().nullish().describe('Email of the admin who performed this action, denormalised for display without a join'),
+  "maxAttempts": zod.number().nullish().describe('Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)'),
+  "backoffBaseMs": zod.number().nullish().describe('Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)')
 }))
 })
 

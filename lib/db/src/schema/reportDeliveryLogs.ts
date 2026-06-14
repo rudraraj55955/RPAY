@@ -19,6 +19,8 @@ export const reportDeliveryLogsTable = pgTable("report_delivery_logs", {
   triggeredByEmail: text("triggered_by_email"),
   performedByAdminId: integer("performed_by_admin_id"),
   performedByAdminEmail: text("performed_by_admin_email"),
+  maxAttempts: integer("max_attempts"),
+  backoffBaseMs: integer("backoff_base_ms"),
 });
 
 export type ReportDeliveryLog = typeof reportDeliveryLogsTable.$inferSelect;

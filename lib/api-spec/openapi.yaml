@@ -9366,6 +9366,12 @@ components:
         performedByAdminEmail:
           type: ["string", "null"]
           description: Email of the admin who performed this action, denormalised for display without a join
+        maxAttempts:
+          type: ["integer", "null"]
+          description: Maximum delivery attempts configured at the time of this event (recorded on auto-pause entries)
+        backoffBaseMs:
+          type: ["integer", "null"]
+          description: Backoff base delay in milliseconds configured at the time of this event (recorded on auto-pause entries)
 
     DeliveryHealthStats:
       type: object

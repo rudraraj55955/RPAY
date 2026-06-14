@@ -66,10 +66,7 @@ type TypeFilter =
   | "settlements"
   | "plan_expiring"
   | "plan_expired"
-  | "limit_exceeded"
-  | "provider_limit_warning"
-  | "provider_limit_reached"
-  | "provider_limit_reset"
+  | "limits"
   | "system_notice"
   | "reports";
 
@@ -78,15 +75,12 @@ const TYPE_CHIPS: { value: TypeFilter; label: string; icon: React.ReactNode }[] 
   { value: "settlements", label: "Settlements", icon: <CreditCard className="w-3 h-3" /> },
   { value: "plan_expiring", label: "Expiring", icon: <Zap className="w-3 h-3" /> },
   { value: "plan_expired", label: "Expired", icon: <Zap className="w-3 h-3" /> },
-  { value: "limit_exceeded", label: "Limit Alert", icon: <AlertCircle className="w-3 h-3" /> },
-  { value: "provider_limit_warning", label: "Limit Warning", icon: <AlertCircle className="w-3 h-3" /> },
-  { value: "provider_limit_reached", label: "Limit Reached", icon: <AlertCircle className="w-3 h-3" /> },
-  { value: "provider_limit_reset", label: "Limit Reset", icon: <RefreshCw className="w-3 h-3" /> },
+  { value: "limits", label: "Limits", icon: <AlertCircle className="w-3 h-3" /> },
   { value: "system_notice", label: "Notice", icon: <Megaphone className="w-3 h-3" /> },
   { value: "reports", label: "Reports", icon: <Calendar className="w-3 h-3" /> },
 ];
 
-const PROVIDER_LIMIT_TYPES = new Set(["provider_limit_warning", "provider_limit_reached", "provider_limit_reset"]);
+const PROVIDER_LIMIT_TYPES = new Set(["limit_exceeded", "provider_limit_warning", "provider_limit_reached", "provider_limit_reset"]);
 
 const REPORT_NOTIFICATION_TYPES = new Set([
   "scheduled_report_auto_paused",
@@ -197,6 +191,11 @@ export default function NotificationsPage() {
     if (chipValue === "reports") {
       return Object.entries(typeCounts)
         .filter(([t]) => REPORT_NOTIFICATION_TYPES.has(t))
+        .reduce((sum, [, n]) => sum + n, 0);
+    }
+    if (chipValue === "limits") {
+      return Object.entries(typeCounts)
+        .filter(([t]) => PROVIDER_LIMIT_TYPES.has(t))
         .reduce((sum, [, n]) => sum + n, 0);
     }
     return typeCounts[chipValue] ?? 0;

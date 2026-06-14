@@ -191,7 +191,7 @@ export default function MerchantDashboard() {
     settlementStateEmails: "Settlement state emails",
     signatureFailureAlertEmails: "Signature failure alerts",
     webhookFailureEmails: "Webhook failure alerts",
-    ekqrSyncAlertEmails: "EKQR sync alerts",
+    ekqrSyncAlertEmails: "QR Gateway sync alerts",
     reportFailureAlertEmails: "Report failure alerts",
     weeklyDeliveryDigestEmails: "Weekly delivery digest",
     apiKeyGeneratedEmails: "API key generated alerts",

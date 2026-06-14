@@ -8,6 +8,7 @@ import { generateToken, requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
 import { makeRateLimiter } from "../helpers/makeRateLimiter";
 import { sendNewLoginAlertEmail } from "../helpers/newLoginEmail";
+import { sendPrefChangeUnknownDeviceEmail } from "../helpers/prefChangeEmail";
 import { createNotification } from "../helpers/notifications";
 
 const router = Router();
@@ -743,6 +744,23 @@ router.put("/preferences", requireAuth, async (req, res, next) => {
             }).catch((err: unknown) => {
               req.log.warn({ err, userId: user.id }, "Failed to create preference_change_unknown_device notification");
             });
+
+            db.select({ businessName: merchantsTable.businessName })
+              .from(merchantsTable)
+              .where(eq(merchantsTable.id, user.merchantId!))
+              .limit(1)
+              .then(([merchant]) => {
+                if (!merchant) return;
+                return sendPrefChangeUnknownDeviceEmail({
+                  to: user.email,
+                  businessName: merchant.businessName,
+                  ip,
+                  changedAt: new Date(),
+                });
+              })
+              .catch((err: unknown) => {
+                req.log.warn({ err, userId: user.id }, "Failed to send preference_change_unknown_device email");
+              });
           }
         }
       }

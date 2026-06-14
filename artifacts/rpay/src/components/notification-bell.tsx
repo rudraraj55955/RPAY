@@ -175,6 +175,16 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
     updatePrefs({ data: { [field]: value } as any });
   }
 
+  function handleMuteAll() {
+    const payload = Object.fromEntries(IN_APP_NOTIF_FIELDS.map((f) => [f, false]));
+    updatePrefs({ data: payload as any });
+  }
+
+  function handleRestoreAll() {
+    const payload = Object.fromEntries(IN_APP_NOTIF_FIELDS.map((f) => [f, true]));
+    updatePrefs({ data: payload as any });
+  }
+
   return (
     <TooltipProvider>
       <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setShowPrefs(false); }}>
@@ -333,12 +343,30 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
                       <Bell className="w-3 h-3" />
                       In-app alerts
                     </span>
-                    {mutedCount > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
-                        <BellOff className="w-2.5 h-2.5" />
-                        {mutedCount} muted
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {mutedCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleRestoreAll}
+                          disabled={savingPrefs}
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400 hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
+                        >
+                          <Bell className="w-2.5 h-2.5" />
+                          Restore all
+                        </button>
+                      )}
+                      {mutedCount < IN_APP_NOTIF_FIELDS.length && (
+                        <button
+                          type="button"
+                          onClick={handleMuteAll}
+                          disabled={savingPrefs}
+                          className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400 hover:bg-amber-500/25 transition-colors disabled:opacity-50"
+                        >
+                          <BellOff className="w-2.5 h-2.5" />
+                          Mute all
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <ul className="divide-y divide-border/30 max-h-56 overflow-y-auto">
                     {IN_APP_NOTIF_FIELDS.map((field) => {

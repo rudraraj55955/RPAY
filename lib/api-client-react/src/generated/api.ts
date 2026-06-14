@@ -336,6 +336,8 @@ import type {
   SettlementStats,
   SignatureFailureAlertHistoryResponse,
   SimulatePaymentInput,
+  SnoozeBadge200,
+  SnoozeBadgeBody,
   SnoozeReportsBadge200,
   SnoozeReportsBadgeBody,
   StorageCleanupRunResult,
@@ -789,7 +791,7 @@ export const getSnoozeReportsBadgeUrl = () => {
 }
 
 /**
- * @summary Set or clear the reports sidebar badge snooze for the current admin
+ * @summary Set or clear the reports sidebar badge snooze for the current admin (deprecated — use /auth/snooze-badge)
  */
 export const snoozeReportsBadge = async (snoozeReportsBadgeBody: SnoozeReportsBadgeBody, options?: RequestInit): Promise<SnoozeReportsBadge200> => {
 
@@ -838,7 +840,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type SnoozeReportsBadgeMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Set or clear the reports sidebar badge snooze for the current admin
+ * @summary Set or clear the reports sidebar badge snooze for the current admin (deprecated — use /auth/snooze-badge)
  */
 export const useSnoozeReportsBadge = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof snoozeReportsBadge>>, TError,{data: BodyType<SnoozeReportsBadgeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -849,6 +851,77 @@ export const useSnoozeReportsBadge = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getSnoozeReportsBadgeMutationOptions(options));
+    }
+
+export const getSnoozeBadgeUrl = () => {
+
+
+
+
+  return `/api/auth/snooze-badge`
+}
+
+/**
+ * @summary Set or clear a named sidebar badge snooze for the current admin
+ */
+export const snoozeBadge = async (snoozeBadgeBody: SnoozeBadgeBody, options?: RequestInit): Promise<SnoozeBadge200> => {
+
+  return customFetch<SnoozeBadge200>(getSnoozeBadgeUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      snoozeBadgeBody,)
+  }
+);}
+
+
+
+
+export const getSnoozeBadgeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof snoozeBadge>>, TError,{data: BodyType<SnoozeBadgeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof snoozeBadge>>, TError,{data: BodyType<SnoozeBadgeBody>}, TContext> => {
+
+const mutationKey = ['snoozeBadge'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof snoozeBadge>>, {data: BodyType<SnoozeBadgeBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  snoozeBadge(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SnoozeBadgeMutationResult = NonNullable<Awaited<ReturnType<typeof snoozeBadge>>>
+    export type SnoozeBadgeMutationBody = BodyType<SnoozeBadgeBody>
+    export type SnoozeBadgeMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Set or clear a named sidebar badge snooze for the current admin
+ */
+export const useSnoozeBadge = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof snoozeBadge>>, TError,{data: BodyType<SnoozeBadgeBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof snoozeBadge>>,
+        TError,
+        {data: BodyType<SnoozeBadgeBody>},
+        TContext
+      > => {
+      return useMutation(getSnoozeBadgeMutationOptions(options));
     }
 
 export const getListQuietHoursQueueUrl = () => {

@@ -18,6 +18,10 @@ export const REPORTS_SNOOZE_EVENT = "rasokart-reports-snooze-changed";
 export function getReportSnoozeKey(userId: number | string | undefined): string {
   return userId != null ? `rasokart_reports_snooze_until_${userId}` : "rasokart_reports_snooze_until";
 }
+export const AUDIT_SNOOZE_EVENT = "rasokart-audit-snooze-changed";
+export function getAuditSnoozeKey(userId: number | string | undefined): string {
+  return userId != null ? `rasokart_audit_snooze_until_${userId}` : "rasokart_audit_snooze_until";
+}
 
 function SuspensionBanner() {
   const { user, logout } = useAuth();
@@ -419,8 +423,10 @@ function AdminSidebar() {
 
   const { data: meData } = useGetMe();
   const snoozeKey = getReportSnoozeKey(user?.id);
+  const auditSnoozeKey = getAuditSnoozeKey(user?.id);
 
   const [localSnoozeUntil, setLocalSnoozeUntil] = useState<number | null>(null);
+  const [localAuditSnoozeUntil, setLocalAuditSnoozeUntil] = useState<number | null>(null);
 
   useEffect(() => {
     const v = localStorage.getItem(snoozeKey);
@@ -429,12 +435,26 @@ function AdminSidebar() {
   }, [snoozeKey]);
 
   useEffect(() => {
+    const v = localStorage.getItem(auditSnoozeKey);
+    const ts = v ? parseInt(v, 10) : NaN;
+    setLocalAuditSnoozeUntil(!isNaN(ts) && ts > Date.now() ? ts : null);
+  }, [auditSnoozeKey]);
+
+  useEffect(() => {
     if (localSnoozeUntil == null) return;
     const remaining = localSnoozeUntil - Date.now();
     if (remaining <= 0) { setLocalSnoozeUntil(null); return; }
     const timer = setTimeout(() => setLocalSnoozeUntil(null), Math.min(remaining, 2_147_483_647));
     return () => clearTimeout(timer);
   }, [localSnoozeUntil]);
+
+  useEffect(() => {
+    if (localAuditSnoozeUntil == null) return;
+    const remaining = localAuditSnoozeUntil - Date.now();
+    if (remaining <= 0) { setLocalAuditSnoozeUntil(null); return; }
+    const timer = setTimeout(() => setLocalAuditSnoozeUntil(null), Math.min(remaining, 2_147_483_647));
+    return () => clearTimeout(timer);
+  }, [localAuditSnoozeUntil]);
 
   useEffect(() => {
     const readCurrent = () => {
@@ -455,11 +475,36 @@ function AdminSidebar() {
     };
   }, [snoozeKey]);
 
-  const serverSnoozeUntil = meData?.reportsBadgeSnoozedUntil != null
-    ? new Date(meData.reportsBadgeSnoozedUntil).getTime()
+  useEffect(() => {
+    const readAuditCurrent = () => {
+      const v = localStorage.getItem(auditSnoozeKey);
+      const ts = v ? parseInt(v, 10) : NaN;
+      setLocalAuditSnoozeUntil(!isNaN(ts) && ts > Date.now() ? ts : null);
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== auditSnoozeKey) return;
+      readAuditCurrent();
+    };
+    const onCustom = () => readAuditCurrent();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(AUDIT_SNOOZE_EVENT, onCustom);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(AUDIT_SNOOZE_EVENT, onCustom);
+    };
+  }, [auditSnoozeKey]);
+
+  const serverReportsSnoozeTs = (meData?.badgeSnoozedUntil?.["reports"] ?? meData?.reportsBadgeSnoozedUntil) != null
+    ? new Date((meData?.badgeSnoozedUntil?.["reports"] ?? meData?.reportsBadgeSnoozedUntil)!).getTime()
     : null;
-  const serverSnoozed = serverSnoozeUntil != null && serverSnoozeUntil > Date.now();
+  const serverSnoozed = serverReportsSnoozeTs != null && serverReportsSnoozeTs > Date.now();
   const isSnoozed = serverSnoozed || (localSnoozeUntil != null && localSnoozeUntil > Date.now());
+
+  const serverAuditSnoozeTs = meData?.badgeSnoozedUntil?.["audit"] != null
+    ? new Date(meData.badgeSnoozedUntil["audit"]).getTime()
+    : null;
+  const serverAuditSnoozed = serverAuditSnoozeTs != null && serverAuditSnoozeTs > Date.now();
+  const isAuditSnoozed = serverAuditSnoozed || (localAuditSnoozeUntil != null && localAuditSnoozeUntil > Date.now());
 
   return (
     <>
@@ -472,7 +517,7 @@ function AdminSidebar() {
                 const isAuditLogs = item.href === "/admin/audit-logs";
                 const isReports = item.href === "/admin/reports";
                 const isActive = location === item.href || (isAuditLogs && location.startsWith("/admin/audit-logs"));
-                const linkHref = isAuditLogs && neverCount > 0
+                const linkHref = isAuditLogs && !isAuditSnoozed && neverCount > 0
                   ? "/admin/audit-logs?tab=compliance"
                   : isReports && !isSnoozed && hasDeliveryAlert
                   ? "/admin/reports?tab=delivery-health"
@@ -483,7 +528,7 @@ function AdminSidebar() {
                       <Link href={linkHref} className="flex items-center gap-3">
                         <item.icon className="w-4 h-4 shrink-0" />
                         <span className="flex-1">{item.title}</span>
-                        {isAuditLogs && neverCount > 0 && (
+                        {isAuditLogs && !isAuditSnoozed && neverCount > 0 && (
                           <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-amber-500 text-[10px] font-bold text-black px-1 leading-none">
                             {neverCount > 99 ? "99+" : neverCount}
                           </span>

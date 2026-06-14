@@ -20,14 +20,19 @@ import {
   useSendAdminMerchantReportNow,
   useGetAdminReportDeliveryHistory,
   GetAdminReportDeliveryHistorySuccess,
+  useSnoozeBadge,
+  getGetMeQueryKey,
+  useGetMe,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -37,7 +42,7 @@ import {
   Users, Loader2, QrCode, Landmark,
   Clock, Mail, Plus, Ban, Send, History, ChevronDown, ChevronUp, AlertCircle, Settings,
   MonitorPlay, RefreshCw, KeyRound, RotateCcw, ClipboardCheck, AlertTriangle, Building2, BellRing,
-  ArrowUpRight, AtSign, Network, CalendarDays, Bot, ExternalLink,
+  ArrowUpRight, AtSign, Network, CalendarDays, Bot, ExternalLink, BellOff, Bell,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -45,6 +50,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { format, parseISO, formatDistanceToNow, subDays, eachDayOfInterval } from "date-fns";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from "recharts";
 import { toast } from "sonner";
+import { getAuditSnoozeKey, AUDIT_SNOOZE_EVENT } from "@/components/layout/dashboard-layout";
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   merchant_approved:        { label: "Merchant Approved",    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
@@ -3255,6 +3261,74 @@ function CompliancePanel() {
   const [searchQuery, setSearchQuery] = useState("");
   const queryClient = useQueryClient();
 
+  const { user } = useAuth();
+  const auditSnoozeKey = getAuditSnoozeKey(user?.id);
+  const snoozeMutation = useSnoozeBadge();
+  const { data: meData } = useGetMe();
+
+  const [localAuditSnoozeUntil, setLocalAuditSnoozeUntil] = useState<number | null>(null);
+
+  useEffect(() => {
+    const v = localStorage.getItem(auditSnoozeKey);
+    const ts = v ? parseInt(v, 10) : NaN;
+    setLocalAuditSnoozeUntil(!isNaN(ts) && ts > Date.now() ? ts : null);
+  }, [auditSnoozeKey]);
+
+  useEffect(() => {
+    if (localAuditSnoozeUntil == null) return;
+    const remaining = localAuditSnoozeUntil - Date.now();
+    if (remaining <= 0) { setLocalAuditSnoozeUntil(null); return; }
+    const timer = setTimeout(() => setLocalAuditSnoozeUntil(null), Math.min(remaining, 2_147_483_647));
+    return () => clearTimeout(timer);
+  }, [localAuditSnoozeUntil]);
+
+  const serverAuditSnoozeTs = meData?.badgeSnoozedUntil?.["audit"] != null
+    ? new Date(meData.badgeSnoozedUntil["audit"]).getTime()
+    : null;
+  const serverAuditSnoozed = serverAuditSnoozeTs != null && serverAuditSnoozeTs > Date.now();
+  const auditSnoozeUntil = serverAuditSnoozed ? serverAuditSnoozeTs : localAuditSnoozeUntil;
+  const isAuditSnoozed = auditSnoozeUntil != null && auditSnoozeUntil > Date.now();
+
+  const handleAuditSnooze = (hours: number) => {
+    const until = Date.now() + hours * 60 * 60 * 1000;
+    localStorage.setItem(auditSnoozeKey, String(until));
+    window.dispatchEvent(new CustomEvent(AUDIT_SNOOZE_EVENT));
+    setLocalAuditSnoozeUntil(until);
+    toast.success(`Compliance badge snoozed for ${hours}h — it will reappear automatically`);
+    snoozeMutation.mutate(
+      { data: { badgeKey: "audit", snoozedUntil: new Date(until).toISOString() } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          localStorage.removeItem(auditSnoozeKey);
+          window.dispatchEvent(new CustomEvent(AUDIT_SNOOZE_EVENT));
+          setLocalAuditSnoozeUntil(null);
+        },
+        onError: () => {
+          toast.error("Failed to persist snooze — it will reset on next page load");
+        },
+      },
+    );
+  };
+
+  const handleAuditCancelSnooze = () => {
+    localStorage.removeItem(auditSnoozeKey);
+    window.dispatchEvent(new CustomEvent(AUDIT_SNOOZE_EVENT));
+    setLocalAuditSnoozeUntil(null);
+    toast.info("Snooze cancelled — compliance badge is now visible");
+    snoozeMutation.mutate(
+      { data: { badgeKey: "audit", snoozedUntil: null } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        },
+        onError: () => {
+          toast.error("Failed to clear snooze on server — badge may reappear on next session");
+        },
+      },
+    );
+  };
+
   const { data, isLoading } = useGetSecurityComplianceSummary(
     statusFilter !== "all" ? { status: statusFilter } : {},
   );
@@ -3454,6 +3528,20 @@ function CompliancePanel() {
             <CardTitle className="text-base flex items-center gap-2">
               <ClipboardCheck className="w-4 h-4 text-teal-400" />
               Security Review Status
+              {isAuditSnoozed && auditSnoozeUntil != null && (
+                <span className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-slate-500/30 bg-slate-500/10 px-2.5 py-0.5 text-[11px] font-medium text-slate-400">
+                  <BellOff className="w-3 h-3 shrink-0" />
+                  Badge snoozed until {format(new Date(auditSnoozeUntil), "HH:mm, dd MMM")}
+                  <button
+                    type="button"
+                    onClick={handleAuditCancelSnooze}
+                    className="ml-0.5 text-slate-400/60 hover:text-slate-300 transition-colors"
+                    aria-label="Cancel snooze"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
             </CardTitle>
             <div className="flex flex-wrap items-center gap-1.5">
               <div className="relative">
@@ -3497,6 +3585,48 @@ function CompliancePanel() {
                 <FileDown className="w-3 h-3" />
                 Export CSV
               </Button>
+              {neverCount > 0 && (
+                !isAuditSnoozed ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-amber-400/80 border border-amber-500/30 rounded px-2 py-1 hover:bg-amber-500/10 hover:text-amber-300 transition-colors"
+                      >
+                        <BellOff className="w-3 h-3" />
+                        Snooze badge
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent side="bottom" align="end" className="w-52 p-2">
+                      <p className="text-xs font-medium text-muted-foreground px-1 pb-1.5">Snooze sidebar badge for…</p>
+                      {[
+                        { label: "4 hours", hours: 4 },
+                        { label: "8 hours", hours: 8 },
+                        { label: "24 hours", hours: 24 },
+                        { label: "48 hours", hours: 48 },
+                      ].map(({ label, hours }) => (
+                        <button
+                          key={hours}
+                          type="button"
+                          onClick={() => handleAuditSnooze(hours)}
+                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted/60 transition-colors"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleAuditCancelSnooze}
+                    className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-slate-400/80 border border-slate-500/30 rounded px-2 py-1 hover:bg-slate-500/10 hover:text-slate-300 transition-colors"
+                  >
+                    <Bell className="w-3 h-3" />
+                    Unsnooze
+                  </button>
+                )
+              )}
               {canRemindSelected ? (
                 <Button
                   size="sm"

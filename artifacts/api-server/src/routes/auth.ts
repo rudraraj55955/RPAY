@@ -438,12 +438,26 @@ router.get("/me", requireAuth, async (req, res, next) => {
         quietHoursEnd: usersTable.quietHoursEnd,
         quietHoursTimezone: usersTable.quietHoursTimezone,
         reportsBadgeSnoozedUntil: usersTable.reportsBadgeSnoozedUntil,
+        badgeSnoozedUntil: usersTable.badgeSnoozedUntil,
       })
       .from(usersTable)
       .where(eq(usersTable.id, user.id))
       .limit(1);
     const rawSnooze = row?.reportsBadgeSnoozedUntil ?? null;
     const snoozeIso = rawSnooze != null && rawSnooze > new Date() ? rawSnooze.toISOString() : null;
+
+    // Build the generalized badge snooze map, merging legacy reportsBadgeSnoozedUntil as fallback
+    const now = new Date();
+    const rawBadgeMap: Record<string, string> = { ...(row?.badgeSnoozedUntil ?? {}) };
+    if (!rawBadgeMap["reports"] && rawSnooze != null && rawSnooze > now) {
+      rawBadgeMap["reports"] = rawSnooze.toISOString();
+    }
+    // Remove expired entries
+    const badgeSnoozedUntil: Record<string, string> = {};
+    for (const [key, val] of Object.entries(rawBadgeMap)) {
+      if (new Date(val) > now) badgeSnoozedUntil[key] = val;
+    }
+
     res.json({
       id: user.id,
       email: user.email,
@@ -472,6 +486,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
       quietHoursEnd: row?.quietHoursEnd ?? null,
       quietHoursTimezone: row?.quietHoursTimezone ?? null,
       reportsBadgeSnoozedUntil: snoozeIso,
+      badgeSnoozedUntil: Object.keys(badgeSnoozedUntil).length > 0 ? badgeSnoozedUntil : null,
       createdAt: user.createdAt,
     });
   } catch (err) {
@@ -829,7 +844,7 @@ router.put("/preferences", requireAuth, prefChangeLimiter, async (req, res, next
   }
 });
 
-// PATCH /api/auth/snooze-reports-badge
+// PATCH /api/auth/snooze-reports-badge (deprecated — kept for backward compatibility)
 router.patch("/snooze-reports-badge", requireAuth, async (req, res, next) => {
   try {
     const user = (req as any).user;
@@ -851,9 +866,60 @@ router.patch("/snooze-reports-badge", requireAuth, async (req, res, next) => {
         snoozeDate = null;
       }
     }
-    await db.update(usersTable).set({ reportsBadgeSnoozedUntil: snoozeDate }).where(eq(usersTable.id, user.id));
-    const resultIso = snoozeDate != null ? snoozeDate.toISOString() : null;
+    // Update legacy column AND generalized map for "reports" key
+    const [row] = await db.select({ badgeSnoozedUntil: usersTable.badgeSnoozedUntil }).from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
+    const badgeMap: Record<string, string> = { ...(row?.badgeSnoozedUntil ?? {}) };
+    if (snoozeDate != null && snoozeDate > new Date()) {
+      badgeMap["reports"] = snoozeDate.toISOString();
+    } else {
+      delete badgeMap["reports"];
+    }
+    await db.update(usersTable).set({ reportsBadgeSnoozedUntil: snoozeDate, badgeSnoozedUntil: badgeMap }).where(eq(usersTable.id, user.id));
+    const resultIso = snoozeDate != null && snoozeDate > new Date() ? snoozeDate.toISOString() : null;
     res.json({ reportsBadgeSnoozedUntil: resultIso });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/auth/snooze-badge
+router.patch("/snooze-badge", requireAuth, async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== "admin") {
+      res.status(403).json({ error: "Admin access only" });
+      return;
+    }
+    const { badgeKey, snoozedUntil } = req.body as { badgeKey?: string; snoozedUntil?: string | null };
+    if (!badgeKey || typeof badgeKey !== "string") {
+      res.status(400).json({ error: "badgeKey is required and must be a string" });
+      return;
+    }
+    let snoozeDate: Date | null = null;
+    if (snoozedUntil != null) {
+      snoozeDate = new Date(snoozedUntil);
+      if (isNaN(snoozeDate.getTime())) {
+        res.status(400).json({ error: "snoozedUntil must be a valid ISO timestamp or null" });
+        return;
+      }
+    }
+    // Load current badge map and update the specific key
+    const [row] = await db.select({ badgeSnoozedUntil: usersTable.badgeSnoozedUntil }).from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
+    const badgeMap: Record<string, string> = { ...(row?.badgeSnoozedUntil ?? {}) };
+    const now = new Date();
+    if (snoozeDate != null && snoozeDate > now) {
+      badgeMap[badgeKey] = snoozeDate.toISOString();
+    } else {
+      delete badgeMap[badgeKey];
+    }
+    // Also keep legacy column in sync when the "reports" key is updated
+    if (badgeKey === "reports") {
+      await db.update(usersTable).set({ badgeSnoozedUntil: badgeMap, reportsBadgeSnoozedUntil: snoozeDate }).where(eq(usersTable.id, user.id));
+    } else {
+      await db.update(usersTable).set({ badgeSnoozedUntil: badgeMap }).where(eq(usersTable.id, user.id));
+    }
+    const resultIso = snoozeDate != null && snoozeDate > now ? snoozeDate.toISOString() : null;
+    res.json({ badgeKey, snoozedUntil: resultIso });
   } catch (err) {
     next(err);
   }

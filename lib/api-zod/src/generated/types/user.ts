@@ -5,6 +5,7 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { UserBadgeSnoozedUntil } from './userBadgeSnoozedUntil';
 import type { UserNotifFieldDisabledAt } from './userNotifFieldDisabledAt';
 import type { UserRole } from './userRole';
 
@@ -68,9 +69,14 @@ export interface User {
      */
   quietHoursTimezone?: string | null;
   /**
-     * ISO timestamp until which the admin's reports sidebar badge is snoozed. Null means not snoozed.
+     * ISO timestamp until which the admin's reports sidebar badge is snoozed. Null means not snoozed. Deprecated — use badgeSnoozedUntil.
      * @nullable
      */
   reportsBadgeSnoozedUntil?: string | null;
+  /**
+     * Map of badge key to ISO timestamp until which that badge is snoozed. Keys include "reports" and "audit". Null or absent key means not snoozed.
+     * @nullable
+     */
+  badgeSnoozedUntil?: UserBadgeSnoozedUntil;
   createdAt: string;
 }

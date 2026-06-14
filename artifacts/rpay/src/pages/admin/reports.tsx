@@ -20,7 +20,7 @@ import {
   previewAdminMerchantReportScheduleEmail,
   useGetReportDeliveryHealth,
   useRetryAdminReportDeliveryLog,
-  useSnoozeReportsBadge,
+  useSnoozeBadge,
   getGetMeQueryKey,
   useGetMe,
 } from "@workspace/api-client-react";
@@ -683,11 +683,11 @@ function ScheduledReportsPanel() {
 
   const { user } = useAuth();
   const snoozeKey = getReportSnoozeKey(user?.id);
-  const snoozeMutation = useSnoozeReportsBadge();
+  const snoozeMutation = useSnoozeBadge();
 
   const { data: meData } = useGetMe();
-  const serverSnoozeTs = meData?.reportsBadgeSnoozedUntil != null
-    ? new Date(meData.reportsBadgeSnoozedUntil).getTime()
+  const serverSnoozeTs = (meData?.badgeSnoozedUntil?.["reports"] ?? meData?.reportsBadgeSnoozedUntil) != null
+    ? new Date((meData?.badgeSnoozedUntil?.["reports"] ?? meData?.reportsBadgeSnoozedUntil)!).getTime()
     : null;
   const serverSnoozeActive = serverSnoozeTs != null && serverSnoozeTs > Date.now();
 
@@ -720,7 +720,7 @@ function ScheduledReportsPanel() {
     setLocalSnoozeUntil(until);
     toast.success(`Failure badge snoozed for ${hours}h — it will reappear automatically`);
     snoozeMutation.mutate(
-      { data: { snoozedUntil: new Date(until).toISOString() } },
+      { data: { badgeKey: "reports", snoozedUntil: new Date(until).toISOString() } },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetMeQueryKey() });
@@ -741,7 +741,7 @@ function ScheduledReportsPanel() {
     setLocalSnoozeUntil(null);
     toast.info("Snooze cancelled — failure badge is now visible");
     snoozeMutation.mutate(
-      { data: { snoozedUntil: null } },
+      { data: { badgeKey: "reports", snoozedUntil: null } },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetMeQueryKey() });

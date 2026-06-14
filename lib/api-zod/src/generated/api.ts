@@ -54,7 +54,8 @@ export const LoginResponse = zod.object({
   "quietHoursStart": zod.string().nullish().describe('Start of quiet hours window in HH:mm format (e.g. \"22:00\"). Null means quiet hours disabled.'),
   "quietHoursEnd": zod.string().nullish().describe('End of quiet hours window in HH:mm format (e.g. \"07:00\"). Null means quiet hours disabled.'),
   "quietHoursTimezone": zod.string().nullish().describe('IANA timezone for quiet hours interpretation (e.g. \"Asia\/Kolkata\"). Null means quiet hours disabled.'),
-  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed.'),
+  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed. Deprecated — use badgeSnoozedUntil.'),
+  "badgeSnoozedUntil": zod.record(zod.string(), zod.string()).nullish().describe('Map of badge key to ISO timestamp until which that badge is snoozed. Keys include \"reports\" and \"audit\". Null or absent key means not snoozed.'),
   "createdAt": zod.string()
 })
 })
@@ -104,7 +105,8 @@ export const GetMeResponse = zod.object({
   "quietHoursStart": zod.string().nullish().describe('Start of quiet hours window in HH:mm format (e.g. \"22:00\"). Null means quiet hours disabled.'),
   "quietHoursEnd": zod.string().nullish().describe('End of quiet hours window in HH:mm format (e.g. \"07:00\"). Null means quiet hours disabled.'),
   "quietHoursTimezone": zod.string().nullish().describe('IANA timezone for quiet hours interpretation (e.g. \"Asia\/Kolkata\"). Null means quiet hours disabled.'),
-  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed.'),
+  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed. Deprecated — use badgeSnoozedUntil.'),
+  "badgeSnoozedUntil": zod.record(zod.string(), zod.string()).nullish().describe('Map of badge key to ISO timestamp until which that badge is snoozed. Keys include \"reports\" and \"audit\". Null or absent key means not snoozed.'),
   "createdAt": zod.string()
 })
 
@@ -160,13 +162,14 @@ export const UpdateMyPreferencesResponse = zod.object({
   "quietHoursStart": zod.string().nullish().describe('Start of quiet hours window in HH:mm format (e.g. \"22:00\"). Null means quiet hours disabled.'),
   "quietHoursEnd": zod.string().nullish().describe('End of quiet hours window in HH:mm format (e.g. \"07:00\"). Null means quiet hours disabled.'),
   "quietHoursTimezone": zod.string().nullish().describe('IANA timezone for quiet hours interpretation (e.g. \"Asia\/Kolkata\"). Null means quiet hours disabled.'),
-  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed.'),
+  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed. Deprecated — use badgeSnoozedUntil.'),
+  "badgeSnoozedUntil": zod.record(zod.string(), zod.string()).nullish().describe('Map of badge key to ISO timestamp until which that badge is snoozed. Keys include \"reports\" and \"audit\". Null or absent key means not snoozed.'),
   "createdAt": zod.string()
 })
 
 
 /**
- * @summary Set or clear the reports sidebar badge snooze for the current admin
+ * @summary Set or clear the reports sidebar badge snooze for the current admin (deprecated — use /auth/snooze-badge)
  */
 export const SnoozeReportsBadgeBody = zod.object({
   "snoozedUntil": zod.string().nullish().describe('ISO timestamp to snooze until, or null to clear the snooze.')
@@ -174,6 +177,20 @@ export const SnoozeReportsBadgeBody = zod.object({
 
 export const SnoozeReportsBadgeResponse = zod.object({
   "reportsBadgeSnoozedUntil": zod.string().nullable()
+})
+
+
+/**
+ * @summary Set or clear a named sidebar badge snooze for the current admin
+ */
+export const SnoozeBadgeBody = zod.object({
+  "badgeKey": zod.string().describe('The badge identifier to snooze (e.g. \"reports\", \"audit\").'),
+  "snoozedUntil": zod.string().nullish().describe('ISO timestamp to snooze until, or null to clear the snooze for this badge.')
+})
+
+export const SnoozeBadgeResponse = zod.object({
+  "badgeKey": zod.string(),
+  "snoozedUntil": zod.string().nullable()
 })
 
 
@@ -3496,7 +3513,8 @@ export const ListUsersResponse = zod.object({
   "quietHoursStart": zod.string().nullish().describe('Start of quiet hours window in HH:mm format (e.g. \"22:00\"). Null means quiet hours disabled.'),
   "quietHoursEnd": zod.string().nullish().describe('End of quiet hours window in HH:mm format (e.g. \"07:00\"). Null means quiet hours disabled.'),
   "quietHoursTimezone": zod.string().nullish().describe('IANA timezone for quiet hours interpretation (e.g. \"Asia\/Kolkata\"). Null means quiet hours disabled.'),
-  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed.'),
+  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed. Deprecated — use badgeSnoozedUntil.'),
+  "badgeSnoozedUntil": zod.record(zod.string(), zod.string()).nullish().describe('Map of badge key to ISO timestamp until which that badge is snoozed. Keys include \"reports\" and \"audit\". Null or absent key means not snoozed.'),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -3558,7 +3576,8 @@ export const UpdateUserResponse = zod.object({
   "quietHoursStart": zod.string().nullish().describe('Start of quiet hours window in HH:mm format (e.g. \"22:00\"). Null means quiet hours disabled.'),
   "quietHoursEnd": zod.string().nullish().describe('End of quiet hours window in HH:mm format (e.g. \"07:00\"). Null means quiet hours disabled.'),
   "quietHoursTimezone": zod.string().nullish().describe('IANA timezone for quiet hours interpretation (e.g. \"Asia\/Kolkata\"). Null means quiet hours disabled.'),
-  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed.'),
+  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed. Deprecated — use badgeSnoozedUntil.'),
+  "badgeSnoozedUntil": zod.record(zod.string(), zod.string()).nullish().describe('Map of badge key to ISO timestamp until which that badge is snoozed. Keys include \"reports\" and \"audit\". Null or absent key means not snoozed.'),
   "createdAt": zod.string()
 })
 

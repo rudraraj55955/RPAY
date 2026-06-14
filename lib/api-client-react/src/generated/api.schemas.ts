@@ -222,6 +222,12 @@ export const UserRole = {
  */
 export type UserNotifFieldDisabledAt = {[key: string]: string} | null;
 
+/**
+ * Map of badge key to ISO timestamp until which that badge is snoozed. Keys include "reports" and "audit". Null or absent key means not snoozed.
+ * @nullable
+ */
+export type UserBadgeSnoozedUntil = {[key: string]: string} | null;
+
 export interface User {
   id: number;
   email: string;
@@ -282,10 +288,15 @@ export interface User {
      */
   quietHoursTimezone?: string | null;
   /**
-     * ISO timestamp until which the admin's reports sidebar badge is snoozed. Null means not snoozed.
+     * ISO timestamp until which the admin's reports sidebar badge is snoozed. Null means not snoozed. Deprecated — use badgeSnoozedUntil.
      * @nullable
      */
   reportsBadgeSnoozedUntil?: string | null;
+  /**
+     * Map of badge key to ISO timestamp until which that badge is snoozed. Keys include "reports" and "audit". Null or absent key means not snoozed.
+     * @nullable
+     */
+  badgeSnoozedUntil?: UserBadgeSnoozedUntil;
   createdAt: string;
 }
 
@@ -4551,6 +4562,22 @@ export type SnoozeReportsBadgeBody = {
 export type SnoozeReportsBadge200 = {
   /** @nullable */
   reportsBadgeSnoozedUntil: string | null;
+};
+
+export type SnoozeBadgeBody = {
+  /** The badge identifier to snooze (e.g. "reports", "audit"). */
+  badgeKey: string;
+  /**
+     * ISO timestamp to snooze until, or null to clear the snooze for this badge.
+     * @nullable
+     */
+  snoozedUntil?: string | null;
+};
+
+export type SnoozeBadge200 = {
+  badgeKey: string;
+  /** @nullable */
+  snoozedUntil: string | null;
 };
 
 export type ListQuietHoursQueue200ItemsItem = {

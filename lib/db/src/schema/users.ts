@@ -26,6 +26,7 @@ export const usersTable = pgTable("users", {
   planChangeEmails: boolean("plan_change_emails").notNull().default(true),
   notifReminderEmails: boolean("notif_reminder_emails").notNull().default(true),
   reportsBadgeSnoozedUntil: timestamp("reports_badge_snoozed_until", { withTimezone: true }),
+  badgeSnoozedUntil: jsonb("badge_snoozed_until").$type<Record<string, string>>(),
   notifPrefsDisabledAt: timestamp("notif_prefs_disabled_at", { withTimezone: true }),
   notifReminderSentAt: timestamp("notif_reminder_sent_at", { withTimezone: true }),
   notifFieldDisabledAt: jsonb("notif_field_disabled_at").$type<Record<string, string>>(),

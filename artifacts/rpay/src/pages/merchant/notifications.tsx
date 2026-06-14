@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Check, CheckCheck, AlertCircle, CreditCard, Zap, Megaphone, RefreshCw, ExternalLink, Calendar, PlayCircle, CheckCircle2, Trash2, PauseCircle, Clock, Send } from "lucide-react";
+import { Bell, Check, CheckCheck, AlertCircle, CreditCard, Zap, Megaphone, RefreshCw, ExternalLink, Calendar, PlayCircle, CheckCircle2, Trash2, PauseCircle, Clock, Send, User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -79,6 +79,14 @@ const TYPE_CHIPS: { value: TypeFilter; label: string; icon: React.ReactNode }[] 
   { value: "system_notice", label: "Notice", icon: <Megaphone className="w-3 h-3" /> },
   { value: "reports", label: "Reports", icon: <Calendar className="w-3 h-3" /> },
 ];
+
+function getAdminDisplay(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const m = metadata as Record<string, unknown>;
+  const name = typeof m["adminName"] === "string" && m["adminName"] ? m["adminName"] : null;
+  const email = typeof m["adminEmail"] === "string" && m["adminEmail"] ? m["adminEmail"] : null;
+  return name ?? email ?? null;
+}
 
 const PROVIDER_LIMIT_TYPES = new Set(["limit_exceeded", "provider_limit_warning", "provider_limit_reached", "provider_limit_reset"]);
 
@@ -316,6 +324,15 @@ export default function NotificationsPage() {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-0.5 leading-snug">{n.body}</p>
+                      {n.type === "report_manual_send" && (() => {
+                        const adminDisplay = getAdminDisplay(n.metadata);
+                        return adminDisplay ? (
+                          <p className="inline-flex items-center gap-1 text-xs text-sky-400/80 mt-1">
+                            <User className="w-3 h-3" />
+                            Sent by {adminDisplay}
+                          </p>
+                        ) : null;
+                      })()}
                       {isAutoPaused && (
                         <div className="mt-2">
                           {scheduleIsActive ? (

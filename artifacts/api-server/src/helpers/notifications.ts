@@ -17,6 +17,7 @@ export type NotificationType =
   | "report_schedule_deleted"
   | "report_schedule_next_run_updated"
   | "report_schedule_reenabled"
+  | "report_schedule_reenabled_by_merchant"
   | "report_schedule_auto_paused_admin"
   | "report_manual_send"
   | "merchant_dormant"

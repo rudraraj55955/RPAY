@@ -3,7 +3,7 @@ import { db, transactionsTable, merchantsTable, merchantConnectionsTable, ledger
 import { eq, and, sql, gte, lte, or, inArray, isNotNull, isNull, desc } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { sendMerchantReport } from "../helpers/merchantReportScheduler";
-import { createNotification } from "../helpers/notifications";
+import { createNotification, createBulkNotifications } from "../helpers/notifications";
 import { sendReportScheduleUpdatedEmail, buildReportScheduleUpdatedHtml, sendReportScheduleDeletedEmail } from "../helpers/reportScheduleEmail";
 
 const router = Router();
@@ -459,6 +459,37 @@ router.patch("/schedule/reenable", async (req, res, next) => {
       isAutoPause: false,
       outcome: "re-enabled",
     });
+
+    // Fetch merchant name for notification body
+    const [merchantInfo] = await db
+      .select({ businessName: merchantsTable.businessName })
+      .from(merchantsTable)
+      .where(eq(merchantsTable.id, user.merchantId!))
+      .limit(1);
+    const merchantName = merchantInfo?.businessName ?? `Merchant #${user.merchantId}`;
+
+    // Notify all active admins that the merchant self-served a re-enable
+    const adminUsers = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(and(eq(usersTable.role, "admin"), eq(usersTable.isActive, true)));
+
+    if (adminUsers.length > 0) {
+      createBulkNotifications(
+        adminUsers.map((admin) => ({
+          userId: admin.id,
+          type: "report_schedule_reenabled_by_merchant" as const,
+          title: "Report Schedule Re-enabled by Merchant",
+          body: `${merchantName} has fixed their email settings and re-enabled their ${existing.frequency} report schedule. No further action is required.`,
+          metadata: {
+            scheduleId: existing.id,
+            merchantId: user.merchantId!,
+            merchantName,
+            frequency: existing.frequency,
+          },
+        }))
+      ).catch(() => {});
+    }
 
     res.json({ schedule: updated });
   } catch (err) {

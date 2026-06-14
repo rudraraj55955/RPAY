@@ -11,7 +11,7 @@ function notifIcon(type: string) {
   if (type.startsWith("settlement")) return <CreditCard className="w-3.5 h-3.5" />;
   if (type.startsWith("plan")) return <Zap className="w-3.5 h-3.5" />;
   if (type === "limit_exceeded") return <AlertCircle className="w-3.5 h-3.5" />;
-  if (type === "report_schedule_auto_paused_admin" || type === "scheduled_report_auto_paused" || type === "scheduled_report_failure") return <BarChart3 className="w-3.5 h-3.5" />;
+  if (type === "report_schedule_auto_paused_admin" || type === "report_schedule_reenabled_by_merchant" || type === "scheduled_report_auto_paused" || type === "scheduled_report_failure") return <BarChart3 className="w-3.5 h-3.5" />;
   return <Megaphone className="w-3.5 h-3.5" />;
 }
 
@@ -21,12 +21,13 @@ function notifColor(type: string): string {
   if (type === "plan_expiring" || type === "limit_exceeded") return "text-amber-400";
   if (type === "plan_expired") return "text-red-400";
   if (type === "report_schedule_auto_paused_admin" || type === "scheduled_report_auto_paused") return "text-amber-400";
+  if (type === "report_schedule_reenabled_by_merchant") return "text-emerald-400";
   if (type === "scheduled_report_failure") return "text-orange-400";
   return "text-blue-400";
 }
 
 function notifNavTarget(type: string, metadata: unknown): string | null {
-  if (type === "report_schedule_auto_paused_admin") {
+  if (type === "report_schedule_auto_paused_admin" || type === "report_schedule_reenabled_by_merchant") {
     const meta = metadata as Record<string, unknown> | null;
     const merchantId = meta?.merchantId;
     if (merchantId != null) return `/admin/reports?merchantId=${merchantId}`;

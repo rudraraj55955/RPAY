@@ -252,6 +252,88 @@ router.get("/trust-ip", async (req, res) => {
   }
 });
 
+// GET /api/auth/notif-reminder-unsubscribe?token=<jwt>
+router.get("/notif-reminder-unsubscribe", async (req, res) => {
+  const { token } = req.query as { token?: string };
+
+  const appUrl = process.env["APP_URL"] ?? "https://rasokart.com";
+
+  function htmlPage(success: boolean, message: string): string {
+    const color = success ? "#22c55e" : "#ef4444";
+    const icon = success ? "✓" : "✗";
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${success ? "Unsubscribed" : "Invalid Link"} — RasoKart</title>
+</head>
+<body style="margin:0;padding:0;background:#0f0f0f;font-family:'Segoe UI',Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+  <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:48px 40px;max-width:480px;width:100%;text-align:center;">
+    <span style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;display:block;margin-bottom:32px;">Raso<span style="color:#f97316;">Kart</span></span>
+    <div style="width:56px;height:56px;border-radius:50%;background:${color}22;border:2px solid ${color};display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:24px;color:${color};">${icon}</div>
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#f1f1f1;">${success ? "Unsubscribed Successfully" : "Invalid or Expired Link"}</h1>
+    <p style="margin:0 0 32px;font-size:14px;color:#9ca3af;line-height:1.6;">${message}</p>
+    <a href="${appUrl}/merchant/security?section=notifications" style="display:inline-block;background:#f97316;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:6px;">Manage Notification Preferences</a>
+  </div>
+</body>
+</html>`;
+  }
+
+  if (!token) {
+    res.status(400).send(htmlPage(false, "No unsubscribe token was provided. This link may be incomplete."));
+    return;
+  }
+
+  interface UnsubscribeTokenPayload {
+    purpose: string;
+    userId: number;
+  }
+
+  let payload: UnsubscribeTokenPayload;
+  try {
+    payload = jwt.verify(token, JWT_SECRET) as UnsubscribeTokenPayload;
+  } catch {
+    res.status(400).send(htmlPage(false, "This link has expired or is invalid. Unsubscribe links are valid for 90 days after the reminder email is sent."));
+    return;
+  }
+
+  if (payload.purpose !== "notif-reminder-unsubscribe" || !payload.userId) {
+    res.status(400).send(htmlPage(false, "This link is not valid for unsubscribing from reminder emails."));
+    return;
+  }
+
+  const [user] = await db
+    .select({ id: usersTable.id, role: usersTable.role, notifReminderEmails: usersTable.notifReminderEmails })
+    .from(usersTable)
+    .where(eq(usersTable.id, payload.userId))
+    .limit(1)
+    .catch(() => []);
+
+  if (!user || user.role !== "merchant") {
+    res.status(400).send(htmlPage(false, "The account associated with this link could not be found."));
+    return;
+  }
+
+  if (!user.notifReminderEmails) {
+    res.send(htmlPage(true, "You have already unsubscribed from notification reminder emails. You will not receive these reminders in the future."));
+    return;
+  }
+
+  try {
+    await db
+      .update(usersTable)
+      .set({ notifReminderEmails: false })
+      .where(eq(usersTable.id, user.id));
+
+    logger.info({ userId: user.id }, "Merchant unsubscribed from notif reminder emails");
+    res.send(htmlPage(true, "You have been unsubscribed from notification reminder emails. You will no longer receive reminders about your notification preferences. You can re-enable them at any time from your notification settings."));
+  } catch (err) {
+    logger.warn({ err, userId: user.id }, "Failed to unsubscribe user from notif reminder emails");
+    res.status(500).send(htmlPage(false, "An error occurred while processing your request. Please try again or contact support."));
+  }
+});
+
 // POST /api/auth/register
 router.post("/register", async (req, res, next) => {
   try {

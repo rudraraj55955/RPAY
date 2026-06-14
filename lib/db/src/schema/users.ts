@@ -24,6 +24,7 @@ export const usersTable = pgTable("users", {
   reportScheduleChangedEmails: boolean("report_schedule_changed_emails").notNull().default(true),
   settlementStateChangedEmails: boolean("settlement_state_changed_emails").notNull().default(true),
   planChangeEmails: boolean("plan_change_emails").notNull().default(true),
+  notifReminderEmails: boolean("notif_reminder_emails").notNull().default(true),
   notifPrefsDisabledAt: timestamp("notif_prefs_disabled_at", { withTimezone: true }),
   notifReminderSentAt: timestamp("notif_reminder_sent_at", { withTimezone: true }),
   notifFieldDisabledAt: jsonb("notif_field_disabled_at").$type<Record<string, string>>(),

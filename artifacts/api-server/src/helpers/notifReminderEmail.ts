@@ -1,7 +1,7 @@
 const APP_DOMAIN = process.env["APP_DOMAIN"] ?? "https://rasokart.com";
 
-export function buildNotifReminderHtml(opts: { name: string }): string {
-  const { name } = opts;
+export function buildNotifReminderHtml(opts: { name: string; unsubscribeLink: string }): string {
+  const { name, unsubscribeLink } = opts;
   const prefsLink = `${APP_DOMAIN}/merchant/security?section=notifications`;
 
   return `
@@ -53,10 +53,14 @@ export function buildNotifReminderHtml(opts: { name: string }): string {
       </p>
     </div>
     <div style="padding: 14px 24px; background: #111; border-top: 1px solid #2a2a2a;">
-      <p style="margin: 0; color: #52525b; font-size: 11px;">
+      <p style="margin: 0 0 8px; color: #52525b; font-size: 11px;">
         This reminder was sent because your notification preferences have been partially disabled for over 30 days.
         If you intentionally turned them off, no action is needed — you won't receive another reminder for 30 days.
         For support, contact <a href="mailto:support@rasokart.com" style="color: #818cf8; text-decoration: none;">support@rasokart.com</a>.
+      </p>
+      <p style="margin: 0; color: #3f3f46; font-size: 11px;">
+        Don't want these reminder emails?
+        <a href="${unsubscribeLink}" style="color: #6b7280; text-decoration: underline;">Unsubscribe from reminder emails</a>
       </p>
     </div>
   </div>

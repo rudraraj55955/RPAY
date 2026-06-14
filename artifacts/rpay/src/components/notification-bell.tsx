@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useListNotifications, useMarkAllNotificationsRead, useMarkNotificationRead } from "@workspace/api-client-react";
+import { useListNotifications, useMarkAllNotificationsRead, useMarkNotificationRead, useGetNotificationUnreadCounts } from "@workspace/api-client-react";
 import { Bell, Check, CheckCheck, CreditCard, Zap, AlertCircle, Megaphone, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -50,23 +50,26 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
   const [, navigate] = useLocation();
 
   const { data, refetch } = useListNotifications({ limit: 10, page: 1 });
+  const { data: unreadCountsData } = useGetNotificationUnreadCounts();
   const markAll = useMarkAllNotificationsRead();
   const markOne = useMarkNotificationRead();
 
   useEffect(() => {
     const id = setInterval(() => {
       qc.invalidateQueries({ queryKey: ["/api/notifications"] });
+      qc.invalidateQueries({ queryKey: ["/api/notifications/unread-counts"] });
     }, 60_000);
     return () => clearInterval(id);
   }, [qc]);
 
-  const unread = data?.unread ?? 0;
+  const unread = unreadCountsData?.total ?? 0;
   const items = data?.data ?? [];
 
   function handleMarkAll() {
     markAll.mutate(undefined, {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: ["/api/notifications"] });
+        qc.invalidateQueries({ queryKey: ["/api/notifications/unread-counts"] });
         refetch();
       },
     });
@@ -77,6 +80,7 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
     markOne.mutate({ id }, {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: ["/api/notifications"] });
+        qc.invalidateQueries({ queryKey: ["/api/notifications/unread-counts"] });
         if (target) {
           setOpen(false);
           navigate(target);

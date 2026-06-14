@@ -973,6 +973,38 @@ export default function AdminMerchants() {
     ? Object.fromEntries(Object.entries(webhookFailureCountsData.counts).map(([k, v]) => [Number(k), v]))
     : {};
 
+  // Running cache of email preference fields for every merchant whose list row has been loaded.
+  // Grows as the admin pages through merchants or selects-all, so opt-out counts are always exact
+  // for the actual selection, not just the visible page.
+  const [merchantEmailPrefsCache, setMerchantEmailPrefsCache] = useState<
+    Map<number, { reportScheduleChangedEmails?: boolean; settlementStateChangedEmails?: boolean }>
+  >(new Map());
+
+  // Merge current-page merchants into the cache whenever the list response changes
+  useEffect(() => {
+    if (!data?.data?.length) return;
+    setMerchantEmailPrefsCache(prev => {
+      const next = new Map(prev);
+      for (const m of data.data) {
+        next.set(m.id, {
+          reportScheduleChangedEmails: m.reportScheduleChangedEmails,
+          settlementStateChangedEmails: m.settlementStateChangedEmails,
+        });
+      }
+      return next;
+    });
+  }, [data?.data]);
+
+  // Opt-out counts for bulk email pre-flight warnings.
+  // Uses the running cache so counts cover all selected merchants, including those from other pages
+  // or fetched via "select all". Only falls back to partial-data mode when the cache is missing
+  // entries for some selected IDs (e.g. the user selected then navigated but never triggered a
+  // full fetch — extremely rare in practice).
+  const selectedPrefsFromCache = Array.from(selected).map(id => merchantEmailPrefsCache.get(id));
+  const reportScheduleOptOutCount = selectedPrefsFromCache.filter(p => p?.reportScheduleChangedEmails === false).length;
+  const settlementStateOptOutCount = selectedPrefsFromCache.filter(p => p?.settlementStateChangedEmails === false).length;
+  const optOutDataIsPartial = selectedPrefsFromCache.some(p => p === undefined);
+
   const now = Date.now();
   const expiringCount = merchants.filter(m => {
     if (!m.currentPlanExpiresAt || m.currentPlanIsExpired) return false;
@@ -1004,6 +1036,17 @@ export default function AdminMerchants() {
       const allData = await listMerchants({ status: status as any, search, page: 1, limit: total, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined });
       setSelected(new Set(allData.data.map(m => m.id)));
       setSelectAllMode(true);
+      // Populate the email prefs cache with all fetched merchants so opt-out counts are exact
+      setMerchantEmailPrefsCache(prev => {
+        const next = new Map(prev);
+        for (const m of allData.data) {
+          next.set(m.id, {
+            reportScheduleChangedEmails: m.reportScheduleChangedEmails,
+            settlementStateChangedEmails: m.settlementStateChangedEmails,
+          });
+        }
+        return next;
+      });
     } catch {
       toast.error("Failed to select all merchants");
     }
@@ -2019,6 +2062,15 @@ export default function AdminMerchants() {
               {bulkStatusAction === "reinstate" && `Reinstate ${selected.size} selected merchant${selected.size !== 1 ? "s" : ""}? Their accounts will be reactivated.`}
             </DialogDescription>
           </DialogHeader>
+          {settlementStateOptOutCount > 0 && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-amber-400">
+              <BellOff className="w-4 h-4 shrink-0 mt-0.5" />
+              <p className="text-xs leading-relaxed">
+                <span className="font-semibold">{optOutDataIsPartial ? "At least" : ""} {settlementStateOptOutCount} of {selected.size} merchant{settlementStateOptOutCount !== 1 ? "s" : ""}</span>
+                {" "}ha{settlementStateOptOutCount !== 1 ? "ve" : "s"} opted out of settlement state change emails and will not receive a notification.
+              </p>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkStatusAction(null)} disabled={isBulkStatusPending}>Cancel</Button>
             <Button
@@ -2048,6 +2100,15 @@ export default function AdminMerchants() {
               Assign a plan to {selected.size} selected merchant{selected.size !== 1 ? "s" : ""}. This will replace any existing plan.
             </DialogDescription>
           </DialogHeader>
+          {reportScheduleOptOutCount > 0 && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-amber-400">
+              <BellOff className="w-4 h-4 shrink-0 mt-0.5" />
+              <p className="text-xs leading-relaxed">
+                <span className="font-semibold">{optOutDataIsPartial ? "At least" : ""} {reportScheduleOptOutCount} of {selected.size} merchant{reportScheduleOptOutCount !== 1 ? "s" : ""}</span>
+                {" "}ha{reportScheduleOptOutCount !== 1 ? "ve" : "s"} opted out of plan assignment emails and will not receive a notification.
+              </p>
+            </div>
+          )}
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Select Plan *</Label>

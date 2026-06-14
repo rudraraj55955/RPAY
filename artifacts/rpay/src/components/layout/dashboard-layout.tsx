@@ -337,6 +337,7 @@ const ADMIN_NAV = [
       { title: "Module Control", icon: ToggleLeft, href: "/admin/module-control" },
       { title: "Feature Control", icon: Sliders, href: "/admin/feature-control" },
       { title: "Account Details", icon: CreditCard, href: "/admin/account-details" },
+      { title: "Payment Gateways", icon: CreditCard, href: "/admin/payment-gateways" },
       { title: "Provider Integrations", icon: Layers, href: "/admin/provider-integrations" },
       { title: "Smart Routing", icon: GitMerge, href: "/admin/smart-routing" },
       { title: "Payment Providers", icon: Zap, href: "/admin/providers" },

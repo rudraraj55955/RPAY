@@ -8,7 +8,7 @@
 
 export type GetAdminMerchantReportScheduleHistoryParams = {
 /**
- * Maximum number of history entries to return (default 20, max 100)
+ * Maximum number of history entries to return (default 100, max 100)
  * @minimum 1
  * @maximum 100
  */

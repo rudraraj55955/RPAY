@@ -2125,13 +2125,13 @@ export const GetAdminMerchantReportScheduleHistoryParams = zod.object({
   "merchantId": zod.coerce.number()
 })
 
-export const getAdminMerchantReportScheduleHistoryQueryLimitDefault = 20;
+export const getAdminMerchantReportScheduleHistoryQueryLimitDefault = 100;
 export const getAdminMerchantReportScheduleHistoryQueryLimitMax = 100;
 
 
 
 export const GetAdminMerchantReportScheduleHistoryQueryParams = zod.object({
-  "limit": zod.coerce.number().min(1).max(getAdminMerchantReportScheduleHistoryQueryLimitMax).default(getAdminMerchantReportScheduleHistoryQueryLimitDefault).describe('Maximum number of history entries to return (default 20, max 100)')
+  "limit": zod.coerce.number().min(1).max(getAdminMerchantReportScheduleHistoryQueryLimitMax).default(getAdminMerchantReportScheduleHistoryQueryLimitDefault).describe('Maximum number of history entries to return (default 100, max 100)')
 })
 
 export const GetAdminMerchantReportScheduleHistoryResponse = zod.object({
@@ -6160,7 +6160,8 @@ export const GetEkqrConfigResponse = zod.object({
   "apiKeySet": zod.boolean().describe('Whether an EKQR API key has been configured'),
   "apiKeyMasked": zod.string().describe('Masked version of the API key (first 4 + last 4 chars visible)'),
   "enabled": zod.boolean().describe('Whether EKQR gateway is enabled'),
-  "webhookSecretSet": zod.boolean().describe('Whether a webhook signature secret has been configured')
+  "webhookSecretSet": zod.boolean().describe('Whether a webhook signature secret has been configured'),
+  "env": zod.enum(['test', 'live']).describe('EKQR gateway environment (test or live)')
 })
 
 
@@ -6170,6 +6171,7 @@ export const GetEkqrConfigResponse = zod.object({
 export const UpdateEkqrConfigBody = zod.object({
   "apiKey": zod.string().optional().describe('EKQR API key (omit to leave unchanged)'),
   "enabled": zod.boolean().optional().describe('Whether to enable\/disable EKQR gateway'),
+  "env": zod.enum(['test', 'live']).optional().describe('EKQR gateway environment (omit to leave unchanged)'),
   "webhookSecret": zod.string().optional().describe('EKQR webhook signature secret (omit to leave unchanged, empty string to clear)')
 })
 
@@ -6177,7 +6179,8 @@ export const UpdateEkqrConfigResponse = zod.object({
   "apiKeySet": zod.boolean().describe('Whether an EKQR API key has been configured'),
   "apiKeyMasked": zod.string().describe('Masked version of the API key (first 4 + last 4 chars visible)'),
   "enabled": zod.boolean().describe('Whether EKQR gateway is enabled'),
-  "webhookSecretSet": zod.boolean().describe('Whether a webhook signature secret has been configured')
+  "webhookSecretSet": zod.boolean().describe('Whether a webhook signature secret has been configured'),
+  "env": zod.enum(['test', 'live']).describe('EKQR gateway environment (test or live)')
 })
 
 

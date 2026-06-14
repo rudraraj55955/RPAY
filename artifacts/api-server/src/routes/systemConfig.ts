@@ -1291,7 +1291,7 @@ router.put("/cashfree-payout", async (req, res, next) => {
 // ── EKQR / UPI Gateway config ──────────────────────────────────────────────
 
 async function getEkqrConfig() {
-  const keys = [SYSTEM_CONFIG_KEYS.EKQR_API_KEY, SYSTEM_CONFIG_KEYS.EKQR_ENABLED, SYSTEM_CONFIG_KEYS.EKQR_WEBHOOK_SECRET];
+  const keys = [SYSTEM_CONFIG_KEYS.EKQR_API_KEY, SYSTEM_CONFIG_KEYS.EKQR_ENABLED, SYSTEM_CONFIG_KEYS.EKQR_WEBHOOK_SECRET, SYSTEM_CONFIG_KEYS.EKQR_ENV];
   const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
   const map = new Map(rows.map((r) => [r.key, r.value]));
   const rawKey = map.get(SYSTEM_CONFIG_KEYS.EKQR_API_KEY) ?? "";
@@ -1301,6 +1301,7 @@ async function getEkqrConfig() {
     apiKeyMasked: rawKey.length > 0 ? `${rawKey.slice(0, 4)}${"*".repeat(Math.max(0, rawKey.length - 8))}${rawKey.slice(-4)}` : "",
     enabled: (map.get(SYSTEM_CONFIG_KEYS.EKQR_ENABLED) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.EKQR_ENABLED]) === "true",
     webhookSecretSet: rawSecret.length > 0,
+    env: (map.get(SYSTEM_CONFIG_KEYS.EKQR_ENV) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.EKQR_ENV] ?? "test") as "test" | "live",
   };
 }
 
@@ -1315,7 +1316,7 @@ router.get("/ekqr", async (req, res, next) => {
 router.put("/ekqr", async (req, res, next) => {
   try {
     const user = (req as any).user;
-    const { apiKey, enabled, webhookSecret } = req.body as { apiKey?: string; enabled?: boolean; webhookSecret?: string };
+    const { apiKey, enabled, webhookSecret, env } = req.body as { apiKey?: string; enabled?: boolean; webhookSecret?: string; env?: "test" | "live" };
 
     if (apiKey !== undefined) {
       await db.insert(systemConfigTable)
@@ -1328,6 +1329,12 @@ router.put("/ekqr", async (req, res, next) => {
       await db.insert(systemConfigTable)
         .values({ key: SYSTEM_CONFIG_KEYS.EKQR_ENABLED, value: val, updatedByEmail: user.email })
         .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: val, updatedByEmail: user.email } });
+    }
+
+    if (env !== undefined) {
+      await db.insert(systemConfigTable)
+        .values({ key: SYSTEM_CONFIG_KEYS.EKQR_ENV, value: env, updatedByEmail: user.email })
+        .onConflictDoUpdate({ target: systemConfigTable.key, set: { value: env, updatedByEmail: user.email } });
     }
 
     if (webhookSecret !== undefined) {
@@ -1344,11 +1351,11 @@ router.put("/ekqr", async (req, res, next) => {
     await db.insert(auditLogsTable).values({
       adminId: user.id, adminEmail: user.email,
       action: "system_config_updated", targetType: "system_config", targetId: null,
-      details: JSON.stringify({ section: "ekqr", apiKeyUpdated: apiKey !== undefined, webhookSecretUpdated: webhookSecret !== undefined, enabled }),
+      details: JSON.stringify({ section: "ekqr", apiKeyUpdated: apiKey !== undefined, webhookSecretUpdated: webhookSecret !== undefined, enabled, env }),
       ipAddress: (req as any).ip ?? null,
     });
 
-    req.log.info({ enabled, apiKeyUpdated: apiKey !== undefined, webhookSecretUpdated: webhookSecret !== undefined }, "EKQR config updated");
+    req.log.info({ enabled, env, apiKeyUpdated: apiKey !== undefined, webhookSecretUpdated: webhookSecret !== undefined }, "EKQR config updated");
     res.json(await getEkqrConfig());
   } catch (err) { next(err); }
 });

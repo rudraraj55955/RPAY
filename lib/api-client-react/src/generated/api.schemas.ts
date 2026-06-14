@@ -3432,6 +3432,17 @@ export interface UploadUrlResponse {
   metadata?: UploadUrlRequest;
 }
 
+/**
+ * EKQR gateway environment (test or live)
+ */
+export type EkqrConfigEnv = typeof EkqrConfigEnv[keyof typeof EkqrConfigEnv];
+
+
+export const EkqrConfigEnv = {
+  test: 'test',
+  live: 'live',
+} as const;
+
 export interface EkqrConfig {
   /** Whether an EKQR API key has been configured */
   apiKeySet: boolean;
@@ -3441,13 +3452,28 @@ export interface EkqrConfig {
   enabled: boolean;
   /** Whether a webhook signature secret has been configured */
   webhookSecretSet: boolean;
+  /** EKQR gateway environment (test or live) */
+  env: EkqrConfigEnv;
 }
+
+/**
+ * EKQR gateway environment (omit to leave unchanged)
+ */
+export type EkqrConfigInputEnv = typeof EkqrConfigInputEnv[keyof typeof EkqrConfigInputEnv];
+
+
+export const EkqrConfigInputEnv = {
+  test: 'test',
+  live: 'live',
+} as const;
 
 export interface EkqrConfigInput {
   /** EKQR API key (omit to leave unchanged) */
   apiKey?: string;
   /** Whether to enable/disable EKQR gateway */
   enabled?: boolean;
+  /** EKQR gateway environment (omit to leave unchanged) */
+  env?: EkqrConfigInputEnv;
   /** EKQR webhook signature secret (omit to leave unchanged, empty string to clear) */
   webhookSecret?: string;
 }
@@ -4943,7 +4969,7 @@ export type GetReportDeliveryHealth200 = {
 
 export type GetAdminMerchantReportScheduleHistoryParams = {
 /**
- * Maximum number of history entries to return (default 20, max 100)
+ * Maximum number of history entries to return (default 100, max 100)
  * @minimum 1
  * @maximum 100
  */

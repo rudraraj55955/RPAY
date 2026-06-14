@@ -235,7 +235,7 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
                 <div className="bg-white p-3 rounded-xl border-2 border-teal-500/40">
                   <QRCodeCanvas value={qr.ekqrPaymentUrl} size={120} level="H" includeMargin />
                 </div>
-                <span className="text-xs text-teal-400 font-medium">EKQR Payment Link</span>
+                <span className="text-xs text-teal-400 font-medium">UPI Collection Link</span>
               </div>
             )}
           </div>
@@ -283,7 +283,7 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
               </Button>
               {qr.ekqrPaymentUrl && (
                 <Button size="sm" variant="outline" onClick={handleCopyEkqrLink} className="h-7 text-xs px-3 flex-1 sm:flex-none border-teal-500/40 text-teal-400 hover:bg-teal-500/10 hover:text-teal-300">
-                  <Link2 className="w-3.5 h-3.5 mr-1.5" />{copiedEkqr ? "Copied!" : "Copy EKQR Link"}
+                  <Link2 className="w-3.5 h-3.5 mr-1.5" />{copiedEkqr ? "Copied!" : "Copy UPI Link"}
                 </Button>
               )}
               {qr.ekqrOrderId && (
@@ -302,7 +302,7 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
 
             {syncResult && (
               <div className="mt-2 rounded-md border border-teal-500/25 bg-teal-500/8 px-3 py-2.5 space-y-1">
-                <p className="text-xs font-semibold text-teal-400 uppercase tracking-wide">EKQR Status</p>
+                <p className="text-xs font-semibold text-teal-400 uppercase tracking-wide">Payment Status</p>
                 <p className="text-xs text-muted-foreground">
                   Payment status: <span className="font-mono text-foreground">{syncResult.qrStatus}</span>
                 </p>
@@ -311,7 +311,7 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
 
             {qr.ekqrOrderId && !syncResult && (
               <p className="text-xs text-muted-foreground mt-1">
-                EKQR Order: <span className="font-mono text-teal-400">{qr.ekqrOrderId}</span>
+                Collection Ref: <span className="font-mono text-teal-400">{qr.ekqrOrderId}</span>
               </p>
             )}
 

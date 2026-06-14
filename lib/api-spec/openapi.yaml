@@ -12607,7 +12607,7 @@ components:
 
     EkqrConfig:
       type: object
-      required: [apiKeySet, apiKeyMasked, enabled, webhookSecretSet]
+      required: [apiKeySet, apiKeyMasked, enabled, webhookSecretSet, env]
       properties:
         apiKeySet:
           type: boolean
@@ -12621,6 +12621,10 @@ components:
         webhookSecretSet:
           type: boolean
           description: Whether a webhook signature secret has been configured
+        env:
+          type: string
+          enum: [test, live]
+          description: EKQR gateway environment (test or live)
 
     EkqrConfigInput:
       type: object
@@ -12631,6 +12635,10 @@ components:
         enabled:
           type: boolean
           description: Whether to enable/disable EKQR gateway
+        env:
+          type: string
+          enum: [test, live]
+          description: EKQR gateway environment (omit to leave unchanged)
         webhookSecret:
           type: string
           description: EKQR webhook signature secret (omit to leave unchanged, empty string to clear)

@@ -5,12 +5,15 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { EkqrConfigInputEnv } from './ekqrConfigInputEnv';
 
 export interface EkqrConfigInput {
   /** EKQR API key (omit to leave unchanged) */
   apiKey?: string;
   /** Whether to enable/disable EKQR gateway */
   enabled?: boolean;
+  /** EKQR gateway environment (omit to leave unchanged) */
+  env?: EkqrConfigInputEnv;
   /** EKQR webhook signature secret (omit to leave unchanged, empty string to clear) */
   webhookSecret?: string;
 }

@@ -10,7 +10,7 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, useTestEkqrWebhook, getGetEkqrConfigQueryKey, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -225,14 +225,6 @@ export default function AdminSettings() {
   const [githubSyncSchedule, setGithubSyncSchedule] = useState<string>("0 2 * * *");
   const [githubSyncInitialized, setGithubSyncInitialized] = useState(false);
 
-  const [ekqrApiKey, setEkqrApiKey] = useState("");
-  const [ekqrEnabled, setEkqrEnabled] = useState(false);
-  const [ekqrInitialized, setEkqrInitialized] = useState(false);
-  const [showEkqrKey, setShowEkqrKey] = useState(false);
-  const [ekqrWebhookSecret, setEkqrWebhookSecret] = useState("");
-  const [showEkqrSecret, setShowEkqrSecret] = useState(false);
-  const [ekqrTestResult, setEkqrTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [ekqrWebhookTestResult, setEkqrWebhookTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // SMTP config form state
   const [smtpHost, setSmtpHost] = useState("");
@@ -837,59 +829,6 @@ export default function AdminSettings() {
     },
   });
 
-  const { data: ekqrConfig, isLoading: ekqrLoading } = useGetEkqrConfig({
-    query: {
-      onSuccess: (d: { apiKeySet: boolean; apiKeyMasked: string; enabled: boolean }) => {
-        if (!ekqrInitialized) {
-          setEkqrEnabled(d.enabled);
-          setEkqrInitialized(true);
-        }
-      },
-    },
-  } as any);
-
-  const currentEkqrEnabled = ekqrConfig?.enabled ?? false;
-  const ekqrUnchanged = ekqrApiKey === "" && ekqrWebhookSecret === "" && ekqrEnabled === currentEkqrEnabled;
-
-  const { mutate: saveEkqrConfig, isPending: savingEkqr } = useUpdateEkqrConfig({
-    mutation: {
-      onSuccess: () => {
-        toast.success("EKQR settings saved");
-        setEkqrApiKey("");
-        setEkqrWebhookSecret("");
-        setEkqrInitialized(false);
-        qc.invalidateQueries({ queryKey: getGetEkqrConfigQueryKey() });
-      },
-      onError: (err: Error) => toast.error(err.message),
-    },
-  });
-
-  const { mutate: testEkqr, isPending: testingEkqr } = useTestEkqrConnection({
-    mutation: {
-      onSuccess: (d: { ok: boolean; msg: string }) => {
-        setEkqrTestResult(d);
-        if (d.ok) toast.success("EKQR connection successful");
-        else toast.error(`EKQR test failed: ${d.msg}`);
-      },
-      onError: (err: Error) => toast.error(err.message),
-    },
-  });
-
-  const { mutate: testEkqrWebhook, isPending: testingEkqrWebhook } = useTestEkqrWebhook({
-    mutation: {
-      onSuccess: (d: any) => {
-        const ok = d?.ok ?? true;
-        const msg = d?.msg ?? "Simulated webhook delivered";
-        setEkqrWebhookTestResult({ ok, msg });
-        if (ok) toast.success("Test webhook sent — check Webhook Logs");
-        else toast.error(`Test webhook failed: ${msg}`);
-      },
-      onError: (err: Error) => {
-        setEkqrWebhookTestResult({ ok: false, msg: err.message });
-        toast.error(err.message);
-      },
-    },
-  });
 
   const testEmailTrimmed = testEmailTo.trim();
   const testEmailInvalid = testEmailTrimmed.length > 0 && !EMAIL_REGEX.test(testEmailTrimmed);
@@ -2847,161 +2786,23 @@ export default function AdminSettings() {
         </CardContent>
       </Card>
 
-      {/* ── EKQR / UPI Gateway ──────────────────────────────────────── */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Zap className="w-4 h-4 text-yellow-400" />
-            EKQR / UPI Gateway
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Configure the EKQR payment gateway for dynamic QR code generation and auto-credit deposits.
-            Webhook URL: <code className="bg-muted px-1 rounded text-[11px]">https://rasokart.com/api/payment/webhook</code>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Enable/Disable toggle */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Enable EKQR Gateway</p>
-              <p className="text-xs text-muted-foreground">
-                When enabled, merchants with an EKQR connection will use this gateway for QR payments
-              </p>
-            </div>
-            <Switch
-              checked={ekqrEnabled}
-              onCheckedChange={setEkqrEnabled}
-              disabled={ekqrLoading}
-            />
+      {/* ── EKQR / UPI Gateway — moved to Payment Gateways hub ──────── */}
+      <Card className="border-teal-500/20 bg-teal-500/5">
+        <CardContent className="p-4 flex items-center gap-4">
+          <div className="p-2 rounded-lg bg-teal-500/10 border border-teal-500/20 shrink-0">
+            <Zap className="w-4 h-4 text-teal-400" />
           </div>
-
-          {/* API Key input */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">API Key</Label>
-            {ekqrConfig?.apiKeySet && ekqrApiKey === "" && (
-              <p className="text-xs text-muted-foreground mb-1">
-                Current key: <span className="font-mono">{ekqrConfig.apiKeyMasked || "••••••••"}</span>
-                {" — "}Enter a new key below to replace it
-              </p>
-            )}
-            <div className="relative">
-              <Input
-                type={showEkqrKey ? "text" : "password"}
-                placeholder={ekqrConfig?.apiKeySet ? "Enter new API key to replace…" : "Enter EKQR API key"}
-                value={ekqrApiKey}
-                onChange={e => setEkqrApiKey(e.target.value)}
-                className="h-8 text-xs pr-9 font-mono"
-              />
-              <button
-                type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => setShowEkqrKey(v => !v)}
-              >
-                {showEkqrKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Webhook Secret input */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Webhook Signature Secret</Label>
-            <p className="text-xs text-muted-foreground">
-              {ekqrConfig?.webhookSecretSet
-                ? "A secret is configured — incoming webhooks are signature-verified. Enter a new value to rotate it, or clear the field and save to remove verification."
-                : "Optional. When set, EKQR webhook calls must include a valid HMAC-SHA256 signature or they will be rejected with 401."}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">EKQR / UPI Gateway</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Configuration has moved to the Payment Gateways hub — API key, mode, webhook secret, connection test and sandbox/live toggle are all available there.
             </p>
-            <div className="relative">
-              <Input
-                type={showEkqrSecret ? "text" : "password"}
-                placeholder={ekqrConfig?.webhookSecretSet ? "Enter new secret to rotate…" : "Enter webhook signature secret"}
-                value={ekqrWebhookSecret}
-                onChange={e => setEkqrWebhookSecret(e.target.value)}
-                className="h-8 text-xs pr-9 font-mono"
-              />
-              <button
-                type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => setShowEkqrSecret(v => !v)}
-              >
-                {showEkqrSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-            {ekqrConfig?.webhookSecretSet && (
-              <p className="text-xs text-emerald-400 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                Signature verification active
-              </p>
-            )}
           </div>
-
-          {/* Test result banners */}
-          {ekqrTestResult && (
-            <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-md ${ekqrTestResult.ok ? "bg-green-500/10 text-green-400" : "bg-destructive/10 text-destructive"}`}>
-              {ekqrTestResult.ok
-                ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
-              {ekqrTestResult.ok ? "Connection successful" : ekqrTestResult.msg}
-            </div>
-          )}
-          {ekqrWebhookTestResult && (
-            <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-md ${ekqrWebhookTestResult.ok ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-destructive/10 text-destructive border border-destructive/20"}`}>
-              {ekqrWebhookTestResult.ok
-                ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
-              <span>
-                {ekqrWebhookTestResult.ok
-                  ? <>Simulated webhook sent — visible in <a href="/admin/webhook-logs" className="underline underline-offset-2 font-medium">Webhook Logs → EKQR Incoming</a></>
-                  : ekqrWebhookTestResult.msg}
-              </span>
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              size="sm"
-              onClick={() => saveEkqrConfig({ data: { ...(ekqrApiKey ? { apiKey: ekqrApiKey } : {}), ...(ekqrWebhookSecret !== "" ? { webhookSecret: ekqrWebhookSecret } : {}), enabled: ekqrEnabled } })}
-              disabled={savingEkqr || ekqrLoading || ekqrUnchanged}
-            >
-              <Save className="w-3.5 h-3.5 mr-1.5" />
-              {savingEkqr ? "Saving…" : "Save"}
+          <a href="/admin/payment-gateways">
+            <Button size="sm" variant="outline" className="shrink-0 border-teal-500/30 text-teal-400 hover:bg-teal-500/10">
+              Open Payment Gateways
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { setEkqrTestResult(null); testEkqr(); }}
-              disabled={testingEkqr || ekqrLoading || !ekqrConfig?.apiKeySet}
-            >
-              <FlaskConical className="w-3.5 h-3.5 mr-1.5" />
-              {testingEkqr ? "Testing…" : "Test Connection"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { setEkqrWebhookTestResult(null); testEkqrWebhook(); }}
-              disabled={testingEkqrWebhook || !ekqrConfig?.apiKeySet}
-              title="Send a simulated EKQR webhook to this server to verify end-to-end processing"
-            >
-              <Zap className="w-3.5 h-3.5 mr-1.5" />
-              {testingEkqrWebhook ? "Sending…" : "Send Test Webhook"}
-            </Button>
-            {!ekqrUnchanged && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => { setEkqrApiKey(""); setEkqrWebhookSecret(""); setEkqrEnabled(currentEkqrEnabled); setEkqrTestResult(null); setEkqrWebhookTestResult(null); }}
-                disabled={savingEkqr}
-              >
-                Cancel
-              </Button>
-            )}
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Assign EKQR to merchants via{" "}
-            <a href="/admin/providers" className="underline underline-offset-2 text-teal-400 hover:text-teal-300">Payment Providers → EKQR Settings</a>
-            {" "}· Inline config panel available directly from the providers table.
-          </p>
+          </a>
         </CardContent>
       </Card>
 

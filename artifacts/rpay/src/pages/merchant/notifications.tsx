@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useListNotifications, useMarkAllNotificationsRead, useMarkNotificationRead, useReenableReportSchedule, useGetReportSchedule, useGetNotificationUnreadCounts, getGetNotificationUnreadCountsQueryKey, useGetQuietHoursQueueCount, useListQuietHoursQueue, getListQuietHoursQueueQueryKey, getGetQuietHoursQueueCountQueryKey } from "@workspace/api-client-react";
+import { useListNotifications, useMarkAllNotificationsRead, useMarkNotificationRead, useReenableReportSchedule, useGetReportSchedule, useGetNotificationUnreadCounts, getGetNotificationUnreadCountsQueryKey, useGetQuietHoursQueueCount, useListQuietHoursQueue, getListQuietHoursQueueQueryKey, getGetQuietHoursQueueCountQueryKey, useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { IN_APP_NOTIF_LABELS, typeToField } from "@/lib/notification-categories";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bell, Check, CheckCheck, AlertCircle, CreditCard, Zap, Megaphone, RefreshCw, ExternalLink, Calendar, PlayCircle, CheckCircle2, Trash2, PauseCircle, Clock, Send, User, Moon, Mail, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Bell, BellOff, Check, CheckCheck, AlertCircle, CreditCard, Zap, Megaphone, RefreshCw, ExternalLink, Calendar, PlayCircle, CheckCircle2, Trash2, PauseCircle, Clock, Send, User, Moon, Mail, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { toast } from "sonner";
@@ -156,6 +156,7 @@ export default function NotificationsPage() {
       ? rawType
       : "all";
   const page = Math.max(1, parseInt(_nqp.get("page") ?? "1") || 1);
+  const hideMuted = _nqp.get("hideMuted") === "1";
 
   const setNotifFilter = (updates: Record<string, string | null>) => {
     const next = new URLSearchParams(searchStr);
@@ -209,6 +210,8 @@ export default function NotificationsPage() {
   const reenable = useReenableReportSchedule();
   const { data: scheduleData } = useGetReportSchedule();
   const scheduleIsActive = scheduleData?.schedule?.isActive ?? false;
+  const { data: meData } = useGetMe({ query: { queryKey: getGetMeQueryKey() } });
+  const meRecord = meData as Record<string, unknown> | null | undefined;
 
   function handleTabChange(v: string) {
     setNotifFilter({ tab: v === "all" ? null : v, page: null });
@@ -297,6 +300,13 @@ export default function NotificationsPage() {
   const total = data?.total ?? 0;
   const unread = data?.unread ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / 20));
+
+  const visibleNotifications = hideMuted
+    ? notifications.filter((n) => {
+        const f = typeToField(n.type);
+        return !f || meRecord?.[f] !== false;
+      })
+    : notifications;
 
   const typeCounts = unreadCountsData?.counts ?? {};
   const queuedCount = queueCountData?.count ?? 0;
@@ -410,22 +420,33 @@ export default function NotificationsPage() {
                 </button>
               );
             })}
+            <button
+              onClick={() => setNotifFilter({ hideMuted: hideMuted ? null : "1", page: null })}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                hideMuted
+                  ? "bg-amber-500/15 text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
+                  : "border-border/60 text-muted-foreground hover:text-foreground hover:border-border bg-transparent"
+              }`}
+            >
+              <BellOff className="w-3 h-3" />
+              {hideMuted ? "Showing active only" : "Hide muted"}
+            </button>
           </div>
 
           <Card>
             <CardContent className="p-0">
               {isLoading ? (
                 <div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>
-              ) : notifications.length === 0 ? (
+              ) : visibleNotifications.length === 0 ? (
                 <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
                   <Bell className="w-10 h-10 opacity-20" />
                   <p className="text-sm">
-                    {tab === "unread" ? "No unread notifications" : typeFilter !== "all" ? "No notifications for this filter" : "No notifications yet"}
+                    {hideMuted && notifications.length > 0 ? "All matching notifications are from muted types" : tab === "unread" ? "No unread notifications" : typeFilter !== "all" ? "No notifications for this filter" : "No notifications yet"}
                   </p>
                 </div>
               ) : (
                 <ul className="divide-y divide-border/50">
-                  {notifications.map((n) => {
+                  {visibleNotifications.map((n) => {
                     const isProviderLimit = PROVIDER_LIMIT_TYPES.has(n.type);
                     const isAutoPaused = n.type === "scheduled_report_auto_paused";
                     const isClickable = !n.isRead || isProviderLimit;
@@ -596,16 +617,16 @@ export default function NotificationsPage() {
             <CardContent className="p-0">
               {isLoading ? (
                 <div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>
-              ) : notifications.length === 0 ? (
+              ) : visibleNotifications.length === 0 ? (
                 <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
                   <Bell className="w-10 h-10 opacity-20" />
                   <p className="text-sm">
-                    {tab === "unread" ? "No unread notifications" : typeFilter !== "all" ? "No notifications for this filter" : "No notifications yet"}
+                    {hideMuted && notifications.length > 0 ? "All matching notifications are from muted types" : tab === "unread" ? "No unread notifications" : typeFilter !== "all" ? "No notifications for this filter" : "No notifications yet"}
                   </p>
                 </div>
               ) : (
                 <ul className="divide-y divide-border/50">
-                  {notifications.map((n) => {
+                  {visibleNotifications.map((n) => {
                     const isProviderLimit = PROVIDER_LIMIT_TYPES.has(n.type);
                     const isAutoPaused = n.type === "scheduled_report_auto_paused";
                     const isClickable = !n.isRead || isProviderLimit;

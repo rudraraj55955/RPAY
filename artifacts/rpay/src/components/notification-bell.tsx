@@ -62,6 +62,7 @@ interface NotificationBellProps {
 export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
+  const [hideMuted, setHideMuted] = useState(false);
   const qc = useQueryClient();
   const [, navigate] = useLocation();
 
@@ -106,9 +107,17 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
 
   const unread = unreadCountsData?.total ?? 0;
   const queueCount = (!isAdmin ? (queueCountData?.count ?? 0) : 0);
-  const items = data?.data ?? [];
+  const allItems = data?.data ?? [];
   const meRecord = meData as Record<string, unknown> | null | undefined;
   const mutedCount = !isAdmin ? countMutedInAppTypes(meRecord) : 0;
+
+  const items = hideMuted && !isAdmin
+    ? allItems.filter((n) => {
+        const field = typeToField(n.type);
+        if (field == null) return true;
+        return meRecord ? meRecord[field] !== false : true;
+      })
+    : allItems;
 
   function handleMarkAll() {
     markAll.mutate(undefined, {
@@ -192,12 +201,35 @@ export function NotificationBell({ isAdmin = false }: NotificationBellProps) {
         <PopoverContent side="right" align="start" className="w-80 p-0" sideOffset={8}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
             <span className="text-sm font-semibold">Notifications</span>
-            {unread > 0 && (
-              <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={handleMarkAll} disabled={markAll.isPending}>
-                <CheckCheck className="w-3 h-3 mr-1" />
-                Mark all read
-              </Button>
-            )}
+            <div className="flex items-center gap-1.5">
+              {!isAdmin && mutedCount > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setHideMuted((v) => !v)}
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                        hideMuted
+                          ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                          : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <BellOff className="w-2.5 h-2.5" />
+                      {hideMuted ? "Showing active" : "Hide muted"}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {hideMuted ? "Click to show muted notifications" : `Hide ${mutedCount} muted type${mutedCount === 1 ? "" : "s"}`}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {unread > 0 && (
+                <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={handleMarkAll} disabled={markAll.isPending}>
+                  <CheckCheck className="w-3 h-3 mr-1" />
+                  Mark all read
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="max-h-80 overflow-y-auto">

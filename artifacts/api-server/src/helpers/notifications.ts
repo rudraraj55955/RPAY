@@ -19,6 +19,7 @@ export type NotificationType =
   | "report_schedule_reenabled"
   | "report_schedule_reenabled_by_merchant"
   | "report_schedule_auto_paused_admin"
+  | "report_schedule_failures_reset"
   | "report_manual_send"
   | "merchant_dormant"
   | "kyc_approved"

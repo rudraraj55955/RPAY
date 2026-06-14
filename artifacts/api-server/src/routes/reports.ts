@@ -1477,6 +1477,17 @@ router.post("/schedules/:merchantId/reset-failures", requireAdmin, async (req, r
       ipAddress: req.ip ?? null,
     });
 
+    const [u] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.merchantId, mid)).limit(1);
+    if (u) {
+      createNotification({
+        userId: u.id,
+        type: "report_schedule_failures_reset",
+        title: "Report Failure Count Reset",
+        body: `An admin has reset your report schedule's consecutive failure count to 0. Your schedule will continue running normally.`,
+        metadata: {},
+      }).catch(() => {});
+    }
+
     res.json({ schedule: updated });
   } catch (err) {
     next(err);

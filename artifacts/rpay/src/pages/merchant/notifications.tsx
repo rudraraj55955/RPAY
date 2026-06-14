@@ -17,7 +17,7 @@ function notifIcon(type: string) {
   if (type === "limit_exceeded" || type === "provider_limit_warning" || type === "provider_limit_reached") return <AlertCircle className="w-4 h-4" />;
   if (type === "scheduled_report_auto_paused" || type === "scheduled_report_auto_paused_admin") return <PauseCircle className="w-4 h-4" />;
   if (type === "scheduled_report_failure") return <AlertCircle className="w-4 h-4" />;
-  if (type === "scheduled_report_retry_success" || type === "report_schedule_reenabled") return <PlayCircle className="w-4 h-4" />;
+  if (type === "scheduled_report_retry_success" || type === "report_schedule_reenabled" || type === "report_schedule_failures_reset") return <PlayCircle className="w-4 h-4" />;
   if (type === "scheduled_report_overdue") return <Clock className="w-4 h-4" />;
   if (type === "report_schedule_deleted") return <Trash2 className="w-4 h-4" />;
   if (type === "report_schedule_next_run_updated") return <Calendar className="w-4 h-4" />;
@@ -32,7 +32,7 @@ function notifColor(type: string): string {
   if (type === "plan_expired" || type === "provider_limit_reached") return "text-red-400";
   if (type === "provider_limit_reset") return "text-emerald-400";
   if (type === "scheduled_report_auto_paused" || type === "scheduled_report_auto_paused_admin" || type === "scheduled_report_failure" || type === "scheduled_report_overdue") return "text-amber-400";
-  if (type === "scheduled_report_retry_success" || type === "report_schedule_reenabled") return "text-emerald-400";
+  if (type === "scheduled_report_retry_success" || type === "report_schedule_reenabled" || type === "report_schedule_failures_reset") return "text-emerald-400";
   if (type === "report_schedule_deleted") return "text-red-400";
   if (type === "report_schedule_next_run_updated") return "text-sky-400";
   if (type === "report_manual_send") return "text-sky-400";
@@ -58,6 +58,7 @@ const TYPE_LABELS: Record<string, string> = {
   report_schedule_deleted: "Schedule Deleted",
   report_schedule_next_run_updated: "Schedule Updated",
   report_schedule_reenabled: "Schedule Re-enabled",
+  report_schedule_failures_reset: "Failures Reset",
   report_manual_send: "Report Sent",
 };
 
@@ -97,6 +98,7 @@ const REPORT_NOTIFICATION_TYPES = new Set([
   "report_schedule_deleted",
   "report_schedule_next_run_updated",
   "report_schedule_reenabled",
+  "report_schedule_failures_reset",
   "report_manual_send",
 ]);
 

@@ -507,12 +507,20 @@ export default function Landing() {
                 </div>
               ))}
 
-              <Link href="/merchant/api-docs">
-                <Button variant="outline" className="w-fit gap-2 border-border/60">
-                  <BookOpen className="h-4 w-4" />
-                  View Full API Docs
-                </Button>
-              </Link>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/upi-collection-api">
+                  <Button className="w-fit gap-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90">
+                    <Terminal className="h-4 w-4" />
+                    UPI Collection API
+                  </Button>
+                </Link>
+                <Link href="/merchant/api-docs">
+                  <Button variant="outline" className="w-fit gap-2 border-border/60">
+                    <BookOpen className="h-4 w-4" />
+                    Merchant API Docs
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -659,7 +667,7 @@ export default function Landing() {
       {/* FOOTER */}
       <footer className="border-t border-border/40 bg-card/20 py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
             <div className="lg:col-span-2">
               <div className="mb-4 flex items-center gap-3">
                 <RasoKartLogo size={32} />
@@ -689,6 +697,14 @@ export default function Landing() {
                 <li>UPI Payments</li>
                 <li>Payout API</li>
                 <li>Payment Links</li>
+              </ul>
+            </div>
+
+            <div>
+              <div className="mb-3 text-sm font-semibold">Developers</div>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link href="/upi-collection-api" className="transition-colors hover:text-foreground">UPI Collection API</Link></li>
+                <li><Link href="/merchant/api-docs" className="transition-colors hover:text-foreground">Merchant API Docs</Link></li>
               </ul>
             </div>
           </div>

@@ -402,20 +402,34 @@ function CredentialEventSkeletonRows() {
 // ─── Notification preference change helpers ───────────────────────────────────
 
 const PREF_FIELD_LABELS: Record<string, string> = {
-  apiKeyGeneratedEmails: "API key generated",
-  apiKeyRevokedEmails: "API key revoked",
-  signatureFailureAlertEmails: "Signature failure alerts",
-  loginAlertEmails: "New login alerts",
-  reportScheduleChangedEmails: "Report schedule changed",
-  settlementStateChangedEmails: "Settlement state changed",
-  reconciliationAlertEmails: "Reconciliation alerts",
-  planExpiryAlertEmails: "Plan expiry alerts",
-  settlementStateEmails: "Settlement state emails",
-  webhookFailureEmails: "Webhook failure emails",
-  reportFailureAlertEmails: "Report failure alerts",
-  weeklyDeliveryDigestEmails: "Weekly delivery digest",
-  ekqrSyncAlertEmails: "EKQR sync alerts",
-  planChangeEmails: "Plan change emails",
+  apiKeyGeneratedEmails: "API key generated (email)",
+  apiKeyRevokedEmails: "API key revoked (email)",
+  signatureFailureAlertEmails: "Signature failure alerts (email)",
+  loginAlertEmails: "New login alerts (email)",
+  reportScheduleChangedEmails: "Report schedule changed (email)",
+  settlementStateChangedEmails: "Settlement state changed (email)",
+  reconciliationAlertEmails: "Reconciliation alerts (email)",
+  planExpiryAlertEmails: "Plan expiry alerts (email)",
+  settlementStateEmails: "Settlement state emails (email)",
+  webhookFailureEmails: "Webhook failure emails (email)",
+  reportFailureAlertEmails: "Report failure alerts (email)",
+  weeklyDeliveryDigestEmails: "Weekly delivery digest (email)",
+  ekqrSyncAlertEmails: "EKQR sync alerts (email)",
+  planChangeEmails: "Plan change emails (email)",
+  reconciliationAlertNotifs: "Reconciliation alerts (in-app)",
+  planExpiryAlertNotifs: "Plan expiry alerts (in-app)",
+  settlementStateNotifs: "Settlement state (in-app)",
+  signatureFailureAlertNotifs: "Signature failure alerts (in-app)",
+  webhookFailureNotifs: "Webhook failure alerts (in-app)",
+  ekqrSyncAlertNotifs: "EKQR sync alerts (in-app)",
+  reportFailureAlertNotifs: "Report failure alerts (in-app)",
+  weeklyDeliveryDigestNotifs: "Weekly delivery digest (in-app)",
+  apiKeyGeneratedNotifs: "API key generated (in-app)",
+  apiKeyRevokedNotifs: "API key revoked (in-app)",
+  loginAlertNotifs: "New login alerts (in-app)",
+  reportScheduleChangedNotifs: "Report schedule changed (in-app)",
+  settlementStateChangedNotifs: "Settlement state changed (in-app)",
+  planChangeNotifs: "Plan change (in-app)",
 };
 
 function NotifPrefChanges({ details }: { details: string | null | undefined }) {
@@ -511,21 +525,50 @@ export default function MerchantSecurity() {
   const ekqrSyncAlertEnabled = me?.ekqrSyncAlertEmails ?? true;
   const planChangeEnabled = me?.planChangeEmails ?? true;
 
+  const apiKeyGeneratedNotifsEnabled = (me as any)?.apiKeyGeneratedNotifs ?? true;
+  const apiKeyRevokedNotifsEnabled = (me as any)?.apiKeyRevokedNotifs ?? true;
+  const signatureFailureAlertNotifsEnabled = (me as any)?.signatureFailureAlertNotifs ?? true;
+  const loginAlertNotifsEnabled = (me as any)?.loginAlertNotifs ?? true;
+  const reportScheduleChangedNotifsEnabled = (me as any)?.reportScheduleChangedNotifs ?? true;
+  const settlementStateChangedNotifsEnabled = (me as any)?.settlementStateChangedNotifs ?? true;
+  const reconciliationAlertNotifsEnabled = (me as any)?.reconciliationAlertNotifs ?? true;
+  const planExpiryAlertNotifsEnabled = (me as any)?.planExpiryAlertNotifs ?? true;
+  const settlementStateNotifsEnabled = (me as any)?.settlementStateNotifs ?? true;
+  const webhookFailureNotifsEnabled = (me as any)?.webhookFailureNotifs ?? true;
+  const reportFailureAlertNotifsEnabled = (me as any)?.reportFailureAlertNotifs ?? true;
+  const weeklyDeliveryDigestNotifsEnabled = (me as any)?.weeklyDeliveryDigestNotifs ?? true;
+  const ekqrSyncAlertNotifsEnabled = (me as any)?.ekqrSyncAlertNotifs ?? true;
+  const planChangeNotifsEnabled = (me as any)?.planChangeNotifs ?? true;
+
   const disabledNotifications = me == null ? [] : [
-    ...(!apiKeyGeneratedEnabled ? ["API key generated"] : []),
-    ...(!apiKeyRevokedEnabled ? ["API key revoked"] : []),
-    ...(!signatureFailureAlertEnabled ? ["Signature failure alerts"] : []),
-    ...(!loginAlertEnabled ? ["New login alerts"] : []),
-    ...(!settlementStateEnabled ? ["Settlement state emails"] : []),
-    ...(!settlementStateChangedEnabled ? ["Settlement state changed"] : []),
-    ...(!reconciliationAlertEnabled ? ["Reconciliation alerts"] : []),
-    ...(!planExpiryAlertEnabled ? ["Plan expiry alerts"] : []),
-    ...(!planChangeEnabled ? ["Plan change emails"] : []),
-    ...(!webhookFailureEnabled ? ["Webhook failure emails"] : []),
-    ...(!ekqrSyncAlertEnabled ? ["EKQR sync alerts"] : []),
-    ...(!reportScheduleChangedEnabled ? ["Report schedule changed"] : []),
-    ...(!reportFailureAlertEnabled ? ["Report failure alerts"] : []),
-    ...(!weeklyDeliveryDigestEnabled ? ["Weekly delivery digest"] : []),
+    ...(!apiKeyGeneratedEnabled ? ["API key generated (email)"] : []),
+    ...(!apiKeyGeneratedNotifsEnabled ? ["API key generated (in-app)"] : []),
+    ...(!apiKeyRevokedEnabled ? ["API key revoked (email)"] : []),
+    ...(!apiKeyRevokedNotifsEnabled ? ["API key revoked (in-app)"] : []),
+    ...(!signatureFailureAlertEnabled ? ["Signature failure alerts (email)"] : []),
+    ...(!signatureFailureAlertNotifsEnabled ? ["Signature failure alerts (in-app)"] : []),
+    ...(!loginAlertEnabled ? ["New login alerts (email)"] : []),
+    ...(!loginAlertNotifsEnabled ? ["New login alerts (in-app)"] : []),
+    ...(!settlementStateEnabled ? ["Settlement state (email)"] : []),
+    ...(!settlementStateNotifsEnabled ? ["Settlement state (in-app)"] : []),
+    ...(!settlementStateChangedEnabled ? ["Settlement state changed (email)"] : []),
+    ...(!settlementStateChangedNotifsEnabled ? ["Settlement state changed (in-app)"] : []),
+    ...(!reconciliationAlertEnabled ? ["Reconciliation alerts (email)"] : []),
+    ...(!reconciliationAlertNotifsEnabled ? ["Reconciliation alerts (in-app)"] : []),
+    ...(!planExpiryAlertEnabled ? ["Plan expiry alerts (email)"] : []),
+    ...(!planExpiryAlertNotifsEnabled ? ["Plan expiry alerts (in-app)"] : []),
+    ...(!planChangeEnabled ? ["Plan change (email)"] : []),
+    ...(!planChangeNotifsEnabled ? ["Plan change (in-app)"] : []),
+    ...(!webhookFailureEnabled ? ["Webhook failure (email)"] : []),
+    ...(!webhookFailureNotifsEnabled ? ["Webhook failure (in-app)"] : []),
+    ...(!ekqrSyncAlertEnabled ? ["EKQR sync alerts (email)"] : []),
+    ...(!ekqrSyncAlertNotifsEnabled ? ["EKQR sync alerts (in-app)"] : []),
+    ...(!reportScheduleChangedEnabled ? ["Report schedule changed (email)"] : []),
+    ...(!reportScheduleChangedNotifsEnabled ? ["Report schedule changed (in-app)"] : []),
+    ...(!reportFailureAlertEnabled ? ["Report failure alerts (email)"] : []),
+    ...(!reportFailureAlertNotifsEnabled ? ["Report failure alerts (in-app)"] : []),
+    ...(!weeklyDeliveryDigestEnabled ? ["Weekly delivery digest (email)"] : []),
+    ...(!weeklyDeliveryDigestNotifsEnabled ? ["Weekly delivery digest (in-app)"] : []),
   ];
 
   const [notifBannerDismissed, setNotifBannerDismissed] = useState(false);
@@ -1915,101 +1958,75 @@ export default function MerchantSecurity() {
             Security Notifications
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Choose which security events trigger an email alert to your registered address.
+            Choose which security events trigger email or in-app bell notifications.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">API key generated</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email whenever a new API key is created on your account.
-              </p>
-            </div>
-            <Switch
-              checked={apiKeyGeneratedEnabled}
-              onCheckedChange={val => updatePrefs({ data: { apiKeyGeneratedEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-xs text-muted-foreground/60 uppercase tracking-wider font-medium px-4 pb-1 hidden sm:grid">
+            <span />
+            <span className="flex items-center gap-1 w-16 justify-center"><Mail className="w-3 h-3" /> Email</span>
+            <span className="flex items-center gap-1 w-16 justify-center"><Bell className="w-3 h-3" /> In-app</span>
           </div>
-          {!apiKeyGeneratedEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not be notified when a new API key is generated.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">API key revoked</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email whenever an API key on your account is revoked.
-              </p>
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">API key generated</p>
+              <p className="text-xs text-muted-foreground">Alert when a new API key is created on your account.</p>
             </div>
-            <Switch
-              checked={apiKeyRevokedEnabled}
-              onCheckedChange={val => updatePrefs({ data: { apiKeyRevokedEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={apiKeyGeneratedEnabled} onCheckedChange={val => updatePrefs({ data: { apiKeyGeneratedEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={apiKeyGeneratedNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { apiKeyGeneratedNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
           </div>
-          {!apiKeyRevokedEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not be notified when an API key is revoked.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">Signature failure alerts</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email alert when an elevated number of HMAC signature failures are detected on your account.
-              </p>
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">API key revoked</p>
+              <p className="text-xs text-muted-foreground">Alert when an API key on your account is revoked.</p>
             </div>
-            <Switch
-              checked={signatureFailureAlertEnabled}
-              onCheckedChange={val => updatePrefs({ data: { signatureFailureAlertEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={apiKeyRevokedEnabled} onCheckedChange={val => updatePrefs({ data: { apiKeyRevokedEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={apiKeyRevokedNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { apiKeyRevokedNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
           </div>
-          {!signatureFailureAlertEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not be alerted to elevated callback signature failures on your account.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">New login alerts</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email when your account is accessed from a new IP address.
-              </p>
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">Signature failure alerts</p>
+              <p className="text-xs text-muted-foreground">Alert when elevated HMAC signature failures are detected on your account.</p>
             </div>
-            <Switch
-              checked={loginAlertEnabled}
-              onCheckedChange={val => updatePrefs({ data: { loginAlertEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={signatureFailureAlertEnabled} onCheckedChange={val => updatePrefs({ data: { signatureFailureAlertEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={signatureFailureAlertNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { signatureFailureAlertNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
           </div>
-          {!loginAlertEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not be notified when your account is accessed from a new IP address.
-            </p>
-          )}
+
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">New login alerts</p>
+              <p className="text-xs text-muted-foreground">Alert when your account is accessed from a new IP address.</p>
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={loginAlertEnabled} onCheckedChange={val => updatePrefs({ data: { loginAlertEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={loginAlertNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { loginAlertNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -2021,78 +2038,60 @@ export default function MerchantSecurity() {
             Payments &amp; Settlements
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Choose which payment and settlement events send you an email notification.
+            Choose which payment and settlement events send you email or in-app notifications.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">Settlement state emails</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive email updates on the status of your settlements.
-              </p>
-            </div>
-            <Switch
-              checked={settlementStateEnabled}
-              onCheckedChange={val => updatePrefs({ data: { settlementStateEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-xs text-muted-foreground/60 uppercase tracking-wider font-medium px-4 pb-1 hidden sm:grid">
+            <span />
+            <span className="flex items-center gap-1 w-16 justify-center"><Mail className="w-3 h-3" /> Email</span>
+            <span className="flex items-center gap-1 w-16 justify-center"><Bell className="w-3 h-3" /> In-app</span>
           </div>
-          {!settlementStateEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not receive settlement status update emails.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">Settlement state changed</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email whenever your settlement request is processed, approved, rejected, or paid.
-              </p>
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">Settlement state updates</p>
+              <p className="text-xs text-muted-foreground">Notifications on the status of your settlements.</p>
             </div>
-            <Switch
-              checked={settlementStateChangedEnabled}
-              onCheckedChange={val => updatePrefs({ data: { settlementStateChangedEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={settlementStateEnabled} onCheckedChange={val => updatePrefs({ data: { settlementStateEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={settlementStateNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { settlementStateNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
           </div>
-          {!settlementStateChangedEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not receive emails when your settlement status changes.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">Reconciliation alerts</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email alert when a reconciliation issue is detected on your account.
-              </p>
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">Settlement state changed</p>
+              <p className="text-xs text-muted-foreground">Alert when your settlement request is approved, rejected, or paid.</p>
             </div>
-            <Switch
-              checked={reconciliationAlertEnabled}
-              onCheckedChange={val => updatePrefs({ data: { reconciliationAlertEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={settlementStateChangedEnabled} onCheckedChange={val => updatePrefs({ data: { settlementStateChangedEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={settlementStateChangedNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { settlementStateChangedNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
           </div>
-          {!reconciliationAlertEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not be alerted to reconciliation issues on your account.
-            </p>
-          )}
+
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">Reconciliation alerts</p>
+              <p className="text-xs text-muted-foreground">Alert when a reconciliation issue is detected on your account.</p>
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={reconciliationAlertEnabled} onCheckedChange={val => updatePrefs({ data: { reconciliationAlertEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={reconciliationAlertNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { reconciliationAlertNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -2104,55 +2103,45 @@ export default function MerchantSecurity() {
             Plan &amp; Billing
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Choose which plan and billing events send you an email notification.
+            Choose which plan and billing events send you email or in-app notifications.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">Plan expiry alerts</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email when your subscription plan is approaching expiry or has expired.
-              </p>
-            </div>
-            <Switch
-              checked={planExpiryAlertEnabled}
-              onCheckedChange={val => updatePrefs({ data: { planExpiryAlertEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-xs text-muted-foreground/60 uppercase tracking-wider font-medium px-4 pb-1 hidden sm:grid">
+            <span />
+            <span className="flex items-center gap-1 w-16 justify-center"><Mail className="w-3 h-3" /> Email</span>
+            <span className="flex items-center gap-1 w-16 justify-center"><Bell className="w-3 h-3" /> In-app</span>
           </div>
-          {!planExpiryAlertEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not be notified when your plan is about to expire.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">Plan change emails</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email when an admin changes your subscription plan.
-              </p>
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">Plan expiry alerts</p>
+              <p className="text-xs text-muted-foreground">Alert when your subscription plan is approaching expiry or has expired.</p>
             </div>
-            <Switch
-              checked={planChangeEnabled}
-              onCheckedChange={val => updatePrefs({ data: { planChangeEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={planExpiryAlertEnabled} onCheckedChange={val => updatePrefs({ data: { planExpiryAlertEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={planExpiryAlertNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { planExpiryAlertNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
           </div>
-          {!planChangeEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not receive emails when your subscription plan is changed.
-            </p>
-          )}
+
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">Plan changes</p>
+              <p className="text-xs text-muted-foreground">Alert when an admin changes your subscription plan.</p>
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={planChangeEnabled} onCheckedChange={val => updatePrefs({ data: { planChangeEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={planChangeNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { planChangeNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -2164,55 +2153,45 @@ export default function MerchantSecurity() {
             Integrations &amp; Webhooks
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Choose which integration and webhook events send you an email notification.
+            Choose which integration and webhook events send you email or in-app notifications.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">Webhook failure emails</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email alert when webhook deliveries on your account are repeatedly failing.
-              </p>
-            </div>
-            <Switch
-              checked={webhookFailureEnabled}
-              onCheckedChange={val => updatePrefs({ data: { webhookFailureEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-xs text-muted-foreground/60 uppercase tracking-wider font-medium px-4 pb-1 hidden sm:grid">
+            <span />
+            <span className="flex items-center gap-1 w-16 justify-center"><Mail className="w-3 h-3" /> Email</span>
+            <span className="flex items-center gap-1 w-16 justify-center"><Bell className="w-3 h-3" /> In-app</span>
           </div>
-          {!webhookFailureEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not be alerted to webhook delivery failures on your account.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">EKQR sync alerts</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email when an EKQR synchronisation issue is detected on your QR codes.
-              </p>
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">Webhook failure alerts</p>
+              <p className="text-xs text-muted-foreground">Alert when webhook deliveries on your account are repeatedly failing.</p>
             </div>
-            <Switch
-              checked={ekqrSyncAlertEnabled}
-              onCheckedChange={val => updatePrefs({ data: { ekqrSyncAlertEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={webhookFailureEnabled} onCheckedChange={val => updatePrefs({ data: { webhookFailureEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={webhookFailureNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { webhookFailureNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
           </div>
-          {!ekqrSyncAlertEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not be alerted to EKQR sync issues on your account.
-            </p>
-          )}
+
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">EKQR sync alerts</p>
+              <p className="text-xs text-muted-foreground">Alert when an EKQR synchronisation issue is detected on your QR codes.</p>
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={ekqrSyncAlertEnabled} onCheckedChange={val => updatePrefs({ data: { ekqrSyncAlertEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={ekqrSyncAlertNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { ekqrSyncAlertNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -2224,78 +2203,60 @@ export default function MerchantSecurity() {
             Reports &amp; Digests
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Choose which report events and digest emails you want to receive.
+            Choose which report events send you email or in-app notifications.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">Report schedule changed</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email when an admin updates or resets your report schedule, or when it is automatically paused due to repeated delivery failures.
-              </p>
-            </div>
-            <Switch
-              checked={reportScheduleChangedEnabled}
-              onCheckedChange={val => updatePrefs({ data: { reportScheduleChangedEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-xs text-muted-foreground/60 uppercase tracking-wider font-medium px-4 pb-1 hidden sm:grid">
+            <span />
+            <span className="flex items-center gap-1 w-16 justify-center"><Mail className="w-3 h-3" /> Email</span>
+            <span className="flex items-center gap-1 w-16 justify-center"><Bell className="w-3 h-3" /> In-app</span>
           </div>
-          {!reportScheduleChangedEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not receive emails when your report schedule is changed by an admin or automatically paused.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">Report failure alerts</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive an email alert when a scheduled report fails to generate or deliver.
-              </p>
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">Report schedule changed</p>
+              <p className="text-xs text-muted-foreground">Alert when an admin updates your report schedule, or it is paused due to repeated delivery failures.</p>
             </div>
-            <Switch
-              checked={reportFailureAlertEnabled}
-              onCheckedChange={val => updatePrefs({ data: { reportFailureAlertEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={reportScheduleChangedEnabled} onCheckedChange={val => updatePrefs({ data: { reportScheduleChangedEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={reportScheduleChangedNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { reportScheduleChangedNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
           </div>
-          {!reportFailureAlertEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not be alerted when a scheduled report fails.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">Weekly delivery digest</p>
-              </div>
-              <p className="text-xs text-muted-foreground pl-5">
-                Receive a weekly email summarising your report delivery health and delivery statistics.
-              </p>
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">Report failure alerts</p>
+              <p className="text-xs text-muted-foreground">Alert when a scheduled report fails to generate or deliver.</p>
             </div>
-            <Switch
-              checked={weeklyDeliveryDigestEnabled}
-              onCheckedChange={val => updatePrefs({ data: { weeklyDeliveryDigestEmails: val } })}
-              disabled={savingPrefs || me === undefined}
-            />
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={reportFailureAlertEnabled} onCheckedChange={val => updatePrefs({ data: { reportFailureAlertEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={reportFailureAlertNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { reportFailureAlertNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
           </div>
-          {!weeklyDeliveryDigestEnabled && (
-            <p className="text-xs text-amber-400 flex items-center gap-1.5 px-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              You will not receive the weekly report delivery digest.
-            </p>
-          )}
+
+          <div className="flex sm:grid sm:grid-cols-[1fr_auto_auto] items-center gap-3 flex-wrap rounded-lg border border-border/50 bg-muted/5 px-4 py-3">
+            <div className="flex-1 space-y-0.5 min-w-0">
+              <p className="text-sm font-medium">Weekly delivery digest</p>
+              <p className="text-xs text-muted-foreground">Weekly summary of your report delivery health and delivery statistics.</p>
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={weeklyDeliveryDigestEnabled} onCheckedChange={val => updatePrefs({ data: { weeklyDeliveryDigestEmails: val } })} disabled={savingPrefs || me === undefined} />
+            </div>
+            <div className="flex items-center gap-1.5 sm:w-16 sm:justify-center">
+              <Bell className="w-3.5 h-3.5 text-muted-foreground sm:hidden" />
+              <Switch checked={weeklyDeliveryDigestNotifsEnabled} onCheckedChange={val => updatePrefs({ data: { weeklyDeliveryDigestNotifs: val } as any })} disabled={savingPrefs || me === undefined} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

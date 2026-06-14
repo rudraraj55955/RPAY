@@ -432,6 +432,20 @@ router.get("/me", requireAuth, async (req, res, next) => {
         settlementStateChangedEmails: usersTable.settlementStateChangedEmails,
         ekqrSyncAlertEmails: usersTable.ekqrSyncAlertEmails,
         planChangeEmails: usersTable.planChangeEmails,
+        reconciliationAlertNotifs: usersTable.reconciliationAlertNotifs,
+        planExpiryAlertNotifs: usersTable.planExpiryAlertNotifs,
+        settlementStateNotifs: usersTable.settlementStateNotifs,
+        signatureFailureAlertNotifs: usersTable.signatureFailureAlertNotifs,
+        webhookFailureNotifs: usersTable.webhookFailureNotifs,
+        ekqrSyncAlertNotifs: usersTable.ekqrSyncAlertNotifs,
+        reportFailureAlertNotifs: usersTable.reportFailureAlertNotifs,
+        weeklyDeliveryDigestNotifs: usersTable.weeklyDeliveryDigestNotifs,
+        apiKeyGeneratedNotifs: usersTable.apiKeyGeneratedNotifs,
+        apiKeyRevokedNotifs: usersTable.apiKeyRevokedNotifs,
+        loginAlertNotifs: usersTable.loginAlertNotifs,
+        reportScheduleChangedNotifs: usersTable.reportScheduleChangedNotifs,
+        settlementStateChangedNotifs: usersTable.settlementStateChangedNotifs,
+        planChangeNotifs: usersTable.planChangeNotifs,
         notifPrefsDisabledAt: usersTable.notifPrefsDisabledAt,
         notifFieldDisabledAt: usersTable.notifFieldDisabledAt,
         quietHoursStart: usersTable.quietHoursStart,
@@ -480,6 +494,20 @@ router.get("/me", requireAuth, async (req, res, next) => {
       settlementStateChangedEmails: row?.settlementStateChangedEmails ?? true,
       ekqrSyncAlertEmails: row?.ekqrSyncAlertEmails ?? true,
       planChangeEmails: row?.planChangeEmails ?? true,
+      reconciliationAlertNotifs: row?.reconciliationAlertNotifs ?? true,
+      planExpiryAlertNotifs: row?.planExpiryAlertNotifs ?? true,
+      settlementStateNotifs: row?.settlementStateNotifs ?? true,
+      signatureFailureAlertNotifs: row?.signatureFailureAlertNotifs ?? true,
+      webhookFailureNotifs: row?.webhookFailureNotifs ?? true,
+      ekqrSyncAlertNotifs: row?.ekqrSyncAlertNotifs ?? true,
+      reportFailureAlertNotifs: row?.reportFailureAlertNotifs ?? true,
+      weeklyDeliveryDigestNotifs: row?.weeklyDeliveryDigestNotifs ?? true,
+      apiKeyGeneratedNotifs: row?.apiKeyGeneratedNotifs ?? true,
+      apiKeyRevokedNotifs: row?.apiKeyRevokedNotifs ?? true,
+      loginAlertNotifs: row?.loginAlertNotifs ?? true,
+      reportScheduleChangedNotifs: row?.reportScheduleChangedNotifs ?? true,
+      settlementStateChangedNotifs: row?.settlementStateChangedNotifs ?? true,
+      planChangeNotifs: row?.planChangeNotifs ?? true,
       notifPrefsDisabledAt: row?.notifPrefsDisabledAt ?? null,
       notifFieldDisabledAt: row?.notifFieldDisabledAt ?? null,
       quietHoursStart: row?.quietHoursStart ?? null,
@@ -498,7 +526,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
 router.put("/preferences", requireAuth, prefChangeLimiter, async (req, res, next) => {
   try {
     const user = (req as any).user;
-    const { reconciliationAlertEmails, planExpiryAlertEmails, settlementStateEmails, signatureFailureAlertEmails, webhookFailureEmails, reportFailureAlertEmails, weeklyDeliveryDigestEmails, apiKeyGeneratedEmails, apiKeyRevokedEmails, loginAlertEmails, reportScheduleChangedEmails, settlementStateChangedEmails, ekqrSyncAlertEmails, planChangeEmails, quietHoursStart, quietHoursEnd, quietHoursTimezone } = req.body;
+    const { reconciliationAlertEmails, planExpiryAlertEmails, settlementStateEmails, signatureFailureAlertEmails, webhookFailureEmails, reportFailureAlertEmails, weeklyDeliveryDigestEmails, apiKeyGeneratedEmails, apiKeyRevokedEmails, loginAlertEmails, reportScheduleChangedEmails, settlementStateChangedEmails, ekqrSyncAlertEmails, planChangeEmails, reconciliationAlertNotifs, planExpiryAlertNotifs, settlementStateNotifs, signatureFailureAlertNotifs, webhookFailureNotifs, ekqrSyncAlertNotifs, reportFailureAlertNotifs, weeklyDeliveryDigestNotifs, apiKeyGeneratedNotifs, apiKeyRevokedNotifs, loginAlertNotifs, reportScheduleChangedNotifs, settlementStateChangedNotifs, planChangeNotifs, quietHoursStart, quietHoursEnd, quietHoursTimezone } = req.body;
 
     const patch: Record<string, boolean | Date | string | null | Record<string, string>> = {};
 
@@ -614,6 +642,33 @@ router.put("/preferences", requireAuth, prefChangeLimiter, async (req, res, next
       patch["planChangeEmails"] = planChangeEmails;
     }
 
+    const inAppNotifFields = [
+      ["reconciliationAlertNotifs", reconciliationAlertNotifs],
+      ["planExpiryAlertNotifs", planExpiryAlertNotifs],
+      ["settlementStateNotifs", settlementStateNotifs],
+      ["signatureFailureAlertNotifs", signatureFailureAlertNotifs],
+      ["webhookFailureNotifs", webhookFailureNotifs],
+      ["ekqrSyncAlertNotifs", ekqrSyncAlertNotifs],
+      ["reportFailureAlertNotifs", reportFailureAlertNotifs],
+      ["weeklyDeliveryDigestNotifs", weeklyDeliveryDigestNotifs],
+      ["apiKeyGeneratedNotifs", apiKeyGeneratedNotifs],
+      ["apiKeyRevokedNotifs", apiKeyRevokedNotifs],
+      ["loginAlertNotifs", loginAlertNotifs],
+      ["reportScheduleChangedNotifs", reportScheduleChangedNotifs],
+      ["settlementStateChangedNotifs", settlementStateChangedNotifs],
+      ["planChangeNotifs", planChangeNotifs],
+    ] as const;
+
+    for (const [fieldName, fieldValue] of inAppNotifFields) {
+      if (fieldValue !== undefined) {
+        if (typeof fieldValue !== "boolean") {
+          res.status(400).json({ error: `${fieldName} must be a boolean` });
+          return;
+        }
+        patch[fieldName] = fieldValue;
+      }
+    }
+
     const HH_MM_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
     if (quietHoursStart !== undefined) {
       if (quietHoursStart !== null && (typeof quietHoursStart !== "string" || !HH_MM_RE.test(quietHoursStart))) {
@@ -665,6 +720,20 @@ router.put("/preferences", requireAuth, prefChangeLimiter, async (req, res, next
       "settlementStateChangedEmails",
       "ekqrSyncAlertEmails",
       "planChangeEmails",
+      "reconciliationAlertNotifs",
+      "planExpiryAlertNotifs",
+      "settlementStateNotifs",
+      "signatureFailureAlertNotifs",
+      "webhookFailureNotifs",
+      "ekqrSyncAlertNotifs",
+      "reportFailureAlertNotifs",
+      "weeklyDeliveryDigestNotifs",
+      "apiKeyGeneratedNotifs",
+      "apiKeyRevokedNotifs",
+      "loginAlertNotifs",
+      "reportScheduleChangedNotifs",
+      "settlementStateChangedNotifs",
+      "planChangeNotifs",
     ] as const;
 
     const [current] = await db
@@ -683,6 +752,20 @@ router.put("/preferences", requireAuth, prefChangeLimiter, async (req, res, next
         settlementStateChangedEmails: usersTable.settlementStateChangedEmails,
         ekqrSyncAlertEmails: usersTable.ekqrSyncAlertEmails,
         planChangeEmails: usersTable.planChangeEmails,
+        reconciliationAlertNotifs: usersTable.reconciliationAlertNotifs,
+        planExpiryAlertNotifs: usersTable.planExpiryAlertNotifs,
+        settlementStateNotifs: usersTable.settlementStateNotifs,
+        signatureFailureAlertNotifs: usersTable.signatureFailureAlertNotifs,
+        webhookFailureNotifs: usersTable.webhookFailureNotifs,
+        ekqrSyncAlertNotifs: usersTable.ekqrSyncAlertNotifs,
+        reportFailureAlertNotifs: usersTable.reportFailureAlertNotifs,
+        weeklyDeliveryDigestNotifs: usersTable.weeklyDeliveryDigestNotifs,
+        apiKeyGeneratedNotifs: usersTable.apiKeyGeneratedNotifs,
+        apiKeyRevokedNotifs: usersTable.apiKeyRevokedNotifs,
+        loginAlertNotifs: usersTable.loginAlertNotifs,
+        reportScheduleChangedNotifs: usersTable.reportScheduleChangedNotifs,
+        settlementStateChangedNotifs: usersTable.settlementStateChangedNotifs,
+        planChangeNotifs: usersTable.planChangeNotifs,
         notifPrefsDisabledAt: usersTable.notifPrefsDisabledAt,
         notifFieldDisabledAt: usersTable.notifFieldDisabledAt,
       })
@@ -832,6 +915,20 @@ router.put("/preferences", requireAuth, prefChangeLimiter, async (req, res, next
       settlementStateChangedEmails: updated.settlementStateChangedEmails,
       ekqrSyncAlertEmails: updated.ekqrSyncAlertEmails,
       planChangeEmails: updated.planChangeEmails,
+      reconciliationAlertNotifs: updated.reconciliationAlertNotifs,
+      planExpiryAlertNotifs: updated.planExpiryAlertNotifs,
+      settlementStateNotifs: updated.settlementStateNotifs,
+      signatureFailureAlertNotifs: updated.signatureFailureAlertNotifs,
+      webhookFailureNotifs: updated.webhookFailureNotifs,
+      ekqrSyncAlertNotifs: updated.ekqrSyncAlertNotifs,
+      reportFailureAlertNotifs: updated.reportFailureAlertNotifs,
+      weeklyDeliveryDigestNotifs: updated.weeklyDeliveryDigestNotifs,
+      apiKeyGeneratedNotifs: updated.apiKeyGeneratedNotifs,
+      apiKeyRevokedNotifs: updated.apiKeyRevokedNotifs,
+      loginAlertNotifs: updated.loginAlertNotifs,
+      reportScheduleChangedNotifs: updated.reportScheduleChangedNotifs,
+      settlementStateChangedNotifs: updated.settlementStateChangedNotifs,
+      planChangeNotifs: updated.planChangeNotifs,
       notifPrefsDisabledAt: updated.notifPrefsDisabledAt ?? null,
       notifFieldDisabledAt: updated.notifFieldDisabledAt ?? null,
       quietHoursStart: updated.quietHoursStart ?? null,

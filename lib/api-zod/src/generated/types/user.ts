@@ -38,6 +38,34 @@ export interface User {
   ekqrSyncAlertEmails?: boolean;
   /** Whether the merchant wants an email when their subscription plan is changed by an admin. Defaults to true. */
   planChangeEmails?: boolean;
+  /** Whether the merchant wants in-app notifications for reconciliation alerts. Defaults to true. */
+  reconciliationAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for plan expiry alerts. Defaults to true. */
+  planExpiryAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for settlement state updates. Defaults to true. */
+  settlementStateNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for signature failure alerts. Defaults to true. */
+  signatureFailureAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for webhook failure alerts. Defaults to true. */
+  webhookFailureNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for EKQR sync alerts. Defaults to true. */
+  ekqrSyncAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for report failure alerts. Defaults to true. */
+  reportFailureAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for weekly delivery digest. Defaults to true. */
+  weeklyDeliveryDigestNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications when an API key is generated. Defaults to true. */
+  apiKeyGeneratedNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications when an API key is revoked. Defaults to true. */
+  apiKeyRevokedNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for new login alerts. Defaults to true. */
+  loginAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications when their report schedule changes. Defaults to true. */
+  reportScheduleChangedNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications when their settlement state changes. Defaults to true. */
+  settlementStateChangedNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications when their plan is changed. Defaults to true. */
+  planChangeNotifs?: boolean;
   /**
      * ISO timestamp of when any email notification preference was first disabled. Null if all are currently enabled.
      * @nullable

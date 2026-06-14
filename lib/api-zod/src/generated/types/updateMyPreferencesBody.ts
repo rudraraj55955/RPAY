@@ -26,6 +26,34 @@ export type UpdateMyPreferencesBody = {
   ekqrSyncAlertEmails?: boolean;
   /** Whether the merchant wants an email when their subscription plan is changed by an admin. */
   planChangeEmails?: boolean;
+  /** Whether the merchant wants in-app notifications for reconciliation alerts. */
+  reconciliationAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for plan expiry alerts. */
+  planExpiryAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for settlement state updates. */
+  settlementStateNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for signature failure alerts. */
+  signatureFailureAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for webhook failure alerts. */
+  webhookFailureNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for EKQR sync alerts. */
+  ekqrSyncAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for report failure alerts. */
+  reportFailureAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for weekly delivery digest. */
+  weeklyDeliveryDigestNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications when an API key is generated. */
+  apiKeyGeneratedNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications when an API key is revoked. */
+  apiKeyRevokedNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications for new login alerts. */
+  loginAlertNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications when their report schedule changes. */
+  reportScheduleChangedNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications when their settlement state changes. */
+  settlementStateChangedNotifs?: boolean;
+  /** Whether the merchant wants in-app notifications when their plan is changed. */
+  planChangeNotifs?: boolean;
   /**
      * Start of quiet hours window in HH:mm 24h format (e.g. "22:00"). Null clears quiet hours.
      * @nullable

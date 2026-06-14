@@ -1726,6 +1726,12 @@ paths:
             type: string
             format: date
           description: Filter delivery history — only entries on or before this date (YYYY-MM-DD)
+        - name: triggeredBy
+          in: query
+          schema:
+            type: string
+            enum: [manual, scheduler]
+          description: Filter delivery history by who triggered the send — "manual" or "scheduler"
       responses:
         "200":
           description: Delivery history entries newest-first

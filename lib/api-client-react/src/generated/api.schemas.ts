@@ -4669,6 +4669,10 @@ dateFrom?: string;
  * Filter delivery history — only entries on or before this date (YYYY-MM-DD)
  */
 dateTo?: string;
+/**
+ * Filter delivery history by who triggered the send — "manual" or "scheduler"
+ */
+triggeredBy?: GetReportScheduleHistoryTriggeredBy;
 };
 
 export type GetReportScheduleHistoryFormat = typeof GetReportScheduleHistoryFormat[keyof typeof GetReportScheduleHistoryFormat];
@@ -4677,6 +4681,14 @@ export type GetReportScheduleHistoryFormat = typeof GetReportScheduleHistoryForm
 export const GetReportScheduleHistoryFormat = {
   xlsx: 'xlsx',
   pdf: 'pdf',
+} as const;
+
+export type GetReportScheduleHistoryTriggeredBy = typeof GetReportScheduleHistoryTriggeredBy[keyof typeof GetReportScheduleHistoryTriggeredBy];
+
+
+export const GetReportScheduleHistoryTriggeredBy = {
+  manual: 'manual',
+  scheduler: 'scheduler',
 } as const;
 
 export type GetReportScheduleHistory200 = {

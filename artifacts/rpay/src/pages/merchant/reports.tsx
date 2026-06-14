@@ -157,6 +157,7 @@ const STL_STATUS_KEY = "rasokart_reports_stl_status";
 const HISTORY_FORMAT_FILTER_KEY = "rasokart_schedule_history_format_filter";
 const HISTORY_DATE_FROM_KEY = "rasokart_schedule_history_date_from";
 const HISTORY_DATE_TO_KEY = "rasokart_schedule_history_date_to";
+const HISTORY_TRIGGERED_BY_KEY = "rasokart_schedule_history_triggered_by";
 const SCHEDULE_FREQUENCY_KEY = "rasokart_schedule_frequency";
 const SCHEDULE_FORMAT_KEY = "rasokart_schedule_format";
 const SCHEDULE_DAY_OF_WEEK_KEY = "rasokart_schedule_day_of_week";
@@ -272,6 +273,12 @@ function SchedulePanel() {
   const [historyDateTo, setHistoryDateTo] = useState<string>(() => {
     try { return localStorage.getItem(HISTORY_DATE_TO_KEY) ?? ""; } catch { return ""; }
   });
+  const [historyTriggeredBy, setHistoryTriggeredBy] = useState<"all" | "manual" | "scheduler">(() => {
+    try {
+      const v = localStorage.getItem(HISTORY_TRIGGERED_BY_KEY);
+      return (v === "manual" || v === "scheduler" ? v : "all") as "all" | "manual" | "scheduler";
+    } catch { return "all"; }
+  });
 
   useEffect(() => {
     try { localStorage.setItem(HISTORY_FORMAT_FILTER_KEY, historyFormatFilter); } catch {}
@@ -291,10 +298,15 @@ function SchedulePanel() {
     } catch {}
   }, [historyDateTo]);
 
+  useEffect(() => {
+    try { localStorage.setItem(HISTORY_TRIGGERED_BY_KEY, historyTriggeredBy); } catch {}
+  }, [historyTriggeredBy]);
+
   const historyParams: Record<string, unknown> = { limit: 50 };
   if (historyFormatFilter !== "all") historyParams["format"] = historyFormatFilter;
   if (historyDateFrom) historyParams["dateFrom"] = historyDateFrom;
   if (historyDateTo) historyParams["dateTo"] = historyDateTo;
+  if (historyTriggeredBy !== "all") historyParams["triggeredBy"] = historyTriggeredBy;
 
   const { data: historyData, isLoading: historyLoading } = useGetReportScheduleHistory(
     historyParams as Parameters<typeof useGetReportScheduleHistory>[0],
@@ -719,6 +731,30 @@ function SchedulePanel() {
                 </div>
               </div>
 
+              {/* Triggered-by filter pill buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground">Triggered by:</span>
+                <div className="flex items-center gap-1">
+                {(["all", "manual", "scheduler"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setHistoryTriggeredBy(t)}
+                    className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                      historyTriggeredBy === t
+                        ? t === "manual"
+                          ? "bg-violet-600/20 text-violet-400 border border-violet-600/40"
+                          : t === "scheduler"
+                          ? "bg-amber-600/20 text-amber-400 border border-amber-600/40"
+                          : "bg-primary/15 text-primary border border-primary/30"
+                        : "text-muted-foreground border border-border/50 hover:border-border hover:text-foreground"
+                    }`}
+                  >
+                    {t === "all" ? "All" : t === "manual" ? "Manual" : "Scheduler"}
+                  </button>
+                ))}
+                </div>
+              </div>
+
             {/* Date-range filter row */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -789,7 +825,7 @@ function SchedulePanel() {
               </div>
             ) : deliveryLogs.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">
-                {historyFormatFilter !== "all" || historyDateFrom || historyDateTo
+                {historyFormatFilter !== "all" || historyTriggeredBy !== "all" || historyDateFrom || historyDateTo
                   ? "No deliveries match the selected filters."
                   : "No delivery history yet — logs appear here after your first scheduled send."}
               </p>

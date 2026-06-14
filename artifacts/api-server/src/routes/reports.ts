@@ -643,6 +643,7 @@ router.get("/schedule/history", async (req, res, next) => {
     const formatFilter = (req.query["format"] as string | undefined) ?? null;
     const dateFrom = (req.query["dateFrom"] as string | undefined) ?? null;
     const dateTo = (req.query["dateTo"] as string | undefined) ?? null;
+    const triggeredBy = (req.query["triggeredBy"] as string | undefined) ?? null;
 
     const conditions = [eq(reportDeliveryLogsTable.merchantId, user.merchantId!)];
     if (formatFilter === "xlsx" || formatFilter === "pdf") {
@@ -655,6 +656,9 @@ router.get("/schedule/history", async (req, res, next) => {
       const endOfDay = new Date(dateTo);
       endOfDay.setHours(23, 59, 59, 999);
       conditions.push(lte(reportDeliveryLogsTable.attemptedAt, endOfDay));
+    }
+    if (triggeredBy === "manual" || triggeredBy === "scheduler") {
+      conditions.push(eq(reportDeliveryLogsTable.triggeredBy, triggeredBy));
     }
 
     const logs = await db

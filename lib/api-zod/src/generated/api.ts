@@ -1689,7 +1689,8 @@ export const GetReportScheduleHistoryQueryParams = zod.object({
   "limit": zod.coerce.number().min(1).max(getReportScheduleHistoryQueryLimitMax).default(getReportScheduleHistoryQueryLimitDefault).describe('Maximum number of history entries to return (default 20, max 100)'),
   "format": zod.enum(['xlsx', 'pdf']).optional().describe('Filter delivery history by file format'),
   "dateFrom": zod.date().optional().describe('Filter delivery history — only entries on or after this date (YYYY-MM-DD)'),
-  "dateTo": zod.date().optional().describe('Filter delivery history — only entries on or before this date (YYYY-MM-DD)')
+  "dateTo": zod.date().optional().describe('Filter delivery history — only entries on or before this date (YYYY-MM-DD)'),
+  "triggeredBy": zod.enum(['manual', 'scheduler']).optional().describe('Filter delivery history by who triggered the send — \"manual\" or \"scheduler\"')
 })
 
 export const GetReportScheduleHistoryResponse = zod.object({

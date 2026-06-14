@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GetReportScheduleHistoryFormat } from './getReportScheduleHistoryFormat';
+import type { GetReportScheduleHistoryTriggeredBy } from './getReportScheduleHistoryTriggeredBy';
 
 export type GetReportScheduleHistoryParams = {
 /**
@@ -26,4 +27,8 @@ dateFrom?: Date;
  * Filter delivery history — only entries on or before this date (YYYY-MM-DD)
  */
 dateTo?: Date;
+/**
+ * Filter delivery history by who triggered the send — "manual" or "scheduler"
+ */
+triggeredBy?: GetReportScheduleHistoryTriggeredBy;
 };

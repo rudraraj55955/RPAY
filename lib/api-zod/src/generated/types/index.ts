@@ -238,6 +238,7 @@ export * from './ledgerEntry';
 export * from './ledgerListResponse';
 export * from './listAccountDetailsParams';
 export * from './listAdminAuditLogsParams';
+export * from './listAdminAuditLogsPerformedBy';
 export * from './listAllAuditReportScheduleLogsParams';
 export * from './listApiKeyHistoryEventType';
 export * from './listApiKeyHistoryParams';

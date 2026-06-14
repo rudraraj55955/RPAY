@@ -5,6 +5,7 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListAdminAuditLogsPerformedBy } from './listAdminAuditLogsPerformedBy';
 
 export type ListAdminAuditLogsParams = {
 page?: number;
@@ -31,4 +32,8 @@ merchantId?: number;
  * Sub-filter for setting/config logs. For action=setting_updated, matches details->>'key'. For action=system_config_updated, matches details->>'section'.
  */
 settingKey?: string;
+/**
+ * Filter by actor type: 'system' returns only automated/scheduler entries (adminEmail='system' or adminId=0); 'admin' returns only human-initiated entries.
+ */
+performedBy?: ListAdminAuditLogsPerformedBy;
 };

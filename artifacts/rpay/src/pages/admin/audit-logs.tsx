@@ -3691,6 +3691,7 @@ export default function AdminAuditLogs() {
   const [search, setSearch] = useState("");
   const [action, setAction] = useState("all");
   const [targetType, setTargetType] = useState("all");
+  const [performedBy, setPerformedBy] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [merchantIdInput, setMerchantIdInput] = useState("");
@@ -3754,11 +3755,13 @@ export default function AdminAuditLogs() {
   const hasTargetType = targetType !== "all";
   const hasMerchantId = merchantId != null;
   const hasSettingKey = showSettingKeyFilter && settingKey !== "all";
+  const hasPerformedBy = performedBy !== "all";
 
   function resetFilters() {
     setSearch("");
     setAction("all");
     setTargetType("all");
+    setPerformedBy("all");
     setDateFrom("");
     setDateTo("");
     setMerchantIdInput("");
@@ -3777,6 +3780,7 @@ export default function AdminAuditLogs() {
   const { data, isLoading } = useListAdminAuditLogs({
     action: action === "all" ? undefined : action,
     targetType: targetType === "all" ? undefined : targetType,
+    performedBy: performedBy === "all" ? undefined : (performedBy as "system" | "admin"),
     search: search || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
@@ -3890,6 +3894,14 @@ export default function AdminAuditLogs() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={performedBy} onValueChange={v => { setPerformedBy(v); setPage(1); }}>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Performed by" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any Actor</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
               <div className="flex items-center gap-2 flex-1">
@@ -3962,7 +3974,7 @@ export default function AdminAuditLogs() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {(hasDateFilter || search !== "" || action !== "all" || hasTargetType || hasMerchantId) && (
+                {(hasDateFilter || search !== "" || action !== "all" || hasTargetType || hasMerchantId || hasPerformedBy) && (
                   <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground hover:text-foreground">
                     <X className="w-3.5 h-3.5 mr-1.5" />
                     Clear filters
@@ -3997,8 +4009,21 @@ export default function AdminAuditLogs() {
           </div>
         </CardHeader>
 
-        {(hasTargetType || hasDateFilter || hasMerchantId || hasSettingKey) && (
+        {(hasTargetType || hasDateFilter || hasMerchantId || hasSettingKey || hasPerformedBy) && (
           <div className="flex items-center gap-2 px-6 py-2 border-t border-border/40 bg-muted/10 flex-wrap">
+            {hasPerformedBy && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-500/10 px-3 py-0.5 text-xs font-medium text-teal-400">
+                <Bot className="w-3 h-3" />
+                {performedBy === "system" ? "System only" : "Admin only"}
+                <button
+                  onClick={() => { setPerformedBy("all"); setPage(1); }}
+                  className="ml-0.5 hover:text-teal-300 transition-colors"
+                  aria-label="Clear performed-by filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
             {hasMerchantId && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-0.5 text-xs font-medium text-orange-400">
                 <Landmark className="w-3 h-3" />

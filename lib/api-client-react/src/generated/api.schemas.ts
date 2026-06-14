@@ -5637,7 +5637,19 @@ merchantId?: number;
  * Sub-filter for setting/config logs. For action=setting_updated, matches details->>'key'. For action=system_config_updated, matches details->>'section'.
  */
 settingKey?: string;
+/**
+ * Filter by actor type: 'system' returns only automated/scheduler entries (adminEmail='system' or adminId=0); 'admin' returns only human-initiated entries.
+ */
+performedBy?: ListAdminAuditLogsPerformedBy;
 };
+
+export type ListAdminAuditLogsPerformedBy = typeof ListAdminAuditLogsPerformedBy[keyof typeof ListAdminAuditLogsPerformedBy];
+
+
+export const ListAdminAuditLogsPerformedBy = {
+  system: 'system',
+  admin: 'admin',
+} as const;
 
 export type ClearTestEmailHistory200 = {
   /** Number of test email audit log rows deleted */

@@ -238,7 +238,7 @@ router.get("/stats", async (req, res) => {
 router.get("/", async (req, res) => {
   if (!ensureAdmin(req, res)) return;
 
-  const { page = "1", limit = "20", action, targetType, search, dateFrom, dateTo, merchantId, settingKey } = req.query as Record<string, string>;
+  const { page = "1", limit = "20", action, targetType, search, dateFrom, dateTo, merchantId, settingKey, performedBy } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * limitNum;
@@ -246,6 +246,21 @@ router.get("/", async (req, res) => {
   const conditions: any[] = [];
   if (action && action !== "all") conditions.push(eq(auditLogsTable.action, action));
   if (targetType && targetType !== "all") conditions.push(eq(auditLogsTable.targetType, targetType));
+  if (performedBy === "system") {
+    conditions.push(
+      or(
+        eq(auditLogsTable.adminEmail, "system"),
+        eq(auditLogsTable.adminId, 0),
+      )!
+    );
+  } else if (performedBy === "admin") {
+    conditions.push(
+      and(
+        sql`${auditLogsTable.adminEmail} != 'system'`,
+        sql`${auditLogsTable.adminId} != 0`,
+      )!
+    );
+  }
   if (search) {
     conditions.push(
       or(

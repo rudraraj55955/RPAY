@@ -152,6 +152,7 @@ import type {
   GetWebhookLogsParams,
   GetWebhookPlatformDefaults200,
   GithubSyncConfig,
+  GithubSyncHistory,
   GithubSyncStatus,
   HealthStatus,
   Invoice,
@@ -21130,6 +21131,83 @@ export function useGetGithubSyncStatus<TData = Awaited<ReturnType<typeof getGith
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetGithubSyncStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetGithubSyncHistoryUrl = () => {
+
+
+
+
+  return `/api/github-sync/history`
+}
+
+/**
+ * @summary Get GitHub sync run history (last N runs)
+ */
+export const getGithubSyncHistory = async ( options?: RequestInit): Promise<GithubSyncHistory> => {
+
+  return customFetch<GithubSyncHistory>(getGetGithubSyncHistoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGithubSyncHistoryQueryKey = () => {
+    return [
+    `/api/github-sync/history`
+    ] as const;
+    }
+
+
+export const getGetGithubSyncHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getGithubSyncHistory>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGithubSyncHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGithubSyncHistoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGithubSyncHistory>>> = ({ signal }) => getGithubSyncHistory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGithubSyncHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGithubSyncHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getGithubSyncHistory>>>
+export type GetGithubSyncHistoryQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get GitHub sync run history (last N runs)
+ */
+
+export function useGetGithubSyncHistory<TData = Awaited<ReturnType<typeof getGithubSyncHistory>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGithubSyncHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGithubSyncHistoryQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

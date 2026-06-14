@@ -10,7 +10,7 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetGithubSyncStatus, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetGithubSyncStatus, useGetGithubSyncHistory, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -865,6 +865,9 @@ export default function AdminSettings() {
     query: { refetchInterval: 60_000 },
   } as any);
 
+  const { data: githubSyncHistory } = useGetGithubSyncHistory({
+    query: { refetchInterval: 60_000 },
+  } as any);
 
   const { data: quietHoursFlushData, isLoading: quietHoursFlushLoading } = useGetQuietHoursFlushConfig({
     query: {
@@ -2854,6 +2857,60 @@ export default function AdminSettings() {
                   <span className="text-red-300 mt-0.5">{githubSyncStatus.errorMessage}</span>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Sync History Log */}
+          {githubSyncHistory && githubSyncHistory.entries.length > 0 && (
+            <div className="rounded-lg border border-border/50 bg-muted/5 overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-border/40 bg-muted/10">
+                <History className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs font-medium text-muted-foreground">Sync history (last {githubSyncHistory.entries.length} runs)</span>
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border/30 bg-muted/5">
+                      <th className="px-3 py-1.5 text-left font-medium text-muted-foreground w-5"></th>
+                      <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Timestamp</th>
+                      <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Repo</th>
+                      <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {githubSyncHistory.entries.map((entry, i) => (
+                      <tr key={i} className="hover:bg-muted/10 transition-colors">
+                        <td className="px-3 py-2">
+                          {entry.status === "success"
+                            ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            : <XCircle className="w-3.5 h-3.5 text-red-400" />}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                          {new Date(entry.syncedAt).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground font-mono truncate max-w-[140px]">
+                          {entry.repo ?? "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          {entry.status === "success" ? (
+                            <span className="text-emerald-400 font-medium">success</span>
+                          ) : (
+                            <span className="text-red-400 font-medium" title={entry.errorMessage ?? ""}>
+                              failure{entry.errorMessage ? ` — ${entry.errorMessage.slice(0, 60)}${entry.errorMessage.length > 60 ? "…" : ""}` : ""}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {githubSyncHistory && githubSyncHistory.entries.length === 0 && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/5 px-3 py-2.5">
+              <History className="w-3.5 h-3.5 shrink-0" />
+              <span>No sync runs recorded yet. History is written after each sync script execution.</span>
             </div>
           )}
 

@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import { writeFileSync } from "fs";
+import { writeFileSync, readFileSync } from "fs";
 import { sendAdminAlert } from "./mailer.js";
 import { db, systemSettingsTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
@@ -8,6 +8,8 @@ const GITHUB_REPO =
   process.env["GITHUB_REPO"] ?? "rudraraj55955/RPAY";
 const REMOTE_NAME = "github";
 const STATUS_FILE = new URL("../../.github-sync-status.json", import.meta.url).pathname;
+const HISTORY_FILE = new URL("../../.github-sync-history.json", import.meta.url).pathname;
+const HISTORY_MAX = 50;
 
 function run(cmd: string, opts: { stdio?: "pipe" | "inherit" } = {}) {
   return execSync(cmd, { stdio: opts.stdio ?? "pipe" });
@@ -129,9 +131,10 @@ function buildFailureHtml(reason: string, detail: string): string {
 }
 
 function writeStatus(status: "success" | "failure", errorMessage?: string) {
+  const syncedAt = new Date().toISOString();
   const payload: Record<string, string> = {
     status,
-    syncedAt: new Date().toISOString(),
+    syncedAt,
     repo: GITHUB_REPO,
   };
   if (errorMessage) {
@@ -139,6 +142,23 @@ function writeStatus(status: "success" | "failure", errorMessage?: string) {
   }
   try {
     writeFileSync(STATUS_FILE, JSON.stringify(payload, null, 2), "utf-8");
+  } catch {
+  }
+  appendHistory({ status, syncedAt, repo: GITHUB_REPO, errorMessage });
+}
+
+function appendHistory(entry: { status: "success" | "failure"; syncedAt: string; repo: string; errorMessage?: string }) {
+  try {
+    let history: typeof entry[] = [];
+    try {
+      const raw = readFileSync(HISTORY_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) history = parsed;
+    } catch {
+    }
+    history.unshift(entry);
+    if (history.length > HISTORY_MAX) history = history.slice(0, HISTORY_MAX);
+    writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), "utf-8");
   } catch {
   }
 }

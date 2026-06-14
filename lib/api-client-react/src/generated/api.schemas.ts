@@ -104,6 +104,33 @@ export interface GithubSyncStatus {
 }
 
 /**
+ * Outcome of the sync run
+ */
+export type GithubSyncHistoryEntryStatus = typeof GithubSyncHistoryEntryStatus[keyof typeof GithubSyncHistoryEntryStatus];
+
+
+export const GithubSyncHistoryEntryStatus = {
+  success: 'success',
+  failure: 'failure',
+} as const;
+
+export interface GithubSyncHistoryEntry {
+  /** Outcome of the sync run */
+  status: GithubSyncHistoryEntryStatus;
+  /** ISO timestamp of when the sync completed */
+  syncedAt: string;
+  /** GitHub repository that was synced */
+  repo: string;
+  /** Error detail when status is "failure" */
+  errorMessage?: string;
+}
+
+export interface GithubSyncHistory {
+  /** Past sync runs, newest first, capped at 50 */
+  entries: GithubSyncHistoryEntry[];
+}
+
+/**
  * SmartFilter JSON object
  */
 export type SavedFilterFilterData = { [key: string]: unknown };

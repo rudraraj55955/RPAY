@@ -9,6 +9,7 @@ router.use(requireAuth);
 router.use(requireAdmin);
 
 const STATUS_FILE = new URL("../../../.github-sync-status.json", import.meta.url).pathname;
+const HISTORY_FILE = new URL("../../../.github-sync-history.json", import.meta.url).pathname;
 
 const GITHUB_SYNC_KEYS = ["github_sync_enabled", "github_sync_schedule"] as const;
 
@@ -119,6 +120,24 @@ router.get("/status", (req, res, next) => {
       payload = { status: "never" };
     }
     res.json(payload);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/github-sync/history
+router.get("/history", (req, res, next) => {
+  try {
+    let entries: Array<Record<string, string>> = [];
+    try {
+      const raw = readFileSync(HISTORY_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        entries = parsed.slice(0, 10);
+      }
+    } catch {
+    }
+    res.json({ entries });
   } catch (err) {
     next(err);
   }

@@ -6824,6 +6824,19 @@ export const GetGithubSyncStatusResponse = zod.object({
 
 
 /**
+ * @summary Get GitHub sync run history (last N runs)
+ */
+export const GetGithubSyncHistoryResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "status": zod.enum(['success', 'failure']).describe('Outcome of the sync run'),
+  "syncedAt": zod.coerce.date().describe('ISO timestamp of when the sync completed'),
+  "repo": zod.string().describe('GitHub repository that was synced'),
+  "errorMessage": zod.string().optional().describe('Error detail when status is \"failure\"')
+})).describe('Past sync runs, newest first, capped at 50')
+})
+
+
+/**
  * @summary Get EKQR gateway configuration
  */
 export const GetEkqrConfigResponse = zod.object({

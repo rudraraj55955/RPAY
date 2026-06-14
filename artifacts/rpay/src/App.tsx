@@ -216,6 +216,7 @@ function Router() {
       <Route path="/merchant/reports"><MerchantRoute component={MerchantReports} /></Route>
       <Route path="/merchant/support"><MerchantRoute component={MerchantSupport} /></Route>
       <Route path="/merchant/api-docs"><PublicPage component={MerchantApiDocs} /></Route>
+      <Route path="/api-docs"><Redirect to="/merchant/api-docs" /></Route>
 
       <Route path="/upi-collection-api"><PublicPage component={UpiCollectionApi} /></Route>
 

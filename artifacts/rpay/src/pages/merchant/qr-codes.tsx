@@ -235,7 +235,7 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
                 <div className="bg-white p-3 rounded-xl border-2 border-teal-500/40">
                   <QRCodeCanvas value={qr.ekqrPaymentUrl} size={120} level="H" includeMargin />
                 </div>
-                <span className="text-xs text-teal-400 font-medium">UPI Collection Link</span>
+                <span className="text-xs text-teal-400 font-medium">Payment Collection Link</span>
               </div>
             )}
           </div>
@@ -311,7 +311,7 @@ function InlineQrRow({ qr }: { qr: QrRow }) {
 
             {qr.ekqrOrderId && !syncResult && (
               <p className="text-xs text-muted-foreground mt-1">
-                Collection Ref: <span className="font-mono text-teal-400">{qr.ekqrOrderId}</span>
+                Payment Ref: <span className="font-mono text-teal-400">{qr.ekqrOrderId}</span>
               </p>
             )}
 

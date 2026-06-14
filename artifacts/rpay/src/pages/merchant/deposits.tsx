@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearch } from "wouter";
 import { useCrossTabSync } from "@/hooks/use-cross-tab-sync";
 import { AllFiltersSheet } from "@/components/merchant/all-filters-sheet";
 import {
@@ -324,16 +325,18 @@ function loadLastStatus(key: string): string {
 
 export default function MerchantDeposits() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState(() => loadLastStatus(LAST_STATUS_KEY_DEPOSITS));
+  const searchStr = useSearch();
+  const _urlParams = new URLSearchParams(searchStr);
+  const [search, setSearch] = useState(() => _urlParams.get("q") ?? "");
+  const [status, setStatus] = useState(() => _urlParams.get("status") ?? loadLastStatus(LAST_STATUS_KEY_DEPOSITS));
   const setStatusAndPersist = (v: string) => {
     setStatus(v);
     try { localStorage.setItem(LAST_STATUS_KEY_DEPOSITS, v); } catch {}
   };
-  const [dateFrom, setDateFrom] = useState(() => { try { return localStorage.getItem(LAST_DATE_FROM_KEY_DEPOSITS) ?? ""; } catch { return ""; } });
-  const [dateTo, setDateTo] = useState(() => { try { return localStorage.getItem(LAST_DATE_TO_KEY_DEPOSITS) ?? ""; } catch { return ""; } });
+  const [dateFrom, setDateFrom] = useState(() => _urlParams.get("from") ?? ((() => { try { return localStorage.getItem(LAST_DATE_FROM_KEY_DEPOSITS) ?? ""; } catch { return ""; } })()));
+  const [dateTo, setDateTo] = useState(() => _urlParams.get("to") ?? ((() => { try { return localStorage.getItem(LAST_DATE_TO_KEY_DEPOSITS) ?? ""; } catch { return ""; } })()));
   const [page, setPage] = useState(1);
-  const [provider, setProvider] = useState("all");
+  const [provider, setProvider] = useState(() => _urlParams.get("provider") ?? "all");
   const [exporting, setExporting] = useState(false);
   const [lastExportCount, setLastExportCount] = useState<number | null>(null);
 
@@ -372,8 +375,11 @@ export default function MerchantDeposits() {
   const [dragOverPresetId, setDragOverPresetId] = useState<string | null>(null);
 
   // Smart filter state
-  const [smartInput, setSmartInput] = useState("");
-  const [smartFilter, setSmartFilter] = useState<SmartFilter | null>(null);
+  const [smartInput, setSmartInput] = useState(() => _urlParams.get("smart") ?? "");
+  const [smartFilter, setSmartFilter] = useState<SmartFilter | null>(() => {
+    const urlSmart = _urlParams.get("smart");
+    return urlSmart ? parseSmartQuery(urlSmart) : null;
+  });
   const [smartError, setSmartError] = useState("");
   const smartInputRef = useRef<HTMLInputElement>(null);
 
@@ -401,6 +407,19 @@ export default function MerchantDeposits() {
   // Persist date range to localStorage whenever it changes
   useEffect(() => { try { localStorage.setItem(LAST_DATE_FROM_KEY_DEPOSITS, dateFrom); } catch {} }, [dateFrom]);
   useEffect(() => { try { localStorage.setItem(LAST_DATE_TO_KEY_DEPOSITS, dateTo); } catch {} }, [dateTo]);
+
+  // Sync active filters to the URL so the view is bookmarkable and back-navigation restores state
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (status && status !== "all") params.set("status", status);
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    if (provider && provider !== "all") params.set("provider", provider);
+    if (search) params.set("q", search);
+    if (smartInput) params.set("smart", smartInput);
+    const qs = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : ""));
+  }, [status, dateFrom, dateTo, provider, search, smartInput]);
 
   // Server-side saved filters sync
   const FILTER_CONTEXT = "merchant_deposits";

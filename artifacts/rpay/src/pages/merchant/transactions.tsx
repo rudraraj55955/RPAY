@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearch } from "wouter";
 import { useListTransactions, useSearchByUtr, useGetTransaction, useGetPaymentLink, useListMerchantSavedFilters, useCreateMerchantSavedFilter, useDeleteMerchantSavedFilter, useRenameMerchantSavedFilter, useReorderMerchantSavedFilters } from "@workspace/api-client-react";
 import { useCrossTabSync } from "@/hooks/use-cross-tab-sync";
 import { AllFiltersSheet } from "@/components/merchant/all-filters-sheet";
@@ -535,19 +536,24 @@ function TransactionDetailPanel({ id, open, onClose, utrSearch }: { id: number |
 }
 
 export default function MerchantTransactions() {
+  const searchStr = useSearch();
+  const _urlParams = new URLSearchParams(searchStr);
   const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
-  const [type, setType] = useState(() => { try { return localStorage.getItem(LAST_TYPE_KEY_TX) ?? "all"; } catch { return "all"; } });
-  const [status, setStatus] = useState(() => { try { return localStorage.getItem(LAST_STATUS_KEY_TX) ?? "all"; } catch { return "all"; } });
-  const [provider, setProvider] = useState(() => { try { return localStorage.getItem(LAST_PROVIDER_KEY_TX) ?? "all"; } catch { return "all"; } });
-  const [dateFrom, setDateFrom] = useState(() => { try { return localStorage.getItem(LAST_DATE_FROM_KEY_TX) ?? ""; } catch { return ""; } });
-  const [dateTo, setDateTo] = useState(() => { try { return localStorage.getItem(LAST_DATE_TO_KEY_TX) ?? ""; } catch { return ""; } });
+  const [type, setType] = useState(() => _urlParams.get("type") ?? ((() => { try { return localStorage.getItem(LAST_TYPE_KEY_TX) ?? "all"; } catch { return "all"; } })()));
+  const [status, setStatus] = useState(() => _urlParams.get("status") ?? ((() => { try { return localStorage.getItem(LAST_STATUS_KEY_TX) ?? "all"; } catch { return "all"; } })()));
+  const [provider, setProvider] = useState(() => _urlParams.get("provider") ?? ((() => { try { return localStorage.getItem(LAST_PROVIDER_KEY_TX) ?? "all"; } catch { return "all"; } })()));
+  const [dateFrom, setDateFrom] = useState(() => _urlParams.get("from") ?? ((() => { try { return localStorage.getItem(LAST_DATE_FROM_KEY_TX) ?? ""; } catch { return ""; } })()));
+  const [dateTo, setDateTo] = useState(() => _urlParams.get("to") ?? ((() => { try { return localStorage.getItem(LAST_DATE_TO_KEY_TX) ?? ""; } catch { return ""; } })()));
   const [page, setPage] = useState(1);
-  const [utrSearch, setUtrSearch] = useState("");
-  const [utrInput, setUtrInput] = useState("");
+  const [utrSearch, setUtrSearch] = useState(() => _urlParams.get("utr") ?? "");
+  const [utrInput, setUtrInput] = useState(() => _urlParams.get("utr") ?? "");
 
   // Smart search bar state
-  const [smartInput, setSmartInput] = useState("");
-  const [smartFilter, setSmartFilter] = useState<SmartFilter | null>(null);
+  const [smartInput, setSmartInput] = useState(() => _urlParams.get("smart") ?? "");
+  const [smartFilter, setSmartFilter] = useState<SmartFilter | null>(() => {
+    const urlSmart = _urlParams.get("smart");
+    return urlSmart ? parseSmartQuery(urlSmart) : null;
+  });
   const [smartError, setSmartError] = useState("");
   const smartInputRef = useRef<HTMLInputElement>(null);
 
@@ -587,6 +593,20 @@ export default function MerchantTransactions() {
   // Persist date range to localStorage whenever it changes
   useEffect(() => { try { localStorage.setItem(LAST_DATE_FROM_KEY_TX, dateFrom); } catch {} }, [dateFrom]);
   useEffect(() => { try { localStorage.setItem(LAST_DATE_TO_KEY_TX, dateTo); } catch {} }, [dateTo]);
+
+  // Sync active filters to the URL so the view is bookmarkable and back-navigation restores state
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (type && type !== "all") params.set("type", type);
+    if (status && status !== "all") params.set("status", status);
+    if (provider && provider !== "all") params.set("provider", provider);
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    if (utrSearch) params.set("utr", utrSearch);
+    if (smartInput) params.set("smart", smartInput);
+    const qs = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : ""));
+  }, [type, status, provider, dateFrom, dateTo, utrSearch, smartInput]);
 
   useEffect(() => {
     if (!serverFiltersLoaded || filtersInitialized.current) return;

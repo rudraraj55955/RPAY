@@ -160,17 +160,20 @@
 </script>
 
 
-<!-- RASOKART_TOKEN_MASK_START -->
+
+
+
+<!-- RASOKART_TOKEN_MASK_V2_START -->
 <style>
   .rk-token-copy-btn{
     margin-left:10px;
-    padding:6px 10px;
+    padding:7px 11px;
     border-radius:10px;
     border:1px solid rgba(56,189,248,.35);
-    background:rgba(14,165,233,.14);
+    background:rgba(14,165,233,.16);
     color:#e0f2fe;
     font-size:12px;
-    font-weight:700;
+    font-weight:800;
     cursor:pointer;
     white-space:nowrap;
   }
@@ -179,121 +182,133 @@
 </style>
 <script>
 (function(){
-  var JWT_RE = /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g;
+  var JWT_RE = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g;
 
   function isDocsRoute(){
     return /(^|\/)(api-docs|merchant\/api-docs|admin\/api-docs)(\/|$)/i.test(location.pathname);
   }
 
-  function isSecureRoute(){
-    return /^\/(admin|merchant)(\/|$)/i.test(location.pathname);
-  }
-
-  function hasAuthSignal(){
-    try{
-      var all = [document.cookie || ""];
-      for(var i=0;i<localStorage.length;i++){
-        var k = localStorage.key(i);
-        all.push(k + "=" + (localStorage.getItem(k) || ""));
-      }
-      for(var j=0;j<sessionStorage.length;j++){
-        var sk = sessionStorage.key(j);
-        all.push(sk + "=" + (sessionStorage.getItem(sk) || ""));
-      }
-      return /(auth|token|jwt|session|admin|merchant|rasokart)/i.test(all.join(" "));
-    }catch(e){
-      return false;
-    }
-  }
-
-  function canShowMaskedToken(){
-    return isDocsRoute() && isSecureRoute() && hasAuthSignal();
+  function isPrivateDocsRoute(){
+    return /^\/(admin|merchant)\/api-docs(\/|$)/i.test(location.pathname);
   }
 
   function maskToken(token){
     if(!token || token.length <= 22) return "********";
-    return token.slice(0,10) + "..." + "****" + "..." + token.slice(-6);
+    return token.slice(0,10) + "...****..." + token.slice(-6);
   }
 
-  function closestSafeBlock(el){
-    if(!el) return null;
-    return el.closest("section, article, form, [class*='card'], [class*='Card'], [class*='rounded'], [class*='border'], div");
-  }
-
-  function hideSharedBearerSection(){
-    if(!isDocsRoute()) return;
-
-    var allow = canShowMaskedToken();
-    var nodes = Array.prototype.slice.call(document.querySelectorAll("body *"));
-
-    nodes.forEach(function(el){
-      var txt = (el.textContent || "").trim();
-      if(/Shared Bearer Token/i.test(txt)){
-        var box = closestSafeBlock(el);
-        if(!allow && box){
-          box.classList.add("rk-token-hidden");
-        }
-      }
-    });
-  }
-
-  function addCopyButton(parent, token){
-    if(!parent || parent.querySelector(".rk-token-copy-btn")) return;
-
+  function makeBtn(token){
     var btn = document.createElement("button");
     btn.type = "button";
     btn.className = "rk-token-copy-btn";
     btn.textContent = "Copy Token";
-    btn.addEventListener("click", function(){
+    btn.onclick = function(e){
+      e.preventDefault();
+      e.stopPropagation();
       navigator.clipboard.writeText(token).then(function(){
-        var old = btn.textContent;
         btn.textContent = "Copied";
-        setTimeout(function(){ btn.textContent = old; }, 1200);
+        setTimeout(function(){ btn.textContent = "Copy Token"; }, 1200);
       }).catch(function(){
         btn.textContent = "Copy failed";
         setTimeout(function(){ btn.textContent = "Copy Token"; }, 1200);
       });
-    });
-
-    parent.appendChild(btn);
+    };
+    return btn;
   }
 
-  function maskVisibleTokens(){
+  function hidePublicTokenSection(){
+    if(!isDocsRoute()) return;
+    if(isPrivateDocsRoute()) return;
+
+    var all = Array.prototype.slice.call(document.querySelectorAll("body *"));
+    all.forEach(function(el){
+      var txt = (el.textContent || "").trim();
+      if(/Shared Bearer Token/i.test(txt) || JWT_RE.test(txt)){
+        var box = el.closest("section,article,form,[class*='card'],[class*='Card'],[class*='rounded'],[class*='border'],div");
+        if(box) box.classList.add("rk-token-hidden");
+      }
+      JWT_RE.lastIndex = 0;
+    });
+  }
+
+  function maskInputValues(){
     if(!isDocsRoute()) return;
 
-    var allow = canShowMaskedToken();
-    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    var textNodes = [];
-    var node;
+    var fields = Array.prototype.slice.call(document.querySelectorAll("input, textarea"));
+    fields.forEach(function(el){
+      var val = el.value || el.getAttribute("value") || "";
+      var match = val.match(JWT_RE);
+      if(!match) return;
 
-    while(node = walker.nextNode()){
-      if(JWT_RE.test(node.nodeValue || "")){
-        textNodes.push(node);
+      var original = match[0];
+      var masked = val.replace(JWT_RE, function(t){ return maskToken(t); });
+
+      el.dataset.rkOriginalToken = original;
+      el.value = masked;
+      el.setAttribute("value", masked);
+      el.setAttribute("readonly", "readonly");
+      el.style.textOverflow = "ellipsis";
+
+      var parent = el.parentElement;
+      if(parent && !parent.querySelector(".rk-token-copy-btn")){
+        parent.appendChild(makeBtn(original));
       }
+    });
+  }
+
+  function maskTextNodes(){
+    if(!isDocsRoute()) return;
+
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    var nodes = [];
+    var n;
+
+    while(n = walker.nextNode()){
+      var txt = n.nodeValue || "";
+      if(JWT_RE.test(txt)) nodes.push(n);
       JWT_RE.lastIndex = 0;
     }
 
-    textNodes.forEach(function(n){
-      var original = n.nodeValue || "";
-      var matches = original.match(JWT_RE) || [];
+    nodes.forEach(function(node){
+      var txt = node.nodeValue || "";
+      var match = txt.match(JWT_RE);
+      if(!match) return;
 
-      if(!allow){
-        n.nodeValue = original.replace(JWT_RE, "********");
-        return;
+      var original = match[0];
+      node.nodeValue = txt.replace(JWT_RE, function(t){ return maskToken(t); });
+
+      var parent = node.parentElement;
+      if(parent && !parent.querySelector(".rk-token-copy-btn")){
+        parent.appendChild(makeBtn(original));
       }
+    });
+  }
 
-      n.nodeValue = original.replace(JWT_RE, function(t){ return maskToken(t); });
+  function maskCodeBlocks(){
+    if(!isDocsRoute()) return;
 
-      var parent = n.parentElement;
-      if(parent && matches[0]){
-        addCopyButton(parent, matches[0]);
+    var blocks = Array.prototype.slice.call(document.querySelectorAll("code, pre, div, span, p"));
+    blocks.forEach(function(el){
+      if(el.children.length > 0 && !/Shared Bearer Token/i.test(el.textContent || "")) return;
+
+      var txt = el.textContent || "";
+      var match = txt.match(JWT_RE);
+      if(!match) return;
+
+      var original = match[0];
+      el.textContent = txt.replace(JWT_RE, function(t){ return maskToken(t); });
+
+      if(!el.querySelector(".rk-token-copy-btn") && el.parentElement){
+        el.parentElement.appendChild(makeBtn(original));
       }
     });
   }
 
   function run(){
-    hideSharedBearerSection();
-    maskVisibleTokens();
+    hidePublicTokenSection();
+    maskInputValues();
+    maskTextNodes();
+    maskCodeBlocks();
   }
 
   if(document.readyState === "loading"){
@@ -302,14 +317,22 @@
     run();
   }
 
-  var t = null;
+  var timer = null;
   new MutationObserver(function(){
-    clearTimeout(t);
-    t = setTimeout(run, 120);
-  }).observe(document.documentElement, {childList:true, subtree:true});
+    clearTimeout(timer);
+    timer = setTimeout(run, 80);
+  }).observe(document.documentElement, {
+    childList:true,
+    subtree:true,
+    characterData:true,
+    attributes:true,
+    attributeFilter:["value"]
+  });
+
+  setInterval(run, 1000);
 })();
 </script>
-<!-- RASOKART_TOKEN_MASK_END -->
+<!-- RASOKART_TOKEN_MASK_V2_END -->
 
 </body>
 </html>

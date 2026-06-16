@@ -98,6 +98,7 @@ import "./styles/services-ecosystem.css";
 import "./lib/servicesEcosystemRuntime";
 import "./styles/public-page-override.css";
 import "./lib/publicPageOverrideRuntime";
+import AdminTpipayProviderSettings from "./pages/admin/tpipay-provider-settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -129,7 +129,7 @@ export default function AdminTpipayProviderSettings() {
 
       setSettings({ ...defaultSettings, ...(json.settings || {}) });
       setApiTokenDraft("");
-      setMessage("✅ TPiPay provider settings saved.");
+      setMessage("✅ UPI provider settings saved.");
     } catch (err: any) {
       setMessage(err?.message || "Save failed");
     } finally {
@@ -174,7 +174,7 @@ export default function AdminTpipayProviderSettings() {
             </p>
             <h1 className="text-3xl font-bold">RasoKart UPI Provider</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">
-              Configure TPiPay payin settings from admin panel. Customer and merchant pages will only show RasoKart branding.
+              Configure UPI payin provider settings from the admin panel. Customer and merchant pages will only show RasoKart branding.
             </p>
           </div>
           <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
@@ -251,7 +251,7 @@ export default function AdminTpipayProviderSettings() {
                   <input
                     className={inputClass}
                     value={settings.sellerIdentifier}
-                    placeholder="Seller Identifier from TPiPay"
+                    placeholder="Seller Identifier"
                     onChange={(e) => update("sellerIdentifier", e.target.value)}
                   />
                 </div>
@@ -351,7 +351,7 @@ export default function AdminTpipayProviderSettings() {
         </div>
 
         <div className={cardClass}>
-          <h2 className="mb-4 text-xl font-semibold">TPiPay Services Control</h2>
+          <h2 className="mb-4 text-xl font-semibold">Provider Services Control</h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {services.map(([key, title, desc]) => (
               <label

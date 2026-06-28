@@ -967,7 +967,7 @@ export default function MerchantDeposits() {
   const amountMin = smartFilter?.amountMin;
   const amountMax = smartFilter?.amountMax;
 
-  const { data, isLoading } = useListTransactions({
+  const { data, isLoading, isError } = useListTransactions({
     type: "deposit",
     status: activeStatus as any,
     search: search || undefined,
@@ -1705,6 +1705,8 @@ export default function MerchantDeposits() {
                     ))}
                   </TableRow>
                 ))
+              ) : isError ? (
+                <TableRow><TableCell colSpan={7} className="text-center py-10"><div className="flex flex-col items-center gap-2 text-destructive"><XCircle className="w-5 h-5" /><p className="text-sm font-medium">Failed to load deposits</p><p className="text-xs text-muted-foreground">Please refresh the page and try again.</p></div></TableCell></TableRow>
               ) : !data?.data?.length ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-12">

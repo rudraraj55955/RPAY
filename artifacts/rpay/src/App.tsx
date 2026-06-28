@@ -293,6 +293,7 @@ function Router() {
       <Route path="/merchant/connect"><MerchantRoute component={MerchantConnect} /></Route>
       <Route path="/merchant/virtual-accounts"><MerchantRoute component={MerchantVirtualAccounts} /></Route>
       <Route path="/merchant/qr-codes"><MerchantRoute component={MerchantQrCodes} /></Route>
+      <Route path="/merchant/qr"><MerchantRoute component={MerchantQrCodes} /></Route>
       <Route path="/merchant/deposits"><MerchantRoute component={MerchantDeposits} /></Route>
       <Route path="/merchant/plan"><MerchantRoute component={MerchantPlanPage} /></Route>
       <Route path="/merchant/ledger"><MerchantRoute component={MerchantLedger} /></Route>
@@ -300,6 +301,7 @@ function Router() {
       <Route path="/merchant/payment-links"><MerchantRoute component={MerchantPaymentLinks} /></Route>
       <Route path="/merchant/branding"><MerchantRoute component={MerchantBranding} /></Route>
       <Route path="/merchant/security"><MerchantRoute component={MerchantSecurity} /></Route>
+      <Route path="/merchant/settings"><MerchantRoute component={MerchantSecurity} /></Route>
       <Route path="/merchant/rasokart-services"><MerchantRoute component={MerchantRasokartServices} /></Route>
       <Route path="/merchant/verification"><MerchantRoute component={MerchantVerification} /></Route>
       <Route path="/merchant/wallet"><MerchantRoute component={MerchantWallet} /></Route>

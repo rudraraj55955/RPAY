@@ -704,7 +704,7 @@ export default function MerchantTransactions() {
   const activeStatus = smartFilter?.txStatus ?? status;
   const activeProvider = smartFilter?.txProvider ?? (provider !== "all" ? provider : undefined);
 
-  const { data, isLoading } = useListTransactions({
+  const { data, isLoading, isError } = useListTransactions({
     type: activeType as any,
     status: activeStatus as any,
     page,
@@ -1858,7 +1858,9 @@ export default function MerchantTransactions() {
             <TableBody>
               {isLoading ? Array.from({ length: 6 }).map((_, i) => (
                 <TableRow key={i}>{Array.from({ length: 7 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
-              )) : data?.data?.length === 0 ? (
+              )) : isError ? (
+                <TableRow><TableCell colSpan={7} className="text-center py-10"><div className="flex flex-col items-center gap-2 text-destructive"><XCircle className="w-5 h-5" /><p className="text-sm font-medium">Failed to load transactions</p><p className="text-xs text-muted-foreground">Please refresh the page and try again.</p></div></TableCell></TableRow>
+              ) : data?.data?.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-10">No transactions found</TableCell></TableRow>
               ) : data?.data?.map(tx => (
                 <TableRow

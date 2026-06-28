@@ -250,7 +250,7 @@ export default function AdminSettlements() {
   const activeDateFrom = smartFilter?.dateFrom ?? (dateFrom || undefined);
   const activeDateTo = smartFilter?.dateTo ?? (dateTo || undefined);
 
-  const { data, isLoading } = useListSettlements({
+  const { data, isLoading, isError } = useListSettlements({
     status: activeStatus as any,
     dateFrom: activeDateFrom,
     dateTo: activeDateTo,
@@ -1059,7 +1059,9 @@ export default function AdminSettlements() {
             <TableBody>
               {isLoading ? Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>{Array.from({ length: 7 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
-              )) : pageItems.length === 0 ? (
+              )) : isError ? (
+                <TableRow><TableCell colSpan={7} className="text-center py-10"><div className="flex flex-col items-center gap-2 text-destructive"><AlertTriangle className="w-5 h-5" /><p className="text-sm font-medium">Failed to load settlements</p><p className="text-xs text-muted-foreground">Please refresh the page and try again.</p></div></TableCell></TableRow>
+              ) : pageItems.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
                     {anyFilterActive ? (

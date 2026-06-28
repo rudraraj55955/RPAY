@@ -527,7 +527,7 @@ export default function AdminProviders() {
               </div>
               <div className="space-y-1.5">
                 <Label>Slug</Label>
-                <Input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: slugify(e.target.value) }))} placeholder="phonepe" className="font-mono text-sm" />
+                <Input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: slugify(e.target.value) }))} placeholder="provider-slug" className="font-mono text-sm" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

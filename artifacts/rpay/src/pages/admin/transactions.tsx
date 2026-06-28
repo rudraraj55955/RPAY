@@ -500,11 +500,13 @@ function TransactionDetailPanel({ id, open, onClose }: { id: number | null; open
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
-  phonepe: "upi-app",
-  paytm: "wallet-upi",
-  bharatpe: "qr-platform",
-  yono_sbi: "bank-upi",
-  hdfc_smarthub: "bank-smart",
+  phonepe: "QR Network A",
+  paytm: "QR Network B",
+  bharatpe: "QR Network C",
+  bharat_pe: "QR Network C",
+  yono_sbi: "QR Network D",
+  hdfc_smarthub: "QR Network E",
+  google_pay: "QR Network F",
   upi_id: "UPI",
 };
 
@@ -817,14 +819,14 @@ function RecordPaymentDialog({ open, onClose, onSuccess }: { open: boolean; onCl
 }
 
 const PROVIDERS = [
-  { value: "google_pay", label: "google_pay" },
-  { value: "phonepe", label: "phonepe" },
-  { value: "paytm", label: "paytm" },
-  { value: "bharat_pe", label: "bharatpe" },
-  { value: "bharatpe", label: "bharatpe (v1)" },
-  { value: "yono_sbi", label: "yono_sbi" },
-  { value: "hdfc_smarthub", label: "hdfc_smarthub" },
-  { value: "upi_id", label: "UPI" },
+  { value: "google_pay",    label: "QR Network F" },
+  { value: "phonepe",       label: "QR Network A" },
+  { value: "paytm",         label: "QR Network B" },
+  { value: "bharat_pe",     label: "QR Network C (alt)" },
+  { value: "bharatpe",      label: "QR Network C" },
+  { value: "yono_sbi",      label: "QR Network D" },
+  { value: "hdfc_smarthub", label: "QR Network E" },
+  { value: "upi_id",        label: "UPI" },
 ] as const;
 
 export default function AdminTransactions() {

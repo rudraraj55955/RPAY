@@ -22,7 +22,14 @@ const ACCOUNT_TYPES = [
   { value: "merchant_qr_provider",label: "QR Provider",           icon: CreditCard },
 ];
 
-const PROVIDERS = ["phonepe", "paytm", "bharatpe", "yono_sbi", "hdfc_smarthub", "upi_id"];
+const PROVIDERS = [
+  { value: "phonepe",       label: "QR Network A" },
+  { value: "paytm",         label: "QR Network B" },
+  { value: "bharatpe",      label: "QR Network C" },
+  { value: "yono_sbi",      label: "QR Network D" },
+  { value: "hdfc_smarthub", label: "QR Network E" },
+  { value: "upi_id",        label: "UPI ID" },
+];
 
 function getToken() { return localStorage.getItem("rasokart_token") ?? ""; }
 async function api(method: string, path: string, body?: object) {
@@ -312,7 +319,7 @@ export default function AdminAccountDetails() {
                 <Select value={form.provider} onValueChange={v => setForm(f => ({ ...f, provider: v }))}>
                   <SelectTrigger><SelectValue placeholder="Select provider" /></SelectTrigger>
                   <SelectContent>
-                    {PROVIDERS.map(p => <SelectItem key={p} value={p} className="capitalize">{p.replace(/_/g, " ")}</SelectItem>)}
+                    {PROVIDERS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

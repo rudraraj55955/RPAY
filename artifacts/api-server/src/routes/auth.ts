@@ -169,8 +169,9 @@ router.post("/login", loginLimiter, async (req, res, next) => {
 });
 
 // GET /api/auth/diagnose?email=xxx  (requires X-Admin-Secret header = SESSION_SECRET)
-// Returns user state without exposing password hash. Safe for production diagnostics.
-router.get("/diagnose", async (req, res) => {
+// Rate-limited to prevent brute-forcing the secret. Returns user state without
+// exposing password hash or any credentials. Safe for production diagnostics.
+router.get("/diagnose", loginLimiter, async (req, res) => {
   const secret = req.headers["x-admin-secret"] as string | undefined;
   if (!secret || secret !== JWT_SECRET) {
     res.status(403).json({ error: "Forbidden" });

@@ -168,61 +168,6 @@ router.post("/login", loginLimiter, async (req, res, next) => {
   }
 });
 
-// GET /api/auth/diagnose?email=xxx  (requires X-Admin-Secret header = SESSION_SECRET)
-// Rate-limited to prevent brute-forcing the secret. Returns user state without
-// exposing password hash or any credentials. Safe for production diagnostics.
-router.get("/diagnose", loginLimiter, async (req, res) => {
-  const secret = req.headers["x-admin-secret"] as string | undefined;
-  if (!secret || secret !== JWT_SECRET) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
-  const rawEmail = (req.query["email"] as string | undefined ?? "").toLowerCase().trim();
-  if (!rawEmail) {
-    res.status(400).json({ error: "email query param required" });
-    return;
-  }
-
-  // Include DB host for mismatch diagnosis (no credentials)
-  const dbUrl = process.env["DATABASE_URL"] ?? "";
-  let dbHost = "(DATABASE_URL not set)";
-  try {
-    const u = new URL(dbUrl);
-    dbHost = u.hostname + (u.port ? `:${u.port}` : "") + u.pathname;
-  } catch { /* ignore */ }
-
-  const [user] = await db
-    .select({
-      id: usersTable.id,
-      email: usersTable.email,
-      role: usersTable.role,
-      isActive: usersTable.isActive,
-      passwordHash: usersTable.passwordHash,
-      merchantId: usersTable.merchantId,
-    })
-    .from(usersTable)
-    .where(eq(usersTable.email, rawEmail))
-    .limit(1)
-    .catch(() => []);
-
-  if (!user) {
-    res.json({ found: false, email: rawEmail, dbHost });
-    return;
-  }
-
-  res.json({
-    found: true,
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    isActive: user.isActive,
-    hasPasswordHash: !!user.passwordHash,
-    passwordHashLen: user.passwordHash?.length ?? 0,
-    merchantId: user.merchantId ?? null,
-    dbHost,
-  });
-});
-
 // GET /api/auth/trust-ip?token=<jwt>
 router.get("/trust-ip", async (req, res) => {
   const { token } = req.query as { token?: string };

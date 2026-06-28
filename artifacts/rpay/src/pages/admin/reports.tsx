@@ -150,11 +150,11 @@ const DATE_PRESETS = [
 ];
 
 const PROVIDERS = [
-  { value: "phonepe", label: "phonepe" },
-  { value: "paytm", label: "paytm" },
-  { value: "bharatpe", label: "bharatpe" },
-  { value: "yono_sbi", label: "yono_sbi" },
-  { value: "hdfc_smarthub", label: "hdfc_smarthub" },
+  { value: "phonepe", label: "QR Network A" },
+  { value: "paytm", label: "QR Network B" },
+  { value: "bharatpe", label: "QR Network C" },
+  { value: "yono_sbi", label: "QR Network D" },
+  { value: "hdfc_smarthub", label: "QR Network E" },
   { value: "upi_id", label: "UPI ID" },
 ];
 

@@ -104,10 +104,17 @@ const queryClient = new QueryClient({
   },
 });
 
+function AuthSpinner() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <Spinner className="w-8 h-8 text-primary" />
+    </div>
+  );
+}
+
 /**
- * Smart entry for /admin — shows spinner while auth resolves, then either
- * redirects a logged-in admin to /admin/dashboard or renders the login page.
- * This means /admin is NEVER blank and NEVER shows login to an already-logged-in admin.
+ * /admin — show spinner while resolving, redirect admin to dashboard, else show login.
+ * Never shows the login form to an already-authenticated admin.
  */
 function SmartAdminEntry() {
   const { user, isLoading } = useAuth();
@@ -119,28 +126,30 @@ function SmartAdminEntry() {
     }
   }, [user, isLoading]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Spinner className="w-8 h-8 text-primary" />
-      </div>
-    );
-  }
-
-  if (user?.role === UserRole.admin) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Spinner className="w-8 h-8 text-primary" />
-      </div>
-    );
-  }
-
+  if (isLoading || user?.role === UserRole.admin) return <AuthSpinner />;
   return <AdminLogin />;
 }
 
 /**
- * Smart entry for /merchant — shows spinner while auth resolves, then either
- * redirects a logged-in merchant to /merchant/dashboard or renders the login page.
+ * /admin/login — same as SmartAdminEntry: redirect if already admin, else show login.
+ */
+function SmartAdminLogin() {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user?.role === UserRole.admin) {
+      setLocation("/admin/dashboard", { replace: true } as Parameters<typeof setLocation>[1]);
+    }
+  }, [user, isLoading]);
+
+  if (isLoading || user?.role === UserRole.admin) return <AuthSpinner />;
+  return <AdminLogin />;
+}
+
+/**
+ * /merchant — show spinner while resolving, redirect merchant to dashboard, else show login.
+ * Never shows the login form to an already-authenticated merchant.
  */
 function SmartMerchantEntry() {
   const { user, isLoading } = useAuth();
@@ -152,22 +161,24 @@ function SmartMerchantEntry() {
     }
   }, [user, isLoading]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Spinner className="w-8 h-8 text-primary" />
-      </div>
-    );
-  }
+  if (isLoading || user?.role === UserRole.merchant) return <AuthSpinner />;
+  return <MerchantLogin />;
+}
 
-  if (user?.role === UserRole.merchant) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Spinner className="w-8 h-8 text-primary" />
-      </div>
-    );
-  }
+/**
+ * /merchant/login — same as SmartMerchantEntry: redirect if already merchant, else show login.
+ */
+function SmartMerchantLogin() {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
 
+  useEffect(() => {
+    if (!isLoading && user?.role === UserRole.merchant) {
+      setLocation("/merchant/dashboard", { replace: true } as Parameters<typeof setLocation>[1]);
+    }
+  }, [user, isLoading]);
+
+  if (isLoading || user?.role === UserRole.merchant) return <AuthSpinner />;
   return <MerchantLogin />;
 }
 
@@ -222,9 +233,9 @@ function Router() {
       <Route path="/merchant/pending" component={MerchantPending} />
       <Route path="/merchant/suspended" component={MerchantSuspended} />
 
-      {/* Login aliases — render directly so /admin/login always shows login UI */}
-      <Route path="/admin/login" component={AdminLogin} />
-      <Route path="/merchant/login" component={MerchantLogin} />
+      {/* Login aliases — smart: redirect if already authenticated for that role */}
+      <Route path="/admin/login" component={SmartAdminLogin} />
+      <Route path="/merchant/login" component={SmartMerchantLogin} />
       <Route path="/merchant/register"><Redirect to="/merchant/apply" /></Route>
 
       {/* Admin Routes */}

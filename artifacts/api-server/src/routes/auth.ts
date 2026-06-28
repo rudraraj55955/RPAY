@@ -62,6 +62,10 @@ router.post("/login", loginLimiter, async (req, res, next) => {
       res.status(401).json({ error: "Account suspended. Please contact support." });
       return;
     }
+    if (!user.passwordHash) {
+      res.status(401).json({ error: "Invalid credentials" });
+      return;
+    }
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       res.status(401).json({ error: "Invalid credentials" });

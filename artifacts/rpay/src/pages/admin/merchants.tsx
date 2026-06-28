@@ -339,7 +339,7 @@ export default function AdminMerchants() {
   const [bulkUndoSecondsLeft, setBulkUndoSecondsLeft] = useState(0);
   const [bulkUndoUsed, setBulkUndoUsed] = useState(false);
 
-  const { data, isLoading } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined, callbackSecretSet: callbackSecretFilter as any || undefined, loginAlertEmails: loginAlertFilter as any || undefined, securityEmailsDisabled: securityEmailsDisabledFilter as any || undefined, settlementStateEmails: settlementStateEmailsFilter as any || undefined, reportScheduleEmails: reportScheduleEmailsFilter as any || undefined, planExpiryAlertEmails: planExpiryAlertEmailsFilter as any || undefined });
+  const { data, isLoading, isError } = useListMerchants({ status: status as any, search, page, limit: 20, expiryStatus: expiryStatus as any || undefined, rejectionReason: rejectionReasonFilter || undefined, callbackSecretSet: callbackSecretFilter as any || undefined, loginAlertEmails: loginAlertFilter as any || undefined, securityEmailsDisabled: securityEmailsDisabledFilter as any || undefined, settlementStateEmails: settlementStateEmailsFilter as any || undefined, reportScheduleEmails: reportScheduleEmailsFilter as any || undefined, planExpiryAlertEmails: planExpiryAlertEmailsFilter as any || undefined });
   const { data: plans } = useListPlans();
   const { data: currentMerchantPlan, isLoading: planLoading } = useGetMerchantPlan(
     assignPlanMerchant?.id ?? 0,
@@ -1656,6 +1656,8 @@ export default function AdminMerchants() {
                     {[1,2,3,4,5,6,7,8,9].map(j => <TableCell key={j}><div className="h-4 bg-muted/50 animate-pulse rounded" /></TableCell>)}
                   </TableRow>
                 ))
+              ) : isError ? (
+                <TableRow><TableCell colSpan={9} className="text-center py-10"><div className="flex flex-col items-center gap-2 text-destructive"><AlertTriangle className="w-5 h-5" /><p className="text-sm font-medium">Failed to load merchants</p><p className="text-xs text-muted-foreground">Please refresh the page and try again.</p></div></TableCell></TableRow>
               ) : merchants.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center text-muted-foreground py-10">No merchants found</TableCell>

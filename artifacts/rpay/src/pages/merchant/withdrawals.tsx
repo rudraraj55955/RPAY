@@ -19,7 +19,7 @@ export default function MerchantWithdrawals() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ amount: "", bankAccount: "", bankName: "", ifscCode: "", accountHolder: "" });
 
-  const { data, isLoading } = useListWithdrawals({ page, limit: 20 });
+  const { data, isLoading, isError } = useListWithdrawals({ page, limit: 20 });
   const { data: usage } = useGetMyPlanUsage();
   const createMutation = useCreateWithdrawal();
 
@@ -123,7 +123,9 @@ export default function MerchantWithdrawals() {
             <TableBody>
               {isLoading ? Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>{Array.from({ length: 6 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
-              )) : data?.data?.length === 0 ? (
+              )) : isError ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-10"><div className="flex flex-col items-center gap-2 text-destructive"><AlertTriangle className="w-5 h-5" /><p className="text-sm font-medium">Failed to load withdrawals</p><p className="text-xs text-muted-foreground">Please refresh the page and try again.</p></div></TableCell></TableRow>
+              ) : data?.data?.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-10">No withdrawal requests yet</TableCell></TableRow>
               ) : data?.data?.map(w => (
                 <TableRow key={w.id}>

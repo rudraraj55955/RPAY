@@ -53,24 +53,30 @@ router.post("/login", loginLimiter, async (req, res, next) => {
       res.status(400).json({ error: "Email and password required" });
       return;
     }
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase())).limit(1);
+    const normalizedEmail = (email as string).toLowerCase().trim();
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail)).limit(1);
     if (!user) {
+      req.log.warn({ email: normalizedEmail, reason: "user_not_found" }, "login_401");
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
     if (!user.isActive) {
+      req.log.warn({ email: normalizedEmail, userId: user.id, role: user.role, reason: "account_inactive" }, "login_401");
       res.status(401).json({ error: "Account suspended. Please contact support." });
       return;
     }
     if (!user.passwordHash) {
+      req.log.warn({ email: normalizedEmail, userId: user.id, role: user.role, reason: "no_password_hash" }, "login_401");
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
+      req.log.warn({ email: normalizedEmail, userId: user.id, role: user.role, reason: "bcrypt_mismatch", hashLen: user.passwordHash.length }, "login_401");
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
+    req.log.info({ email: normalizedEmail, userId: user.id, role: user.role, isActive: user.isActive, merchantId: user.merchantId ?? null }, "login_ok");
     const token = generateToken({ userId: user.id, role: user.role });
 
     const loginIp = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
@@ -160,6 +166,60 @@ router.post("/login", loginLimiter, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// GET /api/auth/diagnose?email=xxx  (requires X-Admin-Secret header = SESSION_SECRET)
+// Returns user state without exposing password hash. Safe for production diagnostics.
+router.get("/diagnose", async (req, res) => {
+  const secret = req.headers["x-admin-secret"] as string | undefined;
+  if (!secret || secret !== JWT_SECRET) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const rawEmail = (req.query["email"] as string | undefined ?? "").toLowerCase().trim();
+  if (!rawEmail) {
+    res.status(400).json({ error: "email query param required" });
+    return;
+  }
+
+  // Include DB host for mismatch diagnosis (no credentials)
+  const dbUrl = process.env["DATABASE_URL"] ?? "";
+  let dbHost = "(DATABASE_URL not set)";
+  try {
+    const u = new URL(dbUrl);
+    dbHost = u.hostname + (u.port ? `:${u.port}` : "") + u.pathname;
+  } catch { /* ignore */ }
+
+  const [user] = await db
+    .select({
+      id: usersTable.id,
+      email: usersTable.email,
+      role: usersTable.role,
+      isActive: usersTable.isActive,
+      passwordHash: usersTable.passwordHash,
+      merchantId: usersTable.merchantId,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.email, rawEmail))
+    .limit(1)
+    .catch(() => []);
+
+  if (!user) {
+    res.json({ found: false, email: rawEmail, dbHost });
+    return;
+  }
+
+  res.json({
+    found: true,
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive,
+    hasPasswordHash: !!user.passwordHash,
+    passwordHashLen: user.passwordHash?.length ?? 0,
+    merchantId: user.merchantId ?? null,
+    dbHost,
+  });
 });
 
 // GET /api/auth/trust-ip?token=<jwt>

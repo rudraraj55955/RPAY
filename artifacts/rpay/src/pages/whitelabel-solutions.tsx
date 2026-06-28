@@ -169,7 +169,7 @@ export default function WhitelabelSolutionsPage() {
           <div className="wl-menu">
             <a href="/">Home</a><a href="/whitelabel-solutions">Solutions</a><a href="/upi-collection-api">UPI API</a><a href="/api-docs">Docs</a>
           </div>
-          <div className="wl-actions"><a href="/login">Login</a><a className="wl-primary" href="/login">Get Started</a></div>
+          <div className="wl-actions"><a href="/merchant">Login</a><a className="wl-primary" href="/merchant">Get Started</a></div>
         </div>
       </nav>
 
@@ -183,8 +183,8 @@ export default function WhitelabelSolutionsPage() {
             UPI collection, payout, booking and merchant services under your own business structure.
           </p>
           <div className="wl-cta">
-            <a className="wl-btn wl-primary" href="/login">🚀 Apply Now</a>
-            <a className="wl-btn" href="/login">Login to Console →</a>
+            <a className="wl-btn wl-primary" href="/merchant">🚀 Apply Now</a>
+            <a className="wl-btn" href="/merchant">Login to Console →</a>
           </div>
         </div>
       </section>
@@ -237,7 +237,7 @@ export default function WhitelabelSolutionsPage() {
                 {tier.popular ? <span className="wl-popular">MOST POPULAR</span> : null}
                 <h3>{tier.name}</h3><p>{tier.text}</p>
                 <ul className="wl-list">{tier.items.map((i) => <li key={i}>{i}</li>)}</ul>
-                <a className={tier.popular ? "wl-btn wl-primary" : "wl-btn"} href="/login">{tier.cta} →</a>
+                <a className={tier.popular ? "wl-btn wl-primary" : "wl-btn"} href="/merchant">{tier.cta} →</a>
               </article>
             ))}
           </div>
@@ -275,7 +275,7 @@ export default function WhitelabelSolutionsPage() {
         <div className="wl-wrap">
           <div className="wl-cta-box">
             <div><h2>Launch your branded fintech platform today</h2><p className="wl-muted">20+ services, your brand, admin controls, APK-ready structure and merchant-ready dashboard.</p></div>
-            <div className="wl-cta"><a className="wl-btn wl-primary" href="/login">🚀 Apply Now</a><a className="wl-btn" href="/api-docs">API Docs →</a></div>
+            <div className="wl-cta"><a className="wl-btn wl-primary" href="/merchant">🚀 Apply Now</a><a className="wl-btn" href="/api-docs">API Docs →</a></div>
           </div>
         </div>
       </section>
@@ -286,7 +286,7 @@ export default function WhitelabelSolutionsPage() {
           <div><h4>Payments</h4><a>Payment Gateway</a><a>UPI Collection</a><a>QR Code & UPI</a><a>Payout API</a></div>
           <div><h4>Utility APIs</h4><a>Recharge API</a><a>BBPS API</a><a>FASTag</a><a>KYC</a></div>
           <div><h4>Travel</h4><a>Flight Booking</a><a>Hotel Booking</a><a>Bus Booking</a></div>
-          <div><h4>Developers</h4><a href="/api-docs">API Docs</a><a href="/upi-collection-api">UPI API</a><a href="/login">Console Login</a></div>
+          <div><h4>Developers</h4><a href="/api-docs">API Docs</a><a href="/upi-collection-api">UPI API</a><a href="/merchant">Console Login</a></div>
         </div>
       </footer>
     </main>

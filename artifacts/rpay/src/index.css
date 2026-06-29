@@ -237,3 +237,56 @@
     overflow-x: hidden;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Global modal / dialog scroll fix — mobile, tablet, Samsung Fold
+   ══════════════════════════════════════════════════════════════════════════
+   WHY plain CSS instead of (or in addition to) Tailwind classes:
+   • Tailwind v4 JIT may not emit arbitrary-value classes that use `dvh`
+     inside `calc()` if the scanner doesn't fully tokenise the expression.
+   • Page-level className props that repeat max-h / overflow-y create
+     unpredictable cascade order in Tailwind v4 (resolved by CSS generation
+     order, not className string order).
+   • Plain attribute-selector CSS is framework-independent, always present
+     in the bundle, and fires on every device without JIT involvement.
+
+   HOW it works:
+   • Radix Dialog renders its Content element with role="dialog" aria-modal="true"
+     (AlertDialog uses role="alertdialog").  Sheet also uses the Dialog primitive
+     but its Content carries position classes (inset-y-0 for side, inset-x-0 for
+     top/bottom) that let us distinguish and apply the right constraints.
+   • touch-action: pan-y  — explicitly tells Android/iOS WebView that vertical
+     touch gestures on this element are scroll gestures (not ignored).
+   • -webkit-overflow-scrolling: touch — iOS momentum ("inertia") scrolling.
+   • overscroll-behavior: contain — prevents scroll chaining to body behind the
+     modal (stops the page from scrolling when the modal hits its boundary).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Center dialogs (Dialog, AlertDialog) — excludes Sheet side/top/bottom panels */
+[role="dialog"][aria-modal="true"]:not([class*="inset-y-0"]):not([class*="inset-x-0"]),
+[role="alertdialog"][aria-modal="true"] {
+  max-height: calc(100dvh - 2rem) !important;
+  overflow-y: auto !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Sheet — left / right side panel (inset-y-0 = full height) */
+[role="dialog"][aria-modal="true"][class*="inset-y-0"] {
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow-y: auto !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Sheet — top / bottom drawer (inset-x-0 = full width, partial height) */
+[role="dialog"][aria-modal="true"][class*="inset-x-0"] {
+  max-height: 85dvh !important;
+  overflow-y: auto !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 const adminItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
   { title: "Deposits", icon: ArrowDownLeft, href: "/admin/deposits" },
-  { title: "Withdrawals", icon: Landmark, href: "/admin/withdrawals" },
+  { title: "Payouts", icon: Landmark, href: "/admin/payouts" },
   { title: "QR", icon: QrCode, href: "/admin/qr-codes" },
   { title: "Merchants", icon: Store, href: "/admin/merchants" },
 ];
@@ -16,7 +16,7 @@ const merchantItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/merchant/dashboard" },
   { title: "Deposits", icon: ArrowDownLeft, href: "/merchant/deposits" },
   { title: "QR", icon: QrCode, href: "/merchant/qr-codes" },
-  { title: "Withdraw", icon: Landmark, href: "/merchant/withdrawals" },
+  { title: "Payouts", icon: Landmark, href: "/merchant/payouts" },
   { title: "Txns", icon: ArrowRightLeft, href: "/merchant/transactions" },
 ];
 

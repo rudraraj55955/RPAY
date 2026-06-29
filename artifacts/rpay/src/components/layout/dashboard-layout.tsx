@@ -208,7 +208,7 @@ function MerchantSidebar() {
       items: [
         { title: "Deposits", icon: ArrowDownLeft, href: "/merchant/deposits", locked: false, lockReason: null },
         { title: "Transactions", icon: ArrowRightLeft, href: "/merchant/transactions", locked: false, lockReason: null },
-        { title: "Withdrawals", icon: Landmark, href: "/merchant/withdrawals", locked: false, lockReason: null },
+        { title: "Payouts", icon: Landmark, href: "/merchant/payouts", locked: false, lockReason: null },
         { title: "Settlements", icon: FileText, href: "/merchant/settlements", locked: false, lockReason: null },
         { title: "Wallet", icon: Wallet, href: "/merchant/wallet", locked: false, lockReason: null },
         { title: "Balance Ledger", icon: BookMarked, href: "/merchant/ledger", locked: false, lockReason: null },
@@ -334,7 +334,7 @@ const ADMIN_NAV = [
     group: "Payments",
     items: [
       { title: "Deposits", icon: ArrowDownLeft, href: "/admin/deposits" },
-      { title: "Withdrawals", icon: Landmark, href: "/admin/withdrawals" },
+      { title: "Payouts", icon: Landmark, href: "/admin/payouts" },
       { title: "Settlements", icon: FileText, href: "/admin/settlements" },
       { title: "Transactions", icon: ArrowRightLeft, href: "/admin/transactions" },
       { title: "Balance Ledger", icon: BookMarked, href: "/admin/ledger" },

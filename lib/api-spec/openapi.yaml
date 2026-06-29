@@ -2852,6 +2852,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/Withdrawal"
 
+  /withdrawals/{id}/refresh-status:
+    post:
+      operationId: refreshWithdrawalStatus
+      tags: [withdrawals]
+      summary: Refresh payout transfer status from provider (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated withdrawal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+
+  /withdrawals/{id}/retry:
+    post:
+      operationId: retryWithdrawal
+      tags: [withdrawals]
+      summary: Retry a failed payout (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Retried withdrawal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+
   /api-keys:
     get:
       operationId: listApiKeys
@@ -10210,7 +10248,7 @@ components:
 
     Withdrawal:
       type: object
-      required: [id, merchantId, amount, currency, status, bankAccount, bankName, ifscCode, accountHolder, createdAt]
+      required: [id, merchantId, amount, currency, status, transferStatus, payoutMode, bankAccount, bankName, ifscCode, accountHolder, createdAt]
       properties:
         id:
           type: integer
@@ -10225,6 +10263,20 @@ components:
         status:
           type: string
           enum: [pending, approved, rejected]
+        transferStatus:
+          type: string
+          enum: [NOT_STARTED, INITIATED, PENDING, SUCCESS, FAILED, REVERSED]
+        utr:
+          type: ["string", "null"]
+        failureReason:
+          type: ["string", "null"]
+        payoutMode:
+          type: string
+          enum: [IMPS, NEFT, RTGS, UPI]
+        upiId:
+          type: ["string", "null"]
+        remarks:
+          type: ["string", "null"]
         bankAccount:
           type: string
         bankName:
@@ -10235,6 +10287,10 @@ components:
           type: string
         rejectionReason:
           type: ["string", "null"]
+        approvedAt:
+          type: ["string", "null"]
+        completedAt:
+          type: ["string", "null"]
         createdAt:
           type: string
         updatedAt:
@@ -10242,10 +10298,13 @@ components:
 
     WithdrawalInput:
       type: object
-      required: [amount, bankAccount, bankName, ifscCode, accountHolder]
+      required: [amount]
       properties:
         amount:
           type: number
+        payoutMode:
+          type: string
+          enum: [IMPS, NEFT, RTGS, UPI]
         bankAccount:
           type: string
         bankName:
@@ -10253,6 +10312,10 @@ components:
         ifscCode:
           type: string
         accountHolder:
+          type: string
+        upiId:
+          type: string
+        remarks:
           type: string
 
     WithdrawalListResponse:
@@ -10271,7 +10334,7 @@ components:
           type: integer
         stats:
           type: object
-          required: [totalVolume, pendingCount, approvedCount, rejectedCount]
+          required: [totalVolume, pendingCount, approvedCount, rejectedCount, processingCount, successCount, failedCount, lockedAmount]
           properties:
             totalVolume:
               type: number
@@ -10281,6 +10344,14 @@ components:
               type: integer
             rejectedCount:
               type: integer
+            processingCount:
+              type: integer
+            successCount:
+              type: integer
+            failedCount:
+              type: integer
+            lockedAmount:
+              type: number
 
     ApiKey:
       type: object

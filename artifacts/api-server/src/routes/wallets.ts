@@ -489,6 +489,44 @@ router.post("/:merchantId/charge", requireAdmin, async (req, res, next) => {
   }
 });
 
+// POST /api/wallets/:merchantId/load — admin loads (credits) merchant wallet
+router.post("/:merchantId/load", requireAdmin, async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const merchantId = parseId(req.params["merchantId"] as string);
+    const { amount, note } = req.body as { amount?: number; note?: string };
+
+    if (!amount || typeof amount !== "number" || amount <= 0) {
+      res.status(400).json({ error: "amount must be a positive number" }); return;
+    }
+    if (!note?.trim()) { res.status(400).json({ error: "note is required" }); return; }
+
+    const [merchant] = await db.select({ businessName: merchantsTable.businessName })
+      .from(merchantsTable).where(eq(merchantsTable.id, merchantId)).limit(1);
+    if (!merchant) { res.status(404).json({ error: "Merchant not found" }); return; }
+
+    const entry = await mutateWallet(merchantId, { availableDelta: amount }, {
+      txnType: "admin_wallet_load",
+      bucket: "available",
+      amount,
+      referenceType: "manual",
+      description: `Admin wallet load: ${note.trim()}`,
+      createdBy: user.id,
+    });
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id, adminEmail: user.email,
+      action: "admin_wallet_load",
+      targetType: "merchant", targetId: merchantId,
+      details: JSON.stringify({ amount, note: note.trim(), ledgerId: entry.id }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ merchantId, amount, note: note.trim() }, "admin_wallet_load");
+    res.status(201).json({ message: "Wallet loaded", amount, ledgerId: entry.id });
+  } catch (err) { next(err); }
+});
+
 // ── Expire old holds (called periodically; also available as admin endpoint) ──
 async function expireOldHolds() {
   const now = new Date();

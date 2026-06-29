@@ -7050,6 +7050,146 @@ export const useRejectWithdrawal = <TError = ErrorType<unknown>,
       return useMutation(getRejectWithdrawalMutationOptions(options));
     }
 
+export const getRefreshWithdrawalStatusUrl = (id: number,) => {
+
+
+
+
+  return `/api/withdrawals/${id}/refresh-status`
+}
+
+/**
+ * @summary Refresh payout transfer status from provider (admin only)
+ */
+export const refreshWithdrawalStatus = async (id: number, options?: RequestInit): Promise<Withdrawal> => {
+
+  return customFetch<Withdrawal>(getRefreshWithdrawalStatusUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRefreshWithdrawalStatusMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshWithdrawalStatus>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshWithdrawalStatus>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['refreshWithdrawalStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshWithdrawalStatus>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  refreshWithdrawalStatus(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshWithdrawalStatusMutationResult = NonNullable<Awaited<ReturnType<typeof refreshWithdrawalStatus>>>
+
+    export type RefreshWithdrawalStatusMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Refresh payout transfer status from provider (admin only)
+ */
+export const useRefreshWithdrawalStatus = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshWithdrawalStatus>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshWithdrawalStatus>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRefreshWithdrawalStatusMutationOptions(options));
+    }
+
+export const getRetryWithdrawalUrl = (id: number,) => {
+
+
+
+
+  return `/api/withdrawals/${id}/retry`
+}
+
+/**
+ * @summary Retry a failed payout (admin only)
+ */
+export const retryWithdrawal = async (id: number, options?: RequestInit): Promise<Withdrawal> => {
+
+  return customFetch<Withdrawal>(getRetryWithdrawalUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRetryWithdrawalMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryWithdrawal>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryWithdrawal>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['retryWithdrawal'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryWithdrawal>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  retryWithdrawal(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryWithdrawalMutationResult = NonNullable<Awaited<ReturnType<typeof retryWithdrawal>>>
+
+    export type RetryWithdrawalMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Retry a failed payout (admin only)
+ */
+export const useRetryWithdrawal = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryWithdrawal>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryWithdrawal>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRetryWithdrawalMutationOptions(options));
+    }
+
 export const getListApiKeysUrl = () => {
 
 

@@ -11,4 +11,8 @@ export type WithdrawalListResponseStats = {
   pendingCount: number;
   approvedCount: number;
   rejectedCount: number;
+  processingCount: number;
+  successCount: number;
+  failedCount: number;
+  lockedAmount: number;
 };

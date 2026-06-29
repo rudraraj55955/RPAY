@@ -30,6 +30,8 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminTransactions from "@/pages/admin/transactions";
 import AdminMerchants from "@/pages/admin/merchants";
 import AdminWithdrawals from "@/pages/admin/withdrawals";
+import AdminPayouts from "@/pages/admin/payouts";
+import MerchantPayouts from "@/pages/merchant/payouts";
 import AdminSettlements from "@/pages/admin/settlements";
 import AdminCallbacks from "@/pages/admin/callbacks";
 import AdminUsers from "@/pages/admin/users";
@@ -242,7 +244,8 @@ function Router() {
       <Route path="/admin/dashboard"><AdminRoute component={AdminDashboard} /></Route>
       <Route path="/admin/merchants"><AdminRoute component={AdminMerchants} /></Route>
       <Route path="/admin/transactions"><AdminRoute component={AdminTransactions} /></Route>
-      <Route path="/admin/withdrawals"><AdminRoute component={AdminWithdrawals} /></Route>
+      <Route path="/admin/withdrawals"><Redirect to="/admin/payouts" /></Route>
+      <Route path="/admin/payouts"><AdminRoute component={AdminPayouts} /></Route>
       <Route path="/admin/settlements"><AdminRoute component={AdminSettlements} /></Route>
       <Route path="/admin/callbacks"><AdminRoute component={AdminCallbacks} /></Route>
       <Route path="/admin/users"><AdminRoute component={AdminUsers} /></Route>
@@ -278,13 +281,13 @@ function Router() {
       <Route path="/admin/reports"><AdminRoute component={AdminReports} /></Route>
       <Route path="/admin/support-tickets"><AdminRoute component={AdminSupportTickets} /></Route>
       <Route path="/admin/support"><AdminRoute component={AdminSupportTickets} /></Route>
-      <Route path="/admin/payouts"><AdminRoute component={AdminWithdrawals} /></Route>
+
 
       {/* Merchant Routes */}
       <Route path="/merchant/dashboard"><MerchantRoute component={MerchantDashboard} /></Route>
       <Route path="/merchant/transactions"><MerchantRoute component={MerchantTransactions} /></Route>
-      <Route path="/merchant/withdrawals"><MerchantRoute component={MerchantWithdrawals} /></Route>
-      <Route path="/merchant/payouts"><MerchantRoute component={MerchantWithdrawals} /></Route>
+      <Route path="/merchant/withdrawals"><Redirect to="/merchant/payouts" /></Route>
+      <Route path="/merchant/payouts"><MerchantRoute component={MerchantPayouts} /></Route>
       <Route path="/merchant/api-keys"><MerchantRoute component={MerchantApiKeys} /></Route>
       <Route path="/merchant/webhook"><MerchantRoute component={MerchantWebhook} /></Route>
       <Route path="/merchant/callbacks"><MerchantRoute component={MerchantCallbacks} /></Route>

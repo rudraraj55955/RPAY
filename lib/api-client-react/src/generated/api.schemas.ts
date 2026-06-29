@@ -1109,6 +1109,28 @@ export const WithdrawalStatus = {
   rejected: 'rejected',
 } as const;
 
+export type WithdrawalTransferStatus = typeof WithdrawalTransferStatus[keyof typeof WithdrawalTransferStatus];
+
+
+export const WithdrawalTransferStatus = {
+  NOT_STARTED: 'NOT_STARTED',
+  INITIATED: 'INITIATED',
+  PENDING: 'PENDING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+  REVERSED: 'REVERSED',
+} as const;
+
+export type WithdrawalPayoutMode = typeof WithdrawalPayoutMode[keyof typeof WithdrawalPayoutMode];
+
+
+export const WithdrawalPayoutMode = {
+  IMPS: 'IMPS',
+  NEFT: 'NEFT',
+  RTGS: 'RTGS',
+  UPI: 'UPI',
+} as const;
+
 export interface Withdrawal {
   id: number;
   merchantId: number;
@@ -1117,22 +1139,49 @@ export interface Withdrawal {
   amount: number;
   currency: string;
   status: WithdrawalStatus;
+  transferStatus: WithdrawalTransferStatus;
+  /** @nullable */
+  utr?: string | null;
+  /** @nullable */
+  failureReason?: string | null;
+  payoutMode: WithdrawalPayoutMode;
+  /** @nullable */
+  upiId?: string | null;
+  /** @nullable */
+  remarks?: string | null;
   bankAccount: string;
   bankName: string;
   ifscCode: string;
   accountHolder: string;
   /** @nullable */
   rejectionReason?: string | null;
+  /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
 
+export type WithdrawalInputPayoutMode = typeof WithdrawalInputPayoutMode[keyof typeof WithdrawalInputPayoutMode];
+
+
+export const WithdrawalInputPayoutMode = {
+  IMPS: 'IMPS',
+  NEFT: 'NEFT',
+  RTGS: 'RTGS',
+  UPI: 'UPI',
+} as const;
+
 export interface WithdrawalInput {
   amount: number;
-  bankAccount: string;
-  bankName: string;
-  ifscCode: string;
-  accountHolder: string;
+  payoutMode?: WithdrawalInputPayoutMode;
+  bankAccount?: string;
+  bankName?: string;
+  ifscCode?: string;
+  accountHolder?: string;
+  upiId?: string;
+  remarks?: string;
 }
 
 export type WithdrawalListResponseStats = {
@@ -1140,6 +1189,10 @@ export type WithdrawalListResponseStats = {
   pendingCount: number;
   approvedCount: number;
   rejectedCount: number;
+  processingCount: number;
+  successCount: number;
+  failedCount: number;
+  lockedAmount: number;
 };
 
 export interface WithdrawalListResponse {

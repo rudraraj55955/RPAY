@@ -5,7 +5,9 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { WithdrawalPayoutMode } from './withdrawalPayoutMode';
 import type { WithdrawalStatus } from './withdrawalStatus';
+import type { WithdrawalTransferStatus } from './withdrawalTransferStatus';
 
 export interface Withdrawal {
   id: number;
@@ -15,12 +17,26 @@ export interface Withdrawal {
   amount: number;
   currency: string;
   status: WithdrawalStatus;
+  transferStatus: WithdrawalTransferStatus;
+  /** @nullable */
+  utr?: string | null;
+  /** @nullable */
+  failureReason?: string | null;
+  payoutMode: WithdrawalPayoutMode;
+  /** @nullable */
+  upiId?: string | null;
+  /** @nullable */
+  remarks?: string | null;
   bankAccount: string;
   bankName: string;
   ifscCode: string;
   accountHolder: string;
   /** @nullable */
   rejectionReason?: string | null;
+  /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

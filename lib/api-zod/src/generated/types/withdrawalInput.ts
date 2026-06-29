@@ -5,11 +5,15 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+import type { WithdrawalInputPayoutMode } from './withdrawalInputPayoutMode';
 
 export interface WithdrawalInput {
   amount: number;
-  bankAccount: string;
-  bankName: string;
-  ifscCode: string;
-  accountHolder: string;
+  payoutMode?: WithdrawalInputPayoutMode;
+  bankAccount?: string;
+  bankName?: string;
+  ifscCode?: string;
+  accountHolder?: string;
+  upiId?: string;
+  remarks?: string;
 }

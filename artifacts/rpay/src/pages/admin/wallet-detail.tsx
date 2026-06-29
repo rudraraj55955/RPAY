@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, ArrowLeft, Lock, Unlock, Plus, Minus, AlertCircle, Receipt } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, Lock, Unlock, Plus, Minus, AlertCircle, Receipt, Wallet } from "lucide-react";
 import { format } from "date-fns";
 
 function getToken() { return localStorage.getItem("rasokart_token") ?? ""; }
@@ -82,9 +82,11 @@ export default function AdminWalletDetail() {
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [holdOpen, setHoldOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
   const [adjustForm, setAdjustForm] = useState({ bucket: "available", amount: "", description: "" });
   const [holdForm, setHoldForm] = useState({ amount: "", reason: "", expiresAt: "" });
   const [chargeForm, setChargeForm] = useState({ amount: "", chargeType: "fee", description: "" });
+  const [loadForm, setLoadForm] = useState({ amount: "", remarks: "" });
 
   const { data, isLoading } = useQuery<WalletDetail>({
     queryKey: ["admin-wallet-detail", merchantId],
@@ -139,6 +141,20 @@ export default function AdminWalletDetail() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const loadMutation = useMutation({
+    mutationFn: () => apiPost(`/wallets/${merchantId}/load`, {
+      amount: Number(loadForm.amount),
+      remarks: loadForm.remarks || undefined,
+    }),
+    onSuccess: () => {
+      invalidate();
+      setLoadOpen(false);
+      setLoadForm({ amount: "", remarks: "" });
+      toast.success("Wallet loaded successfully");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   if (isLoading) return <div className="text-muted-foreground text-sm py-10 text-center">Loading wallet…</div>;
   if (!data) return <div className="text-muted-foreground text-sm py-10 text-center">Wallet not found</div>;
 
@@ -184,6 +200,9 @@ export default function AdminWalletDetail() {
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5 border-border/60 text-orange-400 hover:text-orange-300" onClick={() => setChargeOpen(true)}>
             <Receipt className="w-3.5 h-3.5" />Apply Charge
+          </Button>
+          <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setLoadOpen(true)}>
+            <Wallet className="w-3.5 h-3.5" />Load Wallet
           </Button>
         </div>
       </div>
@@ -430,6 +449,50 @@ export default function AdminWalletDetail() {
               className="bg-rose-600 hover:bg-rose-700"
               onClick={() => chargeMutation.mutate()}>
               {chargeMutation.isPending ? "Applying…" : "Apply Charge"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Load Wallet Dialog */}
+      <Dialog open={loadOpen} onOpenChange={v => { setLoadOpen(v); if (!v) setLoadForm({ amount: "", remarks: "" }); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Load Wallet</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Credit funds directly to <span className="font-medium text-foreground">{merchant.businessName}</span>'s available balance.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Amount (INR)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="1"
+                placeholder="e.g. 10000"
+                value={loadForm.amount}
+                onChange={e => setLoadForm(f => ({ ...f, amount: e.target.value }))}
+                className="border-border/60 bg-background text-sm font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Remarks (optional)</Label>
+              <Textarea
+                placeholder="Reason for wallet load…"
+                rows={2}
+                value={loadForm.remarks}
+                onChange={e => setLoadForm(f => ({ ...f, remarks: e.target.value }))}
+                className="border-border/60 bg-background text-sm resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLoadOpen(false)}>Cancel</Button>
+            <Button
+              disabled={loadMutation.isPending || !loadForm.amount || Number(loadForm.amount) <= 0}
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => loadMutation.mutate()}
+            >
+              {loadMutation.isPending ? "Loading…" : "Load Wallet"}
             </Button>
           </DialogFooter>
         </DialogContent>

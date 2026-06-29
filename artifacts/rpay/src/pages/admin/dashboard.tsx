@@ -71,7 +71,7 @@ export default function AdminDashboard() {
             icon={<ArrowDownLeft className="w-4 h-4 text-emerald-500" />}
           />
           <StatCard
-            title="Total Withdrawals"
+            title="Total Payouts"
             value={`₹${Number(stats.totalWithdrawals).toLocaleString()}`}
             icon={<ArrowUpRight className="w-4 h-4 text-rose-500" />}
           />
@@ -437,7 +437,7 @@ export default function AdminDashboard() {
                 <YAxis tickFormatter={(v) => `₹${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} dx={-8} />
                 <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))" }} itemStyle={{ color: "hsl(var(--foreground))" }} labelFormatter={(v) => format(new Date(v), "MMM d, yyyy")} />
                 <Area type="monotone" dataKey="deposits" name="Deposits" stroke="hsl(var(--chart-1))" fillOpacity={1} fill="url(#colorDep2)" strokeWidth={2} />
-                <Area type="monotone" dataKey="withdrawals" name="Withdrawals" stroke="hsl(var(--chart-5))" fillOpacity={1} fill="url(#colorWit2)" strokeWidth={2} />
+                <Area type="monotone" dataKey="withdrawals" name="Payouts" stroke="hsl(var(--chart-5))" fillOpacity={1} fill="url(#colorWit2)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -547,7 +547,7 @@ export default function AdminDashboard() {
                   <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))" }} formatter={(v: any) => [`₹${Number(v).toLocaleString()}`, ""]} />
                   <Legend formatter={(v) => <span className="text-xs text-muted-foreground capitalize">{v}</span>} />
                   <Bar dataKey="totalDeposits" name="Deposits" fill="hsl(var(--chart-1))" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="totalWithdrawals" name="Withdrawals" fill="hsl(var(--chart-5))" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="totalWithdrawals" name="Payouts" fill="hsl(var(--chart-5))" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

@@ -2721,11 +2721,19 @@ export const ListWithdrawalsResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "transferStatus": zod.enum(['NOT_STARTED', 'INITIATED', 'PENDING', 'SUCCESS', 'FAILED', 'REVERSED']),
+  "utr": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "upiId": zod.string().nullish(),
+  "remarks": zod.string().nullish(),
   "bankAccount": zod.string(),
   "bankName": zod.string(),
   "ifscCode": zod.string(),
   "accountHolder": zod.string(),
   "rejectionReason": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })),
@@ -2736,7 +2744,11 @@ export const ListWithdrawalsResponse = zod.object({
   "totalVolume": zod.number(),
   "pendingCount": zod.number(),
   "approvedCount": zod.number(),
-  "rejectedCount": zod.number()
+  "rejectedCount": zod.number(),
+  "processingCount": zod.number(),
+  "successCount": zod.number(),
+  "failedCount": zod.number(),
+  "lockedAmount": zod.number()
 })
 })
 
@@ -2746,10 +2758,13 @@ export const ListWithdrawalsResponse = zod.object({
  */
 export const CreateWithdrawalBody = zod.object({
   "amount": zod.number(),
-  "bankAccount": zod.string(),
-  "bankName": zod.string(),
-  "ifscCode": zod.string(),
-  "accountHolder": zod.string()
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']).optional(),
+  "bankAccount": zod.string().optional(),
+  "bankName": zod.string().optional(),
+  "ifscCode": zod.string().optional(),
+  "accountHolder": zod.string().optional(),
+  "upiId": zod.string().optional(),
+  "remarks": zod.string().optional()
 })
 
 
@@ -2767,11 +2782,19 @@ export const ApproveWithdrawalResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "transferStatus": zod.enum(['NOT_STARTED', 'INITIATED', 'PENDING', 'SUCCESS', 'FAILED', 'REVERSED']),
+  "utr": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "upiId": zod.string().nullish(),
+  "remarks": zod.string().nullish(),
   "bankAccount": zod.string(),
   "bankName": zod.string(),
   "ifscCode": zod.string(),
   "accountHolder": zod.string(),
   "rejectionReason": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -2795,11 +2818,83 @@ export const RejectWithdrawalResponse = zod.object({
   "amount": zod.number(),
   "currency": zod.string(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "transferStatus": zod.enum(['NOT_STARTED', 'INITIATED', 'PENDING', 'SUCCESS', 'FAILED', 'REVERSED']),
+  "utr": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "upiId": zod.string().nullish(),
+  "remarks": zod.string().nullish(),
   "bankAccount": zod.string(),
   "bankName": zod.string(),
   "ifscCode": zod.string(),
   "accountHolder": zod.string(),
   "rejectionReason": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Refresh payout transfer status from provider (admin only)
+ */
+export const RefreshWithdrawalStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RefreshWithdrawalStatusResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "transferStatus": zod.enum(['NOT_STARTED', 'INITIATED', 'PENDING', 'SUCCESS', 'FAILED', 'REVERSED']),
+  "utr": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "upiId": zod.string().nullish(),
+  "remarks": zod.string().nullish(),
+  "bankAccount": zod.string(),
+  "bankName": zod.string(),
+  "ifscCode": zod.string(),
+  "accountHolder": zod.string(),
+  "rejectionReason": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Retry a failed payout (admin only)
+ */
+export const RetryWithdrawalParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RetryWithdrawalResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "transferStatus": zod.enum(['NOT_STARTED', 'INITIATED', 'PENDING', 'SUCCESS', 'FAILED', 'REVERSED']),
+  "utr": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "upiId": zod.string().nullish(),
+  "remarks": zod.string().nullish(),
+  "bankAccount": zod.string(),
+  "bankName": zod.string(),
+  "ifscCode": zod.string(),
+  "accountHolder": zod.string(),
+  "rejectionReason": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })

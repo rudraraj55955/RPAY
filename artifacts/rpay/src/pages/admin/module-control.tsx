@@ -19,7 +19,7 @@ const MODULE_DEFS = [
   { name: "customer_support",       label: "Customer Support / Tickets", description: "Support ticket system for merchants and customers",         category: "Customer" },
   { name: "merchant_wallet",        label: "Merchant Wallet",            description: "Merchant wallet / ledger access",                          category: "Merchant" },
   { name: "merchant_kyc",           label: "Merchant KYC",               description: "Merchant identity and business verification",               category: "Merchant" },
-  { name: "merchant_withdrawals",   label: "Merchant Withdrawals",       description: "Merchants can request withdrawal of funds",                 category: "Merchant" },
+  { name: "merchant_withdrawals",   label: "Merchant Payouts",           description: "Merchants can request payout of funds",                    category: "Merchant" },
   { name: "merchant_settlements",   label: "Merchant Settlements",       description: "Merchants can view and request settlements",                category: "Merchant" },
   { name: "rasokart_services",      label: "RasoKart Services",          description: "Extra services marketplace for merchants",                  category: "Merchant" },
   { name: "api_access",             label: "API Access",                 description: "Merchant API key management and programmatic access",       category: "Merchant" },

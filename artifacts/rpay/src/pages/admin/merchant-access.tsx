@@ -17,7 +17,7 @@ const FEATURES = [
   { key: "virtualAccount", label: "Virtual Acct", short: "VA",  color: "text-blue-400" },
   { key: "paymentLinks",   label: "Pay Links",    short: "PL",  color: "text-emerald-400" },
   { key: "payouts",        label: "Payouts",      short: "PO",  color: "text-amber-400" },
-  { key: "withdrawals",    label: "Withdrawals",  short: "WD",  color: "text-rose-400" },
+  { key: "withdrawals",    label: "Payouts",      short: "PO",  color: "text-rose-400" },
   { key: "settlements",    label: "Settlements",  short: "ST",  color: "text-sky-400" },
   { key: "webhooks",       label: "Webhooks",     short: "WH",  color: "text-orange-400" },
   { key: "apiKeys",        label: "API Keys",     short: "AK",  color: "text-pink-400" },

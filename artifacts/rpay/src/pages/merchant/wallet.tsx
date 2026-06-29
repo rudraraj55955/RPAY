@@ -51,7 +51,7 @@ type LedgerEntry = {
 const TXN_META: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; color: string }> = {
   pending_credit:      { label: "Payment Received",  icon: TrendingUp,    color: "text-emerald-400" },
   settlement_transfer: { label: "Settlement",         icon: ArrowDownLeft, color: "text-sky-400" },
-  withdrawal_debit:    { label: "Withdrawal",         icon: ArrowUpRight,  color: "text-rose-400" },
+  withdrawal_debit:    { label: "Payout",              icon: ArrowUpRight,  color: "text-rose-400" },
   reversal:            { label: "Reversal",           icon: RotateCcw,     color: "text-amber-400" },
   hold_created:        { label: "Hold Applied",       icon: Lock,          color: "text-orange-400" },
   hold_released:       { label: "Hold Released",      icon: Lock,          color: "text-teal-400" },
@@ -100,7 +100,7 @@ export default function MerchantWallet() {
   }
 
   const primaryCards = [
-    { label: "Available Balance",  value: wallet?.availableBalance  ?? 0, icon: Wallet,      color: "text-emerald-400", desc: "Ready to withdraw" },
+    { label: "Available Balance",  value: wallet?.availableBalance  ?? 0, icon: Wallet,      color: "text-emerald-400", desc: "Ready for payout" },
     { label: "Pending Balance",    value: wallet?.pendingBalance    ?? 0, icon: TrendingUp,  color: "text-amber-400",  desc: "Awaiting settlement" },
     { label: "On Hold",            value: wallet?.holdBalance       ?? 0, icon: Lock,        color: "text-orange-400", desc: "Temporarily locked" },
     { label: "Settlement Balance", value: wallet?.settlementBalance ?? 0, icon: ArrowDownLeft, color: "text-sky-400", desc: "In settlement process" },
@@ -126,9 +126,9 @@ export default function MerchantWallet() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/merchant/withdrawals">
+          <Link href="/merchant/payouts">
             <Button size="sm" variant="outline" className="gap-1.5 border-border/60">
-              <ArrowUpRight className="w-3.5 h-3.5" />Withdraw
+              <ArrowUpRight className="w-3.5 h-3.5" />Request Payout
             </Button>
           </Link>
           <Link href="/merchant/settlements">

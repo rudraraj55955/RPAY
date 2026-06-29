@@ -1915,7 +1915,7 @@ export default function MerchantReports() {
         ["Summary"],
         ["Total Transactions", transactions.length],
         ["Deposit Volume (₹)", txStats?.depositVolume ?? 0],
-        ["Withdrawal Volume (₹)", txStats?.withdrawalVolume ?? 0],
+        ["Payout Volume (₹)", txStats?.withdrawalVolume ?? 0],
         ["Total Fees (₹)", txStats?.totalFees ?? 0],
         ["Successful", txStats?.successCount ?? 0],
         ["Failed", txStats?.failedCount ?? 0],
@@ -1984,7 +1984,7 @@ export default function MerchantReports() {
         body: [
           ["Total Transactions", transactions.length.toString()],
           ["Deposit Volume", fmt(txStats?.depositVolume ?? 0)],
-          ["Withdrawal Volume", fmt(txStats?.withdrawalVolume ?? 0)],
+          ["Payout Volume", fmt(txStats?.withdrawalVolume ?? 0)],
           ["Total Fees", fmt(txStats?.totalFees ?? 0)],
           ["Successful", (txStats?.successCount ?? 0).toString()],
           ["Failed", (txStats?.failedCount ?? 0).toString()],
@@ -2713,7 +2713,7 @@ export default function MerchantReports() {
               <Card>
                 <CardContent className="pt-4 pb-3">
                   <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                    <ArrowUpRight className="w-3 h-3 text-orange-400" />Withdrawal Volume
+                    <ArrowUpRight className="w-3 h-3 text-orange-400" />Payout Volume
                   </p>
                   <p className="text-base font-bold text-orange-400">{fmt(txStats.withdrawalVolume)}</p>
                 </CardContent>

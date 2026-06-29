@@ -658,7 +658,7 @@ function RecordPaymentDialog({ open, onClose, onSuccess }: { open: boolean; onCl
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="deposit">Deposit</SelectItem>
-                  <SelectItem value="withdrawal">Withdrawal</SelectItem>
+                  <SelectItem value="withdrawal">Payout</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1050,7 +1050,7 @@ export default function AdminTransactions() {
                 <ArrowUpRight className="w-4 h-4 text-violet-500" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Withdrawal Volume</p>
+                <p className="text-xs text-muted-foreground">Payout Volume</p>
                 <p className="text-lg font-bold font-mono truncate">₹{(stats?.withdrawalVolume ?? 0).toLocaleString()}</p>
               </div>
             </div>
@@ -1205,7 +1205,7 @@ export default function AdminTransactions() {
           {(() => {
             const sf = smartFilter!;
             const chips: { label: string; key: string }[] = [];
-            if (sf.txType) chips.push({ key: "type", label: sf.txType === "deposit" ? "Deposits" : "Withdrawals" });
+            if (sf.txType) chips.push({ key: "type", label: sf.txType === "deposit" ? "Deposits" : "Payouts" });
             if (sf.txStatus) chips.push({ key: "status", label: sf.txStatus.charAt(0).toUpperCase() + sf.txStatus.slice(1) });
             if (sf.dateFrom || sf.dateTo) {
               const d = sf.dateFrom && sf.dateTo
@@ -1321,7 +1321,7 @@ export default function AdminTransactions() {
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="deposit">Deposit</SelectItem>
-                  <SelectItem value="withdrawal">Withdrawal</SelectItem>
+                  <SelectItem value="withdrawal">Payout</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={status} onValueChange={v => { setStatus(v); setPage(1); }}>

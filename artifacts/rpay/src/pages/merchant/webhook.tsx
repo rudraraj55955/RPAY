@@ -136,8 +136,8 @@ const EVENTS = [
   { id: "payment.success", label: "Payment Success" },
   { id: "payment.failed", label: "Payment Failed" },
   { id: "payment.pending", label: "Payment Pending" },
-  { id: "withdrawal.approved", label: "Withdrawal Approved" },
-  { id: "withdrawal.rejected", label: "Withdrawal Rejected" },
+  { id: "withdrawal.approved", label: "Payout Approved" },
+  { id: "withdrawal.rejected", label: "Payout Rejected" },
   { id: "settlement.processed", label: "Settlement Processed" },
 ];
 

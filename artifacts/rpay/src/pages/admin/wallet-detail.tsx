@@ -57,7 +57,7 @@ type LedgerEntry = {
 const TXN_LABELS: Record<string, { label: string; color: string }> = {
   pending_credit:      { label: "Payment Credit",    color: "text-emerald-400" },
   settlement_transfer: { label: "Settlement",        color: "text-sky-400" },
-  withdrawal_debit:    { label: "Withdrawal",        color: "text-rose-400" },
+  withdrawal_debit:    { label: "Payout",            color: "text-rose-400" },
   reversal:            { label: "Reversal",          color: "text-amber-400" },
   hold_created:        { label: "Hold Created",      color: "text-orange-400" },
   hold_released:       { label: "Hold Released",     color: "text-teal-400" },

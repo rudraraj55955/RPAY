@@ -1445,7 +1445,7 @@ export default function MerchantTransactions() {
           {hasSmartFilter && (() => {
             const sf = smartFilter!;
             const chips: { label: string; key: string }[] = [];
-            if (sf.txType) chips.push({ key: "type", label: sf.txType === "deposit" ? "Deposits" : "Withdrawals" });
+            if (sf.txType) chips.push({ key: "type", label: sf.txType === "deposit" ? "Deposits" : "Payouts" });
             if (sf.txStatus) chips.push({ key: "status", label: sf.txStatus.charAt(0).toUpperCase() + sf.txStatus.slice(1) });
             if (sf.dateFrom || sf.dateTo) {
               const d = sf.dateFrom && sf.dateTo

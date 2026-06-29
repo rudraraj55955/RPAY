@@ -821,7 +821,7 @@ export default function MerchantSettlements() {
               </div>
               {pendingReserved > 0 && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-amber-400">Reserved (pending withdrawal)</span>
+                  <span className="text-sm text-amber-400">Reserved (pending payout)</span>
                   <span className="font-semibold text-amber-400">− ₹{pendingReserved.toLocaleString()}</span>
                 </div>
               )}
@@ -854,7 +854,7 @@ export default function MerchantSettlements() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-amber-400">No bank account on file. Please submit a withdrawal request first to register your bank details.</p>
+                <p className="text-sm text-amber-400">No bank account on file. Please submit a payout request first to register your bank details.</p>
               )}
             </div>
 

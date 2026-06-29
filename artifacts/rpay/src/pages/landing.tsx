@@ -88,7 +88,7 @@ const merchantFeatures = [
   { icon: QrCode, label: "QR code generation & scan tracking" },
   { icon: Landmark, label: "Virtual account management" },
   { icon: Code2, label: "API key & webhook configuration" },
-  { icon: FileText, label: "Settlement & withdrawal requests" },
+  { icon: FileText, label: "Settlement & payout requests" },
   { icon: Bell, label: "Smart notification alerts" },
   { icon: BarChart3, label: "Collection trend charts" },
   { icon: Lock, label: "Role-based access control" },
@@ -351,7 +351,7 @@ export default function Landing() {
                     { label: "Total Collected", value: "₹12,45,600", change: "+8.2%", color: "text-emerald-400" },
                     { label: "Pending Settlement", value: "₹3,20,000", change: "4 requests", color: "text-amber-400" },
                     { label: "Settled This Month", value: "₹9,25,600", change: "12 batches", color: "text-cyan-400" },
-                    { label: "Available Balance", value: "₹1,82,400", change: "Withdrawable", color: "text-violet-400" },
+                    { label: "Available Balance", value: "₹1,82,400", change: "For Payout", color: "text-violet-400" },
                   ].map((row) => (
                     <div key={row.label} className="flex items-center justify-between rounded-xl border border-border/30 bg-background/30 px-4 py-3">
                       <div>
@@ -382,12 +382,12 @@ export default function Landing() {
               </h2>
               <p className="mb-6 text-muted-foreground">
                 Merchants get a real-time settlement dashboard showing collected funds, pending
-                disbursements, and full balance history — with one-click withdrawal requests.
+                disbursements, and full balance history — with one-click payout requests.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { icon: IndianRupee, label: "Real-time balance visibility" },
-                  { icon: CheckCircle2, label: "One-click withdrawal requests" },
+                  { icon: CheckCircle2, label: "One-click payout requests" },
                   { icon: BarChart3, label: "Collection trend charts" },
                   { icon: FileText, label: "Downloadable settlement CSV" },
                   { icon: Bell, label: "Settlement status alerts" },

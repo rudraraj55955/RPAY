@@ -4,6 +4,7 @@ import {
   withdrawalsTable,
   merchantsTable,
   merchantWalletsTable,
+  walletLedgerTable,
   auditLogsTable,
   systemConfigTable,
   SYSTEM_CONFIG_KEYS,
@@ -18,13 +19,17 @@ import {
   normalizeCashfreePayoutStatus,
   type CashfreePayoutEnv,
 } from "../helpers/cashfreePayout";
-import { mutateWallet } from "./wallets";
+import { mutateWallet, ensureWallet } from "./wallets";
 
 const router = Router();
 router.use(requireAuth);
 
 function numStr(v: string | null | undefined): number {
   return v == null ? 0 : Number(v);
+}
+
+function fmtAmt(n: number): string {
+  return n.toFixed(2);
 }
 
 async function getPayoutConfig() {
@@ -155,6 +160,9 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/withdrawals — merchant creates payout request
+// The balance check + withdrawal insert + ledger entry are wrapped in a single
+// db.transaction() so concurrent requests cannot both pass the balance check
+// and overdraft the available balance.
 router.post("/", requireModule("merchant_withdrawals"), async (req, res) => {
   const user = (req as any).user;
   if (user.role !== "merchant") {
@@ -191,86 +199,128 @@ router.post("/", requireModule("merchant_withdrawals"), async (req, res) => {
   }
 
   const amt = Number(amount);
+  const merchantId = user.merchantId!;
 
-  await db
-    .insert(merchantWalletsTable)
-    .values({ merchantId: user.merchantId! })
-    .onConflictDoNothing();
-  const [wallet] = await db
-    .select()
-    .from(merchantWalletsTable)
-    .where(eq(merchantWalletsTable.merchantId, user.merchantId!))
-    .limit(1);
+  // Wrap balance-check + insert + wallet mutation in ONE transaction to prevent
+  // concurrent requests from both passing the check and then double-spending.
+  let createdWithdrawal: typeof withdrawalsTable.$inferSelect;
+  try {
+    createdWithdrawal = await db.transaction(async (tx) => {
+      // ensureWallet acquires a row-level lock (tx SELECT) so concurrent txs
+      // for the same merchant wait for this one to commit before proceeding.
+      const w = await ensureWallet(tx, merchantId);
+      const avBefore = numStr(w.availableBalance);
 
-  if (!wallet || numStr(wallet.availableBalance) < amt) {
-    res.status(400).json({ error: "Insufficient available balance" });
-    return;
+      if (avBefore < amt) {
+        throw Object.assign(new Error("Insufficient available balance"), {
+          statusCode: 400,
+        });
+      }
+
+      const [withdrawal] = await tx
+        .insert(withdrawalsTable)
+        .values({
+          merchantId,
+          amount: fmtAmt(amt),
+          bankAccount: bankAccount ?? "",
+          bankName: bankName ?? "",
+          ifscCode: ifscCode ?? "",
+          accountHolder: accountHolder ?? "",
+          payoutMode,
+          upiId: payoutMode === "UPI" ? (upiId?.trim() ?? null) : null,
+          remarks: remarks?.trim() ?? null,
+          status: "pending",
+          transferStatus: "NOT_STARTED",
+        })
+        .returning();
+
+      // Inline wallet mutation (same semantics as mutateWallet but within this tx)
+      const newAvailable = avBefore - amt;
+      const newHold = numStr(w.holdBalance) + amt;
+      await tx
+        .update(merchantWalletsTable)
+        .set({
+          availableBalance: fmtAmt(newAvailable),
+          holdBalance: fmtAmt(newHold),
+        })
+        .where(eq(merchantWalletsTable.merchantId, merchantId));
+
+      await tx.insert(walletLedgerTable).values({
+        merchantId,
+        txnType: "payout_hold",
+        bucket: "available",
+        amount: fmtAmt(-amt),
+        availableBefore: fmtAmt(avBefore),
+        availableAfter: fmtAmt(newAvailable),
+        pendingBefore: fmtAmt(numStr(w.pendingBalance)),
+        pendingAfter: fmtAmt(numStr(w.pendingBalance)),
+        referenceType: "withdrawal",
+        referenceId: withdrawal.id,
+        description: `Payout request #${withdrawal.id} — ₹${fmtAmt(amt)} locked`,
+        createdBy: null,
+      });
+
+      return withdrawal;
+    });
+  } catch (e: any) {
+    if (e.statusCode === 400) {
+      res.status(400).json({ error: e.message });
+      return;
+    }
+    throw e;
   }
 
-  const [withdrawal] = await db
-    .insert(withdrawalsTable)
-    .values({
-      merchantId: user.merchantId!,
-      amount: String(amt),
-      bankAccount: bankAccount ?? "",
-      bankName: bankName ?? "",
-      ifscCode: ifscCode ?? "",
-      accountHolder: accountHolder ?? "",
-      payoutMode,
-      upiId: payoutMode === "UPI" ? (upiId?.trim() ?? null) : null,
-      remarks: remarks?.trim() ?? null,
-      status: "pending",
-      transferStatus: "NOT_STARTED",
-    })
-    .returning();
-
-  await mutateWallet(
-    user.merchantId!,
-    { availableDelta: -amt, holdDelta: amt },
-    {
-      txnType: "payout_hold",
-      bucket: "available",
-      amount: -amt,
-      referenceType: "withdrawal",
-      referenceId: withdrawal.id,
-      description: `Payout request #${withdrawal.id} — ₹${amt.toFixed(2)} locked`,
-      createdBy: null,
-    }
-  );
-
   req.log.info(
-    { merchantId: user.merchantId, withdrawalId: withdrawal.id, amount: amt },
+    { merchantId, withdrawalId: createdWithdrawal.id, amount: amt },
     "payout_requested"
   );
-  res.status(201).json(mapWithdrawal(withdrawal, null, false));
+  res.status(201).json(mapWithdrawal(createdWithdrawal, null, false));
 });
 
 // POST /api/withdrawals/:id/approve
+// Atomically claims the payout (status pending → approved) BEFORE calling the
+// provider, so no two admin actions can double-process the same payout.
 router.post("/:id/approve", requireAdmin, async (req, res) => {
   const user = (req as any).user;
   const id = parseInt(req.params["id"] as string);
+  const now = new Date();
 
-  const [row] = await db
-    .select({ withdrawal: withdrawalsTable, merchantName: merchantsTable.businessName })
-    .from(withdrawalsTable)
-    .leftJoin(merchantsTable, eq(withdrawalsTable.merchantId, merchantsTable.id))
-    .where(eq(withdrawalsTable.id, id))
+  // Step 1: Atomically claim: transition pending → approved with a conditional UPDATE.
+  // If 0 rows returned, another admin already processed it.
+  const [claimed] = await db
+    .update(withdrawalsTable)
+    .set({
+      status: "approved",
+      transferStatus: "INITIATED",
+      approvedByAdminId: user.id,
+      approvedAt: now,
+    })
+    .where(and(eq(withdrawalsTable.id, id), eq(withdrawalsTable.status, "pending")))
+    .returning();
+
+  if (!claimed) {
+    // Either not found, or already approved/rejected
+    const [existing] = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.id, id)).limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Payout not found" });
+    } else {
+      res.status(409).json({ error: `Payout is already ${existing.status} — cannot approve again` });
+    }
+    return;
+  }
+
+  // Step 2: Fetch merchant name for response (non-blocking, separate query)
+  const [merchantRow] = await db
+    .select({ businessName: merchantsTable.businessName })
+    .from(merchantsTable)
+    .where(eq(merchantsTable.id, claimed.merchantId))
     .limit(1);
+  const merchantName = merchantRow?.businessName ?? null;
 
-  if (!row) {
-    res.status(404).json({ error: "Payout not found" });
-    return;
-  }
-  if (row.withdrawal.status !== "pending") {
-    res.status(400).json({ error: `Payout is already ${row.withdrawal.status}` });
-    return;
-  }
-
-  const w = row.withdrawal;
-  const merchantName = row.merchantName ?? null;
-  const amt = Number(w.amount);
+  const amt = Number(claimed.amount);
   const cfg = await getPayoutConfig();
 
+  // Step 3: Call provider (row is already committed as "approved/INITIATED")
   let transferStatus = "INITIATED";
   let providerReferenceId: string | null = null;
   let utr: string | null = null;
@@ -286,10 +336,10 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
         {
           transferId,
           referenceId: transferId,
-          beneficiaryName: w.accountHolder || merchantName || "Merchant",
-          accountNumber: w.bankAccount || undefined,
-          ifsc: w.ifscCode || undefined,
-          upiId: w.payoutMode === "UPI" ? (w.upiId ?? undefined) : undefined,
+          beneficiaryName: claimed.accountHolder || merchantName || "Merchant",
+          accountNumber: claimed.bankAccount || undefined,
+          ifsc: claimed.ifscCode || undefined,
+          upiId: claimed.payoutMode === "UPI" ? (claimed.upiId ?? undefined) : undefined,
           amount: amt,
           remark: `Payout #${id}`,
         }
@@ -307,32 +357,30 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
       }
     } catch (err: any) {
       req.log.warn({ err, withdrawalId: id }, "cashfree_payout_create_error");
-      transferStatus = "INITIATED";
+      // Keep INITIATED; admin can refresh-status later
       providerReferenceId = `RKPAY_${id}_${Date.now()}`;
     }
   }
 
-  const now = new Date();
+  // Step 4: Update with provider result
   const isTerminal = ["SUCCESS", "FAILED", "REVERSED"].includes(transferStatus);
-
   const [updated] = await db
     .update(withdrawalsTable)
     .set({
-      status: "approved",
       transferStatus,
       providerReferenceId,
       utr,
       failureReason,
-      approvedByAdminId: user.id,
-      approvedAt: now,
       completedAt: isTerminal ? now : null,
     })
     .where(eq(withdrawalsTable.id, id))
     .returning();
 
+  // Step 5: Wallet mutation based on terminal provider result.
+  // mutateWallet is internally transactional; called AFTER the status row is durable.
   if (transferStatus === "SUCCESS") {
     await mutateWallet(
-      w.merchantId,
+      claimed.merchantId,
       { holdDelta: -amt, totalPayoutDelta: amt },
       {
         txnType: "payout_success",
@@ -340,13 +388,13 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
         amount: -amt,
         referenceType: "withdrawal",
         referenceId: id,
-        description: `Payout #${id} successful — ₹${amt.toFixed(2)} settled`,
+        description: `Payout #${id} successful — ₹${fmtAmt(amt)} settled`,
         createdBy: user.id,
       }
     );
   } else if (transferStatus === "FAILED" || transferStatus === "REVERSED") {
     await mutateWallet(
-      w.merchantId,
+      claimed.merchantId,
       { holdDelta: -amt, availableDelta: amt, totalReversalsDelta: amt },
       {
         txnType: "payout_failed_release",
@@ -354,7 +402,7 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
         amount: amt,
         referenceType: "withdrawal",
         referenceId: id,
-        description: `Payout #${id} failed — ₹${amt.toFixed(2)} released back`,
+        description: `Payout #${id} failed — ₹${fmtAmt(amt)} released back`,
         createdBy: user.id,
       }
     );
@@ -375,6 +423,8 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
 });
 
 // POST /api/withdrawals/:id/reject
+// Atomically claims the payout (status pending → rejected) BEFORE releasing the
+// wallet hold, so no two concurrent rejects can double-credit the hold.
 router.post("/:id/reject", requireAdmin, async (req, res) => {
   const user = (req as any).user;
   const id = parseInt(req.params["id"] as string);
@@ -384,28 +434,35 @@ router.post("/:id/reject", requireAdmin, async (req, res) => {
     return;
   }
 
-  const [row] = await db
-    .select({ withdrawal: withdrawalsTable, merchantName: merchantsTable.businessName })
-    .from(withdrawalsTable)
-    .leftJoin(merchantsTable, eq(withdrawalsTable.merchantId, merchantsTable.id))
-    .where(eq(withdrawalsTable.id, id))
+  // Step 1: Atomically claim: transition pending → rejected with conditional UPDATE.
+  const [claimed] = await db
+    .update(withdrawalsTable)
+    .set({ status: "rejected", rejectionReason: reason.trim() })
+    .where(and(eq(withdrawalsTable.id, id), eq(withdrawalsTable.status, "pending")))
+    .returning();
+
+  if (!claimed) {
+    const [existing] = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.id, id)).limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Payout not found" });
+    } else {
+      res.status(409).json({ error: `Payout is already ${existing.status} — cannot reject again` });
+    }
+    return;
+  }
+
+  const [merchantRow] = await db
+    .select({ businessName: merchantsTable.businessName })
+    .from(merchantsTable)
+    .where(eq(merchantsTable.id, claimed.merchantId))
     .limit(1);
+  const merchantName = merchantRow?.businessName ?? null;
+  const amt = Number(claimed.amount);
 
-  if (!row) {
-    res.status(404).json({ error: "Payout not found" });
-    return;
-  }
-  if (row.withdrawal.status !== "pending") {
-    res.status(400).json({ error: `Payout is already ${row.withdrawal.status}` });
-    return;
-  }
-
-  const w = row.withdrawal;
-  const merchantName = row.merchantName ?? null;
-  const amt = Number(w.amount);
-
+  // Step 2: Release the wallet hold AFTER the status row is committed as "rejected".
+  // mutateWallet is internally transactional.
   await mutateWallet(
-    w.merchantId,
+    claimed.merchantId,
     { holdDelta: -amt, availableDelta: amt },
     {
       txnType: "payout_release",
@@ -413,16 +470,10 @@ router.post("/:id/reject", requireAdmin, async (req, res) => {
       amount: amt,
       referenceType: "withdrawal",
       referenceId: id,
-      description: `Payout #${id} rejected — ₹${amt.toFixed(2)} released back`,
+      description: `Payout #${id} rejected — ₹${fmtAmt(amt)} released back`,
       createdBy: user.id,
     }
   );
-
-  const [updated] = await db
-    .update(withdrawalsTable)
-    .set({ status: "rejected", rejectionReason: reason.trim() })
-    .where(eq(withdrawalsTable.id, id))
-    .returning();
 
   await db.insert(auditLogsTable).values({
     adminId: user.id,
@@ -435,10 +486,12 @@ router.post("/:id/reject", requireAdmin, async (req, res) => {
   });
 
   req.log.info({ withdrawalId: id, adminId: user.id }, "payout_rejected");
-  res.json(mapWithdrawal(updated, merchantName, true));
+  res.json(mapWithdrawal(claimed, merchantName, true));
 });
 
 // POST /api/withdrawals/:id/refresh-status
+// Updates the row FIRST (conditional on not-yet-terminal), then fires wallet
+// mutations — so a concurrent refresh cannot double-credit the wallet.
 router.post("/:id/refresh-status", requireAdmin, async (req, res) => {
   const user = (req as any).user;
   const id = parseInt(req.params["id"] as string);
@@ -461,6 +514,10 @@ router.post("/:id/refresh-status", requireAdmin, async (req, res) => {
     res.status(400).json({ error: "Can only refresh approved payouts" });
     return;
   }
+  if (["SUCCESS", "FAILED", "REVERSED"].includes(w.transferStatus)) {
+    res.status(400).json({ error: `Payout already in terminal state: ${w.transferStatus}` });
+    return;
+  }
   if (!w.providerReferenceId) {
     res.status(400).json({ error: "No provider reference — payout was not dispatched to provider" });
     return;
@@ -479,21 +536,46 @@ router.post("/:id/refresh-status", requireAdmin, async (req, res) => {
     w.providerReferenceId
   );
   const normalized = normalizeCashfreePayoutStatus(result.parsed?.status);
-  const prevStatus = w.transferStatus;
   const amt = Number(w.amount);
   const now = new Date();
 
   const newTransferStatus =
     normalized === "SUCCESS" ? "SUCCESS" : normalized === "FAILED" ? "FAILED" : w.transferStatus;
-  const utr = normalized === "SUCCESS" ? (result.parsed?.utr ?? w.utr) : w.utr;
-  const failureReason =
-    normalized === "FAILED"
-      ? (result.parsed?.message ?? "Transfer failed")
-      : w.failureReason;
-  const completedAt =
-    normalized === "SUCCESS" || normalized === "FAILED" ? now : (w.completedAt ?? null);
+  const newUtr = normalized === "SUCCESS" ? (result.parsed?.utr ?? w.utr) : w.utr;
+  const newFailureReason =
+    normalized === "FAILED" ? (result.parsed?.message ?? "Transfer failed") : w.failureReason;
+  const isNewTerminal = normalized === "SUCCESS" || normalized === "FAILED";
 
-  if (prevStatus !== "SUCCESS" && normalized === "SUCCESS") {
+  // Step 1: Persist the updated status row FIRST, only if the status actually changed.
+  // Using a conditional WHERE to guard against concurrent refreshes landing the
+  // same wallet mutation twice.
+  if (newTransferStatus !== w.transferStatus) {
+    const [conditionalUpdated] = await db
+      .update(withdrawalsTable)
+      .set({
+        transferStatus: newTransferStatus,
+        utr: newUtr,
+        failureReason: newFailureReason,
+        completedAt: isNewTerminal ? now : w.completedAt,
+      })
+      .where(
+        and(
+          eq(withdrawalsTable.id, id),
+          eq(withdrawalsTable.transferStatus, w.transferStatus) // only if not already changed by another request
+        )
+      )
+      .returning();
+
+    if (!conditionalUpdated) {
+      // Another refresh already moved the status — return current state
+      const [current] = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.id, id)).limit(1);
+      res.json(mapWithdrawal(current!, merchantName, true));
+      return;
+    }
+  }
+
+  // Step 2: Wallet mutations AFTER the status row is committed.
+  if (normalized === "SUCCESS" && w.transferStatus !== "SUCCESS") {
     await mutateWallet(
       w.merchantId,
       { holdDelta: -amt, totalPayoutDelta: amt },
@@ -503,11 +585,11 @@ router.post("/:id/refresh-status", requireAdmin, async (req, res) => {
         amount: -amt,
         referenceType: "withdrawal",
         referenceId: id,
-        description: `Payout #${id} confirmed successful — ₹${amt.toFixed(2)} settled`,
+        description: `Payout #${id} confirmed successful — ₹${fmtAmt(amt)} settled`,
         createdBy: user.id,
       }
     );
-  } else if (!["FAILED", "REVERSED"].includes(prevStatus) && normalized === "FAILED") {
+  } else if (normalized === "FAILED" && !["FAILED", "REVERSED"].includes(w.transferStatus)) {
     await mutateWallet(
       w.merchantId,
       { holdDelta: -amt, availableDelta: amt, totalReversalsDelta: amt },
@@ -517,23 +599,27 @@ router.post("/:id/refresh-status", requireAdmin, async (req, res) => {
         amount: amt,
         referenceType: "withdrawal",
         referenceId: id,
-        description: `Payout #${id} confirmed failed — ₹${amt.toFixed(2)} released back`,
+        description: `Payout #${id} confirmed failed — ₹${fmtAmt(amt)} released back`,
         createdBy: user.id,
       }
     );
   }
 
-  const [updated] = await db
-    .update(withdrawalsTable)
-    .set({ transferStatus: newTransferStatus, utr, failureReason, completedAt })
-    .where(eq(withdrawalsTable.id, id))
-    .returning();
+  const [finalRow] = await db
+    .select().from(withdrawalsTable).where(eq(withdrawalsTable.id, id)).limit(1);
 
-  req.log.info({ withdrawalId: id, prevStatus, newTransferStatus }, "payout_status_refreshed");
-  res.json(mapWithdrawal(updated, merchantName, true));
+  req.log.info(
+    { withdrawalId: id, prevStatus: w.transferStatus, newTransferStatus },
+    "payout_status_refreshed"
+  );
+  res.json(mapWithdrawal(finalRow!, merchantName, true));
 });
 
 // POST /api/withdrawals/:id/retry
+// Re-initiates a failed/reversed payout. For FAILED/REVERSED payouts where
+// funds were already released back, re-locks them before the provider call.
+// The re-lock is done via mutateWallet (internally transactional); if the
+// provider call then fails, the hold is released again atomically.
 router.post("/:id/retry", requireAdmin, async (req, res) => {
   const user = (req as any).user;
   const id = parseInt(req.params["id"] as string);
@@ -570,36 +656,55 @@ router.post("/:id/retry", requireAdmin, async (req, res) => {
   }
 
   const amt = Number(w.amount);
+  // For FAILED/REVERSED, funds were released back to available — re-lock before retrying.
   const wasReleased = ["FAILED", "REVERSED"].includes(w.transferStatus);
 
   if (wasReleased) {
-    await db
-      .insert(merchantWalletsTable)
-      .values({ merchantId: w.merchantId })
-      .onConflictDoNothing();
-    const [wallet] = await db
-      .select()
-      .from(merchantWalletsTable)
-      .where(eq(merchantWalletsTable.merchantId, w.merchantId))
-      .limit(1);
-    if (!wallet || numStr(wallet.availableBalance) < amt) {
-      res.status(400).json({ error: "Insufficient available balance to retry payout" });
-      return;
-    }
-    await mutateWallet(
-      w.merchantId,
-      { availableDelta: -amt, holdDelta: amt },
-      {
-        txnType: "payout_hold",
-        bucket: "available",
-        amount: -amt,
-        referenceType: "withdrawal",
-        referenceId: id,
-        description: `Payout #${id} retry — ₹${amt.toFixed(2)} re-locked`,
-        createdBy: user.id,
+    // Check balance then re-lock inside a transaction to prevent concurrent overdraft
+    try {
+      await db.transaction(async (tx) => {
+        const wallet = await ensureWallet(tx, w.merchantId);
+        if (numStr(wallet.availableBalance) < amt) {
+          throw Object.assign(new Error("Insufficient available balance to retry payout"), {
+            statusCode: 400,
+          });
+        }
+        const avBefore = numStr(wallet.availableBalance);
+        const newAvailable = avBefore - amt;
+        const newHold = numStr(wallet.holdBalance) + amt;
+        await tx
+          .update(merchantWalletsTable)
+          .set({ availableBalance: fmtAmt(newAvailable), holdBalance: fmtAmt(newHold) })
+          .where(eq(merchantWalletsTable.merchantId, w.merchantId));
+        await tx.insert(walletLedgerTable).values({
+          merchantId: w.merchantId,
+          txnType: "payout_hold",
+          bucket: "available",
+          amount: fmtAmt(-amt),
+          availableBefore: fmtAmt(avBefore),
+          availableAfter: fmtAmt(newAvailable),
+          pendingBefore: fmtAmt(numStr(wallet.pendingBalance)),
+          pendingAfter: fmtAmt(numStr(wallet.pendingBalance)),
+          referenceType: "withdrawal",
+          referenceId: id,
+          description: `Payout #${id} retry — ₹${fmtAmt(amt)} re-locked`,
+          createdBy: user.id,
+        });
+      });
+    } catch (e: any) {
+      if (e.statusCode === 400) {
+        res.status(400).json({ error: e.message });
+        return;
       }
-    );
+      throw e;
+    }
   }
+
+  // Mark as INITIATED before calling provider so status is durable if provider call hangs
+  await db
+    .update(withdrawalsTable)
+    .set({ transferStatus: "INITIATED" })
+    .where(eq(withdrawalsTable.id, id));
 
   const newTransferId = `RKPAY_${id}_RETRY_${Date.now()}`;
   let transferStatus = "INITIATED";
@@ -629,21 +734,6 @@ router.post("/:id/retry", requireAdmin, async (req, res) => {
     } else if (normalized === "FAILED") {
       transferStatus = "FAILED";
       failureReason = result.parsed?.message ?? "Transfer failed";
-      if (wasReleased) {
-        await mutateWallet(
-          w.merchantId,
-          { holdDelta: -amt, availableDelta: amt, totalReversalsDelta: amt },
-          {
-            txnType: "payout_failed_release",
-            bucket: "hold",
-            amount: amt,
-            referenceType: "withdrawal",
-            referenceId: id,
-            description: `Payout #${id} retry failed — ₹${amt.toFixed(2)} released back`,
-            createdBy: user.id,
-          }
-        );
-      }
     } else {
       transferStatus = "PENDING";
     }
@@ -652,24 +742,9 @@ router.post("/:id/retry", requireAdmin, async (req, res) => {
     transferStatus = "INITIATED";
   }
 
-  if (transferStatus === "SUCCESS") {
-    await mutateWallet(
-      w.merchantId,
-      { holdDelta: -amt, totalPayoutDelta: amt },
-      {
-        txnType: "payout_success",
-        bucket: "hold",
-        amount: -amt,
-        referenceType: "withdrawal",
-        referenceId: id,
-        description: `Payout #${id} retry successful — ₹${amt.toFixed(2)} settled`,
-        createdBy: user.id,
-      }
-    );
-  }
-
   const now = new Date();
   const isTerminal = ["SUCCESS", "FAILED", "REVERSED"].includes(transferStatus);
+
   const [updated] = await db
     .update(withdrawalsTable)
     .set({
@@ -682,17 +757,49 @@ router.post("/:id/retry", requireAdmin, async (req, res) => {
     .where(eq(withdrawalsTable.id, id))
     .returning();
 
+  // Wallet mutations AFTER status row is committed
+  if (transferStatus === "SUCCESS") {
+    await mutateWallet(
+      w.merchantId,
+      { holdDelta: -amt, totalPayoutDelta: amt },
+      {
+        txnType: "payout_success",
+        bucket: "hold",
+        amount: -amt,
+        referenceType: "withdrawal",
+        referenceId: id,
+        description: `Payout #${id} retry successful — ₹${fmtAmt(amt)} settled`,
+        createdBy: user.id,
+      }
+    );
+  } else if (transferStatus === "FAILED" || transferStatus === "REVERSED") {
+    // Re-release the hold we just re-locked
+    await mutateWallet(
+      w.merchantId,
+      { holdDelta: -amt, availableDelta: amt, totalReversalsDelta: amt },
+      {
+        txnType: "payout_failed_release",
+        bucket: "hold",
+        amount: amt,
+        referenceType: "withdrawal",
+        referenceId: id,
+        description: `Payout #${id} retry failed — ₹${fmtAmt(amt)} released back`,
+        createdBy: user.id,
+      }
+    );
+  }
+
   await db.insert(auditLogsTable).values({
     adminId: user.id,
     adminEmail: user.email,
     action: "payout_retried",
     targetType: "withdrawal",
     targetId: id,
-    details: JSON.stringify({ transferStatus, newTransferId }),
+    details: JSON.stringify({ amount: amt, transferStatus, newTransferId }),
     ipAddress: (req as any).ip ?? null,
   });
 
-  req.log.info({ withdrawalId: id, transferStatus }, "payout_retried");
+  req.log.info({ withdrawalId: id, transferStatus, adminId: user.id }, "payout_retried");
   res.json(mapWithdrawal(updated, merchantName, true));
 });
 

@@ -141,11 +141,11 @@ export async function seed() {
     .select().from(usersTable)
     .where(eq(usersTable.email, "merchant2@demo.com")).limit(1);
 
-  // Rudraraj merchant account
+  // Demo merchant 3 account
   const [merchant3] = await db
     .insert(usersTable)
-    .values({ email: "rudraraj4496@gmail.com", passwordHash: merchantHash, name: "Rudraraj", role: "merchant", isActive: true })
-    .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Rudraraj", role: "merchant", isActive: true } })
+    .values({ email: "merchant3@demo.com", passwordHash: merchantHash, name: "Demo Merchant 3", role: "merchant", isActive: true })
+    .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Demo Merchant 3", role: "merchant", isActive: true } })
     .returning();
 
   // Demo merchants — SELECT-only: do not re-create if they were deleted from this environment
@@ -158,20 +158,20 @@ export async function seed() {
     .where(eq(merchantsTable.email, "merchant2@demo.com")).limit(1);
 
   const [m3] = await db.insert(merchantsTable).values({
-    businessName: "Rudraraj Enterprises",
-    contactName: "Rudraraj",
-    email: "rudraraj4496@gmail.com",
-    phone: "+91-9999994496",
+    businessName: "Demo Enterprises",
+    contactName: "Demo Merchant 3",
+    email: "merchant3@demo.com",
+    phone: "+91-9000000003",
     status: "approved",
     balance: "0",
     totalDeposits: "0",
     totalWithdrawals: "0",
-  }).onConflictDoUpdate({ target: merchantsTable.email, set: { status: "approved", contactName: "Rudraraj" } }).returning();
+  }).onConflictDoUpdate({ target: merchantsTable.email, set: { status: "approved", contactName: "Demo Merchant 3" } }).returning();
 
   // Link user accounts to their merchant rows so merchant-facing routes work
   if (m1) await db.update(usersTable).set({ merchantId: m1.id }).where(eq(usersTable.email, "merchant@demo.com"));
   if (m2) await db.update(usersTable).set({ merchantId: m2.id }).where(eq(usersTable.email, "merchant2@demo.com"));
-  if (m3) await db.update(usersTable).set({ merchantId: m3.id }).where(eq(usersTable.email, "rudraraj4496@gmail.com"));
+  if (m3) await db.update(usersTable).set({ merchantId: m3.id }).where(eq(usersTable.email, "merchant3@demo.com"));
   console.log("Merchants seeded");
 
   // assign plans

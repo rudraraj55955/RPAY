@@ -18,7 +18,7 @@ function maskSecret(s: string, show: boolean) {
   return s ? "••••••••••••••••" : "";
 }
 
-export default function AdminCashfreeGateway() {
+export default function AdminPaymentGateway() {
   const qc = useQueryClient();
   const { data: config, isLoading } = useGetCashfreeConfig({
     request: { headers: { Authorization: `Bearer ${getToken()}` } },

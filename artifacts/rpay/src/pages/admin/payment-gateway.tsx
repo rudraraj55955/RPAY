@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { useGetCashfreeConfig, useUpdateCashfreeConfig, useListCashfreePaymentLogs, getGetCashfreeConfigQueryKey } from "@workspace/api-client-react";
+import {
+  useGetCashfreeConfig as useGetPayinGatewayConfig,
+  useUpdateCashfreeConfig as useUpdatePayinGatewayConfig,
+  useListCashfreePaymentLogs as useListPayinLogs,
+  getGetCashfreeConfigQueryKey as getPayinGatewayConfigQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getToken } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,11 +25,11 @@ function maskSecret(s: string, show: boolean) {
 
 export default function AdminPaymentGateway() {
   const qc = useQueryClient();
-  const { data: config, isLoading } = useGetCashfreeConfig({
+  const { data: config, isLoading } = useGetPayinGatewayConfig({
     request: { headers: { Authorization: `Bearer ${getToken()}` } },
   });
 
-  const updateConfig = useUpdateCashfreeConfig();
+  const updateConfig = useUpdatePayinGatewayConfig();
 
   // Form state
   const [clientId, setClientId] = useState("");
@@ -40,7 +45,7 @@ export default function AdminPaymentGateway() {
   // Logs
   const [logsPage, setLogsPage] = useState(1);
   const LOGS_LIMIT = 20;
-  const { data: logsData, isLoading: logsLoading, refetch: refetchLogs } = useListCashfreePaymentLogs(
+  const { data: logsData, isLoading: logsLoading, refetch: refetchLogs } = useListPayinLogs(
     { page: logsPage, limit: LOGS_LIMIT },
     { request: { headers: { Authorization: `Bearer ${getToken()}` } } },
   );
@@ -61,7 +66,7 @@ export default function AdminPaymentGateway() {
 
       await updateConfig.mutateAsync(
         { data: body as Parameters<typeof updateConfig.mutateAsync>[0]["data"] },
-        { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetCashfreeConfigQueryKey() }); } }
+        { onSuccess: () => { qc.invalidateQueries({ queryKey: getPayinGatewayConfigQueryKey() }); } }
       );
 
       setClientId("");

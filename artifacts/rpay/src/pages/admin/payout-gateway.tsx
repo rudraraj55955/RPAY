@@ -1,16 +1,16 @@
 import { useState, useRef } from "react";
 import {
-  useGetCashfreePayoutConfig,
-  useUpdateCashfreePayoutConfig,
-  useListCashfreePayouts,
-  useCreateCashfreePayout,
-  useBulkCreateCashfreePayouts,
-  useRetryCashfreePayout,
-  useSyncCashfreePayoutStatus,
-  getGetCashfreePayoutConfigQueryKey,
-  getListCashfreePayoutsQueryKey,
-  type CashfreePayoutRow,
-  type CashfreePayoutCsvRow,
+  useGetCashfreePayoutConfig as useGetPayoutGatewayConfig,
+  useUpdateCashfreePayoutConfig as useUpdatePayoutGatewayConfig,
+  useListCashfreePayouts as useListPayouts,
+  useCreateCashfreePayout as useCreatePayout,
+  useBulkCreateCashfreePayouts as useBulkCreatePayouts,
+  useRetryCashfreePayout as useRetryPayout,
+  useSyncCashfreePayoutStatus as useSyncPayoutStatus,
+  getGetCashfreePayoutConfigQueryKey as getPayoutGatewayConfigQueryKey,
+  getListCashfreePayoutsQueryKey as getListPayoutsQueryKey,
+  type CashfreePayoutRow as PayoutRow,
+  type CashfreePayoutCsvRow as PayoutCsvRow,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getToken } from "@/lib/auth";
@@ -97,7 +97,7 @@ function validateCsvRow(row: Record<string, string>, idx: number): string | null
 // ── Settings Tab ───────────────────────────────────────────────────────────────
 function SettingsTab() {
   const qc = useQueryClient();
-  const { data: config, isLoading } = useGetCashfreePayoutConfig({ request: { headers: AUTH_HEADERS } });
+  const { data: config, isLoading } = useGetPayoutGatewayConfig({ request: { headers: AUTH_HEADERS } });
 
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -111,7 +111,7 @@ function SettingsTab() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
-  const { mutateAsync: updateConfig } = useUpdateCashfreePayoutConfig({
+  const { mutateAsync: updateConfig } = useUpdatePayoutGatewayConfig({
     request: { headers: AUTH_HEADERS },
     mutation: {},
   });
@@ -134,7 +134,7 @@ function SettingsTab() {
       if (clientSecret.trim()) body.clientSecret = clientSecret.trim();
       if (fundsourceId !== "") body.fundsourceId = fundsourceId.trim();
       await updateConfig({ data: body as any });
-      qc.invalidateQueries({ queryKey: getGetCashfreePayoutConfigQueryKey() });
+      qc.invalidateQueries({ queryKey: getPayoutGatewayConfigQueryKey() });
       setClientId("");
       setClientSecret("");
       setFundsourceId("");
@@ -174,8 +174,8 @@ function SettingsTab() {
         <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
         <div className="text-xs text-amber-300 space-y-0.5">
           <p className="font-semibold text-amber-200">Payout credentials are separate from Payment Gateway (Payin) credentials</p>
-          <p>Cashfree issues <strong>different</strong> API keys for the Payout product vs the Payment Collection product. Using Payin keys here will result in authentication failures.</p>
-          <p>Go to Cashfree Dashboard → Payout → Settings → API Keys to get the correct Payout Client ID and Secret.</p>
+          <p>The payout provider issues <strong>different</strong> API keys for the Payout product vs the Payment Collection product. Using Payin keys here will result in authentication failures.</p>
+          <p>Go to your Payout Provider Dashboard → Payout → Settings → API Keys to get the correct Payout Client ID and Secret.</p>
         </div>
       </div>
 
@@ -202,7 +202,7 @@ function SettingsTab() {
               {currentEnabled ? "Gateway enabled" : "Gateway disabled"}
             </Label>
             {currentEnabled
-              ? <span className="text-xs text-emerald-400">Payouts will be dispatched to Cashfree Payout</span>
+              ? <span className="text-xs text-emerald-400">Payouts will be dispatched via the payout gateway</span>
               : <span className="text-xs text-muted-foreground">Enable to dispatch real payouts</span>}
           </div>
 
@@ -238,7 +238,7 @@ function SettingsTab() {
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground/80">Payout API Credentials</p>
             <p className="text-xs text-muted-foreground">
-              From Cashfree Dashboard → <strong>Payout</strong> → Settings → API Keys.{" "}
+              From the Payout Provider Dashboard → <strong>Payout</strong> → Settings → API Keys.{" "}
               <span className="text-rose-400">Do not use Payment Gateway / Payin keys here.</span>
             </p>
           </div>
@@ -321,7 +321,7 @@ function SettingsTab() {
                   {showFundsource ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">The wallet/source account ID for Cashfree Payout. Required if your Cashfree Payout account uses multiple fund sources. Leave blank if not applicable.</p>
+              <p className="text-xs text-muted-foreground">The wallet/source account ID for the payout gateway. Required if your payout account uses multiple fund sources. Leave blank if not applicable.</p>
             </div>
           </div>
 
@@ -350,7 +350,7 @@ function SettingsTab() {
               variant="outline"
               onClick={handleTestConnection}
               disabled={testing || (!config?.clientIdSet && !clientId.trim())}
-              title={!config?.clientIdSet && !clientId.trim() ? "Save credentials first before testing" : "Test connection to Cashfree Payout API"}
+              title={!config?.clientIdSet && !clientId.trim() ? "Save credentials first before testing" : "Test connection to Payout Gateway"}
             >
               {testing
                 ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Testing…</>
@@ -377,7 +377,7 @@ function AddPayoutDialog({ open, onClose, onSuccess }: { open: boolean; onClose:
   const [mode, setMode] = useState<"bank" | "upi">("bank");
   const [creating, setCreating] = useState(false);
 
-  const { mutateAsync: createPayout } = useCreateCashfreePayout({ request: { headers: AUTH_HEADERS }, mutation: {} });
+  const { mutateAsync: createPayout } = useCreatePayout({ request: { headers: AUTH_HEADERS }, mutation: {} });
 
   async function handleSubmit() {
     if (!beneficiaryName.trim()) { toast.error("Beneficiary name is required"); return; }
@@ -481,7 +481,7 @@ function BulkUploadDialog({ open, onClose, onSuccess }: { open: boolean; onClose
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ total: number; successCount: number; failedCount: number } | null>(null);
 
-  const { mutateAsync: bulkCreate } = useBulkCreateCashfreePayouts({ request: { headers: AUTH_HEADERS }, mutation: {} });
+  const { mutateAsync: bulkCreate } = useBulkCreatePayouts({ request: { headers: AUTH_HEADERS }, mutation: {} });
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -512,7 +512,7 @@ function BulkUploadDialog({ open, onClose, onSuccess }: { open: boolean; onClose
     if (csvRows.length === 0 || parseErrors.length > 0) return;
     setSubmitting(true);
     try {
-      const apiRows: CashfreePayoutCsvRow[] = csvRows.map(r => ({
+      const apiRows: PayoutCsvRow[] = csvRows.map(r => ({
         beneficiary_name: r["beneficiary_name"] ?? "",
         account_number: r["account_number"] ?? "",
         ifsc: r["ifsc"] ?? "",
@@ -648,9 +648,9 @@ function PayoutsTab() {
     ...(dateTo ? { dateTo } : {}),
   };
 
-  const { data, isLoading, refetch } = useListCashfreePayouts(params, { request: { headers: AUTH_HEADERS } });
-  const { mutateAsync: syncStatus } = useSyncCashfreePayoutStatus({ request: { headers: AUTH_HEADERS }, mutation: {} });
-  const { mutateAsync: retryPayout } = useRetryCashfreePayout({ request: { headers: AUTH_HEADERS }, mutation: {} });
+  const { data, isLoading, refetch } = useListPayouts(params, { request: { headers: AUTH_HEADERS } });
+  const { mutateAsync: syncStatus } = useSyncPayoutStatus({ request: { headers: AUTH_HEADERS }, mutation: {} });
+  const { mutateAsync: retryPayout } = useRetryPayout({ request: { headers: AUTH_HEADERS }, mutation: {} });
 
   const rows = data?.data ?? [];
   const total = data?.total ?? 0;
@@ -671,7 +671,7 @@ function PayoutsTab() {
     try {
       const res = await syncStatus({ data: {} });
       toast.success(`Status sync complete — ${res.updatedCount} updated`);
-      qc.invalidateQueries({ queryKey: getListCashfreePayoutsQueryKey(params) });
+      qc.invalidateQueries({ queryKey: getListPayoutsQueryKey(params) });
     } catch (err: any) {
       toast.error(err.message ?? "Sync failed");
     } finally {
@@ -679,7 +679,7 @@ function PayoutsTab() {
     }
   }
 
-  async function handleRetry(row: CashfreePayoutRow) {
+  async function handleRetry(row: PayoutRow) {
     setRetryingId(row.id);
     try {
       await retryPayout({ id: row.id });

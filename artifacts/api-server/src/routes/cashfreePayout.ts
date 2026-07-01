@@ -8,6 +8,7 @@ import {
   type CashfreePayoutEnv,
 } from "../helpers/cashfreePayout";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { decryptSecret } from "../helpers/cryptoUtils";
 
 const router = Router();
 
@@ -21,10 +22,13 @@ async function getPayoutConfig() {
   const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
   const cfg = new Map(rows.map(r => [r.key, r.value]));
   const clientId = cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_ID) ?? "";
-  const clientSecret = cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET) ?? "";
+  const rawSecret = cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET) ?? "";
+  const decrypted = decryptSecret(rawSecret);
+  const clientSecret = decrypted.ok ? decrypted.value : "";
   return {
     clientId,
     clientSecret,
+    clientSecretDecryptOk: decrypted.ok,
     env: (cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENV) ?? "test") as CashfreePayoutEnv,
     enabled: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENABLED) === "true",
   };

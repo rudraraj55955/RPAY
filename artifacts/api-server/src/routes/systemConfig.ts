@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable, signatureFailureAlertLogsTable, webhookFailureAlertLogsTable, storageCleanupRunsTable, uploadedObjectsTable, merchantsTable } from "@workspace/db";
 import { ekqrCreateOrder, ekqrClientTxnId } from "../helpers/ekqr";
 import { testPayoutConnection, cashfreePayoutGetTransferStatus, normalizeCashfreePayoutStatus, type CashfreePayoutEnv } from "../helpers/cashfreePayout";
+import { encryptSecret, decryptSecret } from "../helpers/cryptoUtils";
 import { inArray, desc, count, sql, eq, and } from "drizzle-orm";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
@@ -1300,7 +1301,10 @@ router.put("/cashfree-payout", async (req, res, next) => {
     }
 
     if (clientId !== undefined) await upsert(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_ID, clientId);
-    await upsertOrDelete(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET, clientSecret);
+    // Encrypt the client secret before storing — decryptSecret auto-detects enc:v1: prefix
+    if (clientSecret !== undefined) {
+      await upsertOrDelete(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET, clientSecret === "" ? "" : encryptSecret(clientSecret));
+    }
     await upsertOrDelete(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_FUNDSOURCE_ID, fundsourceId);
     await upsertOrDelete(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_WEBHOOK_SECRET, webhookSecret);
     if (enabled !== undefined) await upsert(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENABLED, enabled ? "true" : "false");
@@ -1331,9 +1335,10 @@ router.post("/cashfree-payout/test-connection", async (req, res, next) => {
   try {
     const cfg = await getCashfreePayoutConfig();
     if (!cfg.clientIdSet || !cfg.clientSecretSet) {
-      res.status(400).json({ ok: false, message: "Payout Client ID and Secret must be saved before testing credentials" });
+      res.status(400).json({ ok: false, message: "Payout Client ID and Secret must be saved before testing credentials", safeReason: "invalid_client_id" });
       return;
     }
+
     const keys = [
       SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_ID,
       SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET,
@@ -1342,11 +1347,26 @@ router.post("/cashfree-payout/test-connection", async (req, res, next) => {
     const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
     const map = new Map(rows.map((r) => [r.key, r.value]));
     const clientId = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_ID) ?? "";
-    const clientSecret = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET) ?? "";
+    const rawSecret = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET) ?? "";
     const env = (map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENV) ?? "test") as CashfreePayoutEnv;
-    const result = await testPayoutConnection(clientId, clientSecret, env);
-    req.log.info({ ok: result.ok, env }, "cashfree_payout_credentials_tested");
-    res.json(result);
+
+    // Decrypt the stored client secret
+    const decrypted = decryptSecret(rawSecret);
+    if (!decrypted.ok) {
+      req.log.warn({ safeReason: "decrypt_failed" }, "cashfree_payout_credentials_test: clientSecret decrypt failed");
+      res.json({
+        ok: false,
+        message: "Saved Client Secret could not be decrypted — please re-enter and save it again",
+        safeReason: "decrypt_failed",
+      });
+      return;
+    }
+
+    const result = await testPayoutConnection(clientId, decrypted.value, env);
+    req.log.info({ ok: result.ok, safeReason: result.safeReason, env, httpStatus: result._httpStatus }, "cashfree_payout_credentials_tested");
+    // Strip internal _httpStatus before sending to client
+    const { _httpStatus: _omit, ...clientResult } = result;
+    res.json(clientResult);
   } catch (err) { next(err); }
 });
 
@@ -1371,7 +1391,9 @@ router.post("/cashfree-payout/check-transfer-status", async (req, res, next) => 
     const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
     const map = new Map(rows.map((r) => [r.key, r.value]));
     const clientId = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_ID) ?? "";
-    const clientSecret = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET) ?? "";
+    const rawSecret2 = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET) ?? "";
+    const dec2 = decryptSecret(rawSecret2);
+    const clientSecret = dec2.ok ? dec2.value : "";
     const env = (map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENV) ?? "test") as CashfreePayoutEnv;
     const { parsed, httpStatus } = await cashfreePayoutGetTransferStatus(clientId, clientSecret, env, transferId.trim());
     req.log.info({ httpStatus, transferId: transferId.trim(), env }, "cashfree_payout_transfer_status_checked");

@@ -1,9 +1,21 @@
 export type CashfreePayoutEnv = "test" | "live";
 
+/**
+ * Cashfree Payout V2 base URLs.
+ * Both test and production use the same domain; environment is determined
+ * by which set of credentials you supply.
+ */
 const PAYOUT_BASE_URLS: Record<CashfreePayoutEnv, string> = {
-  test: "https://sandbox.cashfree.com/payout",
-  live: "https://api.cashfree.com/payout",
+  test: "https://payout-api.cashfree.com/payout/v2",
+  live: "https://payout-api.cashfree.com/payout/v2",
 };
+
+/**
+ * V1 Authorize endpoint — used for credential verification only.
+ * Returns a short-lived token; we use the response code to validate creds.
+ * Same URL for both test and live (credentials determine the environment).
+ */
+const PAYOUT_AUTHORIZE_URL = "https://payout-api.cashfree.com/payout/v1/authorize";
 
 type PayoutCreateInput = {
   referenceId?: string;
@@ -195,28 +207,137 @@ export async function cashfreePayoutGetTransferStatus(
   return { raw, parsed: flattenV2Response(parsed), httpStatus };
 }
 
+export type PayoutSafeReason =
+  | "invalid_client_id"
+  | "invalid_client_secret"
+  | "ip_not_whitelisted"
+  | "provider_unreachable"
+  | "decrypt_failed"
+  | "wrong_environment"
+  | "unknown";
+
+export type TestPayoutConnectionResult = {
+  ok: boolean;
+  message: string;
+  safeReason?: PayoutSafeReason;
+  /** HTTP status from the provider — logged server-side only, never sent raw to client */
+  _httpStatus?: number;
+};
+
+/**
+ * Verify Cashfree Payout credentials by calling the V1 Authorize endpoint.
+ *
+ * Endpoint:  POST https://payout-api.cashfree.com/payout/v1/authorize
+ * Headers:   X-Client-Id: <clientId>
+ *            X-Client-Secret: <clientSecret>
+ *
+ * V1 response examples:
+ *   200  { status: "SUCCESS", subCode: "200", message: "Token generated", data: { token } }
+ *   401  { status: "ERROR",   subCode: "401", message: "Invalid ClientId" }
+ *   401  { status: "ERROR",   subCode: "401", message: "Invalid ClientSecret" }
+ *   403  { status: "ERROR",   subCode: "403", message: "IP address not whitelisted" }
+ */
 export async function testPayoutConnection(
   clientId: string,
   clientSecret: string,
-  env: CashfreePayoutEnv
-): Promise<{ ok: boolean; message: string }> {
-  const baseUrl = PAYOUT_BASE_URLS[env] ?? PAYOUT_BASE_URLS.test;
+  _env: CashfreePayoutEnv
+): Promise<TestPayoutConnectionResult> {
+  if (!clientId || !clientSecret) {
+    return {
+      ok: false,
+      message: "Client ID and Secret must both be set before testing",
+      safeReason: "invalid_client_id",
+    };
+  }
+
   try {
-    // Use beneficiary list — works with credentials only, no transfer_id required
-    const res = await fetch(`${baseUrl}/beneficiary?limit=1`, {
+    const res = await fetch(PAYOUT_AUTHORIZE_URL, {
+      method: "POST",
       headers: {
-        "x-api-version": "2024-01-01",
-        "x-client-id": clientId,
-        "x-client-secret": clientSecret,
+        "X-Client-Id": clientId,
+        "X-Client-Secret": clientSecret,
       },
     });
+
     const { parsed, httpStatus } = await readJson(res);
-    if (httpStatus >= 200 && httpStatus < 300) return { ok: true, message: "Credentials verified — payout gateway is reachable and authenticated" };
-    if (httpStatus === 401 || httpStatus === 403) return { ok: false, message: "Invalid credentials — Client ID or Secret is incorrect" };
-    if (httpStatus === 422) return { ok: false, message: "Missing or invalid configuration — check fundsource settings" };
-    if (httpStatus >= 500) return { ok: false, message: "Payout provider is currently unavailable — try again later" };
-    return { ok: false, message: "Credential check failed — review Client ID and Secret" };
+
+    if (httpStatus >= 200 && httpStatus < 300) {
+      return {
+        ok: true,
+        message: "Credentials verified — payout gateway is reachable and authenticated",
+        _httpStatus: httpStatus,
+      };
+    }
+
+    // Classify the failure based on HTTP status and provider message
+    const msgLower = String(parsed?.message ?? parsed?.error ?? "").toLowerCase();
+    const subCode = String(parsed?.subCode ?? parsed?.sub_code ?? "").trim();
+
+    if (httpStatus === 403) {
+      const isIp = msgLower.includes("ip") || msgLower.includes("whitelist");
+      return {
+        ok: false,
+        message: isIp
+          ? "IP address is not whitelisted — add the server IP in Cashfree Payout dashboard → Settings → Whitelisted IPs"
+          : "Access forbidden — check IP whitelist in Cashfree Payout dashboard",
+        safeReason: "ip_not_whitelisted",
+        _httpStatus: httpStatus,
+      };
+    }
+
+    if (httpStatus === 401 || subCode === "401") {
+      // Distinguish client ID vs client secret where possible
+      if (msgLower.includes("clientsecret") || msgLower.includes("client secret") || msgLower.includes("invalid secret")) {
+        return {
+          ok: false,
+          message: "Client Secret is invalid — re-enter the Cashfree Payout Client Secret",
+          safeReason: "invalid_client_secret",
+          _httpStatus: httpStatus,
+        };
+      }
+      return {
+        ok: false,
+        message: "Client ID is invalid — re-enter the Cashfree Payout Client ID",
+        safeReason: "invalid_client_id",
+        _httpStatus: httpStatus,
+      };
+    }
+
+    if (httpStatus === 400) {
+      const isWrongEnv = msgLower.includes("environment") || msgLower.includes("not enabled") || msgLower.includes("test mode") || msgLower.includes("production");
+      return {
+        ok: false,
+        message: isWrongEnv
+          ? "Wrong environment — ensure the saved environment (Test/Live) matches these credentials"
+          : "Bad request — verify the credentials and environment setting",
+        safeReason: isWrongEnv ? "wrong_environment" : "unknown",
+        _httpStatus: httpStatus,
+      };
+    }
+
+    if (httpStatus >= 500) {
+      return {
+        ok: false,
+        message: "Cashfree Payout service is currently unavailable — try again in a few minutes",
+        safeReason: "provider_unreachable",
+        _httpStatus: httpStatus,
+      };
+    }
+
+    return {
+      ok: false,
+      message: "Credential check failed — review Client ID, Secret, and environment setting",
+      safeReason: "unknown",
+      _httpStatus: httpStatus,
+    };
   } catch (err: any) {
-    return { ok: false, message: "Could not reach payout provider — check network or provider status" };
+    const isNetworkError = err?.code === "ECONNREFUSED" || err?.code === "ENOTFOUND" || err?.message?.includes("fetch");
+    return {
+      ok: false,
+      message: isNetworkError
+        ? "Could not reach Cashfree Payout servers — check server network/firewall"
+        : "Unexpected error contacting payout provider",
+      safeReason: "provider_unreachable",
+    };
   }
 }

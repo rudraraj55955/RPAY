@@ -125,7 +125,7 @@ function SettingsTab() {
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string; safeReason?: string } | null>(null);
   const [successOpen, setSuccessOpen] = useState(false);
   const [errorOpen, setErrorOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -219,10 +219,10 @@ function SettingsTab() {
       const data = await res.json();
       setTestResult(data);
       if (data.ok) toast.success(data.message);
-      else toast.error("Credential test failed");
+      else toast.error(data.message ?? "Credential test failed");
     } catch {
       const msg = "Credential test failed — could not reach server";
-      setTestResult({ ok: false, message: msg });
+      setTestResult({ ok: false, message: msg, safeReason: "provider_unreachable" });
       toast.error(msg);
     } finally {
       setTesting(false);
@@ -528,7 +528,18 @@ function SettingsTab() {
           {testResult.ok
             ? <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
             : <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />}
-          <span>{testResult.message}</span>
+          <div className="flex flex-col gap-1">
+            <span>{testResult.message}</span>
+            {!testResult.ok && testResult.safeReason === "ip_not_whitelisted" && (
+              <span className="text-amber-300/80">Tip: Go to Cashfree Payout Dashboard → Settings → Whitelisted IPs and add this server's IP.</span>
+            )}
+            {!testResult.ok && testResult.safeReason === "decrypt_failed" && (
+              <span className="text-amber-300/80">Tip: Re-enter the Client Secret in the form above and save again.</span>
+            )}
+            {!testResult.ok && testResult.safeReason === "wrong_environment" && (
+              <span className="text-amber-300/80">Tip: Make sure the Environment toggle (Test / Live) matches the credentials you entered.</span>
+            )}
+          </div>
         </div>
       )}
 

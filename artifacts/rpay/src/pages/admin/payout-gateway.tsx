@@ -27,7 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Save, Eye, EyeOff, RefreshCw, Upload, Plus, RotateCcw, ChevronLeft, ChevronRight,
-  Loader2, AlertCircle, CheckCircle2, Clock, XCircle, Banknote, Settings2, List,
+  Loader2, AlertCircle, CheckCircle2, Clock, XCircle, Banknote, Settings2, List, Copy,
 } from "lucide-react";
 
 const AUTH_HEADERS = { Authorization: `Bearer ${getToken()}` };
@@ -99,17 +99,35 @@ function SettingsTab() {
   const qc = useQueryClient();
   const { data: config, isLoading } = useGetPayoutGatewayConfig({ request: { headers: AUTH_HEADERS } });
 
+  // Credentials
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [fundsourceId, setFundsourceId] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
+
+  // Toggles / mode (null = use config value)
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [env, setEnv] = useState<"test" | "live" | null>(null);
+  const [merchantEnabled, setMerchantEnabled] = useState<boolean | null>(null);
+  const [bulkEnabled, setBulkEnabled] = useState<boolean | null>(null);
+  const [adminApprovalRequired, setAdminApprovalRequired] = useState<boolean | null>(null);
+
+  // Limits (null = use config value, unchanged)
+  const [minLimit, setMinLimit] = useState("");
+  const [maxLimit, setMaxLimit] = useState("");
+  const [dailyLimit, setDailyLimit] = useState("");
+
+  // UI state
   const [showId, setShowId] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [showFundsource, setShowFundsource] = useState(false);
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [errorOpen, setErrorOpen] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const { mutateAsync: updateConfig } = useUpdatePayoutGatewayConfig({
     request: { headers: AUTH_HEADERS },
@@ -118,29 +136,67 @@ function SettingsTab() {
 
   const currentEnabled = enabled !== null ? enabled : (config?.enabled ?? false);
   const currentEnv: "test" | "live" = env !== null ? env : (config?.env ?? "test");
+  const currentMerchantEnabled = merchantEnabled !== null ? merchantEnabled : (config?.merchantEnabled ?? true);
+  const currentBulkEnabled = bulkEnabled !== null ? bulkEnabled : (config?.bulkEnabled ?? true);
+  const currentAdminApproval = adminApprovalRequired !== null ? adminApprovalRequired : (config?.adminApprovalRequired ?? true);
 
   const missingCredentials = !isLoading && config && (!config.clientIdSet || !config.clientSecretSet);
 
+  const WEBHOOK_URL = "https://rasokart.com/api/cashfree-payout/webhook";
+
+  function validateLimits(): string | null {
+    const min = minLimit.trim() ? parseFloat(minLimit) : null;
+    const max = maxLimit.trim() ? parseFloat(maxLimit) : null;
+    const daily = dailyLimit.trim() ? parseFloat(dailyLimit) : null;
+    if (min !== null && (isNaN(min) || min < 0)) return "Min payout limit must be a positive number.";
+    if (max !== null && (isNaN(max) || max < 0)) return "Max payout limit must be a positive number.";
+    if (daily !== null && (isNaN(daily) || daily < 0)) return "Daily payout limit must be a positive number.";
+    if (min !== null && max !== null && min > max) return "Min payout limit cannot exceed max payout limit.";
+    return null;
+  }
+
   async function handleSave() {
-    if (!currentEnabled && !clientId.trim() && !clientSecret.trim()) {
-      toast.error("Enter Payout Client ID and Secret before saving");
+    const validationError = validateLimits();
+    if (validationError) {
+      setErrorMsg(validationError);
+      setErrorOpen(true);
       return;
     }
+
     setSaving(true);
     setTestResult(null);
     try {
-      const body: Record<string, unknown> = { enabled: currentEnabled, env: currentEnv };
+      const body: Record<string, unknown> = {
+        enabled: currentEnabled,
+        env: currentEnv,
+        merchantEnabled: currentMerchantEnabled,
+        bulkEnabled: currentBulkEnabled,
+        adminApprovalRequired: currentAdminApproval,
+      };
       if (clientId.trim()) body.clientId = clientId.trim();
       if (clientSecret.trim()) body.clientSecret = clientSecret.trim();
       if (fundsourceId !== "") body.fundsourceId = fundsourceId.trim();
+      if (webhookSecret !== "") body.webhookSecret = webhookSecret.trim();
+      if (minLimit.trim()) body.minLimit = parseFloat(minLimit);
+      if (maxLimit.trim()) body.maxLimit = parseFloat(maxLimit);
+      if (dailyLimit.trim()) body.dailyLimit = parseFloat(dailyLimit);
+
       await updateConfig({ data: body as any });
       qc.invalidateQueries({ queryKey: getPayoutGatewayConfigQueryKey() });
+
       setClientId("");
       setClientSecret("");
       setFundsourceId("");
-      toast.success("Payout gateway settings saved");
+      setWebhookSecret("");
+      setMinLimit("");
+      setMaxLimit("");
+      setDailyLimit("");
+
+      setSuccessOpen(true);
     } catch (err: any) {
-      toast.error((err?.data as any)?.error ?? err?.message ?? "Failed to save settings");
+      const msg = (err?.data as any)?.error ?? err?.message ?? "Failed to save settings";
+      setErrorMsg(msg);
+      setErrorOpen(true);
     } finally {
       setSaving(false);
     }
@@ -157,9 +213,9 @@ function SettingsTab() {
       const data = await res.json();
       setTestResult(data);
       if (data.ok) toast.success(data.message);
-      else toast.error(data.message);
-    } catch (err: any) {
-      const msg = err?.message ?? "Connection test failed";
+      else toast.error("Connection test failed");
+    } catch {
+      const msg = "Connection test failed";
       setTestResult({ ok: false, message: msg });
       toast.error(msg);
     } finally {
@@ -169,41 +225,84 @@ function SettingsTab() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      {/* Payin vs Payout credential warning */}
+      {/* Success popup */}
+      <Dialog open={successOpen} onOpenChange={setSuccessOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-400">
+              <CheckCircle2 className="w-5 h-5" />
+              Settings Saved
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Payout gateway settings have been saved successfully.
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setSuccessOpen(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Error popup */}
+      <Dialog open={errorOpen} onOpenChange={setErrorOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-5 h-5" />
+              Error
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{errorMsg}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setErrorOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credential warning */}
       <div className="rounded-md bg-amber-500/10 border border-amber-500/30 p-3 flex gap-2.5">
         <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
         <div className="text-xs text-amber-300 space-y-0.5">
-          <p className="font-semibold text-amber-200">Payout credentials are separate from Payment Gateway (Payin) credentials</p>
-          <p>The payout provider issues <strong>different</strong> API keys for the Payout product vs the Payment Collection product. Using Payin keys here will result in authentication failures.</p>
-          <p>Go to your Payout Provider Dashboard → Payout → Settings → API Keys to get the correct Payout Client ID and Secret.</p>
+          <p className="font-semibold text-amber-200">Payout credentials are separate from Payin (Payment Gateway) credentials</p>
+          <p>Get the correct Payout Client ID and Secret from your Payout Provider Dashboard → Payout → Settings → API Keys.</p>
         </div>
       </div>
 
-      {/* Main settings card */}
+      {/* ── Section 1: Gateway status ── */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Banknote className="w-4 h-4 text-muted-foreground" />
-              Payout Gateway
-            </CardTitle>
-            {!isLoading && config && <EnvBadge env={config.env} />}
-          </div>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Banknote className="w-4 h-4 text-muted-foreground" />
+            Gateway Status
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
-          {/* Enable / disable */}
-          <div className="flex items-center gap-3">
-            <Switch
-              checked={currentEnabled}
-              onCheckedChange={v => setEnabled(v)}
-              id="payout-enabled"
-            />
-            <Label htmlFor="payout-enabled" className="cursor-pointer">
-              {currentEnabled ? "Gateway enabled" : "Gateway disabled"}
-            </Label>
-            {currentEnabled
-              ? <span className="text-xs text-emerald-400">Payouts will be dispatched via the payout gateway</span>
-              : <span className="text-xs text-muted-foreground">Enable to dispatch real payouts</span>}
+        <CardContent className="space-y-4">
+          {/* Enabled */}
+          <div className="flex items-center justify-between py-2 border-b border-border/30">
+            <div>
+              <p className="text-sm font-medium">Gateway Enabled</p>
+              <p className="text-xs text-muted-foreground">Activate the payout gateway for fund disbursements</p>
+            </div>
+            <Switch checked={currentEnabled} onCheckedChange={v => setEnabled(v)} disabled={isLoading} />
+          </div>
+
+          {/* Environment */}
+          <div className="flex items-center justify-between py-2 border-b border-border/30">
+            <div>
+              <p className="text-sm font-medium">Mode</p>
+              <p className="text-xs text-muted-foreground">
+                {currentEnv === "live" ? "Live — real bank transfers will be initiated" : "Sandbox — no real money moves"}
+              </p>
+            </div>
+            <Select value={currentEnv} onValueChange={v => setEnv(v as "test" | "live")} disabled={isLoading}>
+              <SelectTrigger className="w-36 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="test" className="text-xs">Sandbox / Test</SelectItem>
+                <SelectItem value="live" className="text-xs">Live / Production</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Missing credentials warning */}
@@ -213,155 +312,216 @@ function SettingsTab() {
               <span>Payout Client ID and/or Secret not yet configured — payouts will fail until credentials are set.</span>
             </div>
           )}
-
-          {/* Environment */}
-          <div className="space-y-2">
-            <Label>Mode</Label>
-            <Select value={currentEnv} onValueChange={v => setEnv(v as "test" | "live")}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="test">Sandbox / Test</SelectItem>
-                <SelectItem value="live">Live / Production</SelectItem>
-              </SelectContent>
-            </Select>
-            {currentEnv === "live" && (
-              <p className="text-xs text-amber-400">Live mode — real bank transfers will be initiated.</p>
-            )}
-            {currentEnv === "test" && (
-              <p className="text-xs text-muted-foreground">Sandbox mode — no real money moves.</p>
-            )}
-          </div>
-
-          {/* ── Payout Credentials (NOT Payin keys) ── */}
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-foreground/80">Payout API Credentials</p>
-            <p className="text-xs text-muted-foreground">
-              From the Payout Provider Dashboard → <strong>Payout</strong> → Settings → API Keys.{" "}
-              <span className="text-rose-400">Do not use Payment Gateway / Payin keys here.</span>
-            </p>
-          </div>
-
-          <div className="grid gap-4">
-            {/* Payout Client ID */}
-            <div className="space-y-2">
-              <Label>Payout Client ID <span className="text-rose-400">*</span></Label>
-              {!isLoading && config?.clientIdSet && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                  Saved: <code className="font-mono">{config.clientIdMasked}</code>
-                </p>
-              )}
-              {!isLoading && !config?.clientIdSet && (
-                <p className="text-xs text-rose-400">Not configured</p>
-              )}
-              <div className="relative">
-                <Input
-                  type={showId ? "text" : "password"}
-                  placeholder={config?.clientIdSet ? "Enter new Payout Client ID to replace" : "Enter Payout Client ID"}
-                  value={clientId}
-                  onChange={e => setClientId(e.target.value)}
-                  className="pr-10"
-                />
-                <button type="button" onClick={() => setShowId(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Payout Client Secret */}
-            <div className="space-y-2">
-              <Label>Payout Client Secret <span className="text-rose-400">*</span></Label>
-              {!isLoading && config?.clientSecretSet && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                  A secret is currently saved.
-                </p>
-              )}
-              {!isLoading && !config?.clientSecretSet && (
-                <p className="text-xs text-rose-400">Not configured</p>
-              )}
-              <div className="relative">
-                <Input
-                  type={showSecret ? "text" : "password"}
-                  placeholder={config?.clientSecretSet ? "Enter new secret to replace" : "Enter Payout Client Secret"}
-                  value={clientSecret}
-                  onChange={e => setClientSecret(e.target.value)}
-                  className="pr-10"
-                />
-                <button type="button" onClick={() => setShowSecret(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground">Leave blank to keep the existing secret.</p>
-            </div>
-
-            {/* Fundsource ID */}
-            <div className="space-y-2">
-              <Label>Fundsource ID <span className="text-muted-foreground text-xs font-normal">(if required by provider)</span></Label>
-              {!isLoading && config?.fundsourceIdSet && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                  Saved: <code className="font-mono">{config.fundsourceIdMasked}</code>
-                </p>
-              )}
-              <div className="relative">
-                <Input
-                  type={showFundsource ? "text" : "password"}
-                  placeholder={config?.fundsourceIdSet ? "Enter new Fundsource ID to replace" : "Enter Fundsource ID (optional)"}
-                  value={fundsourceId}
-                  onChange={e => setFundsourceId(e.target.value)}
-                  className="pr-10"
-                />
-                <button type="button" onClick={() => setShowFundsource(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showFundsource ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground">The wallet/source account ID for the payout gateway. Required if your payout account uses multiple fund sources. Leave blank if not applicable.</p>
-            </div>
-          </div>
-
-          {/* Test connection result */}
-          {testResult && (
-            <div className={`rounded-md border p-2.5 flex items-start gap-2 text-xs ${
-              testResult.ok
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-            }`}>
-              {testResult.ok
-                ? <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                : <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />}
-              <span>{testResult.message}</span>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-2 flex-wrap">
-            <Button onClick={handleSave} disabled={saving}>
-              {saving
-                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</>
-                : <><Save className="w-4 h-4 mr-2" />Save Settings</>}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleTestConnection}
-              disabled={testing || (!config?.clientIdSet && !clientId.trim())}
-              title={!config?.clientIdSet && !clientId.trim() ? "Save credentials first before testing" : "Test connection to Payout Gateway"}
-            >
-              {testing
-                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Testing…</>
-                : <><RefreshCw className="w-4 h-4 mr-2" />Test Payout Connection</>}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Use <strong>Test Payout Connection</strong> after saving credentials to verify they work before approving payouts.
-          </p>
         </CardContent>
       </Card>
+
+      {/* ── Section 2: Credentials ── */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">API Credentials</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Client ID */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Payout Client ID <span className="text-rose-400">*</span></Label>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {isLoading ? <span>Loading…</span> : config?.clientIdSet
+                ? <><CheckCircle2 className="w-3 h-3 text-emerald-400" />Saved: <code className="font-mono text-foreground/80">{config.clientIdMasked}</code></>
+                : <span className="text-rose-400">Not configured</span>}
+            </div>
+            <div className="relative">
+              <Input type={showId ? "text" : "password"}
+                placeholder={config?.clientIdSet ? "Enter new Payout Client ID to replace" : "Enter Payout Client ID"}
+                value={clientId} onChange={e => setClientId(e.target.value)} className="pr-10 text-sm" />
+              <button type="button" onClick={() => setShowId(p => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                {showId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Client Secret */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Payout Client Secret <span className="text-rose-400">*</span></Label>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {isLoading ? <span>Loading…</span> : config?.clientSecretSet
+                ? <><CheckCircle2 className="w-3 h-3 text-emerald-400" />Secret is saved</>
+                : <span className="text-rose-400">Not configured</span>}
+            </div>
+            <div className="relative">
+              <Input type={showSecret ? "text" : "password"}
+                placeholder={config?.clientSecretSet ? "Enter new secret to replace" : "Enter Payout Client Secret"}
+                value={clientSecret} onChange={e => setClientSecret(e.target.value)} className="pr-10 text-sm" />
+              <button type="button" onClick={() => setShowSecret(p => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">Leave blank to keep the existing secret.</p>
+          </div>
+
+          {/* Fundsource ID */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Fundsource ID <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {!isLoading && config?.fundsourceIdSet
+                ? <><CheckCircle2 className="w-3 h-3 text-emerald-400" />Saved: <code className="font-mono text-foreground/80">{config.fundsourceIdMasked}</code></>
+                : null}
+            </div>
+            <div className="relative">
+              <Input type={showFundsource ? "text" : "password"}
+                placeholder={config?.fundsourceIdSet ? "Enter new Fundsource ID to replace" : "Enter Fundsource ID (optional)"}
+                value={fundsourceId} onChange={e => setFundsourceId(e.target.value)} className="pr-10 text-sm" />
+              <button type="button" onClick={() => setShowFundsource(p => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                {showFundsource ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Section 3: Webhook ── */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Webhook Configuration</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Webhook URL (read-only display) */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Webhook URL <span className="text-muted-foreground font-normal">(configure this in your payout provider dashboard)</span></Label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs font-mono bg-muted/40 border border-border/40 rounded-md px-3 py-2 text-blue-300 truncate">
+                {WEBHOOK_URL}
+              </code>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 shrink-0"
+                onClick={() => { navigator.clipboard.writeText(WEBHOOK_URL); toast.success("Webhook URL copied"); }}>
+                <Copy className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Webhook Secret */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Webhook Secret <span className="text-muted-foreground font-normal">(for HMAC signature verification)</span></Label>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {!isLoading && (config?.webhookSecretSet
+                ? <><CheckCircle2 className="w-3 h-3 text-emerald-400" />Secret is saved</>
+                : <span>Not configured — incoming webhooks will not be signature-verified</span>)}
+            </div>
+            <div className="relative">
+              <Input type={showWebhookSecret ? "text" : "password"}
+                placeholder={config?.webhookSecretSet ? "Enter new webhook secret to rotate" : "Enter webhook secret (optional)"}
+                value={webhookSecret} onChange={e => setWebhookSecret(e.target.value)} className="pr-10 text-sm" />
+              <button type="button" onClick={() => setShowWebhookSecret(p => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                {showWebhookSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Section 4: Payout controls ── */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Payout Controls</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-0 divide-y divide-border/30">
+          {/* Merchant payout enabled */}
+          <div className="flex items-center justify-between py-3">
+            <div>
+              <p className="text-sm font-medium">Merchant Payout Enabled</p>
+              <p className="text-xs text-muted-foreground">Allow merchants to request payouts from their balance</p>
+            </div>
+            <Switch checked={currentMerchantEnabled} onCheckedChange={v => setMerchantEnabled(v)} disabled={isLoading} />
+          </div>
+
+          {/* Bulk payout enabled */}
+          <div className="flex items-center justify-between py-3">
+            <div>
+              <p className="text-sm font-medium">Bulk Payout Enabled</p>
+              <p className="text-xs text-muted-foreground">Allow bulk payout CSV uploads for batch disbursements</p>
+            </div>
+            <Switch checked={currentBulkEnabled} onCheckedChange={v => setBulkEnabled(v)} disabled={isLoading} />
+          </div>
+
+          {/* Admin approval required */}
+          <div className="flex items-center justify-between py-3">
+            <div>
+              <p className="text-sm font-medium">Admin Approval Required</p>
+              <p className="text-xs text-muted-foreground">Payouts must be approved by an admin before being dispatched</p>
+            </div>
+            <Switch checked={currentAdminApproval} onCheckedChange={v => setAdminApprovalRequired(v)} disabled={isLoading} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Section 5: Limits ── */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Payout Limits (₹)</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Min Payout Limit</Label>
+            {!isLoading && config && (
+              <p className="text-xs text-muted-foreground">Current: ₹{config.minLimit.toLocaleString("en-IN")}</p>
+            )}
+            <Input type="number" min="0" placeholder={`e.g. ${config?.minLimit ?? 100}`}
+              value={minLimit} onChange={e => setMinLimit(e.target.value)} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Max Payout Limit</Label>
+            {!isLoading && config && (
+              <p className="text-xs text-muted-foreground">Current: ₹{config.maxLimit.toLocaleString("en-IN")}</p>
+            )}
+            <Input type="number" min="0" placeholder={`e.g. ${config?.maxLimit ?? 200000}`}
+              value={maxLimit} onChange={e => setMaxLimit(e.target.value)} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Daily Payout Limit</Label>
+            {!isLoading && config && (
+              <p className="text-xs text-muted-foreground">Current: ₹{config.dailyLimit.toLocaleString("en-IN")}</p>
+            )}
+            <Input type="number" min="0" placeholder={`e.g. ${config?.dailyLimit ?? 1000000}`}
+              value={dailyLimit} onChange={e => setDailyLimit(e.target.value)} className="text-sm" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Test connection result banner ── */}
+      {testResult && (
+        <div className={`rounded-md border p-3 flex items-start gap-2 text-xs ${
+          testResult.ok
+            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+            : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+        }`}>
+          {testResult.ok
+            ? <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            : <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />}
+          <span>{testResult.message}</span>
+        </div>
+      )}
+
+      {/* ── Actions ── */}
+      <div className="flex gap-3 flex-wrap">
+        <Button onClick={handleSave} disabled={saving}>
+          {saving
+            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</>
+            : <><Save className="w-4 h-4 mr-2" />Save Changes</>}
+        </Button>
+        <Button variant="outline" onClick={handleTestConnection}
+          disabled={testing || (!config?.clientIdSet && !clientId.trim())}
+          title={!config?.clientIdSet && !clientId.trim() ? "Save credentials first before testing" : ""}>
+          {testing
+            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Testing…</>
+            : <><RefreshCw className="w-4 h-4 mr-2" />Test Connection</>}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Use <strong>Test Connection</strong> after saving credentials to verify they work before approving payouts.
+      </p>
     </div>
   );
 }
@@ -887,7 +1047,7 @@ export default function AdminPayoutGateway() {
         </p>
       </div>
 
-      <Tabs defaultValue="payouts">
+      <Tabs defaultValue="settings">
         <TabsList>
           <TabsTrigger value="payouts" className="flex items-center gap-1.5">
             <List className="w-3.5 h-3.5" />

@@ -19,6 +19,7 @@ export interface CashfreePayoutConfig {
   baseUrl: string;
   apiVersion: string;
   merchantEnabled: boolean;
+  bulkEnabled: boolean;
   adminApprovalRequired: boolean;
   minLimit: number;
   maxLimit: number;

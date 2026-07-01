@@ -13861,7 +13861,7 @@ components:
 
     CashfreePayoutConfig:
       type: object
-      required: [clientIdSet, clientIdMasked, clientSecretSet, fundsourceIdSet, fundsourceIdMasked, enabled, env]
+      required: [clientIdSet, clientIdMasked, clientSecretSet, fundsourceIdSet, fundsourceIdMasked, enabled, env, webhookSecretSet, merchantEnabled, bulkEnabled, adminApprovalRequired, minLimit, maxLimit, dailyLimit]
       properties:
         clientIdSet:
           type: boolean
@@ -13873,11 +13873,25 @@ components:
           type: boolean
         fundsourceIdMasked:
           type: string
+        webhookSecretSet:
+          type: boolean
         enabled:
           type: boolean
         env:
           type: string
           enum: [test, live]
+        merchantEnabled:
+          type: boolean
+        bulkEnabled:
+          type: boolean
+        adminApprovalRequired:
+          type: boolean
+        minLimit:
+          type: number
+        maxLimit:
+          type: number
+        dailyLimit:
+          type: number
 
     CashfreePayoutConfigInput:
       type: object
@@ -13890,11 +13904,26 @@ components:
         fundsourceId:
           type: string
           description: Pass empty string to remove
+        webhookSecret:
+          type: string
+          description: Pass empty string to remove
         enabled:
           type: boolean
         env:
           type: string
           enum: [test, live]
+        merchantEnabled:
+          type: boolean
+        bulkEnabled:
+          type: boolean
+        adminApprovalRequired:
+          type: boolean
+        minLimit:
+          type: number
+        maxLimit:
+          type: number
+        dailyLimit:
+          type: number
 
     CashfreePayoutRow:
       type: object

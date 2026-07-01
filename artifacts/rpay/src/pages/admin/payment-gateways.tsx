@@ -133,7 +133,7 @@ function CashfreePayoutCard({ onConfigure }: { onConfigure: () => void }) {
             <Settings2 className="w-3 h-3 mr-1.5" />Configure
           </Button>
           <Button size="sm" variant="ghost" className="h-7 text-xs px-2" asChild>
-            <Link href="/admin/cashfree-payout">
+            <Link href="/admin/payout-gateway">
               <ExternalLink className="w-3 h-3" />
             </Link>
           </Button>
@@ -543,7 +543,7 @@ function CashfreePayoutPanel() {
         </div>
       </div>
       <Button asChild>
-        <Link href="/admin/cashfree-payout">
+        <Link href="/admin/payout-gateway">
           Open Full Configuration <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
         </Link>
       </Button>

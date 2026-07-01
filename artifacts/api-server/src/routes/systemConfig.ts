@@ -1228,6 +1228,7 @@ async function getCashfreePayoutConfig() {
     SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MIN_LIMIT,
     SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MAX_LIMIT,
     SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_DAILY_LIMIT,
+    SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_BULK_ENABLED,
   ];
   const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
   const map = new Map(rows.map((r) => [r.key, r.value]));
@@ -1252,6 +1253,7 @@ async function getCashfreePayoutConfig() {
     baseUrl: map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_BASE_URL) ?? "",
     apiVersion: map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_API_VERSION) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_API_VERSION],
     merchantEnabled: (map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MERCHANT_ENABLED) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MERCHANT_ENABLED]) !== "false",
+    bulkEnabled: (map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_BULK_ENABLED) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_BULK_ENABLED]) !== "false",
     adminApprovalRequired: (map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ADMIN_APPROVAL_REQUIRED) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ADMIN_APPROVAL_REQUIRED]) !== "false",
     minLimit: parseFloat(map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MIN_LIMIT) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MIN_LIMIT]),
     maxLimit: parseFloat(map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MAX_LIMIT) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MAX_LIMIT]),
@@ -1273,13 +1275,13 @@ router.put("/cashfree-payout", async (req, res, next) => {
     const {
       clientId, clientSecret, fundsourceId, webhookSecret,
       enabled, env, baseUrl, apiVersion,
-      merchantEnabled, adminApprovalRequired,
+      merchantEnabled, bulkEnabled, adminApprovalRequired,
       minLimit, maxLimit, dailyLimit,
     } = req.body as {
       clientId?: string; clientSecret?: string; fundsourceId?: string; webhookSecret?: string;
       enabled?: boolean; env?: "test" | "live";
       baseUrl?: string; apiVersion?: string;
-      merchantEnabled?: boolean; adminApprovalRequired?: boolean;
+      merchantEnabled?: boolean; bulkEnabled?: boolean; adminApprovalRequired?: boolean;
       minLimit?: number; maxLimit?: number; dailyLimit?: number;
     };
 
@@ -1306,6 +1308,7 @@ router.put("/cashfree-payout", async (req, res, next) => {
     if (baseUrl !== undefined) await upsertOrDelete(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_BASE_URL, baseUrl);
     if (apiVersion !== undefined && apiVersion !== "") await upsert(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_API_VERSION, apiVersion);
     if (merchantEnabled !== undefined) await upsert(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MERCHANT_ENABLED, merchantEnabled ? "true" : "false");
+    if (bulkEnabled !== undefined) await upsert(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_BULK_ENABLED, bulkEnabled ? "true" : "false");
     if (adminApprovalRequired !== undefined) await upsert(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ADMIN_APPROVAL_REQUIRED, adminApprovalRequired ? "true" : "false");
     if (minLimit !== undefined) await upsert(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MIN_LIMIT, String(minLimit));
     if (maxLimit !== undefined) await upsert(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_MAX_LIMIT, String(maxLimit));

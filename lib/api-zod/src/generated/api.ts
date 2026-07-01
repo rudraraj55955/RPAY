@@ -7003,8 +7003,17 @@ export const GetCashfreePayoutConfigResponse = zod.object({
   "clientIdSet": zod.boolean(),
   "clientIdMasked": zod.string(),
   "clientSecretSet": zod.boolean(),
+  "fundsourceIdSet": zod.boolean(),
+  "fundsourceIdMasked": zod.string(),
+  "webhookSecretSet": zod.boolean(),
   "enabled": zod.boolean(),
-  "env": zod.enum(['test', 'live'])
+  "env": zod.enum(['test', 'live']),
+  "merchantEnabled": zod.boolean(),
+  "bulkEnabled": zod.boolean(),
+  "adminApprovalRequired": zod.boolean(),
+  "minLimit": zod.number(),
+  "maxLimit": zod.number(),
+  "dailyLimit": zod.number()
 })
 
 
@@ -7014,16 +7023,33 @@ export const GetCashfreePayoutConfigResponse = zod.object({
 export const UpdateCashfreePayoutConfigBody = zod.object({
   "clientId": zod.string().optional(),
   "clientSecret": zod.string().optional().describe('Pass empty string to remove'),
+  "fundsourceId": zod.string().optional().describe('Pass empty string to remove'),
+  "webhookSecret": zod.string().optional().describe('Pass empty string to remove'),
   "enabled": zod.boolean().optional(),
-  "env": zod.enum(['test', 'live']).optional()
+  "env": zod.enum(['test', 'live']).optional(),
+  "merchantEnabled": zod.boolean().optional(),
+  "bulkEnabled": zod.boolean().optional(),
+  "adminApprovalRequired": zod.boolean().optional(),
+  "minLimit": zod.number().optional(),
+  "maxLimit": zod.number().optional(),
+  "dailyLimit": zod.number().optional()
 })
 
 export const UpdateCashfreePayoutConfigResponse = zod.object({
   "clientIdSet": zod.boolean(),
   "clientIdMasked": zod.string(),
   "clientSecretSet": zod.boolean(),
+  "fundsourceIdSet": zod.boolean(),
+  "fundsourceIdMasked": zod.string(),
+  "webhookSecretSet": zod.boolean(),
   "enabled": zod.boolean(),
-  "env": zod.enum(['test', 'live'])
+  "env": zod.enum(['test', 'live']),
+  "merchantEnabled": zod.boolean(),
+  "bulkEnabled": zod.boolean(),
+  "adminApprovalRequired": zod.boolean(),
+  "minLimit": zod.number(),
+  "maxLimit": zod.number(),
+  "dailyLimit": zod.number()
 })
 
 

@@ -282,6 +282,11 @@ function Router() {
       <Route path="/admin/support-tickets"><AdminRoute component={AdminSupportTickets} /></Route>
       <Route path="/admin/support"><AdminRoute component={AdminSupportTickets} /></Route>
 
+      {/* Legacy/broken payout routes — redirect to canonical page */}
+      <Route path="/admin/cashfree-payout"><Redirect to="/admin/payout-gateway" /></Route>
+      <Route path="/admin/payout-settings"><Redirect to="/admin/payout-gateway" /></Route>
+      <Route path="/admin/cas"><Redirect to="/admin/payout-gateway" /></Route>
+
 
       {/* Merchant Routes */}
       <Route path="/merchant/dashboard"><MerchantRoute component={MerchantDashboard} /></Route>

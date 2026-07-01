@@ -1365,11 +1365,12 @@ router.post("/cashfree-payout/test-connection", async (req, res, next) => {
     const clientIdTrimmed = clientId.trim();
     const result = await testPayoutConnection(clientIdTrimmed, decrypted.value, env);
 
-    // Admin-only safe debug log — never logs full clientId, secret, token, or raw response
+    // Admin-only safe debug log — full provider context, secrets masked
     req.log.info({
       ok: result.ok,
       safeReason: result.safeReason,
       env,
+      baseUrl: env === "live" ? "https://api.cashfree.com/payout/v2" : "https://sandbox.cashfree.com/payout/v2",
       providerHttpStatus: result._httpStatus,
       providerStatus: result._providerStatus,
       hasToken: result._hasToken,

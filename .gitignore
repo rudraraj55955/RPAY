@@ -53,3 +53,8 @@ Thumbs.db
 
 # GitHub Actions (Replit OAuth lacks workflow scope)
 .github/workflows/
+
+# Database backups — never commit dumps to VCS
+backups/
+*.dump
+*.sql.gz

@@ -20,6 +20,7 @@ import {
   isPayoutCredentialError,
   type CashfreePayoutEnv,
 } from "../helpers/cashfreePayout";
+import { decryptSecret } from "../helpers/cryptoUtils";
 import { mutateWallet, ensureWallet } from "./wallets";
 
 const router = Router();
@@ -43,9 +44,12 @@ async function getPayoutConfig() {
   ];
   const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
   const cfg = new Map(rows.map(r => [r.key, r.value]));
+  const rawSecret = cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET) ?? "";
+  const decrypted = decryptSecret(rawSecret);
   return {
     clientId: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_ID) ?? "",
-    clientSecret: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET) ?? "",
+    clientSecret: decrypted.ok ? decrypted.value : "",
+    clientSecretDecryptOk: decrypted.ok,
     env: (cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENV) ?? "test") as CashfreePayoutEnv,
     enabled: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENABLED) === "true",
     fundsourceId: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_FUNDSOURCE_ID) ?? "",

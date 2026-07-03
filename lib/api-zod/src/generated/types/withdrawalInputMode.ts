@@ -7,12 +7,12 @@
  */
 
 /**
- * Payout mode (alias: mode)
+ * Alias for payoutMode
  */
-export type WithdrawalInputPayoutMode = typeof WithdrawalInputPayoutMode[keyof typeof WithdrawalInputPayoutMode];
+export type WithdrawalInputMode = typeof WithdrawalInputMode[keyof typeof WithdrawalInputMode];
 
 
-export const WithdrawalInputPayoutMode = {
+export const WithdrawalInputMode = {
   IMPS: 'IMPS',
   NEFT: 'NEFT',
   RTGS: 'RTGS',

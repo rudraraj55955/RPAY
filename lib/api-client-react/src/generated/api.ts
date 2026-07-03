@@ -195,6 +195,7 @@ import type {
   ListMySecurityActivityParams,
   ListNotificationsParams,
   ListPaymentLinksParams,
+  ListPayoutBeneficiariesParams,
   ListPlanHistoryParams,
   ListProductVisibilityParams,
   ListProvidersAdminParams,
@@ -248,6 +249,9 @@ import type {
   PaymentLinkInput,
   PaymentLinkListResponse,
   PaymentLinkUpdateInput,
+  PayoutBeneficiary,
+  PayoutBeneficiaryInput,
+  PayoutBeneficiaryListResponse,
   Plan,
   PlanActionInput,
   PlanHistory,
@@ -7188,6 +7192,443 @@ export const useRetryWithdrawal = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRetryWithdrawalMutationOptions(options));
+    }
+
+export const getListPayoutBeneficiariesUrl = (params?: ListPayoutBeneficiariesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/payout-beneficiaries?${stringifiedParams}` : `/api/payout-beneficiaries`
+}
+
+/**
+ * @summary List saved payout beneficiaries (merchant sees own, admin sees all)
+ */
+export const listPayoutBeneficiaries = async (params?: ListPayoutBeneficiariesParams, options?: RequestInit): Promise<PayoutBeneficiaryListResponse> => {
+
+  return customFetch<PayoutBeneficiaryListResponse>(getListPayoutBeneficiariesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPayoutBeneficiariesQueryKey = (params?: ListPayoutBeneficiariesParams,) => {
+    return [
+    `/api/payout-beneficiaries`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPayoutBeneficiariesQueryOptions = <TData = Awaited<ReturnType<typeof listPayoutBeneficiaries>>, TError = ErrorType<unknown>>(params?: ListPayoutBeneficiariesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPayoutBeneficiaries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPayoutBeneficiariesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPayoutBeneficiaries>>> = ({ signal }) => listPayoutBeneficiaries(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPayoutBeneficiaries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPayoutBeneficiariesQueryResult = NonNullable<Awaited<ReturnType<typeof listPayoutBeneficiaries>>>
+export type ListPayoutBeneficiariesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List saved payout beneficiaries (merchant sees own, admin sees all)
+ */
+
+export function useListPayoutBeneficiaries<TData = Awaited<ReturnType<typeof listPayoutBeneficiaries>>, TError = ErrorType<unknown>>(
+ params?: ListPayoutBeneficiariesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPayoutBeneficiaries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPayoutBeneficiariesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreatePayoutBeneficiaryUrl = () => {
+
+
+
+
+  return `/api/payout-beneficiaries`
+}
+
+/**
+ * @summary Save a new payout beneficiary (registers with the payout provider)
+ */
+export const createPayoutBeneficiary = async (payoutBeneficiaryInput: PayoutBeneficiaryInput, options?: RequestInit): Promise<PayoutBeneficiary> => {
+
+  return customFetch<PayoutBeneficiary>(getCreatePayoutBeneficiaryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      payoutBeneficiaryInput,)
+  }
+);}
+
+
+
+
+export const getCreatePayoutBeneficiaryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPayoutBeneficiary>>, TError,{data: BodyType<PayoutBeneficiaryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPayoutBeneficiary>>, TError,{data: BodyType<PayoutBeneficiaryInput>}, TContext> => {
+
+const mutationKey = ['createPayoutBeneficiary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPayoutBeneficiary>>, {data: BodyType<PayoutBeneficiaryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPayoutBeneficiary(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePayoutBeneficiaryMutationResult = NonNullable<Awaited<ReturnType<typeof createPayoutBeneficiary>>>
+    export type CreatePayoutBeneficiaryMutationBody = BodyType<PayoutBeneficiaryInput>
+    export type CreatePayoutBeneficiaryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save a new payout beneficiary (registers with the payout provider)
+ */
+export const useCreatePayoutBeneficiary = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPayoutBeneficiary>>, TError,{data: BodyType<PayoutBeneficiaryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPayoutBeneficiary>>,
+        TError,
+        {data: BodyType<PayoutBeneficiaryInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePayoutBeneficiaryMutationOptions(options));
+    }
+
+export const getUpdatePayoutBeneficiaryUrl = (id: number,) => {
+
+
+
+
+  return `/api/payout-beneficiaries/${id}`
+}
+
+/**
+ * @summary Edit a saved beneficiary (only allowed if never used in a successful payout)
+ */
+export const updatePayoutBeneficiary = async (id: number,
+    payoutBeneficiaryInput: PayoutBeneficiaryInput, options?: RequestInit): Promise<PayoutBeneficiary> => {
+
+  return customFetch<PayoutBeneficiary>(getUpdatePayoutBeneficiaryUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      payoutBeneficiaryInput,)
+  }
+);}
+
+
+
+
+export const getUpdatePayoutBeneficiaryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePayoutBeneficiary>>, TError,{id: number;data: BodyType<PayoutBeneficiaryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePayoutBeneficiary>>, TError,{id: number;data: BodyType<PayoutBeneficiaryInput>}, TContext> => {
+
+const mutationKey = ['updatePayoutBeneficiary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePayoutBeneficiary>>, {id: number;data: BodyType<PayoutBeneficiaryInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePayoutBeneficiary(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePayoutBeneficiaryMutationResult = NonNullable<Awaited<ReturnType<typeof updatePayoutBeneficiary>>>
+    export type UpdatePayoutBeneficiaryMutationBody = BodyType<PayoutBeneficiaryInput>
+    export type UpdatePayoutBeneficiaryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Edit a saved beneficiary (only allowed if never used in a successful payout)
+ */
+export const useUpdatePayoutBeneficiary = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePayoutBeneficiary>>, TError,{id: number;data: BodyType<PayoutBeneficiaryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePayoutBeneficiary>>,
+        TError,
+        {id: number;data: BodyType<PayoutBeneficiaryInput>},
+        TContext
+      > => {
+      return useMutation(getUpdatePayoutBeneficiaryMutationOptions(options));
+    }
+
+export const getDisablePayoutBeneficiaryUrl = (id: number,) => {
+
+
+
+
+  return `/api/payout-beneficiaries/${id}/disable`
+}
+
+/**
+ * @summary Disable a saved beneficiary so it can no longer be selected for new payouts
+ */
+export const disablePayoutBeneficiary = async (id: number, options?: RequestInit): Promise<PayoutBeneficiary> => {
+
+  return customFetch<PayoutBeneficiary>(getDisablePayoutBeneficiaryUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getDisablePayoutBeneficiaryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disablePayoutBeneficiary>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof disablePayoutBeneficiary>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['disablePayoutBeneficiary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disablePayoutBeneficiary>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  disablePayoutBeneficiary(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DisablePayoutBeneficiaryMutationResult = NonNullable<Awaited<ReturnType<typeof disablePayoutBeneficiary>>>
+
+    export type DisablePayoutBeneficiaryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Disable a saved beneficiary so it can no longer be selected for new payouts
+ */
+export const useDisablePayoutBeneficiary = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disablePayoutBeneficiary>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof disablePayoutBeneficiary>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDisablePayoutBeneficiaryMutationOptions(options));
+    }
+
+export const getEnablePayoutBeneficiaryUrl = (id: number,) => {
+
+
+
+
+  return `/api/payout-beneficiaries/${id}/enable`
+}
+
+/**
+ * @summary Re-enable a disabled beneficiary
+ */
+export const enablePayoutBeneficiary = async (id: number, options?: RequestInit): Promise<PayoutBeneficiary> => {
+
+  return customFetch<PayoutBeneficiary>(getEnablePayoutBeneficiaryUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getEnablePayoutBeneficiaryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enablePayoutBeneficiary>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enablePayoutBeneficiary>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['enablePayoutBeneficiary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enablePayoutBeneficiary>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  enablePayoutBeneficiary(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnablePayoutBeneficiaryMutationResult = NonNullable<Awaited<ReturnType<typeof enablePayoutBeneficiary>>>
+
+    export type EnablePayoutBeneficiaryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Re-enable a disabled beneficiary
+ */
+export const useEnablePayoutBeneficiary = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enablePayoutBeneficiary>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enablePayoutBeneficiary>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getEnablePayoutBeneficiaryMutationOptions(options));
+    }
+
+export const getRetryPayoutBeneficiaryProviderUrl = (id: number,) => {
+
+
+
+
+  return `/api/payout-beneficiaries/${id}/retry-provider`
+}
+
+/**
+ * @summary Retry provider registration for a beneficiary that failed to register (admin only)
+ */
+export const retryPayoutBeneficiaryProvider = async (id: number, options?: RequestInit): Promise<PayoutBeneficiary> => {
+
+  return customFetch<PayoutBeneficiary>(getRetryPayoutBeneficiaryProviderUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRetryPayoutBeneficiaryProviderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryPayoutBeneficiaryProvider>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryPayoutBeneficiaryProvider>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['retryPayoutBeneficiaryProvider'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryPayoutBeneficiaryProvider>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  retryPayoutBeneficiaryProvider(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryPayoutBeneficiaryProviderMutationResult = NonNullable<Awaited<ReturnType<typeof retryPayoutBeneficiaryProvider>>>
+
+    export type RetryPayoutBeneficiaryProviderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Retry provider registration for a beneficiary that failed to register (admin only)
+ */
+export const useRetryPayoutBeneficiaryProvider = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryPayoutBeneficiaryProvider>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryPayoutBeneficiaryProvider>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRetryPayoutBeneficiaryProviderMutationOptions(options));
     }
 
 export const getListApiKeysUrl = () => {

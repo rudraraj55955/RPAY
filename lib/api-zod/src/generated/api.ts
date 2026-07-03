@@ -2731,6 +2731,7 @@ export const ListWithdrawalsResponse = zod.object({
   "bankName": zod.string(),
   "ifscCode": zod.string(),
   "accountHolder": zod.string(),
+  "beneficiaryId": zod.number().nullish().describe('Saved beneficiary used for this payout (never exposes provider IDs)'),
   "rejectionReason": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
@@ -2758,11 +2759,13 @@ export const ListWithdrawalsResponse = zod.object({
  */
 export const CreateWithdrawalBody = zod.object({
   "amount": zod.number(),
-  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']).optional(),
-  "bankAccount": zod.string().optional(),
+  "beneficiaryId": zod.number().optional().describe('Use a saved beneficiary instead of raw bank\/UPI fields below'),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']).optional().describe('Payout mode (alias: mode)'),
+  "mode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']).optional().describe('Alias for payoutMode'),
+  "accountNumber": zod.string().optional().describe('Bank account number (alias: bankAccount, account_number)'),
   "bankName": zod.string().optional(),
   "ifscCode": zod.string().optional(),
-  "accountHolder": zod.string().optional(),
+  "accountHolderName": zod.string().optional().describe('Account holder name (alias: accountHolder, account_holder_name)'),
   "upiId": zod.string().optional(),
   "remarks": zod.string().optional()
 })
@@ -2792,6 +2795,7 @@ export const ApproveWithdrawalResponse = zod.object({
   "bankName": zod.string(),
   "ifscCode": zod.string(),
   "accountHolder": zod.string(),
+  "beneficiaryId": zod.number().nullish().describe('Saved beneficiary used for this payout (never exposes provider IDs)'),
   "rejectionReason": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
@@ -2828,6 +2832,7 @@ export const RejectWithdrawalResponse = zod.object({
   "bankName": zod.string(),
   "ifscCode": zod.string(),
   "accountHolder": zod.string(),
+  "beneficiaryId": zod.number().nullish().describe('Saved beneficiary used for this payout (never exposes provider IDs)'),
   "rejectionReason": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
@@ -2860,6 +2865,7 @@ export const RefreshWithdrawalStatusResponse = zod.object({
   "bankName": zod.string(),
   "ifscCode": zod.string(),
   "accountHolder": zod.string(),
+  "beneficiaryId": zod.number().nullish().describe('Saved beneficiary used for this payout (never exposes provider IDs)'),
   "rejectionReason": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
@@ -2892,11 +2898,173 @@ export const RetryWithdrawalResponse = zod.object({
   "bankName": zod.string(),
   "ifscCode": zod.string(),
   "accountHolder": zod.string(),
+  "beneficiaryId": zod.number().nullish().describe('Saved beneficiary used for this payout (never exposes provider IDs)'),
   "rejectionReason": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary List saved payout beneficiaries (merchant sees own, admin sees all)
+ */
+export const ListPayoutBeneficiariesQueryParams = zod.object({
+  "merchantId": zod.coerce.number().optional()
+})
+
+export const ListPayoutBeneficiariesResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "bankName": zod.string().nullish(),
+  "bankAccountLast4": zod.string().nullish().describe('Last 4 digits of bank account only — full number never exposed'),
+  "ifscCode": zod.string().nullish(),
+  "accountHolder": zod.string().nullish(),
+  "upiIdMasked": zod.string().nullish().describe('Masked UPI VPA (e.g. me\*\*\*@upi) — raw VPA is not re-exposed after creation'),
+  "localStatus": zod.enum(['active', 'disabled']),
+  "providerStatus": zod.enum(['not_created', 'created', 'failed']),
+  "lastProviderError": zod.string().nullish().describe('Safe, admin-facing error message only — never raw provider response'),
+  "usedInSuccessfulPayout": zod.boolean().optional().describe('True once a SUCCESS withdrawal has used this beneficiary — blocks direct edits'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Save a new payout beneficiary (registers with the payout provider)
+ */
+export const CreatePayoutBeneficiaryBody = zod.object({
+  "label": zod.string().optional(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "accountNumber": zod.string().optional(),
+  "bankName": zod.string().optional(),
+  "ifscCode": zod.string().optional(),
+  "accountHolderName": zod.string().optional(),
+  "upiId": zod.string().optional()
+})
+
+
+/**
+ * @summary Edit a saved beneficiary (only allowed if never used in a successful payout)
+ */
+export const UpdatePayoutBeneficiaryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdatePayoutBeneficiaryBody = zod.object({
+  "label": zod.string().optional(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "accountNumber": zod.string().optional(),
+  "bankName": zod.string().optional(),
+  "ifscCode": zod.string().optional(),
+  "accountHolderName": zod.string().optional(),
+  "upiId": zod.string().optional()
+})
+
+export const UpdatePayoutBeneficiaryResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "bankName": zod.string().nullish(),
+  "bankAccountLast4": zod.string().nullish().describe('Last 4 digits of bank account only — full number never exposed'),
+  "ifscCode": zod.string().nullish(),
+  "accountHolder": zod.string().nullish(),
+  "upiIdMasked": zod.string().nullish().describe('Masked UPI VPA (e.g. me\*\*\*@upi) — raw VPA is not re-exposed after creation'),
+  "localStatus": zod.enum(['active', 'disabled']),
+  "providerStatus": zod.enum(['not_created', 'created', 'failed']),
+  "lastProviderError": zod.string().nullish().describe('Safe, admin-facing error message only — never raw provider response'),
+  "usedInSuccessfulPayout": zod.boolean().optional().describe('True once a SUCCESS withdrawal has used this beneficiary — blocks direct edits'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Disable a saved beneficiary so it can no longer be selected for new payouts
+ */
+export const DisablePayoutBeneficiaryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DisablePayoutBeneficiaryResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "bankName": zod.string().nullish(),
+  "bankAccountLast4": zod.string().nullish().describe('Last 4 digits of bank account only — full number never exposed'),
+  "ifscCode": zod.string().nullish(),
+  "accountHolder": zod.string().nullish(),
+  "upiIdMasked": zod.string().nullish().describe('Masked UPI VPA (e.g. me\*\*\*@upi) — raw VPA is not re-exposed after creation'),
+  "localStatus": zod.enum(['active', 'disabled']),
+  "providerStatus": zod.enum(['not_created', 'created', 'failed']),
+  "lastProviderError": zod.string().nullish().describe('Safe, admin-facing error message only — never raw provider response'),
+  "usedInSuccessfulPayout": zod.boolean().optional().describe('True once a SUCCESS withdrawal has used this beneficiary — blocks direct edits'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Re-enable a disabled beneficiary
+ */
+export const EnablePayoutBeneficiaryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const EnablePayoutBeneficiaryResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "bankName": zod.string().nullish(),
+  "bankAccountLast4": zod.string().nullish().describe('Last 4 digits of bank account only — full number never exposed'),
+  "ifscCode": zod.string().nullish(),
+  "accountHolder": zod.string().nullish(),
+  "upiIdMasked": zod.string().nullish().describe('Masked UPI VPA (e.g. me\*\*\*@upi) — raw VPA is not re-exposed after creation'),
+  "localStatus": zod.enum(['active', 'disabled']),
+  "providerStatus": zod.enum(['not_created', 'created', 'failed']),
+  "lastProviderError": zod.string().nullish().describe('Safe, admin-facing error message only — never raw provider response'),
+  "usedInSuccessfulPayout": zod.boolean().optional().describe('True once a SUCCESS withdrawal has used this beneficiary — blocks direct edits'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Retry provider registration for a beneficiary that failed to register (admin only)
+ */
+export const RetryPayoutBeneficiaryProviderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RetryPayoutBeneficiaryProviderResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "merchantName": zod.string().nullish(),
+  "label": zod.string().nullish(),
+  "payoutMode": zod.enum(['IMPS', 'NEFT', 'RTGS', 'UPI']),
+  "bankName": zod.string().nullish(),
+  "bankAccountLast4": zod.string().nullish().describe('Last 4 digits of bank account only — full number never exposed'),
+  "ifscCode": zod.string().nullish(),
+  "accountHolder": zod.string().nullish(),
+  "upiIdMasked": zod.string().nullish().describe('Masked UPI VPA (e.g. me\*\*\*@upi) — raw VPA is not re-exposed after creation'),
+  "localStatus": zod.enum(['active', 'disabled']),
+  "providerStatus": zod.enum(['not_created', 'created', 'failed']),
+  "lastProviderError": zod.string().nullish().describe('Safe, admin-facing error message only — never raw provider response'),
+  "usedInSuccessfulPayout": zod.boolean().optional().describe('True once a SUCCESS withdrawal has used this beneficiary — blocks direct edits'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
 })
 
 

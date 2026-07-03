@@ -1153,6 +1153,11 @@ export interface Withdrawal {
   bankName: string;
   ifscCode: string;
   accountHolder: string;
+  /**
+     * Saved beneficiary used for this payout (never exposes provider IDs)
+     * @nullable
+     */
+  beneficiaryId?: number | null;
   /** @nullable */
   rejectionReason?: string | null;
   /** @nullable */
@@ -1163,6 +1168,9 @@ export interface Withdrawal {
   updatedAt?: string;
 }
 
+/**
+ * Payout mode (alias: mode)
+ */
 export type WithdrawalInputPayoutMode = typeof WithdrawalInputPayoutMode[keyof typeof WithdrawalInputPayoutMode];
 
 
@@ -1173,12 +1181,27 @@ export const WithdrawalInputPayoutMode = {
   UPI: 'UPI',
 } as const;
 
+/**
+ * Alias for payoutMode
+ */
+export type WithdrawalInputMode = typeof WithdrawalInputMode[keyof typeof WithdrawalInputMode];
+
+
+export const WithdrawalInputMode = {
+  IMPS: 'IMPS',
+  NEFT: 'NEFT',
+  RTGS: 'RTGS',
+  UPI: 'UPI',
+} as const;
+
 export interface WithdrawalInput {
   amount: number;
+  /** Use a saved beneficiary instead of raw bank/UPI fields below */
+  beneficiaryId?: number;
   /** Payout mode (alias: mode) */
   payoutMode?: WithdrawalInputPayoutMode;
   /** Alias for payoutMode */
-  mode?: WithdrawalInputPayoutMode;
+  mode?: WithdrawalInputMode;
   /** Bank account number (alias: bankAccount, account_number) */
   accountNumber?: string;
   bankName?: string;
@@ -1187,6 +1210,94 @@ export interface WithdrawalInput {
   accountHolderName?: string;
   upiId?: string;
   remarks?: string;
+}
+
+export type PayoutBeneficiaryPayoutMode = typeof PayoutBeneficiaryPayoutMode[keyof typeof PayoutBeneficiaryPayoutMode];
+
+
+export const PayoutBeneficiaryPayoutMode = {
+  IMPS: 'IMPS',
+  NEFT: 'NEFT',
+  RTGS: 'RTGS',
+  UPI: 'UPI',
+} as const;
+
+export type PayoutBeneficiaryLocalStatus = typeof PayoutBeneficiaryLocalStatus[keyof typeof PayoutBeneficiaryLocalStatus];
+
+
+export const PayoutBeneficiaryLocalStatus = {
+  active: 'active',
+  disabled: 'disabled',
+} as const;
+
+export type PayoutBeneficiaryProviderStatus = typeof PayoutBeneficiaryProviderStatus[keyof typeof PayoutBeneficiaryProviderStatus];
+
+
+export const PayoutBeneficiaryProviderStatus = {
+  not_created: 'not_created',
+  created: 'created',
+  failed: 'failed',
+} as const;
+
+export interface PayoutBeneficiary {
+  id: number;
+  merchantId: number;
+  /** @nullable */
+  merchantName?: string | null;
+  /** @nullable */
+  label?: string | null;
+  payoutMode: PayoutBeneficiaryPayoutMode;
+  /** @nullable */
+  bankName?: string | null;
+  /**
+     * Last 4 digits of bank account only — full number never exposed
+     * @nullable
+     */
+  bankAccountLast4?: string | null;
+  /** @nullable */
+  ifscCode?: string | null;
+  /** @nullable */
+  accountHolder?: string | null;
+  /**
+     * Masked UPI VPA (e.g. me***@upi) — raw VPA is not re-exposed after creation
+     * @nullable
+     */
+  upiIdMasked?: string | null;
+  localStatus: PayoutBeneficiaryLocalStatus;
+  providerStatus: PayoutBeneficiaryProviderStatus;
+  /**
+     * Safe, admin-facing error message only — never raw provider response
+     * @nullable
+     */
+  lastProviderError?: string | null;
+  /** True once a SUCCESS withdrawal has used this beneficiary — blocks direct edits */
+  usedInSuccessfulPayout?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayoutBeneficiaryListResponse {
+  data: PayoutBeneficiary[];
+}
+
+export type PayoutBeneficiaryInputPayoutMode = typeof PayoutBeneficiaryInputPayoutMode[keyof typeof PayoutBeneficiaryInputPayoutMode];
+
+
+export const PayoutBeneficiaryInputPayoutMode = {
+  IMPS: 'IMPS',
+  NEFT: 'NEFT',
+  RTGS: 'RTGS',
+  UPI: 'UPI',
+} as const;
+
+export interface PayoutBeneficiaryInput {
+  label?: string;
+  payoutMode: PayoutBeneficiaryInputPayoutMode;
+  accountNumber?: string;
+  bankName?: string;
+  ifscCode?: string;
+  accountHolderName?: string;
+  upiId?: string;
 }
 
 export type WithdrawalListResponseStats = {
@@ -4006,8 +4117,6 @@ export interface CashfreePayoutConfig {
   webhookSecretSet: boolean;
   enabled: boolean;
   env: CashfreePayoutConfigEnv;
-  baseUrl: string;
-  apiVersion: string;
   merchantEnabled: boolean;
   bulkEnabled: boolean;
   adminApprovalRequired: boolean;
@@ -4034,8 +4143,6 @@ export interface CashfreePayoutConfigInput {
   webhookSecret?: string;
   enabled?: boolean;
   env?: CashfreePayoutConfigInputEnv;
-  baseUrl?: string;
-  apiVersion?: string;
   merchantEnabled?: boolean;
   bulkEnabled?: boolean;
   adminApprovalRequired?: boolean;
@@ -5571,6 +5678,10 @@ export const ListWithdrawalsStatus = {
   rejected: 'rejected',
   all: 'all',
 } as const;
+
+export type ListPayoutBeneficiariesParams = {
+merchantId?: number;
+};
 
 export type ListApiKeyHistoryParams = {
 /**

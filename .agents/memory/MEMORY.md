@@ -11,3 +11,5 @@
 - [Approve-flow stranded INITIATED](approve-flow-stranded.md) — if payout provider is disabled or creds missing at approve time, set transferStatus=FAILED immediately; never leave approved/INITIATED with no dispatch path.
 - [Cashfree Payouts V2 base URL](cashfree-payout-v2-url.md) — no `/v2` in URL path; v2 selected via `x-api-version` header only, or transfers fail with misleading "Token is not valid".
 - [Cashfree Payouts V2 beneficiary lifecycle](cashfree-payout-beneficiary-flow.md) — beneficiary must be created/reused at approve/retry time (no separate bank-details step); never throw, log safe fields only.
+- [OpenAPI YAML unquoted colon](openapi-yaml-colon-in-description.md) — unquoted ": " in a description breaks orval with a misleading "Failed to resolve input"; validate with js-yaml to find the real line.
+- [Silent 404 from unmounted router](unmounted-router-typecheck-passes.md) — a route file can be imported, fully typechecked, and fully unit-correct yet still 404 if `router.use(path, router)` is missing in routes/index.ts; typecheck never catches this, only an actual HTTP call does.

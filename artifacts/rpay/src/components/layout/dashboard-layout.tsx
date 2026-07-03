@@ -335,6 +335,7 @@ const ADMIN_NAV = [
     items: [
       { title: "Deposits", icon: ArrowDownLeft, href: "/admin/deposits" },
       { title: "Payouts", icon: Landmark, href: "/admin/payouts" },
+      { title: "Payout Beneficiaries", icon: BadgeCheck, href: "/admin/payout-beneficiaries" },
       { title: "Settlements", icon: FileText, href: "/admin/settlements" },
       { title: "Transactions", icon: ArrowRightLeft, href: "/admin/transactions" },
       { title: "Balance Ledger", icon: BookMarked, href: "/admin/ledger" },

@@ -2890,6 +2890,123 @@ paths:
               schema:
                 $ref: "#/components/schemas/Withdrawal"
 
+  /payout-beneficiaries:
+    get:
+      operationId: listPayoutBeneficiaries
+      tags: [payout-beneficiaries]
+      summary: List saved payout beneficiaries (merchant sees own, admin sees all)
+      parameters:
+        - name: merchantId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of saved beneficiaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutBeneficiaryListResponse"
+    post:
+      operationId: createPayoutBeneficiary
+      tags: [payout-beneficiaries]
+      summary: Save a new payout beneficiary (registers with the payout provider)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PayoutBeneficiaryInput"
+      responses:
+        "201":
+          description: Beneficiary saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutBeneficiary"
+
+  /payout-beneficiaries/{id}:
+    patch:
+      operationId: updatePayoutBeneficiary
+      tags: [payout-beneficiaries]
+      summary: Edit a saved beneficiary (only allowed if never used in a successful payout)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PayoutBeneficiaryInput"
+      responses:
+        "200":
+          description: Beneficiary updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutBeneficiary"
+
+  /payout-beneficiaries/{id}/disable:
+    post:
+      operationId: disablePayoutBeneficiary
+      tags: [payout-beneficiaries]
+      summary: Disable a saved beneficiary so it can no longer be selected for new payouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Beneficiary disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutBeneficiary"
+
+  /payout-beneficiaries/{id}/enable:
+    post:
+      operationId: enablePayoutBeneficiary
+      tags: [payout-beneficiaries]
+      summary: Re-enable a disabled beneficiary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Beneficiary enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutBeneficiary"
+
+  /payout-beneficiaries/{id}/retry-provider:
+    post:
+      operationId: retryPayoutBeneficiaryProvider
+      tags: [payout-beneficiaries]
+      summary: Retry provider registration for a beneficiary that failed to register (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Retry attempted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutBeneficiary"
+
   /api-keys:
     get:
       operationId: listApiKeys
@@ -10285,6 +10402,9 @@ components:
           type: string
         accountHolder:
           type: string
+        beneficiaryId:
+          type: ["integer", "null"]
+          description: Saved beneficiary used for this payout (never exposes provider IDs)
         rejectionReason:
           type: ["string", "null"]
         approvedAt:
@@ -10302,27 +10422,103 @@ components:
       properties:
         amount:
           type: number
+        beneficiaryId:
+          type: integer
+          description: Use a saved beneficiary instead of raw bank/UPI fields below
         payoutMode:
           type: string
           enum: [IMPS, NEFT, RTGS, UPI]
-          description: Payout mode (alias: mode)
+          description: "Payout mode (alias: mode)"
         mode:
           type: string
           enum: [IMPS, NEFT, RTGS, UPI]
           description: Alias for payoutMode
         accountNumber:
           type: string
-          description: Bank account number (alias: bankAccount, account_number)
+          description: "Bank account number (alias: bankAccount, account_number)"
         bankName:
           type: string
         ifscCode:
           type: string
         accountHolderName:
           type: string
-          description: Account holder name (alias: accountHolder, account_holder_name)
+          description: "Account holder name (alias: accountHolder, account_holder_name)"
         upiId:
           type: string
         remarks:
+          type: string
+
+    PayoutBeneficiary:
+      type: object
+      required: [id, merchantId, payoutMode, localStatus, providerStatus, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        merchantName:
+          type: ["string", "null"]
+        label:
+          type: ["string", "null"]
+        payoutMode:
+          type: string
+          enum: [IMPS, NEFT, RTGS, UPI]
+        bankName:
+          type: ["string", "null"]
+        bankAccountLast4:
+          type: ["string", "null"]
+          description: Last 4 digits of bank account only — full number never exposed
+        ifscCode:
+          type: ["string", "null"]
+        accountHolder:
+          type: ["string", "null"]
+        upiIdMasked:
+          type: ["string", "null"]
+          description: Masked UPI VPA (e.g. me***@upi) — raw VPA is not re-exposed after creation
+        localStatus:
+          type: string
+          enum: [active, disabled]
+        providerStatus:
+          type: string
+          enum: [not_created, created, failed]
+        lastProviderError:
+          type: ["string", "null"]
+          description: Safe, admin-facing error message only — never raw provider response
+        usedInSuccessfulPayout:
+          type: boolean
+          description: True once a SUCCESS withdrawal has used this beneficiary — blocks direct edits
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    PayoutBeneficiaryListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PayoutBeneficiary"
+
+    PayoutBeneficiaryInput:
+      type: object
+      required: [payoutMode]
+      properties:
+        label:
+          type: string
+        payoutMode:
+          type: string
+          enum: [IMPS, NEFT, RTGS, UPI]
+        accountNumber:
+          type: string
+        bankName:
+          type: string
+        ifscCode:
+          type: string
+        accountHolderName:
+          type: string
+        upiId:
           type: string
 
     WithdrawalListResponse:

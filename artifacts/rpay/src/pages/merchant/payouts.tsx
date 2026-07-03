@@ -4,6 +4,8 @@ import {
   useCreateWithdrawal,
   getListWithdrawalsQueryKey,
   useGetMyPlanUsage,
+  useListPayoutBeneficiaries,
+  getListPayoutBeneficiariesQueryKey,
 } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -16,7 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, AlertTriangle, TrendingUp, Wallet, Lock, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Plus, AlertTriangle, TrendingUp, Wallet, Lock, CheckCircle2, Clock, XCircle, RotateCcw, BadgeCheck } from "lucide-react";
 import { Link } from "wouter";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -52,6 +55,8 @@ export default function MerchantPayouts() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
+  const [beneficiaryMode, setBeneficiaryMode] = useState<"saved" | "new">("saved");
+  const [selectedBeneficiaryId, setSelectedBeneficiaryId] = useState<string>("");
   const [form, setForm] = useState({
     amount: "",
     payoutMode: "IMPS",
@@ -69,7 +74,10 @@ export default function MerchantPayouts() {
     queryKey: ["merchant-wallet"],
     queryFn: () => apiGet("/wallets/me"),
   });
+  const { data: beneficiariesData } = useListPayoutBeneficiaries();
   const createMutation = useCreateWithdrawal();
+
+  const activeBeneficiaries = (beneficiariesData?.data ?? []).filter(b => b.localStatus === "active");
 
   const payoutUsed = usage?.payout?.used ?? 0;
   const payoutLimit = usage?.payout?.limit ?? 0;
@@ -80,8 +88,23 @@ export default function MerchantPayouts() {
   const holdBalance: number = wallet?.holdBalance ?? 0;
   const totalPayout: number = wallet?.totalPayout ?? 0;
 
-  const resetForm = () =>
+  const resetForm = () => {
     setForm({ amount: "", payoutMode: "IMPS", accountNumber: "", bankName: "", ifscCode: "", accountHolderName: "", upiId: "", remarks: "" });
+    setBeneficiaryMode(activeBeneficiaries.length > 0 ? "saved" : "new");
+    setSelectedBeneficiaryId("");
+  };
+
+  const beneficiaryLabel = (b: (typeof activeBeneficiaries)[number]) => {
+    const dest = b.payoutMode === "UPI" ? (b.upiIdMasked ?? "UPI") : `${b.bankName ?? "Bank"} ···${b.bankAccountLast4 ?? ""}`;
+    return b.label ? `${b.label} — ${dest}` : dest;
+  };
+
+  const openRepeatPayout = (beneficiaryId: number) => {
+    setForm({ amount: "", payoutMode: "IMPS", accountNumber: "", bankName: "", ifscCode: "", accountHolderName: "", upiId: "", remarks: "" });
+    setBeneficiaryMode("saved");
+    setSelectedBeneficiaryId(String(beneficiaryId));
+    setOpen(true);
+  };
 
   const handleSubmit = () => {
     const amt = parseFloat(form.amount);
@@ -93,27 +116,41 @@ export default function MerchantPayouts() {
       toast.error("Amount exceeds your available balance");
       return;
     }
-    if (form.payoutMode === "UPI") {
-      if (!form.upiId.trim()) { toast.error("UPI ID is required"); return; }
-    } else {
-      if (!form.accountNumber || !form.bankName || !form.ifscCode || !form.accountHolderName) {
-        toast.error("All bank details are required");
+
+    let payload: Record<string, unknown>;
+    if (beneficiaryMode === "saved") {
+      if (!selectedBeneficiaryId) {
+        toast.error("Select a saved beneficiary");
         return;
       }
+      payload = {
+        amount: amt,
+        beneficiaryId: Number(selectedBeneficiaryId),
+        remarks: form.remarks.trim() || undefined,
+      };
+    } else {
+      if (form.payoutMode === "UPI") {
+        if (!form.upiId.trim()) { toast.error("UPI ID is required"); return; }
+      } else {
+        if (!form.accountNumber || !form.bankName || !form.ifscCode || !form.accountHolderName) {
+          toast.error("All bank details are required");
+          return;
+        }
+      }
+      payload = {
+        amount: amt,
+        payoutMode: form.payoutMode as any,
+        accountNumber: form.payoutMode !== "UPI" ? form.accountNumber : undefined,
+        bankName: form.payoutMode !== "UPI" ? form.bankName : undefined,
+        ifscCode: form.payoutMode !== "UPI" ? form.ifscCode : undefined,
+        accountHolderName: form.payoutMode !== "UPI" ? form.accountHolderName : undefined,
+        upiId: form.payoutMode === "UPI" ? form.upiId : undefined,
+        remarks: form.remarks.trim() || undefined,
+      };
     }
+
     createMutation.mutate(
-      {
-        data: {
-          amount: amt,
-          payoutMode: form.payoutMode as any,
-          accountNumber: form.payoutMode !== "UPI" ? form.accountNumber : undefined,
-          bankName: form.payoutMode !== "UPI" ? form.bankName : undefined,
-          ifscCode: form.payoutMode !== "UPI" ? form.ifscCode : undefined,
-          accountHolderName: form.payoutMode !== "UPI" ? form.accountHolderName : undefined,
-          upiId: form.payoutMode === "UPI" ? form.upiId : undefined,
-          remarks: form.remarks.trim() || undefined,
-        },
-      },
+      { data: payload as any },
       {
         onSuccess: () => {
           toast.success("Payout request submitted");
@@ -121,6 +158,7 @@ export default function MerchantPayouts() {
           resetForm();
           qc.invalidateQueries({ queryKey: getListWithdrawalsQueryKey() });
           qc.invalidateQueries({ queryKey: ["merchant-wallet"] });
+          qc.invalidateQueries({ queryKey: getListPayoutBeneficiariesQueryKey() });
         },
         onError: (e: any) => {
           // ApiError (custom-fetch.ts) stores parsed JSON at e.data, not e.response.data
@@ -272,13 +310,14 @@ export default function MerchantPayouts() {
                   <TableHead>Status</TableHead>
                   <TableHead>UTR / Reference</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading
                   ? Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
-                        {Array.from({ length: 6 }).map((_, j) => (
+                        {Array.from({ length: 7 }).map((_, j) => (
                           <TableCell key={j}>
                             <div className="h-4 bg-muted/50 rounded animate-pulse" />
                           </TableCell>
@@ -342,6 +381,21 @@ export default function MerchantPayouts() {
                             <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                               {format(new Date(w.createdAt), "MMM d, yyyy")}
                             </TableCell>
+                            <TableCell className="text-right">
+                              {w.beneficiaryId ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openRepeatPayout(w.beneficiaryId!)}
+                                  title="Repeat this payout with a new request"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                                  Repeat
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
                           </TableRow>
                         );
                       })
@@ -398,6 +452,49 @@ export default function MerchantPayouts() {
                 </p>
               )}
             </div>
+
+            <div>
+              <Label>Beneficiary</Label>
+              {activeBeneficiaries.length > 0 ? (
+                <RadioGroup
+                  value={beneficiaryMode}
+                  onValueChange={v => setBeneficiaryMode(v as "saved" | "new")}
+                  className="mt-1.5 grid grid-cols-2 gap-2"
+                >
+                  <Label className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm font-normal cursor-pointer">
+                    <RadioGroupItem value="saved" />
+                    Saved beneficiary
+                  </Label>
+                  <Label className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm font-normal cursor-pointer">
+                    <RadioGroupItem value="new" />
+                    New beneficiary
+                  </Label>
+                </RadioGroup>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  No saved beneficiaries yet — enter bank/UPI details below to create one.
+                </p>
+              )}
+            </div>
+
+            {beneficiaryMode === "saved" && activeBeneficiaries.length > 0 ? (
+              <div>
+                <Label>Select Saved Beneficiary</Label>
+                <Select value={selectedBeneficiaryId} onValueChange={setSelectedBeneficiaryId}>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Choose a beneficiary..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeBeneficiaries.map(b => (
+                      <SelectItem key={b.id} value={String(b.id)}>
+                        {beneficiaryLabel(b)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+            <>
             <div>
               <Label>Payout Mode</Label>
               <Select value={form.payoutMode} onValueChange={v => setForm(f => ({ ...f, payoutMode: v }))}>
@@ -461,6 +558,8 @@ export default function MerchantPayouts() {
                   />
                 </div>
               </>
+            )}
+            </>
             )}
 
             <div>

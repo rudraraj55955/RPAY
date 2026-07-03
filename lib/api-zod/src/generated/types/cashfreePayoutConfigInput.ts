@@ -17,8 +17,6 @@ export interface CashfreePayoutConfigInput {
   webhookSecret?: string;
   enabled?: boolean;
   env?: CashfreePayoutConfigInputEnv;
-  baseUrl?: string;
-  apiVersion?: string;
   merchantEnabled?: boolean;
   bulkEnabled?: boolean;
   adminApprovalRequired?: boolean;

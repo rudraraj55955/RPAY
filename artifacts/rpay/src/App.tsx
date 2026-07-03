@@ -31,6 +31,7 @@ import AdminTransactions from "@/pages/admin/transactions";
 import AdminMerchants from "@/pages/admin/merchants";
 import AdminWithdrawals from "@/pages/admin/withdrawals";
 import AdminPayouts from "@/pages/admin/payouts";
+import AdminPayoutBeneficiaries from "@/pages/admin/payout-beneficiaries";
 import MerchantPayouts from "@/pages/merchant/payouts";
 import AdminSettlements from "@/pages/admin/settlements";
 import AdminCallbacks from "@/pages/admin/callbacks";
@@ -246,6 +247,7 @@ function Router() {
       <Route path="/admin/transactions"><AdminRoute component={AdminTransactions} /></Route>
       <Route path="/admin/withdrawals"><Redirect to="/admin/payouts" /></Route>
       <Route path="/admin/payouts"><AdminRoute component={AdminPayouts} /></Route>
+      <Route path="/admin/payout-beneficiaries"><AdminRoute component={AdminPayoutBeneficiaries} /></Route>
       <Route path="/admin/settlements"><AdminRoute component={AdminSettlements} /></Route>
       <Route path="/admin/callbacks"><AdminRoute component={AdminCallbacks} /></Route>
       <Route path="/admin/users"><AdminRoute component={AdminUsers} /></Route>

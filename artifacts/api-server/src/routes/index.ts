@@ -5,6 +5,7 @@ import dashboardRouter from "./dashboard";
 import merchantsRouter from "./merchants";
 import transactionsRouter from "./transactions";
 import withdrawalsRouter from "./withdrawals";
+import payoutBeneficiariesRouter from "./payoutBeneficiaries";
 import apiKeysRouter from "./apiKeys";
 import webhooksRouter from "./webhooks";
 import callbacksRouter from "./callbacks";
@@ -57,6 +58,7 @@ router.use("/dashboard", dashboardRouter);
 router.use("/merchants", merchantsRouter);
 router.use("/transactions", transactionsRouter);
 router.use("/withdrawals", withdrawalsRouter);
+router.use("/payout-beneficiaries", payoutBeneficiariesRouter);
 router.use("/api-keys", apiKeysRouter);
 // Public payout webhook alias — must come BEFORE /webhooks (which has global requireAuth)
 router.use("/webhooks/payouts/cashfree", cashfreePayoutWebhookRouter);

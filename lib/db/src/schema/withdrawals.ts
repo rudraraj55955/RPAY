@@ -19,11 +19,15 @@ export const withdrawalsTable = pgTable("withdrawals", {
   payoutMode: text("payout_mode").notNull().default("IMPS"), // IMPS | NEFT | RTGS | UPI
   upiId: text("upi_id"),
   remarks: text("remarks"),
-  // Bank details
+  // Bank details (snapshot at request time, for audit/history — the
+  // authoritative beneficiary lives in payout_beneficiaries)
   bankAccount: text("bank_account").notNull(),
   bankName: text("bank_name").notNull(),
   ifscCode: text("ifsc_code").notNull(),
   accountHolder: text("account_holder").notNull(),
+  // References payoutBeneficiariesTable.id — the saved beneficiary used for
+  // this payout (nullable for legacy rows created before this field existed).
+  beneficiaryId: integer("beneficiary_id"),
   rejectionReason: text("rejection_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

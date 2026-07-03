@@ -31,6 +31,11 @@ export interface Withdrawal {
   bankName: string;
   ifscCode: string;
   accountHolder: string;
+  /**
+     * Saved beneficiary used for this payout (never exposes provider IDs)
+     * @nullable
+     */
+  beneficiaryId?: number | null;
   /** @nullable */
   rejectionReason?: string | null;
   /** @nullable */

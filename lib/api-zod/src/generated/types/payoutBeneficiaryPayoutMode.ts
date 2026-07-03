@@ -6,13 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-/**
- * Payout mode (alias: mode)
- */
-export type WithdrawalInputPayoutMode = typeof WithdrawalInputPayoutMode[keyof typeof WithdrawalInputPayoutMode];
+export type PayoutBeneficiaryPayoutMode = typeof PayoutBeneficiaryPayoutMode[keyof typeof PayoutBeneficiaryPayoutMode];
 
 
-export const WithdrawalInputPayoutMode = {
+export const PayoutBeneficiaryPayoutMode = {
   IMPS: 'IMPS',
   NEFT: 'NEFT',
   RTGS: 'RTGS',

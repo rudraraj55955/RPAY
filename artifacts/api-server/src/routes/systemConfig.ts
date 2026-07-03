@@ -1350,13 +1350,14 @@ router.post("/cashfree-payout/test-connection", async (req, res, next) => {
     const rawSecret = map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_CLIENT_SECRET) ?? "";
     const env = (map.get(SYSTEM_CONFIG_KEYS.CASHFREE_PAYOUT_ENV) ?? "test") as CashfreePayoutEnv;
 
-    // Decrypt the stored client secret
+    // Decrypt the stored client secret — if decryption fails OR the decrypted
+    // value is empty, the saved credential is unusable and must be re-entered.
     const decrypted = decryptSecret(rawSecret);
-    if (!decrypted.ok) {
-      req.log.warn({ safeReason: "decrypt_failed" }, "cashfree_payout_credentials_test: clientSecret decrypt failed");
+    if (!decrypted.ok || !decrypted.value.trim()) {
+      req.log.warn({ safeReason: "decrypt_failed" }, "cashfree_payout_credentials_test: clientSecret decrypt failed or empty");
       res.json({
         ok: false,
-        message: "Saved Client Secret could not be decrypted — please re-enter and save it again",
+        message: "Saved credential decrypt failed or secret empty. Re-enter Client ID and Secret.",
         safeReason: "decrypt_failed",
       });
       return;
@@ -1365,18 +1366,32 @@ router.post("/cashfree-payout/test-connection", async (req, res, next) => {
     const clientIdTrimmed = clientId.trim();
     const result = await testPayoutConnection(clientIdTrimmed, decrypted.value, env);
 
-    // Safe log only — statusCode, subCode, message. NEVER clientSecret or token.
+    // Safe log only — ok, env, url, statusCode, providerStatus, subCode, message.
+    // NEVER log clientSecret, token, raw response, or full headers.
     req.log.info({
       ok: result.ok,
       env,
+      url: result._url,
       statusCode: result._httpStatus,
+      providerStatus: result._providerStatus,
       subCode: result._providerSubCode,
       message: result.message,
     }, "cashfree_payout_credentials_tested");
 
-    // Strip all internal/provider fields before sending to client — never expose
-    // token, raw provider response, or secret. Client only sees ok/message/safeReason.
-    const { _httpStatus: _h, _fetchError: _f, _providerStatus: _p, _hasToken: _t, _providerSubCode: _s, ...clientResult } = result;
+    // Strip all internal/provider-prefixed fields before sending to client — never
+    // expose token, raw provider response, secret, or the authorize URL.
+    // On failure, surface statusCode/subCode/providerMessage for admin diagnosis only.
+    const { _httpStatus, _fetchError: _f, _providerStatus, _hasToken: _t, _providerSubCode, _url: _u, ...clientResult } = result;
+    if (!result.ok) {
+      res.json({
+        ...clientResult,
+        message: "Credential check failed",
+        statusCode: _httpStatus,
+        subCode: _providerSubCode,
+        providerMessage: result.message,
+      });
+      return;
+    }
     res.json(clientResult);
   } catch (err) { next(err); }
 });

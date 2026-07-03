@@ -236,6 +236,8 @@ export type TestPayoutConnectionResult = {
   _hasToken?: boolean;
   /** Provider subCode (e.g. "200", "401") — logged server-side only */
   _providerSubCode?: string;
+  /** Authorize URL that was called — logged server-side only */
+  _url?: string;
 };
 
 /**
@@ -294,7 +296,6 @@ export async function testPayoutConnection(
         "X-Client-Secret": clientSecret,
         "Content-Type": "application/json",
       },
-      body: "{}",
       redirect: "follow",
     });
 
@@ -317,6 +318,7 @@ export async function testPayoutConnection(
       safeReason: "provider_unreachable",
       _httpStatus: 0,
       _fetchError: fetchError,
+      _url: authorizeUrl,
     };
   }
 
@@ -333,10 +335,14 @@ export async function testPayoutConnection(
   ).trim();
 
   // ── SUCCESS ─────────────────────────────────────────────────────────────────
-  // Per confirmed provider behavior: status === "SUCCESS" OR subCode === "200"
+  // Per confirmed provider behavior, any of these indicates success:
+  //   status === "SUCCESS", subCode/sub_code === "200",
+  //   message contains "Token generated", or HTTP 2xx
+  const messageHasTokenGenerated = msgLower.includes("token generated");
   const isSuccess =
     providerStatus === "SUCCESS" ||
     subCode === "200" ||
+    messageHasTokenGenerated ||
     (httpStatus >= 200 && httpStatus < 300);
 
   if (isSuccess) {
@@ -347,6 +353,7 @@ export async function testPayoutConnection(
       _providerStatus: providerStatus,
       _hasToken: hasToken,
       _providerSubCode: subCode,
+      _url: authorizeUrl,
     };
   }
 
@@ -370,6 +377,7 @@ export async function testPayoutConnection(
       _httpStatus: httpStatus,
       _providerStatus: providerStatus,
       _providerSubCode: subCode,
+      _url: authorizeUrl,
     };
   }
 
@@ -391,6 +399,7 @@ export async function testPayoutConnection(
         _httpStatus: httpStatus,
         _providerStatus: providerStatus,
         _providerSubCode: subCode,
+        _url: authorizeUrl,
       };
     }
     return {
@@ -402,6 +411,7 @@ export async function testPayoutConnection(
       _httpStatus: httpStatus,
       _providerStatus: providerStatus,
       _providerSubCode: subCode,
+      _url: authorizeUrl,
     };
   }
 
@@ -425,6 +435,7 @@ export async function testPayoutConnection(
         _httpStatus: httpStatus,
         _providerStatus: providerStatus,
         _providerSubCode: subCode,
+        _url: authorizeUrl,
       };
     }
     if (
@@ -440,6 +451,7 @@ export async function testPayoutConnection(
         _httpStatus: httpStatus,
         _providerStatus: providerStatus,
         _providerSubCode: subCode,
+        _url: authorizeUrl,
       };
     }
     // Generic 401 / ERROR — most likely bad credentials
@@ -450,6 +462,7 @@ export async function testPayoutConnection(
       _httpStatus: httpStatus,
       _providerStatus: providerStatus,
       _providerSubCode: subCode,
+      _url: authorizeUrl,
     };
   }
 
@@ -462,6 +475,7 @@ export async function testPayoutConnection(
       _httpStatus: httpStatus,
       _providerStatus: providerStatus,
       _providerSubCode: subCode,
+      _url: authorizeUrl,
     };
   }
 

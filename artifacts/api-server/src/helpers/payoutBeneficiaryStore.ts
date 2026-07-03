@@ -161,13 +161,13 @@ export async function ensureBeneficiaryProviderRegistered(
     {
       withdrawalId: withdrawalId ?? null,
       localBeneficiaryId,
-      amount: undefined,
+      providerBeneficiaryIdLast4: localBeneficiaryId.slice(-4),
       mode: beneficiaryRow.payoutMode,
       httpStatus: ensured.httpStatus,
       subCode: ensured.subCode,
       providerMessage: ensured.message,
     },
-    "beneficiary_create_attempted"
+    "payout_beneficiary_create_attempted"
   );
 
   if (ensured.ok) {
@@ -181,6 +181,16 @@ export async function ensureBeneficiaryProviderRegistered(
         lastError: null,
       })
       .where(eq(payoutBeneficiariesTable.id, beneficiaryRow.id));
+
+    req.log.info(
+      {
+        withdrawalId: withdrawalId ?? null,
+        localBeneficiaryId,
+        providerBeneficiaryIdLast4: ensured.beneficiaryId.slice(-4),
+        httpStatus: ensured.httpStatus,
+      },
+      "payout_beneficiary_created"
+    );
     return { ok: true, providerBeneficiaryId: ensured.beneficiaryId };
   }
 
@@ -207,6 +217,7 @@ export async function invalidateBeneficiaryProviderRegistration(beneficiaryId: n
   await db
     .update(payoutBeneficiariesTable)
     .set({
+      providerBeneficiaryId: null,
       providerStatus: "failed",
       lastProviderError: "Provider reported beneficiary not found on transfer — will re-register on next attempt",
       status: "failed",

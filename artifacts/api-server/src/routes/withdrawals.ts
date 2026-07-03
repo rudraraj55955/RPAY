@@ -82,7 +82,13 @@ async function resolveBeneficiaryRowForWithdrawal(
       .from(payoutBeneficiariesTable)
       .where(eq(payoutBeneficiariesTable.id, w.beneficiaryId))
       .limit(1);
-    if (row) return row;
+    // Only trust the FK-resolved row if it was registered for the currently
+    // configured provider environment. A row created while the gateway was
+    // set to "test" can never be valid on "live" (different Cashfree
+    // merchant account) and vice versa — reusing it would send a
+    // provider_beneficiary_id that genuinely doesn't exist in the target
+    // environment, producing "Beneficiary id does not exist" on transfer.
+    if (row && row.env === env) return row;
   }
 
   const destination: BeneficiaryDestinationInput = {
@@ -460,7 +466,7 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
     const bene = await ensureBeneficiaryProviderRegistered(req, beneficiaryRow, cfg.env, cfg.clientId, cfg.clientSecret, id);
     if (!bene.ok) {
       transferStatus = "FAILED";
-      failureReason = "PAYOUT_BENEFICIARY_ERROR: Beneficiary setup failed. Check bank account, IFSC, and name.";
+      failureReason = "Beneficiary setup failed. Check bank account, IFSC, and name.";
       req.log.warn({ withdrawalId: id, providerMessage: bene.message }, "cashfree_payout_beneficiary_failed");
     } else {
     try {
@@ -480,13 +486,6 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
           remark: `Payout #${id}`,
         }
       );
-      if (isBeneficiaryNotFound(result.parsed, result.httpStatus)) {
-        await invalidateBeneficiaryProviderRegistration(beneficiaryRow.id);
-      }
-      // Prefer the provider's own reference (cf_transfer_id) when returned;
-      // fall back to our own transfer_id if the provider didn't echo one.
-      providerReferenceId = result.parsed?.referenceId ?? transferId;
-      const normalized = normalizeCashfreePayoutStatus(result.parsed?.status);
 
       // Safe log only — transferId, mode, amount, httpStatus, providerStatus,
       // subCode, providerMessage. NEVER clientSecret, token, or raw response.
@@ -501,6 +500,23 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
         providerMessage: result.parsed?.message,
       }, "payout_transfer_attempted");
 
+      if (isBeneficiaryNotFound(result.parsed, result.httpStatus)) {
+        // The provider rejected the transfer outright — no real transfer was
+        // ever created on Cashfree's side, so we must NOT persist a
+        // providerReferenceId (it would make a later refresh-status call
+        // fail with "transfer_id does not exist"). Invalidate the
+        // beneficiary so the next retry re-registers it and dispatches a
+        // brand-new transfer_id.
+        await invalidateBeneficiaryProviderRegistration(beneficiaryRow.id);
+        transferStatus = "FAILED";
+        failureReason = "Transfer was not created. Please retry payout.";
+        req.log.warn({ withdrawalId: id, httpStatus: result.httpStatus }, "cashfree_payout_beneficiary_not_found_on_transfer");
+      } else {
+      // Prefer the provider's own reference (cf_transfer_id) when returned;
+      // fall back to our own transfer_id if the provider didn't echo one.
+      providerReferenceId = result.parsed?.referenceId ?? transferId;
+      const normalized = normalizeCashfreePayoutStatus(result.parsed?.status);
+
       if (isPayoutCredentialError(result.parsed, result.httpStatus)) {
         // Credential error from provider — mark FAILED so hold is released and admin sees clear message
         transferStatus = "FAILED";
@@ -511,9 +527,10 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
         utr = result.parsed?.utr ?? null;
       } else if (normalized === "FAILED") {
         transferStatus = "FAILED";
-        failureReason = result.parsed?.message ?? "Transfer failed";
+        failureReason = "Transfer was not created. Please retry payout.";
       } else {
         transferStatus = "PENDING";
+      }
       }
     } catch (err: any) {
       req.log.warn({ err, withdrawalId: id }, "cashfree_payout_create_error");
@@ -705,7 +722,7 @@ router.post("/:id/refresh-status", requireAdmin, async (req, res) => {
     normalized === "SUCCESS" ? "SUCCESS" : normalized === "FAILED" ? "FAILED" : w.transferStatus;
   const newUtr = normalized === "SUCCESS" ? (result.parsed?.utr ?? w.utr) : w.utr;
   const newFailureReason =
-    normalized === "FAILED" ? (result.parsed?.message ?? "Transfer failed") : w.failureReason;
+    normalized === "FAILED" ? "Transfer was not created. Please retry payout." : w.failureReason;
   const isNewTerminal = normalized === "SUCCESS" || normalized === "FAILED";
 
   // Step 1: Persist the updated status row FIRST, only if the status actually changed.
@@ -899,14 +916,17 @@ router.post("/:id/retry", requireAdmin, async (req, res) => {
   let failureReason: string | null = null;
 
   const retryMode = w.payoutMode === "UPI" ? "upi" : "banktransfer";
-  let providerReferenceId: string = newTransferId;
+  // Only set once a transfer is genuinely dispatched to the provider — never
+  // defaults to the locally-generated transfer_id, or a later refresh-status
+  // call would query a transfer that was never actually created on Cashfree.
+  let providerReferenceId: string | null = null;
 
   const retryBeneficiaryRow = await resolveBeneficiaryRowForWithdrawal(w, cfg.env, merchantName);
   const retryBene = await ensureBeneficiaryProviderRegistered(req, retryBeneficiaryRow, cfg.env, cfg.clientId, cfg.clientSecret, id);
 
   if (!retryBene.ok) {
     transferStatus = "FAILED";
-    failureReason = "PAYOUT_BENEFICIARY_ERROR: Beneficiary setup failed. Check bank account, IFSC, and name.";
+    failureReason = "Beneficiary setup failed. Check bank account, IFSC, and name.";
     req.log.warn({ withdrawalId: id, providerMessage: retryBene.message }, "cashfree_payout_beneficiary_failed_on_retry");
   } else {
   try {
@@ -926,13 +946,6 @@ router.post("/:id/retry", requireAdmin, async (req, res) => {
         remark: `Payout #${id} retry`,
       }
     );
-    if (isBeneficiaryNotFound(result.parsed, result.httpStatus)) {
-      await invalidateBeneficiaryProviderRegistration(retryBeneficiaryRow.id);
-    }
-    // Prefer the provider's own reference (cf_transfer_id) when returned;
-    // fall back to our own transfer_id if the provider didn't echo one.
-    providerReferenceId = result.parsed?.referenceId ?? newTransferId;
-    const normalized = normalizeCashfreePayoutStatus(result.parsed?.status);
 
     // Safe log only — transferId, mode, amount, httpStatus, providerStatus,
     // subCode, providerMessage. NEVER clientSecret, token, or raw response.
@@ -947,6 +960,20 @@ router.post("/:id/retry", requireAdmin, async (req, res) => {
       providerMessage: result.parsed?.message,
     }, "payout_transfer_attempted");
 
+    if (isBeneficiaryNotFound(result.parsed, result.httpStatus)) {
+      // No real transfer was created at the provider — do not persist a
+      // providerReferenceId. Invalidate the beneficiary so the next retry
+      // re-registers it and dispatches a brand-new transfer_id.
+      await invalidateBeneficiaryProviderRegistration(retryBeneficiaryRow.id);
+      transferStatus = "FAILED";
+      failureReason = "Transfer was not created. Please retry payout.";
+      req.log.warn({ withdrawalId: id, httpStatus: result.httpStatus }, "cashfree_payout_beneficiary_not_found_on_transfer_retry");
+    } else {
+    // Prefer the provider's own reference (cf_transfer_id) when returned;
+    // fall back to our own transfer_id if the provider didn't echo one.
+    providerReferenceId = result.parsed?.referenceId ?? newTransferId;
+    const normalized = normalizeCashfreePayoutStatus(result.parsed?.status);
+
     if (isPayoutCredentialError(result.parsed, result.httpStatus)) {
       transferStatus = "FAILED";
       failureReason = `PAYOUT_CREDENTIAL_ERROR: ${result.parsed?.message ?? "Invalid payout Client ID or Secret"}`;
@@ -956,9 +983,10 @@ router.post("/:id/retry", requireAdmin, async (req, res) => {
       utr = result.parsed?.utr ?? null;
     } else if (normalized === "FAILED") {
       transferStatus = "FAILED";
-      failureReason = result.parsed?.message ?? "Transfer failed";
+      failureReason = "Transfer was not created. Please retry payout.";
     } else {
       transferStatus = "PENDING";
+    }
     }
   } catch (err: any) {
     req.log.warn({ err, withdrawalId: id }, "cashfree_payout_retry_error");

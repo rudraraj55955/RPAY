@@ -5,12 +5,22 @@ export type CashfreePayoutEnv = "test" | "live";
  * - test/sandbox: https://sandbox.cashfree.com/payout/v2
  * - live:         https://api.cashfree.com/payout/v2
  *
- * These same base URLs are used for all V2 operations:
- * beneficiary creation, transfer creation, transfer status, AND credential testing.
+ * Used for all V2 operations: beneficiary creation, transfer creation, transfer status.
  */
 const PAYOUT_BASE_URLS: Record<CashfreePayoutEnv, string> = {
   test: "https://sandbox.cashfree.com/payout/v2",
   live: "https://api.cashfree.com/payout/v2",
+};
+
+/**
+ * Cashfree Payout V1 Authorize URLs — used ONLY for credential verification
+ * (Admin → Payout Gateway → Test Credentials).
+ * - live:         https://payout-api.cashfree.com/payout/v1/authorize
+ * - test/sandbox: https://payout-gamma.cashfree.com/payout/v1/authorize
+ */
+const PAYOUT_AUTHORIZE_URLS: Record<CashfreePayoutEnv, string> = {
+  test: "https://payout-gamma.cashfree.com/payout/v1/authorize",
+  live: "https://payout-api.cashfree.com/payout/v1/authorize",
 };
 
 type PayoutCreateInput = {
@@ -224,31 +234,33 @@ export type TestPayoutConnectionResult = {
   _providerStatus?: string;
   /** Whether a token was present in the response — logged server-side only */
   _hasToken?: boolean;
+  /** Provider subCode (e.g. "200", "401") — logged server-side only */
+  _providerSubCode?: string;
 };
 
 /**
- * Verify Cashfree Payout V2 credentials.
+ * Verify Cashfree Payout credentials via the V1 Authorize endpoint.
  *
- * Uses the V2 token endpoint — same domain and lowercase headers as every
- * other V2 payout call, so a successful token request guarantees the
- * credentials also work for transfers and beneficiary management.
+ * This endpoint is used ONLY for the Admin → Payout Gateway → Test Credentials
+ * check. Actual transfers/beneficiaries still use the V2 API — this call has
+ * no effect on those, it just confirms the Client ID / Secret pair is valid.
  *
- * Endpoint:  POST {baseUrl}/token
- *   test  → https://sandbox.cashfree.com/payout/v2/token
- *   live  → https://api.cashfree.com/payout/v2/token
+ * Endpoint:
+ *   live  → https://payout-api.cashfree.com/payout/v1/authorize
+ *   test  → https://payout-gamma.cashfree.com/payout/v1/authorize
  *
- * Headers (all lowercase — V2 style):
- *   x-client-id: <clientId>
- *   x-client-secret: <clientSecret>
+ * Headers (uppercase — V1 style, matches confirmed-working VPS curl test):
+ *   X-Client-Id: <clientId>
+ *   X-Client-Secret: <clientSecret>
  *   Content-Type: application/json
  *
- * V2 response examples:
- *   200  { status: "SUCCESS", message: "Token generated", data: { token: "..." } }
- *   401  { status: "ERROR", message: "Invalid clientId or clientSecret" }
- *   403  { status: "ERROR", message: "IP address not whitelisted" }
- *   400  { status: "ERROR", message: "Payout service not enabled" }
+ * V1 response examples:
+ *   200  { status: "SUCCESS", subCode: "200", message: "Token generated", data: { token } }
+ *   401  { status: "ERROR",   subCode: "401", message: "Invalid ClientId" }
+ *   401  { status: "ERROR",   subCode: "401", message: "Invalid ClientSecret" }
+ *   403  { status: "ERROR",   subCode: "403", message: "IP address not whitelisted" }
  *
- * Success: HTTP 2xx OR provider says status=SUCCESS OR token present in body.
+ * Success: status === "SUCCESS" OR subCode === "200" (matches confirmed provider behavior).
  */
 export async function testPayoutConnection(
   rawClientId: string,
@@ -268,20 +280,18 @@ export async function testPayoutConnection(
     };
   }
 
-  // Use V2 token endpoint on the environment-correct base URL
-  const baseUrl = PAYOUT_BASE_URLS[env] ?? PAYOUT_BASE_URLS.test;
-  const tokenUrl = `${baseUrl}/token`;
+  const authorizeUrl = PAYOUT_AUTHORIZE_URLS[env] ?? PAYOUT_AUTHORIZE_URLS.test;
 
   let httpStatus = 0;
   let parsed: any = {};
   let fetchError: string | undefined;
 
   try {
-    const res = await fetch(tokenUrl, {
+    const res = await fetch(authorizeUrl, {
       method: "POST",
       headers: {
-        "x-client-id": clientId,
-        "x-client-secret": clientSecret,
+        "X-Client-Id": clientId,
+        "X-Client-Secret": clientSecret,
         "Content-Type": "application/json",
       },
       body: "{}",
@@ -323,22 +333,20 @@ export async function testPayoutConnection(
   ).trim();
 
   // ── SUCCESS ─────────────────────────────────────────────────────────────────
-  // Any of these three conditions is sufficient to declare success:
-  //   1. HTTP 2xx
-  //   2. Provider body says status=SUCCESS
-  //   3. Token is present in the body (Cashfree only issues tokens on success)
+  // Per confirmed provider behavior: status === "SUCCESS" OR subCode === "200"
   const isSuccess =
-    (httpStatus >= 200 && httpStatus < 300) ||
     providerStatus === "SUCCESS" ||
-    hasToken;
+    subCode === "200" ||
+    (httpStatus >= 200 && httpStatus < 300);
 
   if (isSuccess) {
     return {
       ok: true,
-      message: "Credentials verified — payout gateway is reachable and authenticated",
+      message: "Credentials verified",
       _httpStatus: httpStatus,
       _providerStatus: providerStatus,
       _hasToken: hasToken,
+      _providerSubCode: subCode,
     };
   }
 
@@ -361,6 +369,7 @@ export async function testPayoutConnection(
       safeReason: "ip_not_whitelisted",
       _httpStatus: httpStatus,
       _providerStatus: providerStatus,
+      _providerSubCode: subCode,
     };
   }
 
@@ -381,6 +390,7 @@ export async function testPayoutConnection(
         safeReason: "wrong_environment",
         _httpStatus: httpStatus,
         _providerStatus: providerStatus,
+        _providerSubCode: subCode,
       };
     }
     return {
@@ -391,6 +401,7 @@ export async function testPayoutConnection(
       safeReason: isWrongEnv ? "wrong_environment" : "unknown",
       _httpStatus: httpStatus,
       _providerStatus: providerStatus,
+      _providerSubCode: subCode,
     };
   }
 
@@ -413,6 +424,7 @@ export async function testPayoutConnection(
         safeReason: "invalid_client_secret",
         _httpStatus: httpStatus,
         _providerStatus: providerStatus,
+        _providerSubCode: subCode,
       };
     }
     if (
@@ -427,6 +439,7 @@ export async function testPayoutConnection(
         safeReason: "invalid_client_id",
         _httpStatus: httpStatus,
         _providerStatus: providerStatus,
+        _providerSubCode: subCode,
       };
     }
     // Generic 401 / ERROR — most likely bad credentials
@@ -436,6 +449,7 @@ export async function testPayoutConnection(
       safeReason: "invalid_client_id",
       _httpStatus: httpStatus,
       _providerStatus: providerStatus,
+      _providerSubCode: subCode,
     };
   }
 
@@ -447,6 +461,7 @@ export async function testPayoutConnection(
       safeReason: "provider_unreachable",
       _httpStatus: httpStatus,
       _providerStatus: providerStatus,
+      _providerSubCode: subCode,
     };
   }
 
@@ -457,5 +472,6 @@ export async function testPayoutConnection(
     safeReason: "unknown",
     _httpStatus: httpStatus,
     _providerStatus: providerStatus,
+    _providerSubCode: subCode,
   };
 }

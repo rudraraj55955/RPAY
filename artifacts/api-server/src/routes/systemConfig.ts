@@ -1365,23 +1365,18 @@ router.post("/cashfree-payout/test-connection", async (req, res, next) => {
     const clientIdTrimmed = clientId.trim();
     const result = await testPayoutConnection(clientIdTrimmed, decrypted.value, env);
 
-    // Admin-only safe debug log — full provider context, secrets masked
+    // Safe log only — statusCode, subCode, message. NEVER clientSecret or token.
     req.log.info({
       ok: result.ok,
-      safeReason: result.safeReason,
       env,
-      baseUrl: env === "live" ? "https://api.cashfree.com/payout/v2" : "https://sandbox.cashfree.com/payout/v2",
-      providerHttpStatus: result._httpStatus,
-      providerStatus: result._providerStatus,
-      hasToken: result._hasToken,
-      fetchError: result._fetchError,
-      clientIdLast4: clientIdTrimmed.length >= 4 ? clientIdTrimmed.slice(-4) : "****",
-      secretPresent: decrypted.value.length > 0,
-      decryptOk: true,
+      statusCode: result._httpStatus,
+      subCode: result._providerSubCode,
+      message: result.message,
     }, "cashfree_payout_credentials_tested");
 
-    // Strip all internal fields before sending to client
-    const { _httpStatus: _h, _fetchError: _f, _providerStatus: _p, _hasToken: _t, ...clientResult } = result;
+    // Strip all internal/provider fields before sending to client — never expose
+    // token, raw provider response, or secret. Client only sees ok/message/safeReason.
+    const { _httpStatus: _h, _fetchError: _f, _providerStatus: _p, _hasToken: _t, _providerSubCode: _s, ...clientResult } = result;
     res.json(clientResult);
   } catch (err) { next(err); }
 });

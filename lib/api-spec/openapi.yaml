@@ -8189,6 +8189,30 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ProviderIntegration"
+    post:
+      operationId: createProviderIntegration
+      summary: Register a new custom payment gateway integration (admin only)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProviderIntegrationBody"
+      responses:
+        "201":
+          description: Created integration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderIntegration"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /provider-integrations/integrations/{key}:
     put:
       operationId: updateProviderIntegration
@@ -8213,6 +8237,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProviderIntegration"
+    delete:
+      operationId: deleteProviderIntegration
+      summary: Remove a custom payment gateway integration (admin only, built-ins are protected)
+      tags: [ProviderIntegrations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Integration removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Cannot delete a built-in integration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Integration not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /provider-integrations/products:
     get:
       operationId: listProviderProducts
@@ -14681,7 +14734,7 @@ components:
 
     ProviderIntegration:
       type: object
-      required: [id, providerKey, providerNameInternal, displayNamePublic, environment, isEnabled, createdAt, updatedAt]
+      required: [id, providerKey, providerNameInternal, displayNamePublic, environment, isEnabled, isCustom, apiKeySet, apiKeyMasked, apiSecretSet, webhookSecretSet, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -14704,6 +14757,21 @@ components:
         notes:
           type: string
           nullable: true
+        isCustom:
+          type: boolean
+          description: True for admin-registered gateways added via "Add Gateway"; false for built-in Cashfree/EKQR integrations.
+        apiKeySet:
+          type: boolean
+          description: Whether an API key credential has been configured for this (custom) integration.
+        apiKeyMasked:
+          type: string
+          description: Masked preview of the configured API key, empty if not set.
+        apiSecretSet:
+          type: boolean
+          description: Whether an API secret credential has been configured for this (custom) integration.
+        webhookSecretSet:
+          type: boolean
+          description: Whether a webhook signature secret has been configured for this (custom) integration.
         updatedByEmail:
           type: string
           nullable: true
@@ -14724,6 +14792,50 @@ components:
         notes:
           type: string
         displayNamePublic:
+          type: string
+        productType:
+          type: string
+          description: Only applied for custom (admin-added) integrations.
+        apiKey:
+          type: string
+          description: New API key value to rotate in (custom integrations only). Send an empty string to clear.
+        apiSecret:
+          type: string
+          description: New API secret value to rotate in (custom integrations only). Send an empty string to clear.
+        webhookSecret:
+          type: string
+          description: New webhook signature secret to rotate in (custom integrations only). Send an empty string to clear.
+
+    CreateProviderIntegrationBody:
+      type: object
+      required: [providerNameInternal, displayNamePublic]
+      properties:
+        providerKey:
+          type: string
+          description: Optional explicit key; derived from providerNameInternal (slugified) if omitted.
+        providerNameInternal:
+          type: string
+          description: Internal/admin-facing name of the gateway (e.g. "Razorpay").
+        displayNamePublic:
+          type: string
+          description: White-labelled name admins reference this integration by.
+        environment:
+          type: string
+          enum: [test, live]
+        productType:
+          type: string
+          description: e.g. payin, payout, upi_qr, other
+        webhookUrl:
+          type: string
+        notes:
+          type: string
+        isEnabled:
+          type: boolean
+        apiKey:
+          type: string
+        apiSecret:
+          type: string
+        webhookSecret:
           type: string
 
     ProviderProduct:

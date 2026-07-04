@@ -13,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Pencil, CheckCircle2, XCircle, Clock, RefreshCw, Layers, Settings2, Users, Link2, ExternalLink } from "lucide-react";
+import { Pencil, CheckCircle2, XCircle, Clock, RefreshCw, Layers, Settings2, Users, Link2, ExternalLink, PlusCircle, Trash2, Eye, EyeOff } from "lucide-react";
 import { Link } from "wouter";
+import { AddGatewayDialog } from "@/components/admin/add-gateway-dialog";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,11 @@ type Integration = {
   productType: string | null;
   webhookUrl: string | null;
   notes: string | null;
+  isCustom: boolean;
+  apiKeySet: boolean;
+  apiKeyMasked: string;
+  apiSecretSet: boolean;
+  webhookSecretSet: boolean;
   updatedByEmail: string | null;
   createdAt: string;
   updatedAt: string;
@@ -98,14 +104,41 @@ function EditIntegrationDialog({ integration, onClose }: { integration: Integrat
     displayNamePublic: integration.displayNamePublic,
     webhookUrl: integration.webhookUrl ?? "",
     notes: integration.notes ?? "",
+    productType: integration.productType ?? "",
   });
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiSecret, setShowApiSecret] = useState(false);
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () => apiFetch(`/provider-integrations/integrations/${integration.providerKey}`, {
-      method: "PUT", body: JSON.stringify({ ...form, isEnabled: form.isEnabled }),
+      method: "PUT",
+      body: JSON.stringify({
+        ...form,
+        isEnabled: form.isEnabled,
+        ...(integration.isCustom ? {
+          ...(apiKey !== "" ? { apiKey } : {}),
+          ...(apiSecret !== "" ? { apiSecret } : {}),
+          ...(webhookSecret !== "" ? { webhookSecret } : {}),
+        } : {}),
+      }),
     }),
     onSuccess: () => {
       toast.success("Integration updated");
+      qc.invalidateQueries({ queryKey: ["providerIntegrations"] });
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiFetch(`/provider-integrations/integrations/${integration.providerKey}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast.success("Gateway removed");
       qc.invalidateQueries({ queryKey: ["providerIntegrations"] });
       onClose();
     },
@@ -182,13 +215,106 @@ function EditIntegrationDialog({ integration, onClose }: { integration: Integrat
             <Switch checked={form.isEnabled} onCheckedChange={v => setForm(f => ({ ...f, isEnabled: v }))} />
           </div>
 
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-400">
-            <strong>Credentials</strong> (Client ID, Secret, Webhook Secret) are managed separately in{" "}
-            <Link href={integration.productType === "payout" ? "/admin/cashfree-payout" : "/admin/cashfree-gateway"}
-              className="underline underline-offset-2 hover:text-amber-300">
-              System Config → {integration.productType === "payout" ? "Payout Gateway" : "Payin Gateway"}
-            </Link>
-          </div>
+          {integration.isCustom ? (
+            <div className="space-y-3 rounded-lg border border-border/50 p-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Credentials (encrypted at rest)</p>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Product Type</Label>
+                <Select value={form.productType || "other"} onValueChange={v => setForm(f => ({ ...f, productType: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="payin">Payin</SelectItem>
+                    <SelectItem value="payout">Payout</SelectItem>
+                    <SelectItem value="upi_qr">UPI / QR</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">API Key</Label>
+                {integration.apiKeySet && apiKey === "" && (
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Current: <span className="font-mono text-foreground/80">{integration.apiKeyMasked}</span>
+                  </p>
+                )}
+                <div className="relative">
+                  <Input
+                    type={showApiKey ? "text" : "password"}
+                    placeholder={integration.apiKeySet ? "Enter new API key to replace…" : "Enter API key"}
+                    value={apiKey}
+                    onChange={e => setApiKey(e.target.value)}
+                    className="pr-9 font-mono"
+                  />
+                  <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowApiKey(v => !v)}>
+                    {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">API Secret</Label>
+                <div className="relative">
+                  <Input
+                    type={showApiSecret ? "text" : "password"}
+                    placeholder={integration.apiSecretSet ? "Enter new secret to replace…" : "Enter API secret"}
+                    value={apiSecret}
+                    onChange={e => setApiSecret(e.target.value)}
+                    className="pr-9 font-mono"
+                  />
+                  <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowApiSecret(v => !v)}>
+                    {showApiSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Webhook Signature Secret</Label>
+                <div className="relative">
+                  <Input
+                    type={showWebhookSecret ? "text" : "password"}
+                    placeholder={integration.webhookSecretSet ? "Enter new secret to rotate…" : "Enter webhook secret"}
+                    value={webhookSecret}
+                    onChange={e => setWebhookSecret(e.target.value)}
+                    className="pr-9 font-mono"
+                  />
+                  <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowWebhookSecret(v => !v)}>
+                    {showWebhookSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-400">
+              <strong>Credentials</strong> (Client ID, Secret, Webhook Secret) are managed separately in{" "}
+              <Link href={integration.productType === "payout" ? "/admin/cashfree-payout" : "/admin/cashfree-gateway"}
+                className="underline underline-offset-2 hover:text-amber-300">
+                System Config → {integration.productType === "payout" ? "Payout Gateway" : "Payin Gateway"}
+              </Link>
+            </div>
+          )}
+
+          {integration.isCustom && (
+            <div className="rounded-lg border border-red-500/30 bg-red-950/10 p-3">
+              {!confirmDelete ? (
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  onClick={() => setConfirmDelete(true)}>
+                  <Trash2 className="w-3 h-3 mr-1.5" />Remove this gateway
+                </Button>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-red-400">Permanently remove this gateway?</p>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                    <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700" disabled={deleteMutation.isPending}
+                      onClick={() => deleteMutation.mutate()}>
+                      {deleteMutation.isPending ? "Removing…" : "Confirm Remove"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -341,9 +467,19 @@ export default function AdminProviderIntegrations() {
             Merchants see only RasoKart-branded service names.
           </p>
         </div>
-        <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 px-3 py-1 text-xs font-medium self-start sm:self-auto">
-          🔒 Super Admin Only
-        </Badge>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <AddGatewayDialog
+            trigger={
+              <Button size="sm" className="gap-1.5">
+                <PlusCircle className="w-3.5 h-3.5" /> Add Gateway
+              </Button>
+            }
+            onCreated={() => qc.invalidateQueries({ queryKey: ["providerIntegrations"] })}
+          />
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 px-3 py-1 text-xs font-medium">
+            🔒 Super Admin Only
+          </Badge>
+        </div>
       </div>
 
       {/* Warning banner */}
@@ -398,6 +534,11 @@ export default function AdminProviderIntegrations() {
                           }>
                             {integration.isEnabled ? "Enabled" : "Disabled"}
                           </Badge>
+                          {integration.isCustom && (
+                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
+                              Custom
+                            </Badge>
+                          )}
                         </div>
                         <CardDescription className="mt-1 font-mono text-xs">{integration.providerKey}</CardDescription>
                       </div>
@@ -421,13 +562,23 @@ export default function AdminProviderIntegrations() {
                       <p className="text-xs text-muted-foreground border-t border-border/50 pt-2">{integration.notes}</p>
                     )}
                     <div className="flex items-center gap-2 border-t border-border/50 pt-2">
-                      <Link
-                        href={integration.productType === "payout" ? "/admin/cashfree-payout" : "/admin/cashfree-gateway"}
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        Manage Credentials
-                      </Link>
+                      {integration.isCustom ? (
+                        <button
+                          onClick={() => setEditIntegration(integration)}
+                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          Manage Credentials
+                        </button>
+                      ) : (
+                        <Link
+                          href={integration.productType === "payout" ? "/admin/cashfree-payout" : "/admin/cashfree-gateway"}
+                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Manage Credentials
+                        </Link>
+                      )}
                     </div>
                     {integration.updatedByEmail && (
                       <p className="text-xs text-muted-foreground/60">

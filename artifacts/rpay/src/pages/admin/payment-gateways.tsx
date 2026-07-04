@@ -5,7 +5,10 @@ import {
   useGetCashfreeConfig, useGetCashfreePayoutConfig,
   useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, useTestEkqrWebhook,
   getGetEkqrConfigQueryKey,
+  useListProviderIntegrations, useUpdateProviderIntegration, useDeleteProviderIntegration,
+  getListProviderIntegrationsQueryKey,
 } from "@workspace/api-client-react";
+import type { ProviderIntegration } from "@workspace/api-client-react";
 import { getToken } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,11 +20,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useDisableGatewayGuard } from "@/components/admin/disable-gateway-dialog";
+import { AddGatewayDialog } from "@/components/admin/add-gateway-dialog";
 import { toast } from "sonner";
 import {
   CreditCard, Landmark, Zap, PlusCircle, CheckCircle2, XCircle, AlertCircle,
   Eye, EyeOff, Save, FlaskConical, Copy, ExternalLink, GitMerge,
-  Users, ArrowRight, Shield, Activity, Settings2, Layers,
+  Users, ArrowRight, Shield, Activity, Settings2, Layers, Plug, Trash2,
 } from "lucide-react";
 
 const authHeader = () => ({ Authorization: `Bearer ${getToken()}` });
@@ -183,18 +187,61 @@ function EkqrCard({ onConfigure }: { onConfigure: () => void }) {
   );
 }
 
-function FuturePlaceholderCard() {
+function AddGatewayCard({ onCreated }: { onCreated: (providerKey: string) => void }) {
   return (
-    <Card className="border-border/30 border-dashed opacity-60">
+    <AddGatewayDialog
+      onCreated={onCreated}
+      trigger={
+        <Card className="border-border/30 border-dashed hover:border-primary/40 hover:bg-muted/10 transition-colors cursor-pointer h-full">
+          <CardHeader className="pb-3">
+            <div className="p-2 rounded-lg bg-muted/30 border border-border/30 w-fit">
+              <PlusCircle className="w-4 h-4 text-primary" />
+            </div>
+            <CardTitle className="text-sm font-semibold mt-2">Add Gateway</CardTitle>
+            <CardDescription className="text-xs">Register a new payment provider integration</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Badge variant="outline" className="text-[10px] text-primary border-primary/30 bg-primary/5">Custom</Badge>
+          </CardContent>
+        </Card>
+      }
+    />
+  );
+}
+
+function CustomGatewayCard({ integration, onConfigure }: { integration: ProviderIntegration; onConfigure: () => void }) {
+  return (
+    <Card className="border-border/50 hover:border-primary/30 transition-colors">
       <CardHeader className="pb-3">
-        <div className="p-2 rounded-lg bg-muted/30 border border-border/30 w-fit">
-          <PlusCircle className="w-4 h-4 text-muted-foreground" />
+        <div className="flex items-start justify-between gap-2">
+          <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+            <Plug className="w-4 h-4 text-primary" />
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <StatusBadge enabled={integration.isEnabled} />
+            <EnvBadge env={integration.environment} />
+          </div>
         </div>
-        <CardTitle className="text-sm font-semibold mt-2 text-muted-foreground">Future Provider</CardTitle>
-        <CardDescription className="text-xs">Additional payment gateway integration</CardDescription>
+        <CardTitle className="text-sm font-semibold mt-2">{integration.displayNamePublic}</CardTitle>
+        <CardDescription className="text-xs capitalize">
+          {(integration.productType ?? "custom").replace("_", " ")} · Custom integration
+        </CardDescription>
       </CardHeader>
-      <CardContent>
-        <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/50">Coming Soon</Badge>
+      <CardContent className="space-y-3">
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">API Credentials</span>
+            <ConnectedBadge connected={integration.apiKeySet} />
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Webhook Secret</span>
+            <ConnectedBadge connected={integration.webhookSecretSet} />
+          </div>
+        </div>
+        <Separator className="opacity-30" />
+        <Button size="sm" variant="outline" className="w-full h-7 text-xs" onClick={onConfigure}>
+          <Settings2 className="w-3 h-3 mr-1.5" />Configure
+        </Button>
       </CardContent>
     </Card>
   );
@@ -557,6 +604,222 @@ function CashfreePayoutPanel() {
   );
 }
 
+// ── Custom gateway config panel ───────────────────────────────────────────────
+
+function CustomGatewayConfigPanel({ integration }: { integration: ProviderIntegration }) {
+  const qc = useQueryClient();
+  const [displayName, setDisplayName] = useState(integration.displayNamePublic);
+  const [productType, setProductType] = useState(integration.productType ?? "other");
+  const [environment, setEnvironment] = useState<"test" | "live">(integration.environment as "test" | "live");
+  const [webhookUrl, setWebhookUrl] = useState(integration.webhookUrl ?? "");
+  const [notes, setNotes] = useState(integration.notes ?? "");
+  const [enabled, setEnabled] = useState(integration.isEnabled);
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiSecret, setShowApiSecret] = useState(false);
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const { mutate: saveConfig, isPending: saving } = useUpdateProviderIntegration({
+    request: { headers: authHeader() },
+    mutation: {
+      onSuccess: () => {
+        toast.success("Gateway settings saved");
+        setApiKey(""); setApiSecret(""); setWebhookSecret("");
+        qc.invalidateQueries({ queryKey: getListProviderIntegrationsQueryKey() });
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  } as any);
+
+  const { mutate: deleteIntegration, isPending: deleting } = useDeleteProviderIntegration({
+    request: { headers: authHeader() },
+    mutation: {
+      onSuccess: () => {
+        toast.success("Gateway removed");
+        qc.invalidateQueries({ queryKey: getListProviderIntegrationsQueryKey() });
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  } as any);
+
+  function handleSave() {
+    const body: Record<string, unknown> = {
+      displayNamePublic: displayName.trim(),
+      productType,
+      environment,
+      webhookUrl: webhookUrl.trim(),
+      notes: notes.trim(),
+      isEnabled: enabled,
+    };
+    if (apiKey.trim()) body.apiKey = apiKey.trim();
+    if (apiSecret.trim()) body.apiSecret = apiSecret.trim();
+    if (webhookSecret.trim()) body.webhookSecret = webhookSecret.trim();
+    saveConfig({ key: integration.providerKey, data: body as any });
+  }
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/20 border border-border/40">
+        <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+          <Plug className="w-4 h-4 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium">{integration.displayNamePublic}</p>
+          <p className="text-xs text-muted-foreground">Custom provider integration · {integration.providerKey}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <StatusBadge enabled={integration.isEnabled} />
+          <EnvBadge env={integration.environment} />
+        </div>
+      </div>
+
+      <div>
+        <Label className="text-xs">Display Name</Label>
+        <Input className="h-9 text-xs mt-1.5" value={displayName} onChange={e => setDisplayName(e.target.value)} />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Product Type</Label>
+          <Select value={productType} onValueChange={setProductType}>
+            <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="payin" className="text-xs">Payin</SelectItem>
+              <SelectItem value="payout" className="text-xs">Payout</SelectItem>
+              <SelectItem value="upi_qr" className="text-xs">UPI / QR</SelectItem>
+              <SelectItem value="other" className="text-xs">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Mode</Label>
+          <Select value={environment} onValueChange={v => setEnvironment(v as "test" | "live")}>
+            <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="test" className="text-xs">Sandbox / Test</SelectItem>
+              <SelectItem value="live" className="text-xs">Live / Production</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/10">
+        <div>
+          <p className="text-sm font-medium">Enable Gateway</p>
+          <p className="text-xs text-muted-foreground">Activate this custom provider for merchants</p>
+        </div>
+        <Switch checked={enabled} onCheckedChange={setEnabled} />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs">Webhook URL</Label>
+        <Input className="h-9 text-xs font-mono" value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)}
+          placeholder="https://api.rasokart.com/api/payment/webhook" />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs">API Key</Label>
+        {integration.apiKeySet && apiKey === "" && (
+          <p className="text-xs text-muted-foreground">
+            Current key: <span className="font-mono text-foreground/80">{integration.apiKeyMasked || "••••••••"}</span>
+            {" — "}enter a new key to replace
+          </p>
+        )}
+        <div className="relative">
+          <Input
+            type={showApiKey ? "text" : "password"}
+            placeholder={integration.apiKeySet ? "Enter new API key to replace…" : "Enter gateway API key"}
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            className="h-9 text-xs pr-9 font-mono"
+          />
+          <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowApiKey(v => !v)}>
+            {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs">API Secret</Label>
+        <div className="relative">
+          <Input
+            type={showApiSecret ? "text" : "password"}
+            placeholder={integration.apiSecretSet ? "Enter new secret to replace…" : "Enter API secret"}
+            value={apiSecret}
+            onChange={e => setApiSecret(e.target.value)}
+            className="h-9 text-xs pr-9 font-mono"
+          />
+          <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowApiSecret(v => !v)}>
+            {showApiSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs">Webhook Signature Secret</Label>
+        <div className="relative">
+          <Input
+            type={showWebhookSecret ? "text" : "password"}
+            placeholder={integration.webhookSecretSet ? "Enter new secret to rotate…" : "Enter webhook signature secret"}
+            value={webhookSecret}
+            onChange={e => setWebhookSecret(e.target.value)}
+            className="h-9 text-xs pr-9 font-mono"
+          />
+          <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowWebhookSecret(v => !v)}>
+            {showWebhookSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+        {integration.webhookSecretSet && (
+          <p className="text-xs text-emerald-400 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3" />Signature verification active
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs">Internal Notes</Label>
+        <Input className="h-9 text-xs" value={notes} onChange={e => setNotes(e.target.value)}
+          placeholder="Internal notes for admins..." />
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap pt-1">
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />
+          {saving ? "Saving…" : "Save Changes"}
+        </Button>
+      </div>
+
+      <Separator className="opacity-30" />
+
+      <div className="rounded-lg border border-red-500/30 bg-red-950/10 p-3">
+        {!confirmDelete ? (
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
+            onClick={() => setConfirmDelete(true)}>
+            <Trash2 className="w-3 h-3 mr-1.5" />Remove this gateway
+          </Button>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-red-400">Permanently remove this gateway integration?</p>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+              <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700" disabled={deleting}
+                onClick={() => deleteIntegration({ key: integration.providerKey })}>
+                {deleting ? "Removing…" : "Confirm Remove"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Routing summary panel ─────────────────────────────────────────────────────
 
 function RoutingPanel() {
@@ -660,10 +923,16 @@ function MerchantAccessPanel() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AdminPaymentGateways() {
+  const qc = useQueryClient();
   const [tab, setTab] = useState("overview");
   const [configTab, setConfigTab] = useState("ekqr");
 
-  function openConfigTab(provider: "cashfree-payin" | "cashfree-payout" | "ekqr") {
+  const { data: integrations = [] } = useListProviderIntegrations({
+    request: { headers: authHeader() },
+  } as any);
+  const customIntegrations = integrations.filter((i: ProviderIntegration) => i.isCustom);
+
+  function openConfigTab(provider: string) {
     setConfigTab(provider);
     setTab("configure");
   }
@@ -695,7 +964,17 @@ export default function AdminPaymentGateways() {
               <CashfreePayinCard onConfigure={() => openConfigTab("cashfree-payin")} />
               <CashfreePayoutCard onConfigure={() => openConfigTab("cashfree-payout")} />
               <EkqrCard onConfigure={() => openConfigTab("ekqr")} />
-              <FuturePlaceholderCard />
+              {customIntegrations.map((integration: ProviderIntegration) => (
+                <CustomGatewayCard
+                  key={integration.providerKey}
+                  integration={integration}
+                  onConfigure={() => openConfigTab(integration.providerKey)}
+                />
+              ))}
+              <AddGatewayCard onCreated={(providerKey) => {
+                qc.invalidateQueries({ queryKey: getListProviderIntegrationsQueryKey() });
+                openConfigTab(providerKey);
+              }} />
             </div>
 
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -721,7 +1000,7 @@ export default function AdminPaymentGateways() {
           {/* ── Configure ───────────────────────────────────────────────── */}
           <TabsContent value="configure" className="mt-5">
             <Tabs value={configTab} onValueChange={setConfigTab}>
-              <TabsList className="h-8 mb-5">
+              <TabsList className="h-8 mb-5 flex-wrap h-auto">
                 <TabsTrigger value="cashfree-payin" className="text-xs px-3">
                   <CreditCard className="w-3 h-3 mr-1.5" />Payin Gateway
                 </TabsTrigger>
@@ -731,10 +1010,20 @@ export default function AdminPaymentGateways() {
                 <TabsTrigger value="ekqr" className="text-xs px-3">
                   <Zap className="w-3 h-3 mr-1.5" />UPI Gateway
                 </TabsTrigger>
+                {customIntegrations.map((integration: ProviderIntegration) => (
+                  <TabsTrigger key={integration.providerKey} value={integration.providerKey} className="text-xs px-3">
+                    <Plug className="w-3 h-3 mr-1.5" />{integration.displayNamePublic}
+                  </TabsTrigger>
+                ))}
               </TabsList>
               <TabsContent value="cashfree-payin"><CashfreePayinPanel /></TabsContent>
               <TabsContent value="cashfree-payout"><CashfreePayoutPanel /></TabsContent>
               <TabsContent value="ekqr"><EkqrConfigPanel /></TabsContent>
+              {customIntegrations.map((integration: ProviderIntegration) => (
+                <TabsContent key={integration.providerKey} value={integration.providerKey}>
+                  <CustomGatewayConfigPanel integration={integration} />
+                </TabsContent>
+              ))}
             </Tabs>
           </TabsContent>
 

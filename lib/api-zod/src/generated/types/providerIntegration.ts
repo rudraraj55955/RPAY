@@ -16,6 +16,16 @@ export interface ProviderIntegration {
   productType?: string | null;
   webhookUrl?: string | null;
   notes?: string | null;
+  /** True for admin-registered gateways added via "Add Gateway"; false for built-in Cashfree/EKQR integrations. */
+  isCustom: boolean;
+  /** Whether an API key credential has been configured for this (custom) integration. */
+  apiKeySet: boolean;
+  /** Masked preview of the configured API key, empty if not set. */
+  apiKeyMasked: string;
+  /** Whether an API secret credential has been configured for this (custom) integration. */
+  apiSecretSet: boolean;
+  /** Whether a webhook signature secret has been configured for this (custom) integration. */
+  webhookSecretSet: boolean;
   updatedByEmail?: string | null;
   createdAt: string;
   updatedAt: string;

@@ -25,21 +25,109 @@ import {
 } from "@workspace/db";
 import { eq, and, asc, desc } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { encryptSecret, decryptSecret } from "../helpers/cryptoUtils";
+import type { ProviderIntegration } from "@workspace/db";
 
 const router = Router();
 router.use(requireAuth);
 
 // ── Provider Integrations ─────────────────────────────────────────────────────
 
+function maskSecret(raw: string): string {
+  if (raw.length <= 8) return "*".repeat(raw.length);
+  return `${raw.slice(0, 4)}${"*".repeat(Math.max(0, raw.length - 8))}${raw.slice(-4)}`;
+}
+
+/** Shapes a DB row for the client — never returns raw/encrypted credential values. */
+function serializeIntegration(r: ProviderIntegration) {
+  const rawApiKey = r.apiKeyEncrypted ? decryptSecret(r.apiKeyEncrypted) : null;
+  const rawApiSecret = r.apiSecretEncrypted ? decryptSecret(r.apiSecretEncrypted) : null;
+  const apiKeyValue = rawApiKey?.ok ? rawApiKey.value : "";
+  const apiSecretValue = rawApiSecret?.ok ? rawApiSecret.value : "";
+
+  const {
+    apiKeyEncrypted: _apiKeyEncrypted,
+    apiSecretEncrypted: _apiSecretEncrypted,
+    webhookSecretEncrypted: _webhookSecretEncrypted,
+    ...rest
+  } = r;
+
+  return {
+    ...rest,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+    apiKeySet: apiKeyValue.length > 0,
+    apiKeyMasked: apiKeyValue.length > 0 ? maskSecret(apiKeyValue) : "",
+    apiSecretSet: apiSecretValue.length > 0,
+    webhookSecretSet: !!r.webhookSecretEncrypted,
+  };
+}
+
 /** GET /api/provider-integrations */
 router.get("/integrations", requireAdmin, async (req, res, next) => {
   try {
     const rows = await db.select().from(providerIntegrationsTable).orderBy(asc(providerIntegrationsTable.id));
-    res.json(rows.map(r => ({
-      ...r,
-      createdAt: r.createdAt.toISOString(),
-      updatedAt: r.updatedAt.toISOString(),
-    })));
+    res.json(rows.map(serializeIntegration));
+  } catch (err) { next(err); }
+});
+
+/** POST /api/provider-integrations/integrations — register a new custom gateway (admin only) */
+router.post("/integrations", requireAdmin, async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const {
+      providerKey, providerNameInternal, displayNamePublic, environment, productType,
+      webhookUrl, notes, isEnabled, apiKey, apiSecret, webhookSecret,
+    } = req.body as {
+      providerKey?: string;
+      providerNameInternal?: string;
+      displayNamePublic?: string;
+      environment?: string;
+      productType?: string;
+      webhookUrl?: string;
+      notes?: string;
+      isEnabled?: boolean;
+      apiKey?: string;
+      apiSecret?: string;
+      webhookSecret?: string;
+    };
+
+    if (!providerNameInternal?.trim()) { res.status(400).json({ error: "providerNameInternal is required" }); return; }
+    if (!displayNamePublic?.trim()) { res.status(400).json({ error: "displayNamePublic is required" }); return; }
+
+    const slugBase = (providerKey?.trim() || providerNameInternal)
+      .toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    if (!slugBase) { res.status(400).json({ error: "Could not derive a valid provider key" }); return; }
+
+    const [existing] = await db.select().from(providerIntegrationsTable)
+      .where(eq(providerIntegrationsTable.providerKey, slugBase)).limit(1);
+    if (existing) { res.status(400).json({ error: `Provider key "${slugBase}" already exists` }); return; }
+
+    const [created] = await db.insert(providerIntegrationsTable).values({
+      providerKey: slugBase,
+      providerNameInternal: providerNameInternal.trim(),
+      displayNamePublic: displayNamePublic.trim(),
+      environment: environment === "live" ? "live" : "test",
+      isEnabled: isEnabled ?? false,
+      productType: productType?.trim() || null,
+      webhookUrl: webhookUrl?.trim() || null,
+      notes: notes?.trim() || null,
+      isCustom: true,
+      apiKeyEncrypted: apiKey?.trim() ? encryptSecret(apiKey.trim()) : null,
+      apiSecretEncrypted: apiSecret?.trim() ? encryptSecret(apiSecret.trim()) : null,
+      webhookSecretEncrypted: webhookSecret?.trim() ? encryptSecret(webhookSecret.trim()) : null,
+      updatedByEmail: user.email,
+    }).returning();
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id, adminEmail: user.email,
+      action: "provider_integration_created", targetType: "provider_integration", targetId: null,
+      details: JSON.stringify({ providerKey: slugBase, providerNameInternal, productType }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ providerKey: slugBase }, "Custom provider integration created");
+    res.status(201).json(serializeIntegration(created!));
   } catch (err) { next(err); }
 });
 
@@ -48,12 +136,16 @@ router.put("/integrations/:key", requireAdmin, async (req, res, next) => {
   try {
     const user = (req as any).user;
     const key = req.params["key"] as string;
-    const { environment, isEnabled, webhookUrl, notes, displayNamePublic } = req.body as {
+    const { environment, isEnabled, webhookUrl, notes, displayNamePublic, productType, apiKey, apiSecret, webhookSecret } = req.body as {
       environment?: string;
       isEnabled?: boolean;
       webhookUrl?: string;
       notes?: string;
       displayNamePublic?: string;
+      productType?: string;
+      apiKey?: string;
+      apiSecret?: string;
+      webhookSecret?: string;
     };
 
     const [existing] = await db.select().from(providerIntegrationsTable)
@@ -66,6 +158,10 @@ router.put("/integrations/:key", requireAdmin, async (req, res, next) => {
     if (webhookUrl !== undefined) updateSet.webhookUrl = webhookUrl;
     if (notes !== undefined) updateSet.notes = notes;
     if (displayNamePublic !== undefined) updateSet.displayNamePublic = displayNamePublic;
+    if (existing.isCustom && productType !== undefined) updateSet.productType = productType;
+    if (existing.isCustom && apiKey !== undefined) updateSet.apiKeyEncrypted = apiKey.trim() ? encryptSecret(apiKey.trim()) : null;
+    if (existing.isCustom && apiSecret !== undefined) updateSet.apiSecretEncrypted = apiSecret.trim() ? encryptSecret(apiSecret.trim()) : null;
+    if (existing.isCustom && webhookSecret !== undefined) updateSet.webhookSecretEncrypted = webhookSecret.trim() ? encryptSecret(webhookSecret.trim()) : null;
     updateSet.updatedByEmail = user.email;
 
     const [updated] = await db.update(providerIntegrationsTable)
@@ -76,12 +172,43 @@ router.put("/integrations/:key", requireAdmin, async (req, res, next) => {
     await db.insert(auditLogsTable).values({
       adminId: user.id, adminEmail: user.email,
       action: "provider_integration_updated", targetType: "provider_integration", targetId: null,
-      details: JSON.stringify({ providerKey: key, ...updateSet }),
+      details: JSON.stringify({
+        providerKey: key,
+        ...updateSet,
+        apiKeyEncrypted: updateSet["apiKeyEncrypted"] !== undefined ? "[redacted]" : undefined,
+        apiSecretEncrypted: updateSet["apiSecretEncrypted"] !== undefined ? "[redacted]" : undefined,
+        webhookSecretEncrypted: updateSet["webhookSecretEncrypted"] !== undefined ? "[redacted]" : undefined,
+      }),
       ipAddress: (req as any).ip ?? null,
     });
 
     req.log.info({ key, isEnabled, environment }, "Provider integration updated");
-    res.json({ ...updated!, createdAt: updated!.createdAt.toISOString(), updatedAt: updated!.updatedAt.toISOString() });
+    res.json(serializeIntegration(updated!));
+  } catch (err) { next(err); }
+});
+
+/** DELETE /api/provider-integrations/integrations/:key — remove a custom gateway (admin only) */
+router.delete("/integrations/:key", requireAdmin, async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    const key = req.params["key"] as string;
+
+    const [existing] = await db.select().from(providerIntegrationsTable)
+      .where(eq(providerIntegrationsTable.providerKey, key)).limit(1);
+    if (!existing) { res.status(404).json({ error: "Integration not found" }); return; }
+    if (!existing.isCustom) { res.status(400).json({ error: "Built-in provider integrations cannot be deleted" }); return; }
+
+    await db.delete(providerIntegrationsTable).where(eq(providerIntegrationsTable.providerKey, key));
+
+    await db.insert(auditLogsTable).values({
+      adminId: user.id, adminEmail: user.email,
+      action: "provider_integration_deleted", targetType: "provider_integration", targetId: null,
+      details: JSON.stringify({ providerKey: key }),
+      ipAddress: (req as any).ip ?? null,
+    });
+
+    req.log.info({ key }, "Custom provider integration deleted");
+    res.json({ message: "Integration removed" });
   } catch (err) { next(err); }
 });
 

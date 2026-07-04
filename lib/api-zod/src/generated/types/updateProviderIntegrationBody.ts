@@ -12,4 +12,12 @@ export interface UpdateProviderIntegrationBody {
   webhookUrl?: string;
   notes?: string;
   displayNamePublic?: string;
+  /** Only applied for custom (admin-added) integrations. */
+  productType?: string;
+  /** New API key value to rotate in (custom integrations only). Send an empty string to clear. */
+  apiKey?: string;
+  /** New API secret value to rotate in (custom integrations only). Send an empty string to clear. */
+  apiSecret?: string;
+  /** New webhook signature secret to rotate in (custom integrations only). Send an empty string to clear. */
+  webhookSecret?: string;
 }

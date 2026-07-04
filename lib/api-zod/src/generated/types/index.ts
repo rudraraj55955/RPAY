@@ -131,6 +131,8 @@ export * from './createCashfreeOrderBody';
 export * from './createMerchantSavedFilterInput';
 export * from './createMerchantSavedFilterInputFilterData';
 export * from './createPayinOrderBody';
+export * from './createProviderIntegrationBody';
+export * from './createProviderIntegrationBodyEnvironment';
 export * from './createSavedFilterInput';
 export * from './createSavedFilterInputFilterData';
 export * from './createSettlementInput';

@@ -7673,11 +7673,34 @@ export const ListProviderIntegrationsResponseItem = zod.object({
   "productType": zod.string().nullish(),
   "webhookUrl": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "isCustom": zod.boolean().describe('True for admin-registered gateways added via \"Add Gateway\"; false for built-in Cashfree\/EKQR integrations.'),
+  "apiKeySet": zod.boolean().describe('Whether an API key credential has been configured for this (custom) integration.'),
+  "apiKeyMasked": zod.string().describe('Masked preview of the configured API key, empty if not set.'),
+  "apiSecretSet": zod.boolean().describe('Whether an API secret credential has been configured for this (custom) integration.'),
+  "webhookSecretSet": zod.boolean().describe('Whether a webhook signature secret has been configured for this (custom) integration.'),
   "updatedByEmail": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
 export const ListProviderIntegrationsResponse = zod.array(ListProviderIntegrationsResponseItem)
+
+
+/**
+ * @summary Register a new custom payment gateway integration (admin only)
+ */
+export const CreateProviderIntegrationBody = zod.object({
+  "providerKey": zod.string().optional().describe('Optional explicit key; derived from providerNameInternal (slugified) if omitted.'),
+  "providerNameInternal": zod.string().describe('Internal\/admin-facing name of the gateway (e.g. \"Razorpay\").'),
+  "displayNamePublic": zod.string().describe('White-labelled name admins reference this integration by.'),
+  "environment": zod.enum(['test', 'live']).optional(),
+  "productType": zod.string().optional().describe('e.g. payin, payout, upi_qr, other'),
+  "webhookUrl": zod.string().optional(),
+  "notes": zod.string().optional(),
+  "isEnabled": zod.boolean().optional(),
+  "apiKey": zod.string().optional(),
+  "apiSecret": zod.string().optional(),
+  "webhookSecret": zod.string().optional()
+})
 
 
 /**
@@ -7692,7 +7715,11 @@ export const UpdateProviderIntegrationBody = zod.object({
   "isEnabled": zod.boolean().optional(),
   "webhookUrl": zod.string().optional(),
   "notes": zod.string().optional(),
-  "displayNamePublic": zod.string().optional()
+  "displayNamePublic": zod.string().optional(),
+  "productType": zod.string().optional().describe('Only applied for custom (admin-added) integrations.'),
+  "apiKey": zod.string().optional().describe('New API key value to rotate in (custom integrations only). Send an empty string to clear.'),
+  "apiSecret": zod.string().optional().describe('New API secret value to rotate in (custom integrations only). Send an empty string to clear.'),
+  "webhookSecret": zod.string().optional().describe('New webhook signature secret to rotate in (custom integrations only). Send an empty string to clear.')
 })
 
 export const UpdateProviderIntegrationResponse = zod.object({
@@ -7705,9 +7732,26 @@ export const UpdateProviderIntegrationResponse = zod.object({
   "productType": zod.string().nullish(),
   "webhookUrl": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "isCustom": zod.boolean().describe('True for admin-registered gateways added via \"Add Gateway\"; false for built-in Cashfree\/EKQR integrations.'),
+  "apiKeySet": zod.boolean().describe('Whether an API key credential has been configured for this (custom) integration.'),
+  "apiKeyMasked": zod.string().describe('Masked preview of the configured API key, empty if not set.'),
+  "apiSecretSet": zod.boolean().describe('Whether an API secret credential has been configured for this (custom) integration.'),
+  "webhookSecretSet": zod.boolean().describe('Whether a webhook signature secret has been configured for this (custom) integration.'),
   "updatedByEmail": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a custom payment gateway integration (admin only, built-ins are protected)
+ */
+export const DeleteProviderIntegrationParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const DeleteProviderIntegrationResponse = zod.object({
+  "message": zod.string()
 })
 
 

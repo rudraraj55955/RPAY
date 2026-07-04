@@ -97,6 +97,7 @@ import type {
   CreateCashfreeOrderBody,
   CreateMerchantSavedFilterInput,
   CreatePayinOrderBody,
+  CreateProviderIntegrationBody,
   CreateSavedFilterInput,
   CreateSettlementInput,
   CreateSupportTicketInput,
@@ -23905,6 +23906,77 @@ export function useListProviderIntegrations<TData = Awaited<ReturnType<typeof li
 
 
 
+export const getCreateProviderIntegrationUrl = () => {
+
+
+
+
+  return `/api/provider-integrations/integrations`
+}
+
+/**
+ * @summary Register a new custom payment gateway integration (admin only)
+ */
+export const createProviderIntegration = async (createProviderIntegrationBody: CreateProviderIntegrationBody, options?: RequestInit): Promise<ProviderIntegration> => {
+
+  return customFetch<ProviderIntegration>(getCreateProviderIntegrationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createProviderIntegrationBody,)
+  }
+);}
+
+
+
+
+export const getCreateProviderIntegrationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProviderIntegration>>, TError,{data: BodyType<CreateProviderIntegrationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProviderIntegration>>, TError,{data: BodyType<CreateProviderIntegrationBody>}, TContext> => {
+
+const mutationKey = ['createProviderIntegration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProviderIntegration>>, {data: BodyType<CreateProviderIntegrationBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProviderIntegration(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProviderIntegrationMutationResult = NonNullable<Awaited<ReturnType<typeof createProviderIntegration>>>
+    export type CreateProviderIntegrationMutationBody = BodyType<CreateProviderIntegrationBody>
+    export type CreateProviderIntegrationMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Register a new custom payment gateway integration (admin only)
+ */
+export const useCreateProviderIntegration = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProviderIntegration>>, TError,{data: BodyType<CreateProviderIntegrationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createProviderIntegration>>,
+        TError,
+        {data: BodyType<CreateProviderIntegrationBody>},
+        TContext
+      > => {
+      return useMutation(getCreateProviderIntegrationMutationOptions(options));
+    }
+
 export const getUpdateProviderIntegrationUrl = (key: string,) => {
 
 
@@ -23975,6 +24047,76 @@ export const useUpdateProviderIntegration = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateProviderIntegrationMutationOptions(options));
+    }
+
+export const getDeleteProviderIntegrationUrl = (key: string,) => {
+
+
+
+
+  return `/api/provider-integrations/integrations/${key}`
+}
+
+/**
+ * @summary Remove a custom payment gateway integration (admin only, built-ins are protected)
+ */
+export const deleteProviderIntegration = async (key: string, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getDeleteProviderIntegrationUrl(key),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteProviderIntegrationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProviderIntegration>>, TError,{key: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteProviderIntegration>>, TError,{key: string}, TContext> => {
+
+const mutationKey = ['deleteProviderIntegration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteProviderIntegration>>, {key: string}> = (props) => {
+          const {key} = props ?? {};
+
+          return  deleteProviderIntegration(key,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteProviderIntegrationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProviderIntegration>>>
+
+    export type DeleteProviderIntegrationMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Remove a custom payment gateway integration (admin only, built-ins are protected)
+ */
+export const useDeleteProviderIntegration = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProviderIntegration>>, TError,{key: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteProviderIntegration>>,
+        TError,
+        {key: string},
+        TContext
+      > => {
+      return useMutation(getDeleteProviderIntegrationMutationOptions(options));
     }
 
 export const getListProviderProductsUrl = () => {

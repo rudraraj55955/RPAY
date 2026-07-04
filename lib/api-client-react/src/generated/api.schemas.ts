@@ -4375,6 +4375,16 @@ export interface ProviderIntegration {
   productType?: string | null;
   webhookUrl?: string | null;
   notes?: string | null;
+  /** True for admin-registered gateways added via "Add Gateway"; false for built-in Cashfree/EKQR integrations. */
+  isCustom: boolean;
+  /** Whether an API key credential has been configured for this (custom) integration. */
+  apiKeySet: boolean;
+  /** Masked preview of the configured API key, empty if not set. */
+  apiKeyMasked: string;
+  /** Whether an API secret credential has been configured for this (custom) integration. */
+  apiSecretSet: boolean;
+  /** Whether a webhook signature secret has been configured for this (custom) integration. */
+  webhookSecretSet: boolean;
   updatedByEmail?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -4386,6 +4396,40 @@ export interface UpdateProviderIntegrationBody {
   webhookUrl?: string;
   notes?: string;
   displayNamePublic?: string;
+  /** Only applied for custom (admin-added) integrations. */
+  productType?: string;
+  /** New API key value to rotate in (custom integrations only). Send an empty string to clear. */
+  apiKey?: string;
+  /** New API secret value to rotate in (custom integrations only). Send an empty string to clear. */
+  apiSecret?: string;
+  /** New webhook signature secret to rotate in (custom integrations only). Send an empty string to clear. */
+  webhookSecret?: string;
+}
+
+export type CreateProviderIntegrationBodyEnvironment = typeof CreateProviderIntegrationBodyEnvironment[keyof typeof CreateProviderIntegrationBodyEnvironment];
+
+
+export const CreateProviderIntegrationBodyEnvironment = {
+  test: 'test',
+  live: 'live',
+} as const;
+
+export interface CreateProviderIntegrationBody {
+  /** Optional explicit key; derived from providerNameInternal (slugified) if omitted. */
+  providerKey?: string;
+  /** Internal/admin-facing name of the gateway (e.g. "Razorpay"). */
+  providerNameInternal: string;
+  /** White-labelled name admins reference this integration by. */
+  displayNamePublic: string;
+  environment?: CreateProviderIntegrationBodyEnvironment;
+  /** e.g. payin, payout, upi_qr, other */
+  productType?: string;
+  webhookUrl?: string;
+  notes?: string;
+  isEnabled?: boolean;
+  apiKey?: string;
+  apiSecret?: string;
+  webhookSecret?: string;
 }
 
 export interface ProviderProduct {

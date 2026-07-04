@@ -121,8 +121,46 @@ const DEMO_CREDENTIALS = [
   { email: "merchant2@demo.com", password: "Merchant@123456", role: "merchant" as const },
 ];
 
+// ── Deliberate demo-account exclusion ─────────────────────────────────────
+// SEED_EXCLUDE_DEMO_EMAILS: optional comma-separated list of demo merchant
+// emails that this environment's seed should NOT (re)create. This is the
+// supported way to permanently remove a demo account from a given
+// environment (e.g. a hardened production deploy) without reintroducing the
+// old bug where documented demo logins silently 401 in dev/staging because
+// the seed was made SELECT-only globally.
+//
+// How to actually remove a demo account from a live environment:
+//   1. Set SEED_EXCLUDE_DEMO_EMAILS=merchant@demo.com,merchant2@demo.com in
+//      that environment's secrets (comma-separated, case-insensitive).
+//   2. Manually delete the account's rows (merchants + users + dependents)
+//      from that environment's DB, e.g. via `scripts/src/fix-credentials.ts`
+//      pattern or a one-off SQL delete.
+//   3. Restart the server. The seed will skip upserting the excluded
+//      email(s) going forward, so they will NOT be recreated on next start.
+//   Only merchant demo accounts may be excluded — admin@rasokart.com is
+//   never excludable, since it is the only way into the admin portal.
+// Leaving this env var unset (the default everywhere, including production)
+// preserves current behavior: all documented demo accounts always exist.
+const SEED_EXCLUDE_DEMO_EMAILS = new Set(
+  (process.env.SEED_EXCLUDE_DEMO_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+function isDemoAccountExcluded(email: string): boolean {
+  return SEED_EXCLUDE_DEMO_EMAILS.has(email.toLowerCase());
+}
+
 async function verifyDemoCredentials() {
-  const emails = DEMO_CREDENTIALS.map((c) => c.email);
+  const emails = DEMO_CREDENTIALS.map((c) => c.email).filter(
+    (email) => !isDemoAccountExcluded(email),
+  );
+
+  if (emails.length === 0) {
+    logger.info("Demo credential check skipped: all documented demo accounts are excluded via SEED_EXCLUDE_DEMO_EMAILS");
+    return true;
+  }
   const rows = await db
     .select({
       email: usersTable.email,
@@ -207,59 +245,84 @@ export async function seed() {
   // Demo merchant accounts (merchant@demo.com / merchant2@demo.com) are
   // documented in replit.md and relied on by onboarding demos, sales demos,
   // and the pre-filled "Try it" panel — they must exist and be active in
-  // every environment. Upserted the same way as merchant3 below so a fresh
-  // or previously-cleaned DB always has working demo logins.
-  const [merchant1] = await db
-    .insert(usersTable)
-    .values({ email: "merchant@demo.com", passwordHash: merchantHash, name: "Demo Merchant", role: "merchant", isActive: true })
-    .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Demo Merchant", role: "merchant", isActive: true } })
-    .returning();
+  // every environment BY DEFAULT. Upserted the same way as merchant3 below
+  // so a fresh or previously-cleaned DB always has working demo logins.
+  // An environment can opt out of recreating a specific account via
+  // SEED_EXCLUDE_DEMO_EMAILS (see block above) — in that case the upsert is
+  // skipped entirely so a manual deletion in that environment sticks.
+  let merchant1, merchant2, merchant3;
 
-  const [merchant2] = await db
-    .insert(usersTable)
-    .values({ email: "merchant2@demo.com", passwordHash: merchantHash, name: "Merchant Two", role: "merchant", isActive: true })
-    .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Merchant Two", role: "merchant", isActive: true } })
-    .returning();
+  if (!isDemoAccountExcluded("merchant@demo.com")) {
+    [merchant1] = await db
+      .insert(usersTable)
+      .values({ email: "merchant@demo.com", passwordHash: merchantHash, name: "Demo Merchant", role: "merchant", isActive: true })
+      .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Demo Merchant", role: "merchant", isActive: true } })
+      .returning();
+  } else {
+    logger.info({ email: "merchant@demo.com" }, "Demo account excluded via SEED_EXCLUDE_DEMO_EMAILS — not recreating");
+  }
+
+  if (!isDemoAccountExcluded("merchant2@demo.com")) {
+    [merchant2] = await db
+      .insert(usersTable)
+      .values({ email: "merchant2@demo.com", passwordHash: merchantHash, name: "Merchant Two", role: "merchant", isActive: true })
+      .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Merchant Two", role: "merchant", isActive: true } })
+      .returning();
+  } else {
+    logger.info({ email: "merchant2@demo.com" }, "Demo account excluded via SEED_EXCLUDE_DEMO_EMAILS — not recreating");
+  }
 
   // Demo merchant 3 account
-  const [merchant3] = await db
-    .insert(usersTable)
-    .values({ email: "merchant3@demo.com", passwordHash: merchantHash, name: "Demo Merchant 3", role: "merchant", isActive: true })
-    .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Demo Merchant 3", role: "merchant", isActive: true } })
-    .returning();
+  if (!isDemoAccountExcluded("merchant3@demo.com")) {
+    [merchant3] = await db
+      .insert(usersTable)
+      .values({ email: "merchant3@demo.com", passwordHash: merchantHash, name: "Demo Merchant 3", role: "merchant", isActive: true })
+      .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Demo Merchant 3", role: "merchant", isActive: true } })
+      .returning();
+  } else {
+    logger.info({ email: "merchant3@demo.com" }, "Demo account excluded via SEED_EXCLUDE_DEMO_EMAILS — not recreating");
+  }
 
-  const [m1] = await db.insert(merchantsTable).values({
-    businessName: "Demo Business Pvt Ltd",
-    contactName: "Demo Merchant",
-    email: "merchant@demo.com",
-    phone: "+91-9876543210",
-    status: "approved",
-    balance: "0",
-    totalDeposits: "0",
-    totalWithdrawals: "0",
-  }).onConflictDoUpdate({ target: merchantsTable.email, set: { status: "approved", contactName: "Demo Merchant" } }).returning();
+  let m1, m2, m3;
 
-  const [m2] = await db.insert(merchantsTable).values({
-    businessName: "TechPay Solutions",
-    contactName: "Merchant Two",
-    email: "merchant2@demo.com",
-    phone: "+91-9876543211",
-    status: "approved",
-    balance: "0",
-    totalDeposits: "0",
-    totalWithdrawals: "0",
-  }).onConflictDoUpdate({ target: merchantsTable.email, set: { status: "approved", contactName: "Merchant Two" } }).returning();
+  if (merchant1) {
+    [m1] = await db.insert(merchantsTable).values({
+      businessName: "Demo Business Pvt Ltd",
+      contactName: "Demo Merchant",
+      email: "merchant@demo.com",
+      phone: "+91-9876543210",
+      status: "approved",
+      balance: "0",
+      totalDeposits: "0",
+      totalWithdrawals: "0",
+    }).onConflictDoUpdate({ target: merchantsTable.email, set: { status: "approved", contactName: "Demo Merchant" } }).returning();
+  }
 
-  const [m3] = await db.insert(merchantsTable).values({
-    businessName: "Demo Enterprises",
-    contactName: "Demo Merchant 3",
-    email: "merchant3@demo.com",
-    phone: "+91-9000000003",
-    status: "approved",
-    balance: "0",
-    totalDeposits: "0",
-    totalWithdrawals: "0",
-  }).onConflictDoUpdate({ target: merchantsTable.email, set: { status: "approved", contactName: "Demo Merchant 3" } }).returning();
+  if (merchant2) {
+    [m2] = await db.insert(merchantsTable).values({
+      businessName: "TechPay Solutions",
+      contactName: "Merchant Two",
+      email: "merchant2@demo.com",
+      phone: "+91-9876543211",
+      status: "approved",
+      balance: "0",
+      totalDeposits: "0",
+      totalWithdrawals: "0",
+    }).onConflictDoUpdate({ target: merchantsTable.email, set: { status: "approved", contactName: "Merchant Two" } }).returning();
+  }
+
+  if (merchant3) {
+    [m3] = await db.insert(merchantsTable).values({
+      businessName: "Demo Enterprises",
+      contactName: "Demo Merchant 3",
+      email: "merchant3@demo.com",
+      phone: "+91-9000000003",
+      status: "approved",
+      balance: "0",
+      totalDeposits: "0",
+      totalWithdrawals: "0",
+    }).onConflictDoUpdate({ target: merchantsTable.email, set: { status: "approved", contactName: "Demo Merchant 3" } }).returning();
+  }
 
   // Link user accounts to their merchant rows so merchant-facing routes work
   if (m1) await db.update(usersTable).set({ merchantId: m1.id }).where(eq(usersTable.email, "merchant@demo.com"));

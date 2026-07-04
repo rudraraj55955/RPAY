@@ -6,7 +6,7 @@
 - [Wouter Redirect blank screen](wouter-redirect-blank.md) — <Redirect> returns null during navigation frame; use AuthRedirect with spinner+useEffect instead.
 - [React Query stale cache auth bleed](rq-auth-cache-bleed.md) — on login, call queryClient.removeQueries(getGetMeQueryKey()) before setting token or stale merchant user bleeds into admin session.
 - [Rate limiter store reuse](rate-limiter-store-reuse.md) — express-rate-limit v8 throws ERR_ERL_STORE_REUSE if two limiters share one store instance; always `new DbRateLimitStore()` per limiter, never reuse the singleton.
-- [Seed demo merchant guard](seed-demo-guard.md) — demo merchants (merchant/merchant2/merchant3@demo.com) are all upserted in seed.ts so documented demo logins always work; db push requires TTY — use ALTER TABLE for non-interactive schema migrations.
+- [Seed demo merchant guard](seed-demo-guard.md) — demo accounts always upserted by default; `SEED_EXCLUDE_DEMO_EMAILS` env var is the supported way to permanently drop one per-environment; db push requires TTY, use ALTER TABLE.
 - [Payout retry claim predicate](payout-retry-claim.md) — atomic retry claim must exclude INITIATED from the predicate; INITIATED→INITIATED allows duplicate concurrent claims. Always claim only from FAILED|REVERSED.
 - [Approve-flow stranded INITIATED](approve-flow-stranded.md) — if payout provider is disabled or creds missing at approve time, set transferStatus=FAILED immediately; never leave approved/INITIATED with no dispatch path.
 - [Cashfree Payouts V2 base URL](cashfree-payout-v2-url.md) — no `/v2` in URL path; v2 selected via `x-api-version` header only, or transfers fail with misleading "Token is not valid".

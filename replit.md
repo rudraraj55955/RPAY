@@ -10,6 +10,7 @@ RasoKart is a premium dark-themed payment gateway SaaS platform — admins onboa
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string, `SESSION_SECRET` — JWT signing key
+- Optional env: `SEED_EXCLUDE_DEMO_EMAILS` — comma-separated demo merchant emails to permanently exclude from seeding in a given environment (see Gotchas)
 
 ## Stack
 
@@ -67,6 +68,7 @@ RasoKart is a premium dark-themed payment gateway SaaS platform — admins onboa
 
 ## Gotchas
 
+- **Removing a demo account from production**: seed.ts always upserts `merchant@demo.com` / `merchant2@demo.com` / `merchant3@demo.com` on every start (so documented demo logins never silently 401). To actually and permanently remove one from a specific environment: (1) set `SEED_EXCLUDE_DEMO_EMAILS=<email1>,<email2>` as a secret in that environment, (2) manually delete that account's rows from the DB, (3) restart — the seed will skip recreating excluded emails going forward. `admin@rasokart.com` cannot be excluded this way (it's the only admin-portal login). Do not go back to a global SELECT-only seed — that previously caused demo logins to silently break on any fresh/cleaned DB.
 - **Rate limiter**: Login is rate-limited in-memory; restart API server to clear during development
 - **Seed guards**: QR/VA/API key seed uses merchant-scoped count, not global. Re-seeding is safe
 - **`/api/plans/me`** (not `/merchant/current`) is the merchant plan endpoint

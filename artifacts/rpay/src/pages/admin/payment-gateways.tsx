@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { useDisableGatewayGuard } from "@/components/admin/disable-gateway-dialog";
 import { toast } from "sonner";
 import {
   CreditCard, Landmark, Zap, PlusCircle, CheckCircle2, XCircle, AlertCircle,
@@ -219,6 +220,8 @@ function EkqrConfigPanel() {
   const unchanged = ekqrApiKey === "" && ekqrWebhookSecret === ""
     && ekqrEnabled === null && ekqrEnv === null;
 
+  const { guardSave, dialog: disableGuardDialog } = useDisableGatewayGuard("ekqr");
+
   const { mutate: saveConfig, isPending: saving } = useUpdateEkqrConfig({
     mutation: {
       onSuccess: () => {
@@ -261,7 +264,8 @@ function EkqrConfigPanel() {
     const body: Record<string, unknown> = { enabled: currentEnabled, env: currentEnv };
     if (ekqrApiKey.trim()) body.apiKey = ekqrApiKey.trim();
     if (ekqrWebhookSecret !== "") body.webhookSecret = ekqrWebhookSecret.trim();
-    saveConfig({ data: body as any });
+    const willDisable = (ekqrConfig?.enabled ?? false) === true && currentEnabled === false;
+    guardSave(willDisable, () => saveConfig({ data: body as any }));
   }
 
   const WEBHOOK_URL = "https://rasokart.com/api/payment/webhook";
@@ -461,6 +465,8 @@ function EkqrConfigPanel() {
           </Button>
         </div>
       </div>
+
+      {disableGuardDialog}
     </div>
   );
 }

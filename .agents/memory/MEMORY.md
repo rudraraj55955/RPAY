@@ -16,3 +16,4 @@
 - [Cashfree Payouts V1 vs V2 credential split](cashfree-payout-v1-v2-credential-split.md) — passing v1 authorize test doesn't guarantee v2 beneficiary/transfer endpoints accept same creds; 401 there is account-activation, not a code bug.
 - [Provider config threading across call sites](provider-config-threading-call-sites.md) — grep the whole tree for every call site when changing a shared helper signature; duplicate-looking route files are often still mounted.
 - [Fresh-env stale legacy workflows](fresh-env-stale-workflows.md) — a fresh env can have duplicate legacy .replit workflows conflicting in port with artifact-managed ones; remove the non-`artifacts/...`-named duplicates, don't edit .replit directly.
+- [RasoKart gateway toggle locations](rasokart-gateway-toggle-locations.md) — the real Enable/Save flows for each gateway are on 3 separate files; `payment-gateways.tsx` also has decoy read-only summary panels.

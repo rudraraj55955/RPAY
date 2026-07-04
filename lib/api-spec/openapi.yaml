@@ -7630,6 +7630,34 @@ paths:
         "403":
           description: Forbidden
 
+  /system-config/gateway-usage/{provider}:
+    get:
+      operationId: getGatewayUsage
+      tags: [system-config]
+      summary: Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [ekqr, cashfree, cashfree-payout]
+      responses:
+        "200":
+          description: Gateway usage snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayUsage"
+        "400":
+          description: Unknown provider
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
   /system-config/cashfree/logs:
     get:
       operationId: listCashfreePaymentLogs
@@ -13863,6 +13891,21 @@ components:
         webhookSecret:
           type: string
           description: EKQR webhook signature secret (omit to leave unchanged, empty string to clear)
+
+    GatewayUsage:
+      type: object
+      required: [provider, merchantCount, qrCodeCount]
+      properties:
+        provider:
+          type: string
+          enum: [ekqr, cashfree, cashfree-payout]
+          description: The gateway provider this usage snapshot describes
+        merchantCount:
+          type: integer
+          description: Number of merchants actively relying on this gateway
+        qrCodeCount:
+          type: integer
+          description: Number of active QR codes generated through this gateway (0 for providers without QR association)
 
     EkqrTestResult:
       type: object

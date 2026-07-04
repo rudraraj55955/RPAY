@@ -119,6 +119,7 @@ import type {
   ExportMerchantsCsvParams,
   ExportVaBalanceAuditCsvParams,
   FlushQuietHoursQueue200,
+  GatewayUsage,
   GetAdminMerchantReportSchedule200,
   GetAdminMerchantReportScheduleHistory200,
   GetAdminMerchantReportScheduleHistoryParams,
@@ -22532,6 +22533,83 @@ export const useUpdateCashfreeConfig = <TError = ErrorType<void>,
       > => {
       return useMutation(getUpdateCashfreeConfigMutationOptions(options));
     }
+
+export const getGetGatewayUsageUrl = (provider: 'ekqr' | 'cashfree' | 'cashfree-payout',) => {
+
+
+
+
+  return `/api/system-config/gateway-usage/${provider}`
+}
+
+/**
+ * @summary Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it)
+ */
+export const getGatewayUsage = async (provider: 'ekqr' | 'cashfree' | 'cashfree-payout', options?: RequestInit): Promise<GatewayUsage> => {
+
+  return customFetch<GatewayUsage>(getGetGatewayUsageUrl(provider),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGatewayUsageQueryKey = (provider: 'ekqr' | 'cashfree' | 'cashfree-payout',) => {
+    return [
+    `/api/system-config/gateway-usage/${provider}`
+    ] as const;
+    }
+
+
+export const getGetGatewayUsageQueryOptions = <TData = Awaited<ReturnType<typeof getGatewayUsage>>, TError = ErrorType<void>>(provider: 'ekqr' | 'cashfree' | 'cashfree-payout', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGatewayUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGatewayUsageQueryKey(provider);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGatewayUsage>>> = ({ signal }) => getGatewayUsage(provider, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(provider), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGatewayUsage>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGatewayUsageQueryResult = NonNullable<Awaited<ReturnType<typeof getGatewayUsage>>>
+export type GetGatewayUsageQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it)
+ */
+
+export function useGetGatewayUsage<TData = Awaited<ReturnType<typeof getGatewayUsage>>, TError = ErrorType<void>>(
+ provider: 'ekqr' | 'cashfree' | 'cashfree-payout', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGatewayUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGatewayUsageQueryOptions(provider,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListCashfreePaymentLogsUrl = (params?: ListCashfreePaymentLogsParams,) => {
   const normalizedParams = new URLSearchParams();

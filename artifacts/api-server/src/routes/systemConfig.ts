@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable, signatureFailureAlertLogsTable, webhookFailureAlertLogsTable, storageCleanupRunsTable, uploadedObjectsTable, merchantsTable } from "@workspace/db";
+import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable, signatureFailureAlertLogsTable, webhookFailureAlertLogsTable, storageCleanupRunsTable, uploadedObjectsTable, merchantsTable, merchantConnectionsTable, qrCodesTable, cashfreePaymentOrdersTable, cashfreePayoutsTable } from "@workspace/db";
 import { ekqrCreateOrder, ekqrClientTxnId } from "../helpers/ekqr";
 import { testPayoutConnection, cashfreePayoutGetTransferStatus, normalizeCashfreePayoutStatus, type CashfreePayoutEnv } from "../helpers/cashfreePayout";
 import { encryptSecret, decryptSecret } from "../helpers/cryptoUtils";
-import { inArray, desc, count, sql, eq, and } from "drizzle-orm";
+import { inArray, desc, count, countDistinct, sql, eq, and, isNotNull } from "drizzle-orm";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { rescheduleFromDb, getNextRunTime } from "../helpers/reconScheduler";
@@ -1517,6 +1517,48 @@ router.put("/ekqr", async (req, res, next) => {
     req.log.info({ enabled, env, apiKeyUpdated: apiKey !== undefined, webhookSecretUpdated: webhookSecret !== undefined }, "EKQR config updated");
     res.json(await getEkqrConfig());
   } catch (err) { next(err); }
+});
+
+// GET /api/system-config/gateway-usage/:provider
+// Used by the admin Payment Gateways UI to warn before disabling a gateway that
+// merchants are actively relying on.
+router.get("/gateway-usage/:provider", async (req, res, next) => {
+  try {
+    const provider = req.params['provider'] as string;
+
+    if (provider === "ekqr") {
+      const [[merchantRow], [qrRow]] = await Promise.all([
+        db.select({ total: countDistinct(merchantConnectionsTable.merchantId) })
+          .from(merchantConnectionsTable)
+          .where(and(eq(merchantConnectionsTable.provider, "ekqr"), eq(merchantConnectionsTable.isActive, true))),
+        db.select({ total: count() })
+          .from(qrCodesTable)
+          .where(and(isNotNull(qrCodesTable.ekqrOrderId), eq(qrCodesTable.status, "active"))),
+      ]);
+      res.json({ provider, merchantCount: merchantRow?.total ?? 0, qrCodeCount: qrRow?.total ?? 0 });
+      return;
+    }
+
+    if (provider === "cashfree") {
+      const [merchantRow] = await db
+        .select({ total: countDistinct(cashfreePaymentOrdersTable.merchantId) })
+        .from(cashfreePaymentOrdersTable);
+      res.json({ provider, merchantCount: merchantRow?.total ?? 0, qrCodeCount: 0 });
+      return;
+    }
+
+    if (provider === "cashfree-payout") {
+      const [merchantRow] = await db
+        .select({ total: countDistinct(cashfreePayoutsTable.merchantId) })
+        .from(cashfreePayoutsTable);
+      res.json({ provider, merchantCount: merchantRow?.total ?? 0, qrCodeCount: 0 });
+      return;
+    }
+
+    res.status(400).json({ error: "Unknown provider" });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // POST /api/system-config/ekqr/test-webhook

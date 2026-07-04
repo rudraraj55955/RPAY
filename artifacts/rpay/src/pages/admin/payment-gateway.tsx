@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useDisableGatewayGuard } from "@/components/admin/disable-gateway-dialog";
 import { toast } from "sonner";
 import { Save, Eye, EyeOff, CheckCircle2, AlertCircle, RefreshCw, Shield, Zap, CreditCard, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -53,7 +54,9 @@ export default function AdminPaymentGateway() {
   const currentEnabled = enabled !== null ? enabled : (config?.enabled ?? false);
   const currentEnv: "test" | "live" = env !== null ? env : (config?.env ?? "test");
 
-  async function handleSave() {
+  const { guardSave, dialog: disableGuardDialog } = useDisableGatewayGuard("cashfree");
+
+  async function doSave() {
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
@@ -78,6 +81,11 @@ export default function AdminPaymentGateway() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleSave() {
+    const willDisable = (config?.enabled ?? false) === true && currentEnabled === false;
+    guardSave(willDisable, doSave);
   }
 
   function formatDate(ts: string) {
@@ -399,6 +407,8 @@ export default function AdminPaymentGateway() {
           )}
         </CardContent>
       </Card>
+
+      {disableGuardDialog}
     </div>
   );
 }

@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDisableGatewayGuard } from "@/components/admin/disable-gateway-dialog";
 import { toast } from "sonner";
 import {
   Save, Eye, EyeOff, RefreshCw, Upload, Plus, RotateCcw, ChevronLeft, ChevronRight,
@@ -148,6 +149,8 @@ function SettingsTab() {
 
   const missingCredentials = !isLoading && config && (!config.clientIdSet || !config.clientSecretSet);
 
+  const { guardSave, dialog: disableGuardDialog } = useDisableGatewayGuard("cashfree-payout");
+
   const WEBHOOK_URL = "https://rasokart.com/api/cashfree-payout/webhook";
 
   function validateLimits(): string | null {
@@ -161,14 +164,7 @@ function SettingsTab() {
     return null;
   }
 
-  async function handleSave() {
-    const validationError = validateLimits();
-    if (validationError) {
-      setErrorMsg(validationError);
-      setErrorOpen(true);
-      return;
-    }
-
+  async function doSave() {
     setSaving(true);
     setTestResult(null);
     try {
@@ -206,6 +202,17 @@ function SettingsTab() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleSave() {
+    const validationError = validateLimits();
+    if (validationError) {
+      setErrorMsg(validationError);
+      setErrorOpen(true);
+      return;
+    }
+    const willDisable = (config?.enabled ?? false) === true && currentEnabled === false;
+    guardSave(willDisable, doSave);
   }
 
   async function handleTestCredentials() {
@@ -623,6 +630,8 @@ function SettingsTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {disableGuardDialog}
     </div>
   );
 }

@@ -171,6 +171,8 @@ export * from './exportMerchantsCsvStatus';
 export * from './exportVaBalanceAuditCsvFieldChanged';
 export * from './exportVaBalanceAuditCsvParams';
 export * from './flushQuietHoursQueue200';
+export * from './gatewayUsage';
+export * from './gatewayUsageProvider';
 export * from './getAdminMerchantReportSchedule200';
 export * from './getAdminMerchantReportScheduleHistory200';
 export * from './getAdminMerchantReportScheduleHistoryParams';

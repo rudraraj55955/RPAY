@@ -133,6 +133,7 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
   const [pathValues, setPathValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
+  const [curlCopied, setCurlCopied] = useState(false);
 
   const params = extractPathParams(path);
   const hasBody = method === "POST" || method === "PUT" || method === "PATCH";
@@ -140,6 +141,30 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
   const resolvedPath = path.replace(/\{(\w+)\}/g, (_, key) => pathValues[key] ?? `{${key}}`);
   const baseUrl = window.location.origin;
   const url = `${baseUrl}${resolvedPath}`;
+
+  const buildCurlCommand = useCallback(() => {
+    const activeToken = requiresAuth ? (localToken || token) : "";
+    const parts = [`curl -X ${method} '${url}'`];
+    if (activeToken) {
+      parts.push(`  -H 'Authorization: Bearer ${activeToken}'`);
+    }
+    if (hasBody) {
+      parts.push(`  -H 'Content-Type: application/json'`);
+      if (body.trim()) {
+        const escapedBody = body.replace(/'/g, `'\\''`);
+        parts.push(`  -d '${escapedBody}'`);
+      }
+    }
+    return parts.join(" \\\n");
+  }, [method, url, hasBody, body, localToken, token, requiresAuth]);
+
+  const handleCopyCurl = useCallback(() => {
+    const curl = buildCurlCommand();
+    navigator.clipboard.writeText(curl);
+    setCurlCopied(true);
+    toast.success("Copied to clipboard");
+    setTimeout(() => setCurlCopied(false), 2000);
+  }, [buildCurlCommand]);
 
   const fire = useCallback(async () => {
     setLoading(true);
@@ -264,7 +289,7 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               size="sm"
               className="h-7 text-xs gap-1.5"
@@ -277,6 +302,19 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
                 <Play className="w-3 h-3 fill-current" />
               )}
               {loading ? "Sending…" : "Send Request"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={handleCopyCurl}
+            >
+              {curlCopied ? (
+                <Check className="w-3 h-3 text-emerald-400" />
+              ) : (
+                <Copy className="w-3 h-3" />
+              )}
+              {curlCopied ? "Copied!" : "Copy as cURL"}
             </Button>
             <span className="text-xs text-muted-foreground font-mono truncate">{url}</span>
           </div>

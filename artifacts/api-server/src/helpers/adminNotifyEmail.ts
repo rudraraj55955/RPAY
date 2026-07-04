@@ -22,6 +22,19 @@ async function getAdminEmails(preference: "planExpiryAlertEmails" | "settlementS
   return admins.map(a => a.email);
 }
 
+// Credential rotation alerts are high-risk security notifications — unlike the other
+// alert types above, there is no opt-out preference. Every active admin is notified.
+async function getAllActiveAdminEmails(): Promise<string[]> {
+  const admins = await db
+    .select({ email: usersTable.email })
+    .from(usersTable)
+    .where(and(
+      eq(usersTable.role, "admin"),
+      eq(usersTable.isActive, true),
+    ));
+  return admins.map(a => a.email);
+}
+
 // ---------------------------------------------------------------------------
 // Plan expiry alert emails
 // ---------------------------------------------------------------------------
@@ -760,5 +773,120 @@ export async function notifyAdminsOfStuckEkqrQrCodes(opts: {
     );
   } catch (err) {
     logger.error({ err }, "Failed to send admin stuck EKQR QR alert emails");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Payment gateway credential rotation alerts
+// ---------------------------------------------------------------------------
+
+const GATEWAY_LABELS: Record<string, string> = {
+  cashfree: "Cashfree Payin",
+  "cashfree-payout": "Cashfree Payout",
+  ekqr: "EKQR",
+};
+
+function buildCredentialRotationHtml(opts: {
+  gateway: string;
+  changedFields: string[];
+  actorEmail: string;
+  timestamp: string;
+}): string {
+  const { gateway, changedFields, actorEmail, timestamp } = opts;
+  const gatewayLabel = GATEWAY_LABELS[gateway] ?? gateway;
+  const settingsLink = `${APP_DOMAIN}/admin/payment-gateways`;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; background: #0f0f0f; color: #e5e5e5; margin: 0; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #2a2a2a;">
+    <div style="background: #7f1d1d; padding: 20px 24px;">
+      <h1 style="margin: 0; font-size: 20px; color: #fff; letter-spacing: 0.5px;">RasoKart — Gateway Credentials Changed</h1>
+      <p style="margin: 4px 0 0; color: #fca5a5; font-size: 13px;">${gatewayLabel} credentials were rotated</p>
+    </div>
+    <div style="padding: 24px;">
+      <p style="margin: 0 0 16px; color: #f87171; font-size: 14px; font-weight: 600;">
+        🔐 Credentials for the <strong>${gatewayLabel}</strong> payment gateway were changed. If this wasn't expected, investigate immediately.
+      </p>
+      <p style="margin: 0 0 20px; color: #a1a1aa; font-size: 13px;">
+        For security, the new values are never included in this email. Review the change in the admin portal and confirm it was authorized.
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px; width: 40%;">Gateway</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600;">${gatewayLabel}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Fields Changed</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; color: #f87171; font-weight: 600;">${changedFields.join(", ")}</td>
+        </tr>
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Changed By</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px;">${actorEmail}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Timestamp</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px;">${timestamp}</td>
+        </tr>
+      </table>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <a href="${settingsLink}"
+           style="display: inline-block; background: #7c3aed; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: 600; letter-spacing: 0.3px;">
+          Review Payment Gateway Settings
+        </a>
+      </div>
+
+      <p style="margin: 0; color: #71717a; font-size: 12px;">
+        If the link above doesn't work, copy this URL into your browser:<br>
+        <span style="color: #818cf8;">${settingsLink}</span>
+      </p>
+    </div>
+    <div style="padding: 14px 24px; background: #111; border-top: 1px solid #2a2a2a;">
+      <p style="margin: 0; color: #52525b; font-size: 11px;">
+        This is a mandatory security alert sent to all admins whenever gateway credentials are rotated. It cannot be disabled.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export async function notifyAdminsOfCredentialRotation(opts: {
+  gateway: string;
+  changedFields: string[];
+  actorEmail: string;
+}): Promise<void> {
+  try {
+    if (opts.changedFields.length === 0) return;
+
+    const recipients = await getAllActiveAdminEmails();
+
+    if (recipients.length === 0) {
+      logger.info({ gateway: opts.gateway }, "No active admins found — skipping credential rotation alert");
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const html = buildCredentialRotationHtml({ ...opts, timestamp });
+    const gatewayLabel = GATEWAY_LABELS[opts.gateway] ?? opts.gateway;
+    const subject = `[RasoKart] 🔐 ${gatewayLabel} credentials changed — action may be required`;
+
+    const results = await Promise.allSettled(
+      recipients.map(email => sendMail({ to: email, subject, html }))
+    );
+
+    const sent = results.filter(r => r.status === "fulfilled" && r.value).length;
+    const failed = results.length - sent;
+
+    logger.info(
+      { gateway: opts.gateway, changedFields: opts.changedFields, actorEmail: opts.actorEmail, totalAdmins: recipients.length, sent, failed },
+      "Admin credential rotation alert emails dispatched"
+    );
+  } catch (err) {
+    logger.error({ err, gateway: opts.gateway }, "Failed to send admin credential rotation alert emails");
   }
 }

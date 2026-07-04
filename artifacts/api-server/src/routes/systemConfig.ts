@@ -13,6 +13,7 @@ import { loadVaCleanupRetentionDays, loadVaCleanupLastRun, runVaCleanup, loadVaC
 import { loadTestEmailRetentionDays, runTestEmailRetentionCleanup } from "../helpers/testEmailRetentionScheduler";
 import { loadAuditReportLogRetentionDays, runAuditReportLogCleanup } from "../helpers/auditReportRetentionScheduler";
 import { resetAlertRateLimit } from "../helpers/signatureFailureAlert";
+import { notifyAdminsOfCredentialRotation } from "../helpers/adminNotifyEmail";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -1237,6 +1238,16 @@ router.put("/cashfree", async (req, res, next) => {
       ipAddress: (req as any).ip ?? null,
     });
 
+    const cfCredentialFields: string[] = [];
+    if (clientId !== undefined) cfCredentialFields.push("Client ID");
+    if (clientSecret !== undefined) cfCredentialFields.push("Client Secret");
+    if (webhookSecret !== undefined) cfCredentialFields.push("Webhook Secret");
+    if (cfCredentialFields.length > 0) {
+      notifyAdminsOfCredentialRotation({ gateway: "cashfree", changedFields: cfCredentialFields, actorEmail: user.email }).catch((err) => {
+        req.log.error({ err }, "Failed to dispatch cashfree credential rotation alert");
+      });
+    }
+
     req.log.info({ enabled, env, clientIdUpdated: clientId !== undefined }, "Cashfree config updated");
     res.json(await getCashfreeConfig());
   } catch (err) { next(err); }
@@ -1435,6 +1446,16 @@ router.put("/cashfree-payout", async (req, res, next) => {
       ipAddress: (req as any).ip ?? null,
     });
 
+    const cfpCredentialFields: string[] = [];
+    if (clientId !== undefined) cfpCredentialFields.push("Client ID");
+    if (clientSecret !== undefined) cfpCredentialFields.push("Client Secret");
+    if (webhookSecret !== undefined) cfpCredentialFields.push("Webhook Secret");
+    if (cfpCredentialFields.length > 0) {
+      notifyAdminsOfCredentialRotation({ gateway: "cashfree-payout", changedFields: cfpCredentialFields, actorEmail: user.email }).catch((err) => {
+        req.log.error({ err }, "Failed to dispatch cashfree-payout credential rotation alert");
+      });
+    }
+
     req.log.info({ enabled, env, clientIdUpdated: clientId !== undefined }, "Cashfree Payout config updated");
     res.json(await getCashfreePayoutConfig());
   } catch (err) { next(err); }
@@ -1627,6 +1648,15 @@ router.put("/ekqr", async (req, res, next) => {
       details: JSON.stringify({ section: "ekqr", apiKeyUpdated: apiKey !== undefined, webhookSecretUpdated: webhookSecret !== undefined, enabled, env }),
       ipAddress: (req as any).ip ?? null,
     });
+
+    const ekqrCredentialFields: string[] = [];
+    if (apiKey !== undefined) ekqrCredentialFields.push("API Key");
+    if (webhookSecret !== undefined) ekqrCredentialFields.push("Webhook Secret");
+    if (ekqrCredentialFields.length > 0) {
+      notifyAdminsOfCredentialRotation({ gateway: "ekqr", changedFields: ekqrCredentialFields, actorEmail: user.email }).catch((err) => {
+        req.log.error({ err }, "Failed to dispatch ekqr credential rotation alert");
+      });
+    }
 
     req.log.info({ enabled, env, apiKeyUpdated: apiKey !== undefined, webhookSecretUpdated: webhookSecret !== undefined }, "EKQR config updated");
     res.json(await getEkqrConfig());

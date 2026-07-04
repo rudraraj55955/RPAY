@@ -33,8 +33,17 @@ export default function AdminWithdrawals() {
 
   const handleApprove = (id: number) => {
     approveMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Withdrawal approved"); qc.invalidateQueries({ queryKey: getListWithdrawalsQueryKey() }); },
-      onError: () => toast.error("Failed"),
+      onSuccess: (result) => {
+        if (result.transferStatus === "SUCCESS") {
+          toast.success("Withdrawal approved and payout sent successfully");
+        } else if (result.transferStatus === "FAILED" || result.transferStatus === "REVERSED") {
+          toast.error("Payout could not be completed. The hold has been released back to the merchant's balance.");
+        } else {
+          toast.success("Withdrawal approved — payout is processing");
+        }
+        qc.invalidateQueries({ queryKey: getListWithdrawalsQueryKey() });
+      },
+      onError: () => toast.error("Something went wrong. Please try again."),
     });
   };
 

@@ -13,3 +13,4 @@
 - [Cashfree Payouts V2 beneficiary lifecycle](cashfree-payout-beneficiary-flow.md) — beneficiary must be created/reused at approve/retry time (no separate bank-details step); never throw, log safe fields only.
 - [OpenAPI YAML unquoted colon](openapi-yaml-colon-in-description.md) — unquoted ": " in a description breaks orval with a misleading "Failed to resolve input"; validate with js-yaml to find the real line.
 - [Silent 404 from unmounted router](unmounted-router-typecheck-passes.md) — a route file can be imported, fully typechecked, and fully unit-correct yet still 404 if `router.use(path, router)` is missing in routes/index.ts; typecheck never catches this, only an actual HTTP call does.
+- [Cashfree Payouts V1 vs V2 credential split](cashfree-payout-v1-v2-credential-split.md) — passing v1 authorize test doesn't guarantee v2 beneficiary/transfer endpoints accept same creds; 401 there is account-activation, not a code bug.

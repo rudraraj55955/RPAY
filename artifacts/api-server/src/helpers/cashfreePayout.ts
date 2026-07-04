@@ -185,6 +185,69 @@ async function cashfreePayoutGetBeneficiary(
   return await readJson(res);
 }
 
+export type VerifyV2CredentialsResult = {
+  ok: boolean;
+  message: string;
+  httpStatus: number;
+  subCode?: string;
+};
+
+/**
+ * Verify Cashfree Payout credentials directly against the V2 Standard
+ * Transfer surface (not the legacy V1 /authorize endpoint), per the
+ * requirement that live payout credentials must be checked against the
+ * actual API that beneficiary registration and transfers use.
+ *
+ * Does a GET on a beneficiary id that is extremely unlikely to exist. A
+ * 404 "BENEFICIARY_NOT_FOUND" (or 200, in the unlikely case it exists)
+ * means the client id/secret pair authenticated successfully — Cashfree
+ * only returns that after passing auth. A 401/403 means the credentials
+ * themselves are invalid or unauthorized. This never creates or mutates
+ * anything on the provider side.
+ */
+export async function verifyPayoutCredentialsV2(
+  rawClientId: string,
+  rawClientSecret: string,
+  env: CashfreePayoutEnv
+): Promise<VerifyV2CredentialsResult> {
+  const clientId = (rawClientId ?? "").trim();
+  const clientSecret = (rawClientSecret ?? "").trim();
+
+  if (!clientId || !clientSecret) {
+    return { ok: false, message: "Client ID and Secret must both be set", httpStatus: 0 };
+  }
+
+  const probeId = `CREDCHECK_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  try {
+    const { parsed, httpStatus } = await cashfreePayoutGetBeneficiary(clientId, clientSecret, env, probeId);
+
+    if (httpStatus === 401 || httpStatus === 403) {
+      return {
+        ok: false,
+        message: "V2 credential check failed — invalid client id/secret for Standard Transfers",
+        httpStatus,
+        subCode: String(parsed?.code ?? parsed?.subCode ?? parsed?.status_code ?? ""),
+      };
+    }
+
+    // 404 (probe beneficiary genuinely not found) or 200 both prove the
+    // request was authenticated by the provider.
+    if (httpStatus === 404 || httpStatus === 200) {
+      return { ok: true, message: "V2 credentials verified", httpStatus, subCode: String(parsed?.code ?? "") };
+    }
+
+    return {
+      ok: false,
+      message: "V2 credential check returned an unexpected response",
+      httpStatus,
+      subCode: String(parsed?.code ?? parsed?.subCode ?? parsed?.status_code ?? ""),
+    };
+  } catch (err: any) {
+    return { ok: false, message: "Could not reach Cashfree Payouts V2 endpoint", httpStatus: 0 };
+  }
+}
+
 export type EnsureBeneficiaryResult = {
   ok: boolean;
   beneficiaryId: string;

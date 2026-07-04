@@ -638,6 +638,122 @@ export default function ApiDocs() {
           </div>
         </Section>
 
+        <Section title="Transactions API" badge="read-only">
+          <p className="text-sm text-muted-foreground">
+            Query your deposits and withdrawals for reconciliation, reporting, or building your own
+            transaction dashboards. This endpoint is read-only — transactions themselves are created
+            by QR/VA/payment-link payments and provider callbacks, not by direct API writes.
+          </p>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Endpoints</p>
+            <EndpointRow
+              method="GET"
+              path="/api/transactions"
+              description="List your deposits and withdrawals, with filters and pagination"
+            />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Query Parameters</p>
+            <div className="rounded-lg border border-border/50 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th className="text-left font-medium px-3 py-2">Param</th>
+                    <th className="text-left font-medium px-3 py-2">Type</th>
+                    <th className="text-left font-medium px-3 py-2">Description</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40">
+                  {[
+                    ["type", "deposit | withdrawal | all", "Filter by transaction type. Defaults to all."],
+                    ["status", "pending | success | failed | all", "Filter by transaction status. Defaults to all."],
+                    ["search", "string", "Matches against UTR or reference ID (partial, case-insensitive)."],
+                    ["dateFrom", "YYYY-MM-DD", "Only include transactions created on or after this date."],
+                    ["dateTo", "YYYY-MM-DD", "Only include transactions created on or before this date (end of day)."],
+                    ["amountMin", "number", "Minimum transaction amount."],
+                    ["amountMax", "number", "Maximum transaction amount."],
+                    ["connectionProvider", "string", "Filter by linked provider (e.g. cashfree)."],
+                    ["paymentLinkId", "number", "Only transactions from a specific payment link."],
+                    ["page", "number", "Page number, 1-indexed. Defaults to 1."],
+                    ["limit", "number", "Results per page, max 100. Defaults to 20."],
+                  ].map(([param, type, desc]) => (
+                    <tr key={param}>
+                      <td className="px-3 py-2 font-mono text-foreground">{param}</td>
+                      <td className="px-3 py-2 font-mono text-muted-foreground">{type}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{desc}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Merchants only ever see their own transactions — <code className="font-mono bg-muted px-1 rounded">merchantId</code> is
+              ignored unless the request is made by an admin.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Example Response</p>
+            <CodeBlock
+              language="json"
+              code={`{
+  "data": [
+    {
+      "id": 101,
+      "merchantId": 42,
+      "type": "deposit",
+      "status": "success",
+      "amount": 500.00,
+      "currency": "INR",
+      "utr": "UTR123456789",
+      "referenceId": "ORDER-1234",
+      "description": "Payment via QR Code: Order #1234",
+      "connectionProvider": "cashfree",
+      "merchantName": "MyStore Ltd",
+      "createdAt": "2026-06-08T10:00:00Z",
+      "updatedAt": "2026-06-08T10:00:05Z"
+    }
+  ],
+  "total": 128,
+  "page": 1,
+  "limit": 20,
+  "stats": {
+    "depositVolume": 45230.50,
+    "withdrawalVolume": 12000.00,
+    "successCount": 110,
+    "failedCount": 8,
+    "pendingCount": 10
+  }
+}`}
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              <code className="font-mono bg-muted px-1 rounded">stats</code> reflects the full filtered
+              result set (not just the current page), so it's safe to use for summary cards.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">cURL Example</p>
+            <CodeBlock
+              code={`curl -G https://your-domain.com/api/transactions \\
+  -H "Authorization: Bearer <your-token>" \\
+  --data-urlencode "type=deposit" \\
+  --data-urlencode "status=success" \\
+  --data-urlencode "dateFrom=2026-06-01" \\
+  --data-urlencode "dateTo=2026-06-30" \\
+  --data-urlencode "page=1" \\
+  --data-urlencode "limit=20"`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Try it</p>
+            <TryItPanel method="GET" path="/api/transactions" token={globalToken} />
+          </div>
+        </Section>
+
         <Section title="Webhook Events Reference" badge="5 event types">
           <p className="text-sm text-muted-foreground">
             RasoKart sends POST requests to your configured webhook URL when events occur.

@@ -3907,6 +3907,9 @@ const SYSTEM_CONFIG_SECTION_OPTIONS: { value: string; label: string }[] = [
   { value: "reconciliation",          label: "Reconciliation" },
   { value: "qr_cleanup",              label: "QR Cleanup" },
   { value: "signature_failure_alert", label: "Signature Failure Alert" },
+  { value: "cashfree",                label: "Cashfree Payin" },
+  { value: "cashfree_payout",         label: "Cashfree Payout" },
+  { value: "ekqr",                    label: "EKQR" },
 ];
 
 const VALID_TABS = ["admin-actions", "security-events", "compliance"] as const;

@@ -1,0 +1,10 @@
+---
+name: Radix Select flaky in e2e testing subagent
+description: shadcn/Radix Select dropdowns (portal-rendered listbox) are unreliable for the Playwright-based testing subagent to open/select from.
+---
+
+When a test plan requires opening a shadcn `<Select>` (built on Radix UI, portal-rendered `role="listbox"`/`role="option"`) and picking an option — especially a *second, conditionally-rendered* select that appears only after a first select's value changes — the testing subagent has repeatedly reported "unable"/"failure" even when the underlying feature is correct.
+
+**Why:** Radix renders the listbox in a portal outside the normal DOM tree and the option text can lag one render behind React state updates from the previous select's `onValueChange`. The testing subagent's generic locators (text click, role=combobox by name) are not reliable against this pattern across multiple chained selects.
+
+**How to apply:** If an e2e test plan stalls specifically at "open dropdown / click option" for a Select whose visibility depends on another Select's state, don't keep re-running the same test with minor wording changes. Instead independently verify via (a) reading the component source to confirm the conditional render and value wiring are correct, and (b) hitting the underlying API directly (curl with an admin JWT) to confirm the data/behavior is correct. Reserve the e2e subagent for flows that don't chain multiple Radix Selects.

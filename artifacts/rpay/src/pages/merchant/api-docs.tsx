@@ -17,6 +17,8 @@ import {
   Loader2,
   KeyRound,
   Terminal,
+  Plus,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -113,6 +115,13 @@ interface TryItPanelProps {
   token: string;
   defaultBody?: string;
   requiresAuth?: boolean;
+  commonQueryParams?: string[];
+}
+
+interface QueryParamRow {
+  id: number;
+  key: string;
+  value: string;
 }
 
 interface ApiResponse {
@@ -128,11 +137,21 @@ function extractPathParams(path: string): string[] {
   return matches ? matches.map((m) => m.slice(1, -1)) : [];
 }
 
-function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true }: TryItPanelProps) {
+let queryParamRowId = 0;
+
+function TryItPanel({
+  method,
+  path,
+  token,
+  defaultBody = "",
+  requiresAuth = true,
+  commonQueryParams = [],
+}: TryItPanelProps) {
   const [open, setOpen] = useState(false);
   const [localToken, setLocalToken] = useState(token);
   const [body, setBody] = useState(defaultBody);
   const [pathValues, setPathValues] = useState<Record<string, string>>({});
+  const [queryParams, setQueryParams] = useState<QueryParamRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
   const [curlCopied, setCurlCopied] = useState(false);
@@ -141,10 +160,38 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
 
   const params = extractPathParams(path);
   const hasBody = method === "POST" || method === "PUT" || method === "PATCH";
+  const supportsQueryParams = method === "GET" || method === "DELETE";
+
+  const addQueryParam = useCallback((prefillKey = "") => {
+    setQueryParams((prev) => [...prev, { id: ++queryParamRowId, key: prefillKey, value: "" }]);
+  }, []);
+
+  const updateQueryParam = useCallback((id: number, field: "key" | "value", value: string) => {
+    setQueryParams((prev) => prev.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
+  }, []);
+
+  const removeQueryParam = useCallback((id: number) => {
+    setQueryParams((prev) => prev.filter((row) => row.id !== id));
+  }, []);
+
+  const handleAddCommonParam = useCallback(
+    (key: string) => {
+      setQueryParams((prev) => {
+        if (prev.some((row) => row.key === key)) return prev;
+        return [...prev, { id: ++queryParamRowId, key, value: "" }];
+      });
+    },
+    []
+  );
+
+  const queryString = queryParams
+    .filter((row) => row.key.trim().length > 0)
+    .map((row) => `${encodeURIComponent(row.key.trim())}=${encodeURIComponent(row.value)}`)
+    .join("&");
 
   const resolvedPath = path.replace(/\{(\w+)\}/g, (_, key) => pathValues[key] ?? `{${key}}`);
   const baseUrl = window.location.origin;
-  const url = `${baseUrl}${resolvedPath}`;
+  const url = `${baseUrl}${resolvedPath}${queryString ? `?${queryString}` : ""}`;
 
   const buildCurlCommand = useCallback(() => {
     const activeToken = requiresAuth ? (localToken || token) : "";
@@ -302,6 +349,68 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
                   />
                 </div>
               ))}
+            </div>
+          )}
+
+          {supportsQueryParams && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Query Parameters</Label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-[11px] gap-1 px-2"
+                  onClick={() => addQueryParam()}
+                >
+                  <Plus className="w-3 h-3" />
+                  Add param
+                </Button>
+              </div>
+
+              {commonQueryParams.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {commonQueryParams.map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleAddCommonParam(key)}
+                      disabled={queryParams.some((row) => row.key === key)}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-border/50 bg-black/30 text-muted-foreground hover:text-foreground hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {key}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {queryParams.length > 0 && (
+                <div className="space-y-1.5">
+                  {queryParams.map((row) => (
+                    <div key={row.id} className="flex items-center gap-1.5">
+                      <Input
+                        value={row.key}
+                        onChange={(e) => updateQueryParam(row.id, "key", e.target.value)}
+                        placeholder="key"
+                        className="h-7 text-xs font-mono bg-black/40 w-1/3"
+                      />
+                      <Input
+                        value={row.value}
+                        onChange={(e) => updateQueryParam(row.id, "value", e.target.value)}
+                        placeholder="value"
+                        className="h-7 text-xs font-mono bg-black/40 flex-1"
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0"
+                        onClick={() => removeQueryParam(row.id)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -569,7 +678,12 @@ export default function ApiDocs() {
 
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">Try it</p>
-            <TryItPanel method="GET" path="/api/qr-codes" token={globalToken} />
+            <TryItPanel
+              method="GET"
+              path="/api/qr-codes"
+              token={globalToken}
+              commonQueryParams={["search", "type", "status"]}
+            />
             <TryItPanel
               method="POST"
               path="/api/qr-codes"
@@ -810,7 +924,24 @@ export default function ApiDocs() {
 
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">Try it</p>
-            <TryItPanel method="GET" path="/api/transactions" token={globalToken} />
+            <TryItPanel
+              method="GET"
+              path="/api/transactions"
+              token={globalToken}
+              commonQueryParams={[
+                "type",
+                "status",
+                "search",
+                "dateFrom",
+                "dateTo",
+                "amountMin",
+                "amountMax",
+                "connectionProvider",
+                "paymentLinkId",
+                "page",
+                "limit",
+              ]}
+            />
           </div>
         </Section>
 

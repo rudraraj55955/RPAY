@@ -19,6 +19,9 @@ import {
   Terminal,
   Plus,
   X,
+  Star,
+  Trash2,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -139,6 +142,47 @@ function extractPathParams(path: string): string[] {
 
 let queryParamRowId = 0;
 
+interface SavedQueryPreset {
+  id: string;
+  name: string;
+  pathValues: Record<string, string>;
+  queryParams: { key: string; value: string }[];
+  body: string;
+}
+
+const TRY_IT_PRESETS_STORAGE_KEY = "rasokart_tryit_presets";
+
+function presetsStorageKeyFor(method: string, path: string): string {
+  return `${method} ${path}`;
+}
+
+function loadAllPresets(): Record<string, SavedQueryPreset[]> {
+  try {
+    const raw = localStorage.getItem(TRY_IT_PRESETS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function loadPresetsForEndpoint(method: string, path: string): SavedQueryPreset[] {
+  const all = loadAllPresets();
+  const presets = all[presetsStorageKeyFor(method, path)];
+  return Array.isArray(presets) ? presets : [];
+}
+
+function persistPresetsForEndpoint(method: string, path: string, presets: SavedQueryPreset[]) {
+  try {
+    const all = loadAllPresets();
+    all[presetsStorageKeyFor(method, path)] = presets;
+    localStorage.setItem(TRY_IT_PRESETS_STORAGE_KEY, JSON.stringify(all));
+  } catch {
+    // localStorage may be unavailable (e.g. private browsing) — presets simply won't persist
+  }
+}
+
 function TryItPanel({
   method,
   path,
@@ -157,6 +201,10 @@ function TryItPanel({
   const [curlCopied, setCurlCopied] = useState(false);
   const [headersCopied, setHeadersCopied] = useState(false);
   const [copiedHeaderKey, setCopiedHeaderKey] = useState<string | null>(null);
+  const [presets, setPresets] = useState<SavedQueryPreset[]>(() =>
+    loadPresetsForEndpoint(method, path)
+  );
+  const [presetName, setPresetName] = useState("");
 
   const params = extractPathParams(path);
   const hasBody = method === "POST" || method === "PUT" || method === "PATCH";
@@ -182,6 +230,47 @@ function TryItPanel({
       });
     },
     []
+  );
+
+  const handleSavePreset = useCallback(() => {
+    const name = presetName.trim();
+    if (!name) return;
+    const newPreset: SavedQueryPreset = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name,
+      pathValues: { ...pathValues },
+      queryParams: queryParams
+        .filter((row) => row.key.trim().length > 0)
+        .map((row) => ({ key: row.key, value: row.value })),
+      body,
+    };
+    setPresets((prev) => {
+      const next = [...prev.filter((p) => p.name !== name), newPreset];
+      persistPresetsForEndpoint(method, path, next);
+      return next;
+    });
+    setPresetName("");
+    toast.success(`Saved preset "${name}"`);
+  }, [presetName, pathValues, queryParams, body, method, path]);
+
+  const handleLoadPreset = useCallback((preset: SavedQueryPreset) => {
+    setPathValues({ ...preset.pathValues });
+    setQueryParams(
+      preset.queryParams.map((row) => ({ id: ++queryParamRowId, key: row.key, value: row.value }))
+    );
+    setBody(preset.body);
+    toast.success(`Loaded preset "${preset.name}"`);
+  }, []);
+
+  const handleDeletePreset = useCallback(
+    (id: string) => {
+      setPresets((prev) => {
+        const next = prev.filter((p) => p.id !== id);
+        persistPresetsForEndpoint(method, path, next);
+        return next;
+      });
+    },
+    [method, path]
   );
 
   const queryString = queryParams
@@ -320,6 +409,61 @@ function TryItPanel({
 
       {open && (
         <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Saved Presets</Label>
+            {presets.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {presets.map((preset) => (
+                  <div
+                    key={preset.id}
+                    className="flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full border border-border/50 bg-black/30 text-[11px]"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleLoadPreset(preset)}
+                      className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Star className="w-2.5 h-2.5" />
+                      {preset.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePreset(preset.id)}
+                      className="text-muted-foreground hover:text-rose-400 transition-colors p-0.5"
+                      aria-label={`Delete preset ${preset.name}`}
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <Input
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSavePreset();
+                  }
+                }}
+                placeholder="Preset name (e.g. This week, provider X)"
+                className="h-7 text-xs bg-black/40 flex-1"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1.5 shrink-0"
+                disabled={!presetName.trim()}
+                onClick={handleSavePreset}
+              >
+                <Save className="w-3 h-3" />
+                Save
+              </Button>
+            </div>
+          </div>
+
           {requiresAuth && (
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Bearer Token</Label>

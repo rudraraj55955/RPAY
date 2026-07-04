@@ -136,6 +136,8 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
   const [curlCopied, setCurlCopied] = useState(false);
+  const [headersCopied, setHeadersCopied] = useState(false);
+  const [copiedHeaderKey, setCopiedHeaderKey] = useState<string | null>(null);
 
   const params = extractPathParams(path);
   const hasBody = method === "POST" || method === "PUT" || method === "PATCH";
@@ -167,6 +169,24 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
     toast.success("Copied to clipboard");
     setTimeout(() => setCurlCopied(false), 2000);
   }, [buildCurlCommand]);
+
+  const handleCopyAllHeaders = useCallback(() => {
+    if (!response) return;
+    const text = Object.entries(response.headers)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join("\n");
+    navigator.clipboard.writeText(text);
+    setHeadersCopied(true);
+    toast.success("Headers copied to clipboard");
+    setTimeout(() => setHeadersCopied(false), 2000);
+  }, [response]);
+
+  const handleCopyHeader = useCallback((key: string, value: string) => {
+    navigator.clipboard.writeText(value);
+    setCopiedHeaderKey(key);
+    toast.success(`Copied ${key}`);
+    setTimeout(() => setCopiedHeaderKey((cur) => (cur === key ? null : cur)), 2000);
+  }, []);
 
   const fire = useCallback(async () => {
     setLoading(true);
@@ -351,13 +371,53 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
                   </pre>
                 </TabsContent>
                 <TabsContent value="headers" className="mt-1.5">
-                  <pre className="bg-black/60 border border-border/50 rounded-lg p-3 text-xs font-mono overflow-x-auto text-green-300 whitespace-pre-wrap max-h-72">
-                    {Object.keys(response.headers).length > 0
-                      ? Object.entries(response.headers)
-                          .map(([key, value]) => `${key}: ${value}`)
-                          .join("\n")
-                      : "No response headers"}
-                  </pre>
+                  {Object.keys(response.headers).length > 0 ? (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-[11px] gap-1"
+                          onClick={handleCopyAllHeaders}
+                        >
+                          {headersCopied ? (
+                            <Check className="w-3 h-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                          {headersCopied ? "Copied!" : "Copy all headers"}
+                        </Button>
+                      </div>
+                      <div className="bg-black/60 border border-border/50 rounded-lg p-3 max-h-72 overflow-y-auto">
+                        {Object.entries(response.headers).map(([key, value]) => (
+                          <div
+                            key={key}
+                            className="group flex items-start justify-between gap-2 py-0.5 text-xs font-mono text-green-300"
+                          >
+                            <span className="break-all whitespace-pre-wrap">
+                              {key}: {value}
+                            </span>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleCopyHeader(key, value)}
+                            >
+                              {copiedHeaderKey === key ? (
+                                <Check className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <pre className="bg-black/60 border border-border/50 rounded-lg p-3 text-xs font-mono overflow-x-auto text-green-300 whitespace-pre-wrap max-h-72">
+                      No response headers
+                    </pre>
+                  )}
                 </TabsContent>
               </Tabs>
             </div>

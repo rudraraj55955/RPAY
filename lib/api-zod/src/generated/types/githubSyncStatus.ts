@@ -8,7 +8,7 @@
 import type { GithubSyncStatusStatus } from './githubSyncStatusStatus';
 
 export interface GithubSyncStatus {
-  /** Outcome of the last GitHub sync run, or "never" if the script has not run yet */
+  /** Outcome of the last GitHub sync run, "never" if the script has not run yet, or "running" while a manually-triggered sync is in progress */
   status: GithubSyncStatusStatus;
   /** ISO timestamp of when the last sync completed */
   syncedAt?: Date;

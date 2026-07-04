@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { readFileSync } from "fs";
+import { spawn } from "child_process";
+import { logger } from "../lib/logger";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { db, systemSettingsTable, auditLogsTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
@@ -10,8 +12,11 @@ router.use(requireAdmin);
 
 const STATUS_FILE = new URL("../../../.github-sync-status.json", import.meta.url).pathname;
 const HISTORY_FILE = new URL("../../../.github-sync-history.json", import.meta.url).pathname;
+const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 
 const GITHUB_SYNC_KEYS = ["github_sync_enabled", "github_sync_schedule"] as const;
+
+let syncRunInProgress = false;
 
 // GET /api/github-sync/config
 router.get("/config", async (req, res, next) => {
@@ -139,6 +144,57 @@ router.get("/history", (req, res, next) => {
     }
     res.json({ entries });
   } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/github-sync/run
+router.post("/run", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+
+    if (syncRunInProgress) {
+      res.status(409).json({ error: "A GitHub sync run is already in progress" });
+      return;
+    }
+
+    syncRunInProgress = true;
+
+    const child = spawn("pnpm", ["--filter", "@workspace/scripts", "run", "github-sync"], {
+      cwd: REPO_ROOT,
+      env: { ...process.env, GITHUB_SYNC_FORCE: "true" },
+      stdio: "ignore",
+      detached: true,
+    });
+    child.unref();
+
+    child.on("exit", (code) => {
+      syncRunInProgress = false;
+      logger.info({ code }, "Manually-triggered GitHub sync run finished");
+    });
+
+    child.on("error", (err) => {
+      syncRunInProgress = false;
+      logger.error({ err }, "Failed to spawn manually-triggered GitHub sync run");
+    });
+
+    try {
+      await db.insert(auditLogsTable).values({
+        adminId: user.id,
+        adminEmail: user.email,
+        action: "github_sync_triggered",
+        targetType: "system_config",
+        targetId: null,
+        details: null,
+        ipAddress: req.ip ?? null,
+      });
+    } catch (auditErr) {
+      req.log.error({ err: auditErr }, "Failed to write audit log for github_sync manual trigger");
+    }
+
+    res.status(202).json({ status: "running" });
+  } catch (err) {
+    syncRunInProgress = false;
     next(err);
   }
 });

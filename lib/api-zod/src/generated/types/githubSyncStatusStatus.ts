@@ -7,7 +7,7 @@
  */
 
 /**
- * Outcome of the last GitHub sync run, or "never" if the script has not run yet
+ * Outcome of the last GitHub sync run, "never" if the script has not run yet, or "running" while a manually-triggered sync is in progress
  */
 export type GithubSyncStatusStatus = typeof GithubSyncStatusStatus[keyof typeof GithubSyncStatusStatus];
 
@@ -16,4 +16,5 @@ export const GithubSyncStatusStatus = {
   success: 'success',
   failure: 'failure',
   never: 'never',
+  running: 'running',
 } as const;

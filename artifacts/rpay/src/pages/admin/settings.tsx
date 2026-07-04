@@ -10,7 +10,7 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetGithubSyncStatus, useGetGithubSyncHistory, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetGithubSyncStatus, getGetGithubSyncStatusQueryKey, useGetGithubSyncHistory, getGetGithubSyncHistoryQueryKey, useRunGithubSync, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -871,13 +871,35 @@ export default function AdminSettings() {
     },
   });
 
+  const [githubSyncTriggering, setGithubSyncTriggering] = useState(false);
+
   const { data: githubSyncStatus } = useGetGithubSyncStatus({
-    query: { refetchInterval: 60_000 },
+    query: { refetchInterval: githubSyncTriggering ? 2_000 : 60_000 },
   } as any);
 
   const { data: githubSyncHistory } = useGetGithubSyncHistory({
-    query: { refetchInterval: 60_000 },
+    query: { refetchInterval: githubSyncTriggering ? 2_000 : 60_000 },
   } as any);
+
+  const githubSyncIsRunning = githubSyncTriggering || githubSyncStatus?.status === "running";
+
+  useEffect(() => {
+    if (githubSyncTriggering && githubSyncStatus?.status && githubSyncStatus.status !== "running") {
+      setGithubSyncTriggering(false);
+    }
+  }, [githubSyncTriggering, githubSyncStatus?.status]);
+
+  const { mutate: runGithubSyncNow, isPending: runningGithubSync } = useRunGithubSync({
+    mutation: {
+      onSuccess: () => {
+        toast.success("GitHub sync started");
+        setGithubSyncTriggering(true);
+        qc.invalidateQueries({ queryKey: getGetGithubSyncStatusQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetGithubSyncHistoryQueryKey() });
+      },
+      onError: (err: Error) => toast.error(getApiErrorMessage(err, "Failed to start GitHub sync")),
+    },
+  });
 
   const { data: quietHoursFlushData, isLoading: quietHoursFlushLoading } = useGetQuietHoursFlushConfig({
     query: {
@@ -2849,24 +2871,35 @@ export default function AdminSettings() {
           )}
 
           {githubSyncStatus && (
-            <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-xs ${githubSyncStatus.status === "success" ? "border-emerald-500/20 bg-emerald-500/5" : githubSyncStatus.status === "failure" ? "border-red-500/20 bg-red-500/5" : "border-border/50 bg-muted/5"}`}>
-              {githubSyncStatus.status === "success" && <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />}
-              {githubSyncStatus.status === "failure" && <XCircle className="w-4 h-4 shrink-0 text-red-400" />}
-              {githubSyncStatus.status === "never" && <History className="w-4 h-4 shrink-0 text-muted-foreground" />}
+            <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-xs ${githubSyncIsRunning ? "border-violet-500/20 bg-violet-500/5" : githubSyncStatus.status === "success" ? "border-emerald-500/20 bg-emerald-500/5" : githubSyncStatus.status === "failure" ? "border-red-500/20 bg-red-500/5" : "border-border/50 bg-muted/5"}`}>
+              {githubSyncIsRunning && <RefreshCw className="w-4 h-4 shrink-0 text-violet-400 animate-spin" />}
+              {!githubSyncIsRunning && githubSyncStatus.status === "success" && <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />}
+              {!githubSyncIsRunning && githubSyncStatus.status === "failure" && <XCircle className="w-4 h-4 shrink-0 text-red-400" />}
+              {!githubSyncIsRunning && githubSyncStatus.status === "never" && <History className="w-4 h-4 shrink-0 text-muted-foreground" />}
               <div className="flex flex-col gap-0.5">
-                <span className={`font-medium ${githubSyncStatus.status === "success" ? "text-emerald-400" : githubSyncStatus.status === "failure" ? "text-red-400" : "text-muted-foreground"}`}>
-                  Last sync: {githubSyncStatus.status === "never" ? "never run" : githubSyncStatus.status}
+                <span className={`font-medium ${githubSyncIsRunning ? "text-violet-400" : githubSyncStatus.status === "success" ? "text-emerald-400" : githubSyncStatus.status === "failure" ? "text-red-400" : "text-muted-foreground"}`}>
+                  {githubSyncIsRunning ? "Sync in progress…" : `Last sync: ${githubSyncStatus.status === "never" ? "never run" : githubSyncStatus.status}`}
                 </span>
-                {githubSyncStatus.syncedAt && (
+                {!githubSyncIsRunning && githubSyncStatus.syncedAt && (
                   <span className="text-muted-foreground">
                     {formatTimeAgo(githubSyncStatus.syncedAt)} — {new Date(githubSyncStatus.syncedAt).toLocaleString()}
                     {githubSyncStatus.repo && <span className="ml-1 opacity-60">({githubSyncStatus.repo})</span>}
                   </span>
                 )}
-                {githubSyncStatus.status === "failure" && githubSyncStatus.errorMessage && (
+                {!githubSyncIsRunning && githubSyncStatus.status === "failure" && githubSyncStatus.errorMessage && (
                   <span className="text-red-300 mt-0.5">{githubSyncStatus.errorMessage}</span>
                 )}
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto shrink-0"
+                onClick={() => runGithubSyncNow()}
+                disabled={githubSyncIsRunning || runningGithubSync}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${githubSyncIsRunning ? "animate-spin" : ""}`} />
+                {githubSyncIsRunning ? "Syncing…" : "Sync now"}
+              </Button>
             </div>
           )}
 

@@ -7420,6 +7420,40 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /github-sync/run:
+    post:
+      operationId: runGithubSync
+      tags: [github-sync]
+      summary: Manually trigger a GitHub sync run immediately
+      description: Kicks off the GitHub sync script in the background, bypassing the enabled/schedule checks. Returns immediately with a "running" status; poll /github-sync/status for the outcome.
+      security:
+        - bearerAuth: []
+      responses:
+        "202":
+          description: Sync run started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GithubSyncStatus"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: A sync run is already in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /github-sync/history:
     get:
       operationId: getGithubSyncHistory
@@ -9514,8 +9548,8 @@ components:
       properties:
         status:
           type: string
-          enum: [success, failure, never]
-          description: Outcome of the last GitHub sync run, or "never" if the script has not run yet
+          enum: [success, failure, never, running]
+          description: Outcome of the last GitHub sync run, "never" if the script has not run yet, or "running" while a manually-triggered sync is in progress
         syncedAt:
           type: string
           format: date-time

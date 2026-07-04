@@ -7093,7 +7093,7 @@ export const UpdateGithubSyncConfigResponse = zod.object({
  * @summary Get last GitHub sync status
  */
 export const GetGithubSyncStatusResponse = zod.object({
-  "status": zod.enum(['success', 'failure', 'never']).describe('Outcome of the last GitHub sync run, or \"never\" if the script has not run yet'),
+  "status": zod.enum(['success', 'failure', 'never', 'running']).describe('Outcome of the last GitHub sync run, \"never\" if the script has not run yet, or \"running\" while a manually-triggered sync is in progress'),
   "syncedAt": zod.coerce.date().optional().describe('ISO timestamp of when the last sync completed'),
   "errorMessage": zod.string().optional().describe('Error detail when status is \"failure\"'),
   "repo": zod.string().optional().describe('GitHub repository that was synced')

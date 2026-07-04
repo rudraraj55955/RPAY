@@ -21805,6 +21805,77 @@ export function useGetGithubSyncStatus<TData = Awaited<ReturnType<typeof getGith
 
 
 
+export const getRunGithubSyncUrl = () => {
+
+
+
+
+  return `/api/github-sync/run`
+}
+
+/**
+ * Kicks off the GitHub sync script in the background, bypassing the enabled/schedule checks. Returns immediately with a "running" status; poll /github-sync/status for the outcome.
+ * @summary Manually trigger a GitHub sync run immediately
+ */
+export const runGithubSync = async ( options?: RequestInit): Promise<GithubSyncStatus> => {
+
+  return customFetch<GithubSyncStatus>(getRunGithubSyncUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRunGithubSyncMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runGithubSync>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runGithubSync>>, TError,void, TContext> => {
+
+const mutationKey = ['runGithubSync'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runGithubSync>>, void> = () => {
+
+
+          return  runGithubSync(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunGithubSyncMutationResult = NonNullable<Awaited<ReturnType<typeof runGithubSync>>>
+
+    export type RunGithubSyncMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Manually trigger a GitHub sync run immediately
+ */
+export const useRunGithubSync = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runGithubSync>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runGithubSync>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRunGithubSyncMutationOptions(options));
+    }
+
 export const getGetGithubSyncHistoryUrl = () => {
 
 

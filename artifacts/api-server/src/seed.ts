@@ -132,14 +132,22 @@ export async function seed() {
     .returning();
   console.log("Admin:", admin.email);
 
-  // Demo merchant users — SELECT-only: do not re-create if they were deleted from this environment
+  // Demo merchant accounts (merchant@demo.com / merchant2@demo.com) are
+  // documented in replit.md and relied on by onboarding demos, sales demos,
+  // and the pre-filled "Try it" panel — they must exist and be active in
+  // every environment. Upserted the same way as merchant3 below so a fresh
+  // or previously-cleaned DB always has working demo logins.
   const [merchant1] = await db
-    .select().from(usersTable)
-    .where(eq(usersTable.email, "merchant@demo.com")).limit(1);
+    .insert(usersTable)
+    .values({ email: "merchant@demo.com", passwordHash: merchantHash, name: "Demo Merchant", role: "merchant", isActive: true })
+    .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Demo Merchant", role: "merchant", isActive: true } })
+    .returning();
 
   const [merchant2] = await db
-    .select().from(usersTable)
-    .where(eq(usersTable.email, "merchant2@demo.com")).limit(1);
+    .insert(usersTable)
+    .values({ email: "merchant2@demo.com", passwordHash: merchantHash, name: "Merchant Two", role: "merchant", isActive: true })
+    .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Merchant Two", role: "merchant", isActive: true } })
+    .returning();
 
   // Demo merchant 3 account
   const [merchant3] = await db
@@ -148,14 +156,27 @@ export async function seed() {
     .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: merchantHash, name: "Demo Merchant 3", role: "merchant", isActive: true } })
     .returning();
 
-  // Demo merchants — SELECT-only: do not re-create if they were deleted from this environment
-  const [m1] = await db
-    .select().from(merchantsTable)
-    .where(eq(merchantsTable.email, "merchant@demo.com")).limit(1);
+  const [m1] = await db.insert(merchantsTable).values({
+    businessName: "Demo Business Pvt Ltd",
+    contactName: "Demo Merchant",
+    email: "merchant@demo.com",
+    phone: "+91-9876543210",
+    status: "approved",
+    balance: "0",
+    totalDeposits: "0",
+    totalWithdrawals: "0",
+  }).onConflictDoUpdate({ target: merchantsTable.email, set: { status: "approved", contactName: "Demo Merchant" } }).returning();
 
-  const [m2] = await db
-    .select().from(merchantsTable)
-    .where(eq(merchantsTable.email, "merchant2@demo.com")).limit(1);
+  const [m2] = await db.insert(merchantsTable).values({
+    businessName: "TechPay Solutions",
+    contactName: "Merchant Two",
+    email: "merchant2@demo.com",
+    phone: "+91-9876543211",
+    status: "approved",
+    balance: "0",
+    totalDeposits: "0",
+    totalWithdrawals: "0",
+  }).onConflictDoUpdate({ target: merchantsTable.email, set: { status: "approved", contactName: "Merchant Two" } }).returning();
 
   const [m3] = await db.insert(merchantsTable).values({
     businessName: "Demo Enterprises",

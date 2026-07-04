@@ -3,16 +3,11 @@ name: Seed demo merchant guard
 description: How to prevent seed.ts from re-creating deleted demo merchants; and how to run schema migrations without a TTY
 ---
 
-**The rule:** Demo merchants (merchant@demo.com, merchant2@demo.com) must be SELECT-only in seed.ts — never upserted. All seed blocks that access `m1.id` or `m2.id` must be wrapped in `if (m1 && m2)`.
+**Current rule (reversed from an earlier decision — see history below):** Demo merchants merchant@demo.com and merchant2@demo.com are upserted in seed.ts (`insert().onConflictDoUpdate()`), exactly like merchant3@demo.com, so they always exist and are login-able in every environment, including a fresh/cleaned DB. All downstream demo-data blocks still gate on `if (m1 && m2)`, which is now always true.
 
-**Why:** The seed runs on every server start. If demo merchants are deleted for a clean production environment, an `onConflictDoUpdate` INSERT re-creates them on the next restart, defeating the cleanup. SELECT-only means "link if present, skip if absent."
+**Why:** These two accounts are documented in replit.md's Demo Credentials table and relied on by onboarding/sales demos and the pre-filled "Try it" API-docs panel. An earlier iteration made them SELECT-only (see history) so a deliberately-cleaned production environment would stay clean, but that caused documented demo logins to silently 401 in *any* environment where the rows didn't already exist (e.g. a fresh dev DB) — judged a worse failure mode than production re-appearing after an intentional delete. If production ever needs demo accounts truly gone, delete them via a manual script (see `scripts/src/fix-credentials.ts` pattern) after removing/adjusting this upsert, not by relying on SELECT-only seed behavior.
 
-**How to apply:**
-- Replace INSERT+onConflictDoUpdate for m1/m2 users and merchants with `db.select().from(...).where(eq(..., "demo@email")).limit(1)`
-- After resolving m1/m2, wrap ALL demo-data blocks (transactions, QR codes, VAs, settlements, webhooks, ledger, credential events, report schedules, etc.) in `if (m1 && m2) { ... }`
-- For credential events: the guard SELECT itself uses `m1.id` — make it null-safe: `const rows = m1 ? await db.select({ c: count() })...where(eq(..., m1.id)) : [{ c: 1 }]`
-
-**Testing implication:** Because merchant@demo.com / merchant2@demo.com are SELECT-only, they do NOT exist in a freshly-provisioned dev DB (only the merchant3@demo.com account is upserted, so it always exists). When e2e-testing merchant flows in a new environment, log in with the merchant3 demo account (see replit.md's Demo Credentials table for the shared password), not merchant@demo.com — the latter will 401 with no seed data to back it.
+**History (superseded):** Previously m1/m2 were SELECT-only ("link if present, skip if absent") specifically to survive a clean-prod deletion. If this requirement returns, wrap the upsert back to `db.select().from(...).where(eq(..., "demo@email")).limit(1)` and keep all `if (m1 && m2)` guards — the credential-events null-safe pattern (`const rows = m1 ? await db.select(...) : [{ c: 1 }]`) still applies either way since `m1`/`m2` can be undefined in that mode.
 
 **Non-interactive schema migrations:** `drizzle-kit push` requires a TTY (interactive prompt) — it will throw in CI or bash tool. Use direct SQL instead:
 ```sql

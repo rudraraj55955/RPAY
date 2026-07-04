@@ -48,8 +48,7 @@ Thumbs.db
 .cache/
 .local/
 .github-sync-status.json
-.github-sync-status.json
-.github-sync-status.json
+.github-sync-history.json
 
 # GitHub Actions (Replit OAuth lacks workflow scope)
 .github/workflows/

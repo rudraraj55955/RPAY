@@ -22,6 +22,7 @@ import {
   Star,
   Trash2,
   Save,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -529,30 +530,47 @@ function TryItPanel({
 
               {queryParams.length > 0 && (
                 <div className="space-y-1.5">
-                  {queryParams.map((row) => (
-                    <div key={row.id} className="flex items-center gap-1.5">
-                      <Input
-                        value={row.key}
-                        onChange={(e) => updateQueryParam(row.id, "key", e.target.value)}
-                        placeholder="key"
-                        className="h-7 text-xs font-mono bg-black/40 w-1/3"
-                      />
-                      <Input
-                        value={row.value}
-                        onChange={(e) => updateQueryParam(row.id, "value", e.target.value)}
-                        placeholder="value"
-                        className="h-7 text-xs font-mono bg-black/40 flex-1"
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 shrink-0"
-                        onClick={() => removeQueryParam(row.id)}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
+                  {queryParams.map((row) => {
+                    const isUnknownParam =
+                      commonQueryParams.length > 0 &&
+                      row.key.trim().length > 0 &&
+                      !commonQueryParams.includes(row.key.trim());
+                    return (
+                      <div key={row.id} className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            value={row.key}
+                            onChange={(e) => updateQueryParam(row.id, "key", e.target.value)}
+                            placeholder="key"
+                            className={`h-7 text-xs font-mono bg-black/40 w-1/3 ${
+                              isUnknownParam ? "border-amber-500/50 focus-visible:ring-amber-500/30" : ""
+                            }`}
+                          />
+                          <Input
+                            value={row.value}
+                            onChange={(e) => updateQueryParam(row.id, "value", e.target.value)}
+                            placeholder="value"
+                            className="h-7 text-xs font-mono bg-black/40 flex-1"
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 shrink-0"
+                            onClick={() => removeQueryParam(row.id)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        {isUnknownParam && (
+                          <p className="text-[10px] text-amber-500/80 pl-0.5 flex items-center gap-1">
+                            <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                            "{row.key.trim()}" isn't a documented param for this endpoint — it may be ignored by
+                            the server (undocumented params are still sent).
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

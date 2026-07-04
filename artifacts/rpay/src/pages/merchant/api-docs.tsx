@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ChevronDown,
   ChevronRight,
@@ -119,6 +120,7 @@ interface ApiResponse {
   statusText: string;
   body: string;
   durationMs: number;
+  headers: Record<string, string>;
 }
 
 function extractPathParams(path: string): string[] {
@@ -190,11 +192,17 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
         text = await res.text();
       }
 
+      const responseHeaders: Record<string, string> = {};
+      res.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+
       setResponse({
         status: res.status,
         statusText: res.statusText,
         body: text,
         durationMs: Date.now() - t0,
+        headers: responseHeaders,
       });
     } catch (err: unknown) {
       setResponse({
@@ -202,6 +210,7 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
         statusText: "Network Error",
         body: err instanceof Error ? err.message : String(err),
         durationMs: Date.now() - t0,
+        headers: {},
       });
     } finally {
       setLoading(false);
@@ -327,9 +336,30 @@ function TryItPanel({ method, path, token, defaultBody = "", requiresAuth = true
                 </span>
                 <span className="text-muted-foreground">{response.durationMs}ms</span>
               </div>
-              <pre className="bg-black/60 border border-border/50 rounded-lg p-3 text-xs font-mono overflow-x-auto text-green-300 whitespace-pre-wrap max-h-72">
-                {typeof response.body === "string" ? response.body : JSON.stringify(response.body, null, 2)}
-              </pre>
+              <Tabs defaultValue="body">
+                <TabsList className="h-7">
+                  <TabsTrigger value="body" className="h-5 text-[11px] px-2 py-0">
+                    Body
+                  </TabsTrigger>
+                  <TabsTrigger value="headers" className="h-5 text-[11px] px-2 py-0">
+                    Headers
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="body" className="mt-1.5">
+                  <pre className="bg-black/60 border border-border/50 rounded-lg p-3 text-xs font-mono overflow-x-auto text-green-300 whitespace-pre-wrap max-h-72">
+                    {typeof response.body === "string" ? response.body : JSON.stringify(response.body, null, 2)}
+                  </pre>
+                </TabsContent>
+                <TabsContent value="headers" className="mt-1.5">
+                  <pre className="bg-black/60 border border-border/50 rounded-lg p-3 text-xs font-mono overflow-x-auto text-green-300 whitespace-pre-wrap max-h-72">
+                    {Object.keys(response.headers).length > 0
+                      ? Object.entries(response.headers)
+                          .map(([key, value]) => `${key}: ${value}`)
+                          .join("\n")
+                      : "No response headers"}
+                  </pre>
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </div>

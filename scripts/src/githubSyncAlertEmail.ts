@@ -113,3 +113,106 @@ export async function notifyAdminsOfGithubSyncFailing(opts: {
     console.error("GITHUB_SYNC: Failed to send repeated-failure escalation emails:", err);
   }
 }
+
+function buildRecoveryHtml(opts: { repo: string; priorStreak: number }): string {
+  const { repo, priorStreak } = opts;
+  const timestamp = new Date().toISOString();
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; background: #0f0f0f; color: #e5e5e5; margin: 0; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #2a2a2a;">
+    <div style="background: #14532d; padding: 20px 24px;">
+      <h1 style="margin: 0; font-size: 20px; color: #fff; letter-spacing: 0.5px;">RasoKart — GitHub Sync Recovered</h1>
+      <p style="margin: 4px 0 0; color: #86efac; font-size: 13px;">Automated repository sync is healthy again</p>
+    </div>
+    <div style="padding: 24px;">
+      <p style="margin: 0 0 16px; color: #4ade80; font-size: 14px; font-weight: 600;">
+        &#x2705; GitHub sync for <strong>${repo}</strong> succeeded, ending a streak of <strong>${priorStreak} consecutive failures</strong>.
+      </p>
+      <p style="margin: 0 0 20px; color: #a1a1aa; font-size: 13px;">
+        The incident that triggered the repeated-failure alert has been resolved. Repository changes are pushing to GitHub normally again.
+      </p>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px; width: 40%;">Repository</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; font-weight: 600;">${repo}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Failures Before Recovery</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px; color: #4ade80; font-weight: 600;">${priorStreak}</td>
+        </tr>
+        <tr style="background: #111;">
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; color: #a1a1aa; font-size: 13px;">Recovered At</td>
+          <td style="padding: 10px 14px; border: 1px solid #2a2a2a; font-size: 13px;">${timestamp}</td>
+        </tr>
+      </table>
+
+      <p style="margin: 0; color: #71717a; font-size: 12px;">
+        No action is needed. You will only receive this email after a streak that previously crossed the alert threshold.
+      </p>
+    </div>
+    <div style="padding: 14px 24px; background: #111; border-top: 1px solid #2a2a2a;">
+      <p style="margin: 0; color: #52525b; font-size: 11px;">
+        This alert was sent automatically by the RasoKart GitHub sync script. To stop receiving these emails, update your notification preferences in Admin Settings.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Sends a "sync recovered" email to admins who have opted in, once a sync
+ * succeeds after a failure streak that had previously crossed the escalation
+ * threshold. Callers are responsible for only calling this when the prior
+ * streak (before the successful run) crossed FAILURE_ESCALATION_THRESHOLD —
+ * isolated single-failure incidents that never escalated should not trigger this.
+ */
+export async function notifyAdminsOfGithubSyncRecovered(opts: {
+  repo: string;
+  priorStreak: number;
+}): Promise<void> {
+  try {
+    const admins = await db
+      .select({ email: usersTable.email })
+      .from(usersTable)
+      .where(
+        and(
+          eq(usersTable.role, "admin"),
+          eq(usersTable.isActive, true),
+          eq(usersTable.githubSyncFailureAlertEmails, true),
+        ),
+      );
+
+    if (admins.length === 0) {
+      console.log("GITHUB_SYNC: No admins opted in to repeated-failure alert emails — skipping recovery email");
+      return;
+    }
+
+    const cfg = getSmtpConfigFromEnv();
+    if (!cfg) {
+      console.warn(
+        "GITHUB_SYNC: SMTP not configured (SMTP_HOST, SMTP_USER, SMTP_PASS required) — skipping recovery email",
+      );
+      return;
+    }
+
+    const html = buildRecoveryHtml(opts);
+    const subject = `[RasoKart] ✅ GitHub Sync Recovered — after ${opts.priorStreak} consecutive failures`;
+
+    const results = await Promise.allSettled(
+      admins.map(a => sendMailWithConfig(cfg, { to: a.email, subject, html })),
+    );
+
+    const sent = results.filter(r => r.status === "fulfilled" && r.value).length;
+    const failed = results.length - sent;
+    console.log(
+      `GITHUB_SYNC: Recovery email dispatched — ${sent} sent, ${failed} failed, priorStreak=${opts.priorStreak}`,
+    );
+  } catch (err) {
+    console.error("GITHUB_SYNC: Failed to send recovery emails:", err);
+  }
+}

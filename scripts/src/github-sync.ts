@@ -2,7 +2,7 @@ import { execSync } from "child_process";
 import { writeFileSync, readFileSync, mkdirSync, unlinkSync } from "fs";
 import { randomUUID } from "crypto";
 import { sendAdminAlert } from "./mailer.js";
-import { notifyAdminsOfGithubSyncFailing } from "./githubSyncAlertEmail.js";
+import { notifyAdminsOfGithubSyncFailing, notifyAdminsOfGithubSyncRecovered } from "./githubSyncAlertEmail.js";
 import { db, systemSettingsTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 
@@ -326,7 +326,18 @@ async function main() {
     }
     runCaptured(`git push ${REMOTE_NAME} HEAD:main --force`);
     log("GITHUB_SYNC: Sync complete.");
+
+    // Capture the failure streak that preceded this success BEFORE writeStatus
+    // appends the new "success" entry (which would reset countConsecutiveFailures to 0).
+    const priorStreak = countConsecutiveFailures();
     writeStatus("success", runId, logLines);
+
+    if (priorStreak >= FAILURE_ESCALATION_THRESHOLD) {
+      await notifyAdminsOfGithubSyncRecovered({
+        repo: GITHUB_REPO,
+        priorStreak,
+      });
+    }
   } catch (err: unknown) {
     const message =
       err instanceof Error

@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
 import { seed } from "./seed";
+import { ensureSchemaGuard } from "./lib/schemaGuard";
 import cron from "node-cron";
 import { processPendingRetries } from "./helpers/callbackRetry";
 import { initReconciliationScheduler } from "./helpers/reconScheduler";
@@ -108,11 +109,24 @@ async function main() {
   }
 
   try {
+    await ensureSchemaGuard();
+  } catch (err) {
+    // Additive/idempotent guard — log and continue. A failure here most likely
+    // means a transient DB blip, already covered by the fatal connection check
+    // above; it must never itself take the server down.
+    logger.error({ err }, "schema_guard_failed — continuing, guard will retry on next request");
+  }
+
+  try {
     await seed();
     logger.info("Database seed complete");
   } catch (err) {
-    logger.error({ err }, "Seed failed — cannot start server without baseline data");
-    process.exit(1);
+    // Seed failures (e.g. a still-missing optional column in an unusual
+    // environment) must never crash the server — only a genuine DB
+    // connection failure (checked above) is fatal. Log sanitized error and
+    // keep serving; routes that depend on seeded data already handle
+    // missing/empty state gracefully.
+    logger.error({ err }, "Seed failed — continuing without full baseline data");
   }
 
   await initReconciliationScheduler();

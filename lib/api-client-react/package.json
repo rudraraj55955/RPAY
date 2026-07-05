@@ -6,8 +6,15 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "node --import tsx --test src/**/*.test.ts"
+  },
   "dependencies": {
     "@tanstack/react-query": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:"
   },
   "peerDependencies": {
     "react": ">=18"

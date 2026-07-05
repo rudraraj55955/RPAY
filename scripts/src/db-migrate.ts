@@ -273,6 +273,14 @@ async function migrate() {
       WHERE NOT EXISTS (SELECT 1 FROM company_settings);
 
     -- ── quiet_hours_queue ────────────────────────────────────────────────────────
+    -- Real incident: this CREATE TABLE previously only had (id, user_id, subject,
+    -- html, queued_at) while the Drizzle schema (lib/db/src/schema/quietHoursQueue.ts)
+    -- and the code that reads/writes it (helpers/quietHours.ts, routes/auth.ts)
+    -- require "to", deliver_after, flushed, flushed_at, created_at — so the
+    -- every-minute quiet-hours flush scheduler failed with
+    -- "column quiet_hours_queue.flushed does not exist" on every tick. Adding the
+    -- missing columns below (idempotent, all nullable/defaulted) fixes this
+    -- permanently without touching existing rows.
     CREATE TABLE IF NOT EXISTS quiet_hours_queue (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -280,7 +288,13 @@ async function migrate() {
       html TEXT NOT NULL,
       queued_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE quiet_hours_queue ADD COLUMN IF NOT EXISTS "to" TEXT NOT NULL DEFAULT '';
+    ALTER TABLE quiet_hours_queue ADD COLUMN IF NOT EXISTS deliver_after TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE quiet_hours_queue ADD COLUMN IF NOT EXISTS flushed BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE quiet_hours_queue ADD COLUMN IF NOT EXISTS flushed_at TIMESTAMPTZ;
+    ALTER TABLE quiet_hours_queue ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
     CREATE INDEX IF NOT EXISTS quiet_hours_queue_user_id_idx ON quiet_hours_queue(user_id);
+    CREATE INDEX IF NOT EXISTS quiet_hours_queue_flushed_deliver_after_idx ON quiet_hours_queue(flushed, deliver_after);
 
     -- ── cashfree_payment_orders: permanent schema guard ─────────────────────────
     -- Ensures every column the deposit-order insert (payinOrders.ts) needs
@@ -333,6 +347,111 @@ async function migrate() {
     END $$;
 
     UPDATE cashfree_payment_orders SET status = UPPER(status) WHERE status IS NOT NULL AND status <> UPPER(status);
+
+    -- ── merchant_auth_otps: merchant OTP login + password reset ────────────────
+    -- Mirrors the in-process guard in artifacts/api-server/src/lib/schemaGuard.ts
+    -- so this table is guaranteed at deploy time, before the server process
+    -- even starts (defense-in-depth: the in-process guard is a second layer).
+    CREATE TABLE IF NOT EXISTS merchant_auth_otps (
+      id SERIAL PRIMARY KEY,
+      merchant_id INTEGER,
+      identifier_hash TEXT NOT NULL,
+      otp_hash TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      consumed_at TIMESTAMPTZ,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      resend_count INTEGER NOT NULL DEFAULT 0,
+      ip_hash TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS merchant_auth_otps_identifier_hash_idx ON merchant_auth_otps(identifier_hash);
+    CREATE INDEX IF NOT EXISTS merchant_auth_otps_merchant_id_idx ON merchant_auth_otps(merchant_id);
+    CREATE INDEX IF NOT EXISTS merchant_auth_otps_purpose_idx ON merchant_auth_otps(purpose);
+    CREATE INDEX IF NOT EXISTS merchant_auth_otps_expires_at_idx ON merchant_auth_otps(expires_at);
+
+    -- ── providers / provider_integrations / provider_visibility / routing ──────
+    -- Safety net for envs where these were never created by drizzle-kit push.
+    CREATE TABLE IF NOT EXISTS providers (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      logo_url TEXT,
+      category TEXT NOT NULL DEFAULT 'upi',
+      status TEXT NOT NULL DEFAULT 'live',
+      description TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS provider_integrations (
+      id SERIAL PRIMARY KEY,
+      provider_key VARCHAR(64) NOT NULL UNIQUE,
+      provider_name_internal VARCHAR(255) NOT NULL,
+      display_name_public VARCHAR(255) NOT NULL,
+      environment TEXT NOT NULL DEFAULT 'test',
+      is_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      product_type VARCHAR(100),
+      webhook_url TEXT,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    -- UPI Gateways consolidation columns — previously only added via an
+    -- ad hoc inline ALTER TABLE block in seed.ts (not deploy-permanent).
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS is_custom BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS api_key_encrypted TEXT;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS api_secret_encrypted TEXT;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS webhook_secret_encrypted TEXT;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS api_base_url TEXT;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS client_id_encrypted TEXT;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS client_secret_encrypted TEXT;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS min_amount NUMERIC(18,2);
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS max_amount NUMERIC(18,2);
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS daily_limit NUMERIC(18,2);
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS supports_dynamic_qr BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS supports_static_qr BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS supports_payment_links BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS supports_webhooks BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS updated_by_email VARCHAR(255);
+
+    CREATE TABLE IF NOT EXISTS provider_visibility (
+      id SERIAL PRIMARY KEY,
+      provider_id INTEGER NOT NULL,
+      merchant_id INTEGER,
+      visible BOOLEAN NOT NULL DEFAULT TRUE,
+      min_amount NUMERIC(18,2),
+      max_amount NUMERIC(18,2),
+      daily_limit NUMERIC(18,2),
+      priority_override INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS pv_provider_merchant_idx ON provider_visibility(provider_id, merchant_id);
+
+    CREATE TABLE IF NOT EXISTS routing_configs (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS routing_rules (
+      id SERIAL PRIMARY KEY,
+      config_id INTEGER NOT NULL REFERENCES routing_configs(id) ON DELETE CASCADE,
+      provider_key VARCHAR(64) NOT NULL,
+      priority INTEGER NOT NULL DEFAULT 1,
+      weight_percent INTEGER NOT NULL DEFAULT 100,
+      min_amount NUMERIC(18,2),
+      max_amount NUMERIC(18,2),
+      allowed_payment_modes TEXT,
+      is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   console.log("DB migrations complete.");

@@ -148,11 +148,34 @@ function truncate(text: string, maxLength = 300): string {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 }
 
+// Detects a raw HTML error page (e.g. an nginx/proxy 502/503/504 page, or any
+// unhandled-crash HTML page a misconfigured host may return) so it is never
+// dumped verbatim into a user-facing error message. Without this, a 502 from
+// a reverse proxy would surface `<html><head><title>502 Bad Gateway</title>...`
+// straight into a toast/alert, which is both ugly and, if any UI ever renders
+// error messages via `dangerouslySetInnerHTML`, a markup-injection risk.
+function looksLikeHtml(text: string): boolean {
+  const trimmed = text.trimStart().toLowerCase();
+  return trimmed.startsWith("<!doctype") || trimmed.startsWith("<html") || trimmed.startsWith("<head") || trimmed.startsWith("<body");
+}
+
+const GATEWAY_ERROR_STATUSES = new Set([502, 503, 504]);
+
+function friendlyGatewayMessage(status: number): string {
+  if (GATEWAY_ERROR_STATUSES.has(status)) {
+    return "The server is temporarily unavailable. Please try again in a moment.";
+  }
+  return "The server returned an unexpected response. Please try again.";
+}
+
 function buildErrorMessage(response: Response, data: unknown): string {
   const prefix = `HTTP ${response.status} ${response.statusText}`;
 
   if (typeof data === "string") {
     const text = data.trim();
+    if (text && looksLikeHtml(text)) {
+      return `${prefix}: ${friendlyGatewayMessage(response.status)}`;
+    }
     return text ? `${prefix}: ${truncate(text)}` : prefix;
   }
 

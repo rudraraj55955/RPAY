@@ -17,11 +17,14 @@ If the VPS is already running, SSH in and run:
 cd /home/rasokart/app
 git pull origin main
 pnpm install --frozen-lockfile
-pnpm --filter @workspace/db run push          # only if schema changed
+pnpm --filter @workspace/scripts run db-migrate  # idempotent, no TTY required — always safe to run
 pnpm --filter @workspace/api-server run build
 pm2 restart rasokart-api
 BASE_PATH=/ pnpm --filter @workspace/rpay run build
 # nginx serves the updated dist/ folder automatically
+
+# Confirm the deploy applied schema/columns correctly:
+curl -s https://rasokart.com/api/healthz/deep
 ```
 
 ---
@@ -138,12 +141,24 @@ SESSION_SECRET: "REPLACE_WITH_64_CHAR_HEX_FROM_CRYPTO_RANDOM",
 ```bash
 cd /var/www/rasokart
 
-# Export DATABASE_URL so drizzle-kit can connect
+# Export DATABASE_URL so the migration script can connect
 export DATABASE_URL="postgres://rasokart_user:YOUR_PASSWORD@localhost:5432/rasokart"
 
-# Push schema (idempotent — safe to re-run)
-pnpm --filter @workspace/db run push
+# Idempotent CREATE TABLE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS migration —
+# no TTY required (unlike `drizzle-kit push`), safe to re-run on every deploy.
+# This is the canonical migration path for this project; do NOT use
+# `pnpm --filter @workspace/db run push` in production (it requires an
+# interactive TTY and will hang/fail under PM2 or CI).
+pnpm --filter @workspace/scripts run db-migrate
 ```
+
+The API server runs a second, in-process schema guard (`artifacts/api-server/src/lib/schemaGuard.ts`)
+on every startup, before seeding — so even if this migration step is ever skipped
+or fails on a fresh/older DB, the server still self-heals the columns/tables it
+depends on (`users.is_super_admin`, `company_settings`, `merchant_auth_otps`,
+UPI gateway columns, routing tables, `quiet_hours_queue` delivery columns) instead
+of 502ing. Seed failures are logged but are **never fatal** — the server always
+starts and serves requests even if seeding hits an unexpected error.
 
 The API server seed runs automatically on startup — it creates the admin account
 (`admin@rasokart.com` / `Admin@123456`) and demo merchant data idempotently.
@@ -254,6 +269,12 @@ certbot --nginx -d rasokart.com -d www.rasokart.com \
 # Verify API is running
 curl -s https://rasokart.com/api/healthz
 
+# Deep readiness check — DB connection + every column/table the schema guard
+# manages (users.is_super_admin, company_settings, merchant_auth_otps, UPI
+# gateway columns, routing tables). Returns 503 with a per-check breakdown if
+# anything drifted, instead of a raw 502 the first time a real user hits it.
+curl -s https://rasokart.com/api/healthz/deep
+
 # Check PM2 status
 pm2 status
 
@@ -264,6 +285,18 @@ pm2 logs rasokart-api --lines 50
 curl -s -X POST https://rasokart.com/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@rasokart.com","password":"Admin@123456"}'
+
+# Test merchant login (canonical path + aliases — all three must return 200
+# with a token for a valid merchant, and JSON 401 — never raw HTML — for bad creds)
+curl -s -X POST https://rasokart.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"merchant@demo.com","password":"Merchant@123456"}'
+curl -s -X POST https://rasokart.com/api/merchant/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"merchant@demo.com","password":"Merchant@123456"}'
+curl -s -X POST https://rasokart.com/api/auth/merchant/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"merchant@demo.com","password":"Merchant@123456"}'
 
 # Confirm landing page loads
 curl -sI https://rasokart.com | grep HTTP
@@ -302,11 +335,14 @@ cd /home/rasokart/app
 git pull origin main
 pnpm install --frozen-lockfile
 pnpm run typecheck:libs                        # rebuild lib declarations
-pnpm --filter @workspace/db run push          # if schema changed
+pnpm --filter @workspace/scripts run db-migrate  # idempotent, no TTY required
 pnpm --filter @workspace/api-server run build
 pm2 restart rasokart-api
 BASE_PATH=/ pnpm --filter @workspace/rpay run build
 # nginx serves updated dist/ automatically
+
+# Verify the deploy actually applied schema/columns correctly before moving on:
+curl -s https://rasokart.com/api/healthz/deep
 ```
 
 ### Backups

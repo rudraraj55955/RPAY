@@ -61,6 +61,11 @@ const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use("/auth", authRouter);
+// Top-level alias: some deploy configs / older frontend builds call
+// `/api/merchant/login` directly. Mounts the same authRouter so
+// `/api/merchant/login` and `/api/merchant/merchant/login` both resolve —
+// the canonical path remains `/api/auth/login` (see routes/auth.ts).
+router.use("/merchant", authRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/merchants", merchantsRouter);
 router.use("/transactions", transactionsRouter);

@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { and, count, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { logger } from "./lib/logger";
+import { ensureSchemaGuard } from "./lib/schemaGuard";
 import {
   db,
   usersTable,
@@ -222,6 +223,8 @@ async function verifyDemoCredentials() {
 
 export async function seed() {
   console.log("Seeding database...");
+
+  await ensureSchemaGuard();
 
   // ── Plan tiers ────────────────────────────────────────────────────────────
   for (const tier of PLAN_TIERS) {
@@ -751,12 +754,8 @@ export async function seed() {
     description: "EKQR UPI payment gateway — dynamic QR & auto-credit deposits", sortOrder: 17,
   }).onConflictDoUpdate({ target: providersTable.slug, set: { name: "EKQR / UPI Gateway", status: "live", sortOrder: 17 } });
 
-  // ── UPI Gateways consolidation: schema guard so envs that haven't run a full db push
-  // (e.g. a fresh/older prod DB) still get the columns the UPI Gateways route depends on.
-  await db.execute(sql`ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS is_custom boolean NOT NULL DEFAULT false`);
-  await db.execute(sql`ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS api_key_encrypted text`);
-  await db.execute(sql`ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS api_secret_encrypted text`);
-  await db.execute(sql`ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS webhook_secret_encrypted text`);
+  // Note: provider_integrations UPI columns (is_custom, *_encrypted, etc) are
+  // now guaranteed by ensureSchemaGuard() above — see lib/schemaGuard.ts.
 
   // ── UPI Gateways consolidation: ensure every UPI/Bank UPI provider has a matching
   // provider_integrations row so it's fully configurable from the UPI Gateways admin page.

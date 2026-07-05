@@ -61,7 +61,12 @@ interface TrustTokenPayload {
 }
 
 // POST /api/auth/login
-router.post("/login", loginLimiter, async (req, res, next) => {
+// Aliases: some deploy/reverse-proxy configs and older frontend builds call
+// `/api/merchant/login` or `/api/auth/merchant/login` instead of the
+// canonical `/api/auth/login`. The handler below is role-agnostic (works for
+// both merchant and admin users) — these are pure path aliases, not a
+// separate code path, so they can never drift out of sync with `/login`.
+router.post(["/login", "/merchant/login"], loginLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {

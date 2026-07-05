@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NotificationBell } from "@/components/notification-bell";
 import { RasoKartLogo } from "@/components/ui/rasokart-logo";
+import { useCompanySettings } from "@/lib/company-settings";
 import { Card, CardContent } from "@/components/ui/card";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { InstallAppButton } from "@/components/ui/install-app-banner";
@@ -398,6 +399,7 @@ const ADMIN_NAV = [
     items: [
       { title: "Audit Logs", icon: Shield, href: "/admin/audit-logs" },
       { title: "User Roles", icon: UserCog, href: "/admin/user-roles" },
+      { title: "Company Branding", icon: Paintbrush, href: "/admin/company-branding" },
       { title: "Settings", icon: Settings, href: "/admin/settings" },
     ],
   },
@@ -585,6 +587,7 @@ export function DashboardLayout({ children, publicMode = false }: DashboardLayou
   }
 
   const isAdmin = user?.role === UserRole.admin;
+  const { companyName, supportPhone } = useCompanySettings();
   const portalName = location.startsWith("/admin") ? "RasoKart Admin"
     : location.startsWith("/merchant") ? "RasoKart Merchant"
     : location.startsWith("/agent") ? "RasoKart Agent"
@@ -639,6 +642,9 @@ export function DashboardLayout({ children, publicMode = false }: DashboardLayou
               variant="ghost"
               className="w-full justify-start text-muted-foreground hover:text-foreground text-xs h-8 px-2"
             />
+            <p className="text-[10px] text-muted-foreground/70 truncate px-2" title={`Operated by ${companyName} · Support: ${supportPhone}`}>
+              Operated by {companyName} · {supportPhone}
+            </p>
             {user ? (
               <div className="flex items-center justify-between">
                 <div className="flex flex-col truncate pr-2">

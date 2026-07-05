@@ -9,6 +9,7 @@ export const usersTable = pgTable("users", {
   name: text("name").notNull(),
   role: text("role").notNull().default("merchant"), // admin | merchant
   isActive: boolean("is_active").notNull().default(true),
+  isSuperAdmin: boolean("is_super_admin").notNull().default(false),
   merchantId: integer("merchant_id"),
   reconciliationAlertEmails: boolean("reconciliation_alert_emails").notNull().default(true),
   planExpiryAlertEmails: boolean("plan_expiry_alert_emails").notNull().default(true),

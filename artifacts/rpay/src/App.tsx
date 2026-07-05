@@ -56,6 +56,7 @@ import AdminLedger from "@/pages/admin/ledger";
 import AdminReconciliation from "@/pages/admin/reconciliation";
 import AdminPaymentLinks from "@/pages/admin/payment-links";
 import AdminSettings from "@/pages/admin/settings";
+import AdminCompanyBranding from "@/pages/admin/company-branding";
 import AdminPaymentGateway from "@/pages/admin/payment-gateway";
 import AdminPayoutGateway from "@/pages/admin/payout-gateway";
 import AdminPaymentGateways from "@/pages/admin/payment-gateways";
@@ -272,6 +273,7 @@ function Router() {
       <Route path="/admin/reconciliation"><AdminRoute component={AdminReconciliation} /></Route>
       <Route path="/admin/payment-links"><AdminRoute component={AdminPaymentLinks} /></Route>
       <Route path="/admin/settings"><AdminRoute component={AdminSettings} /></Route>
+      <Route path="/admin/company-branding"><AdminRoute component={AdminCompanyBranding} /></Route>
       <Route path="/admin/payment-gateways"><AdminRoute component={AdminPaymentGateways} /></Route>
       <Route path="/admin/payin-gateway"><AdminRoute component={AdminPaymentGateway} /></Route>
       <Route path="/admin/payment-gateway"><AdminRoute component={AdminPaymentGateway} /></Route>

@@ -93,6 +93,8 @@ import type {
   ClearTestEmailHistory200,
   ClearVaCleanupHistory200,
   ClearWebhookFailureAlertHistory200,
+  CompanySettings,
+  CompanySettingsPublic,
   CreateActivationRequestBody,
   CreateCashfreeOrderBody,
   CreateMerchantSavedFilterInput,
@@ -381,6 +383,7 @@ import type {
   TrustedIpListResponse,
   UpdateAccountDetailVisibility200,
   UpdateActivationRequestBody,
+  UpdateCompanySettingsRequest,
   UpdateGithubSyncConfigBody,
   UpdateMyPreferencesBody,
   UpdateProviderIntegrationBody,
@@ -23135,6 +23138,231 @@ export const useTestCashfreeCreateOrder = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getTestCashfreeCreateOrderMutationOptions(options));
+    }
+
+export const getGetPublicCompanySettingsUrl = () => {
+
+
+
+
+  return `/api/public/company-settings`
+}
+
+/**
+ * @summary Get public-safe company branding / support contact info (no auth required)
+ */
+export const getPublicCompanySettings = async ( options?: RequestInit): Promise<CompanySettingsPublic> => {
+
+  return customFetch<CompanySettingsPublic>(getGetPublicCompanySettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicCompanySettingsQueryKey = () => {
+    return [
+    `/api/public/company-settings`
+    ] as const;
+    }
+
+
+export const getGetPublicCompanySettingsQueryOptions = <TData = Awaited<ReturnType<typeof getPublicCompanySettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicCompanySettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicCompanySettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicCompanySettings>>> = ({ signal }) => getPublicCompanySettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicCompanySettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicCompanySettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicCompanySettings>>>
+export type GetPublicCompanySettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get public-safe company branding / support contact info (no auth required)
+ */
+
+export function useGetPublicCompanySettings<TData = Awaited<ReturnType<typeof getPublicCompanySettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicCompanySettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicCompanySettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetAdminCompanySettingsUrl = () => {
+
+
+
+
+  return `/api/admin/company-settings`
+}
+
+/**
+ * @summary Get full company settings (admin + super admin)
+ */
+export const getAdminCompanySettings = async ( options?: RequestInit): Promise<CompanySettings> => {
+
+  return customFetch<CompanySettings>(getGetAdminCompanySettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminCompanySettingsQueryKey = () => {
+    return [
+    `/api/admin/company-settings`
+    ] as const;
+    }
+
+
+export const getGetAdminCompanySettingsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminCompanySettings>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminCompanySettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminCompanySettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminCompanySettings>>> = ({ signal }) => getAdminCompanySettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminCompanySettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminCompanySettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminCompanySettings>>>
+export type GetAdminCompanySettingsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get full company settings (admin + super admin)
+ */
+
+export function useGetAdminCompanySettings<TData = Awaited<ReturnType<typeof getAdminCompanySettings>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminCompanySettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminCompanySettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateAdminCompanySettingsUrl = () => {
+
+
+
+
+  return `/api/admin/company-settings`
+}
+
+/**
+ * @summary Update company branding / support contact settings (Super Admin only)
+ */
+export const updateAdminCompanySettings = async (updateCompanySettingsRequest: UpdateCompanySettingsRequest, options?: RequestInit): Promise<CompanySettings> => {
+
+  return customFetch<CompanySettings>(getUpdateAdminCompanySettingsUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateCompanySettingsRequest,)
+  }
+);}
+
+
+
+
+export const getUpdateAdminCompanySettingsMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminCompanySettings>>, TError,{data: BodyType<UpdateCompanySettingsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminCompanySettings>>, TError,{data: BodyType<UpdateCompanySettingsRequest>}, TContext> => {
+
+const mutationKey = ['updateAdminCompanySettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminCompanySettings>>, {data: BodyType<UpdateCompanySettingsRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminCompanySettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminCompanySettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminCompanySettings>>>
+    export type UpdateAdminCompanySettingsMutationBody = BodyType<UpdateCompanySettingsRequest>
+    export type UpdateAdminCompanySettingsMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Update company branding / support contact settings (Super Admin only)
+ */
+export const useUpdateAdminCompanySettings = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminCompanySettings>>, TError,{data: BodyType<UpdateCompanySettingsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminCompanySettings>>,
+        TError,
+        {data: BodyType<UpdateCompanySettingsRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminCompanySettingsMutationOptions(options));
     }
 
 export const getDebugPayinGatewayCreateOrderUrl = () => {

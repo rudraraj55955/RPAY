@@ -504,6 +504,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
       role: user.role,
       name: user.name,
       isActive: user.isActive,
+      isSuperAdmin: user.isSuperAdmin ?? false,
       merchantId: user.merchantId,
       merchantStatus,
       reconciliationAlertEmails: row?.reconciliationAlertEmails ?? true,

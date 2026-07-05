@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Headphones, ChevronLeft, ChevronRight, Send, Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow, format } from "date-fns";
+import { useCompanySettings } from "@/lib/company-settings";
 
 const STATUS_STYLE: Record<string, string> = {
   open: "text-sky-400 border-sky-500/30 bg-sky-500/10",
@@ -385,6 +386,7 @@ function NewTicketDialog({
 }
 
 export default function MerchantSupport() {
+  const { companyName, supportPhone, supportEmail, whatsappPhone } = useCompanySettings();
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -421,6 +423,26 @@ export default function MerchantSupport() {
           New Ticket
         </Button>
       </div>
+
+      <Card className="border-border/50 bg-card/40">
+        <CardContent className="py-4 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Headphones className="w-4 h-4" />
+            <span>Operated by {companyName}</span>
+          </div>
+          <span className="text-foreground">
+            Support: <a href={`tel:${supportPhone}`} className="hover:underline">{supportPhone}</a>
+          </span>
+          {supportEmail && (
+            <span className="text-foreground">
+              Email: <a href={`mailto:${supportEmail}`} className="hover:underline">{supportEmail}</a>
+            </span>
+          )}
+          {whatsappPhone && (
+            <span className="text-foreground">WhatsApp: {whatsappPhone}</span>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="flex flex-wrap items-center gap-3">
         <Tabs value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>

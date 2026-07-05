@@ -5,6 +5,40 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
+export interface CompanySettingsPublic {
+  companyName: string;
+  supportPhone: string;
+  supportEmail?: string | null;
+  whatsappPhone?: string | null;
+  companyAddress?: string | null;
+  footerText?: string | null;
+}
+
+export interface CompanySettings {
+  id: number;
+  companyName: string;
+  supportPhone: string;
+  supportEmail?: string | null;
+  whatsappPhone?: string | null;
+  companyAddress?: string | null;
+  footerText?: string | null;
+  updatedBy?: number | null;
+  updatedByEmail?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateCompanySettingsRequest {
+  /** @minLength 1 */
+  companyName: string;
+  /** @pattern ^[0-9]{10,15}$ */
+  supportPhone: string;
+  supportEmail?: string | null;
+  whatsappPhone?: string | null;
+  companyAddress?: string | null;
+  footerText?: string | null;
+}
+
 export interface KycUploadUrlRequest {
   name: string;
   size: number;
@@ -262,6 +296,8 @@ export interface User {
   role: UserRole;
   name: string;
   isActive?: boolean;
+  /** True only for the Super Admin who may edit company branding/support settings; other admins get a read-only view. */
+  isSuperAdmin?: boolean;
   /** @nullable */
   merchantId?: number | null;
   /** @nullable */

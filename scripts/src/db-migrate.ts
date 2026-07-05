@@ -247,6 +247,31 @@ async function migrate() {
     -- ── users: github sync repeated-failure escalation email preference ─────────
     ALTER TABLE users ADD COLUMN IF NOT EXISTS github_sync_failure_alert_emails BOOLEAN NOT NULL DEFAULT TRUE;
 
+    -- ── users: super admin flag (Company Branding settings gate) ────────────────
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN NOT NULL DEFAULT FALSE;
+
+    -- ── company_settings: dynamic company branding / support contact ────────────
+    CREATE TABLE IF NOT EXISTS company_settings (
+      id SERIAL PRIMARY KEY,
+      company_name TEXT NOT NULL DEFAULT 'Nickey Collection Private Limited',
+      support_phone TEXT NOT NULL DEFAULT '9358774496',
+      support_email TEXT,
+      whatsapp_phone TEXT,
+      company_address TEXT,
+      footer_text TEXT,
+      updated_by INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS support_email TEXT;
+    ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT;
+    ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS company_address TEXT;
+    ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS footer_text TEXT;
+    ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS updated_by INTEGER;
+    INSERT INTO company_settings (id, company_name, support_phone)
+      SELECT 1, 'Nickey Collection Private Limited', '9358774496'
+      WHERE NOT EXISTS (SELECT 1 FROM company_settings);
+
     -- ── quiet_hours_queue ────────────────────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS quiet_hours_queue (
       id SERIAL PRIMARY KEY,

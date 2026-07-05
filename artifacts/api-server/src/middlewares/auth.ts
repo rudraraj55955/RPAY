@@ -55,3 +55,13 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   }
   next();
 }
+
+/** Super Admin is an admin with the isSuperAdmin flag set — a strict superset of requireAdmin. */
+export function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).user;
+  if (!user || user.role !== "admin" || !user.isSuperAdmin) {
+    res.status(403).json({ error: "Only Super Admin can update company settings" });
+    return;
+  }
+  next();
+}

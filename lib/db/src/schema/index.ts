@@ -58,6 +58,7 @@ export * from "./moduleControls";
 export * from "./moduleVisibility";
 export * from "./merchantWallets";
 export * from "./walletLedger";
+export * from "./companySettings";
 export * from "./merchantAuthOtps";
 export * from "./walletHolds";
 export * from "./walletCharges";

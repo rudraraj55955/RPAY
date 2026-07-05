@@ -3,6 +3,7 @@ import { useSearch } from "wouter";
 import { ShieldCheck, Loader2, AlertCircle, ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useCompanySettings } from "@/lib/company-settings";
 
 declare global {
   interface Window {
@@ -13,6 +14,7 @@ declare global {
 }
 
 export default function CheckoutPage() {
+  const { companyName, supportPhone } = useCompanySettings();
   const search = useSearch();
   const params  = new URLSearchParams(search);
   const token   = params.get("token")  ?? "";
@@ -118,6 +120,9 @@ export default function CheckoutPage() {
         <ShieldCheck className="w-3.5 h-3.5 text-emerald-500/70" />
         <span>256-bit encrypted · Secured by RasoKart</span>
       </div>
+      <p className="text-center text-[11px] text-muted-foreground/60">
+        Operated by {companyName} · Need help? Call {supportPhone}
+      </p>
     </div>
   );
 }

@@ -32,6 +32,7 @@ export const LoginResponse = zod.object({
   "role": zod.enum(['admin', 'merchant']),
   "name": zod.string(),
   "isActive": zod.boolean().optional(),
+  "isSuperAdmin": zod.boolean().optional().describe('True only for the Super Admin who may edit company branding\/support settings; other admins get a read-only view.'),
   "merchantId": zod.number().nullish(),
   "merchantStatus": zod.string().nullish(),
   "reconciliationAlertEmails": zod.boolean().optional(),
@@ -118,6 +119,7 @@ export const VerifyMerchantOtpResponse = zod.object({
   "role": zod.enum(['admin', 'merchant']),
   "name": zod.string(),
   "isActive": zod.boolean().optional(),
+  "isSuperAdmin": zod.boolean().optional().describe('True only for the Super Admin who may edit company branding\/support settings; other admins get a read-only view.'),
   "merchantId": zod.number().nullish(),
   "merchantStatus": zod.string().nullish(),
   "reconciliationAlertEmails": zod.boolean().optional(),
@@ -198,6 +200,7 @@ export const GetMeResponse = zod.object({
   "role": zod.enum(['admin', 'merchant']),
   "name": zod.string(),
   "isActive": zod.boolean().optional(),
+  "isSuperAdmin": zod.boolean().optional().describe('True only for the Super Admin who may edit company branding\/support settings; other admins get a read-only view.'),
   "merchantId": zod.number().nullish(),
   "merchantStatus": zod.string().nullish(),
   "reconciliationAlertEmails": zod.boolean().optional(),
@@ -285,6 +288,7 @@ export const UpdateMyPreferencesResponse = zod.object({
   "role": zod.enum(['admin', 'merchant']),
   "name": zod.string(),
   "isActive": zod.boolean().optional(),
+  "isSuperAdmin": zod.boolean().optional().describe('True only for the Super Admin who may edit company branding\/support settings; other admins get a read-only view.'),
   "merchantId": zod.number().nullish(),
   "merchantStatus": zod.string().nullish(),
   "reconciliationAlertEmails": zod.boolean().optional(),
@@ -4032,6 +4036,7 @@ export const ListUsersResponse = zod.object({
   "role": zod.enum(['admin', 'merchant']),
   "name": zod.string(),
   "isActive": zod.boolean().optional(),
+  "isSuperAdmin": zod.boolean().optional().describe('True only for the Super Admin who may edit company branding\/support settings; other admins get a read-only view.'),
   "merchantId": zod.number().nullish(),
   "merchantStatus": zod.string().nullish(),
   "reconciliationAlertEmails": zod.boolean().optional(),
@@ -4110,6 +4115,7 @@ export const UpdateUserResponse = zod.object({
   "role": zod.enum(['admin', 'merchant']),
   "name": zod.string(),
   "isActive": zod.boolean().optional(),
+  "isSuperAdmin": zod.boolean().optional().describe('True only for the Super Admin who may edit company branding\/support settings; other admins get a read-only view.'),
   "merchantId": zod.number().nullish(),
   "merchantStatus": zod.string().nullish(),
   "reconciliationAlertEmails": zod.boolean().optional(),
@@ -7465,6 +7471,68 @@ export const TestCashfreeCreateOrderResponse = zod.object({
   "ok": zod.boolean(),
   "message": zod.string(),
   "env": zod.enum(['test', 'live']).optional()
+})
+
+
+/**
+ * @summary Get public-safe company branding / support contact info (no auth required)
+ */
+export const GetPublicCompanySettingsResponse = zod.object({
+  "companyName": zod.string(),
+  "supportPhone": zod.string(),
+  "supportEmail": zod.string().nullish(),
+  "whatsappPhone": zod.string().nullish(),
+  "companyAddress": zod.string().nullish(),
+  "footerText": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get full company settings (admin + super admin)
+ */
+export const GetAdminCompanySettingsResponse = zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "supportPhone": zod.string(),
+  "supportEmail": zod.string().nullish(),
+  "whatsappPhone": zod.string().nullish(),
+  "companyAddress": zod.string().nullish(),
+  "footerText": zod.string().nullish(),
+  "updatedBy": zod.number().nullish(),
+  "updatedByEmail": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update company branding / support contact settings (Super Admin only)
+ */
+
+export const updateAdminCompanySettingsBodySupportPhoneRegExp = new RegExp('^[0-9]{10,15}$');
+
+
+export const UpdateAdminCompanySettingsBody = zod.object({
+  "companyName": zod.string().min(1),
+  "supportPhone": zod.string().regex(updateAdminCompanySettingsBodySupportPhoneRegExp),
+  "supportEmail": zod.string().nullish(),
+  "whatsappPhone": zod.string().nullish(),
+  "companyAddress": zod.string().nullish(),
+  "footerText": zod.string().nullish()
+})
+
+export const UpdateAdminCompanySettingsResponse = zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "supportPhone": zod.string(),
+  "supportEmail": zod.string().nullish(),
+  "whatsappPhone": zod.string().nullish(),
+  "companyAddress": zod.string().nullish(),
+  "footerText": zod.string().nullish(),
+  "updatedBy": zod.number().nullish(),
+  "updatedByEmail": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
 })
 
 

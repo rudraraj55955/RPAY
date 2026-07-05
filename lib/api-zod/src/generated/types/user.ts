@@ -15,6 +15,8 @@ export interface User {
   role: UserRole;
   name: string;
   isActive?: boolean;
+  /** True only for the Super Admin who may edit company branding/support settings; other admins get a read-only view. */
+  isSuperAdmin?: boolean;
   /** @nullable */
   merchantId?: number | null;
   /** @nullable */

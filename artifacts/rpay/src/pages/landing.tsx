@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { RasoKartLogo } from "@/components/ui/rasokart-logo";
+import { useCompanySettings } from "@/lib/company-settings";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -113,6 +114,7 @@ const stats = [
 ];
 
 export default function Landing() {
+  const { companyName, supportPhone, footerText } = useCompanySettings();
   return (
     <div className="min-h-screen bg-background text-foreground antialiased">
       {/* NAV */}
@@ -711,13 +713,19 @@ export default function Landing() {
           </div>
 
           <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border/40 pt-6 text-xs text-muted-foreground sm:flex-row">
-            <span>© {new Date().getFullYear()} RasoKart Technologies Pvt. Ltd. All rights reserved.</span>
+            <span>
+              © {new Date().getFullYear()} Powered by RasoKart. Operated by {companyName}. All rights reserved.
+              {" "}Support: {supportPhone}
+            </span>
             <div className="flex gap-6">
               <span className="cursor-pointer transition-colors hover:text-foreground">Privacy Policy</span>
               <span className="cursor-pointer transition-colors hover:text-foreground">Terms of Service</span>
               <span className="cursor-pointer transition-colors hover:text-foreground">Refund Policy</span>
             </div>
           </div>
+          {footerText && (
+            <p className="mt-3 text-center text-xs text-muted-foreground/80">{footerText}</p>
+          )}
         </div>
       </footer>
     </div>

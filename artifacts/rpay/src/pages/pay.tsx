@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Copy, CheckCircle2, Clock, XCircle, Smartphone } from "lucide-react";
 import { toast } from "sonner";
+import { useCompanySettings } from "@/lib/company-settings";
 
 type PublicLink = {
   id: number;
@@ -31,6 +32,7 @@ function isValidColor(color: string): boolean {
 }
 
 export default function PayPage() {
+  const { companyName, supportPhone } = useCompanySettings();
   const [, params] = useRoute("/pay/:slug");
   const slug = params?.slug ?? "";
 
@@ -234,6 +236,9 @@ export default function PayPage() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground/60">Powered by RasoKart · Secure Payment Gateway</p>
+        <p className="text-center text-[11px] text-muted-foreground/50">
+          Operated by {companyName} · Need help? Call {supportPhone}
+        </p>
       </div>
     </div>
   );

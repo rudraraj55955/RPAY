@@ -57,6 +57,8 @@ tags:
     description: Shareable payment link management
   - name: system-config
     description: System-wide configuration settings for admins
+  - name: company-settings
+    description: Dynamic company branding / support contact settings (Super Admin managed)
   - name: storage
     description: Object storage upload and serving endpoints
   - name: saved-filters
@@ -7857,6 +7859,71 @@ paths:
         "403":
           description: Forbidden
 
+  /public/company-settings:
+    get:
+      operationId: getPublicCompanySettings
+      tags: [company-settings]
+      summary: Get public-safe company branding / support contact info (no auth required)
+      responses:
+        "200":
+          description: Public company settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanySettingsPublic"
+
+  /admin/company-settings:
+    get:
+      operationId: getAdminCompanySettings
+      tags: [company-settings]
+      summary: Get full company settings (admin + super admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Company settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanySettings"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+    patch:
+      operationId: updateAdminCompanySettings
+      tags: [company-settings]
+      summary: Update company branding / support contact settings (Super Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCompanySettingsRequest"
+      responses:
+        "200":
+          description: Updated company settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanySettings"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden — Super Admin only
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/payin-gateway/debug-create-order:
     post:
       operationId: debugPayinGatewayCreateOrder
@@ -9557,6 +9624,85 @@ paths:
 
 components:
   schemas:
+    CompanySettingsPublic:
+      type: object
+      required: [companyName, supportPhone]
+      properties:
+        companyName:
+          type: string
+        supportPhone:
+          type: string
+        supportEmail:
+          type: string
+          nullable: true
+        whatsappPhone:
+          type: string
+          nullable: true
+        companyAddress:
+          type: string
+          nullable: true
+        footerText:
+          type: string
+          nullable: true
+
+    CompanySettings:
+      type: object
+      required: [id, companyName, supportPhone, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        companyName:
+          type: string
+        supportPhone:
+          type: string
+        supportEmail:
+          type: string
+          nullable: true
+        whatsappPhone:
+          type: string
+          nullable: true
+        companyAddress:
+          type: string
+          nullable: true
+        footerText:
+          type: string
+          nullable: true
+        updatedBy:
+          type: integer
+          nullable: true
+        updatedByEmail:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpdateCompanySettingsRequest:
+      type: object
+      required: [companyName, supportPhone]
+      properties:
+        companyName:
+          type: string
+          minLength: 1
+        supportPhone:
+          type: string
+          pattern: "^[0-9]{10,15}$"
+        supportEmail:
+          type: string
+          nullable: true
+        whatsappPhone:
+          type: string
+          nullable: true
+        companyAddress:
+          type: string
+          nullable: true
+        footerText:
+          type: string
+          nullable: true
+
     KycUploadUrlRequest:
       type: object
       required: [name, size, contentType]
@@ -9957,6 +10103,9 @@ components:
           type: string
         isActive:
           type: boolean
+        isSuperAdmin:
+          type: boolean
+          description: True only for the Super Admin who may edit company branding/support settings; other admins get a read-only view.
         merchantId:
           type: ["integer", "null"]
         merchantStatus:

@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { useLocation } from "wouter";
 import { RasoKartLogo } from "@/components/ui/rasokart-logo";
 import { InstallAppBanner } from "@/components/ui/install-app-banner";
+import { useCompanySettings } from "@/lib/company-settings";
 
 function usePortalAppName() {
   const [location] = useLocation();
@@ -13,6 +14,7 @@ function usePortalAppName() {
 
 export function AuthLayout({ children, title, subtitle }: { children: ReactNode, title: string, subtitle?: string }) {
   const appName = usePortalAppName();
+  const { companyName, supportPhone } = useCompanySettings();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
@@ -33,6 +35,10 @@ export function AuthLayout({ children, title, subtitle }: { children: ReactNode,
         </div>
 
         <InstallAppBanner appName={appName} />
+
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Operated by {companyName} · Support: {supportPhone}
+        </p>
       </div>
     </div>
   );

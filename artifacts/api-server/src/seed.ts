@@ -236,9 +236,9 @@ export async function seed() {
 
   const [admin] = await db
     .insert(usersTable)
-    .values({ email: "admin@rasokart.com", passwordHash: adminHash, name: "Super Admin", role: "admin", isActive: true })
+    .values({ email: "admin@rasokart.com", passwordHash: adminHash, name: "Super Admin", role: "admin", isActive: true, isSuperAdmin: true })
     // Always reset password hash + active status so production re-seed always works
-    .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: adminHash, name: "Super Admin", role: "admin", isActive: true } })
+    .onConflictDoUpdate({ target: usersTable.email, set: { passwordHash: adminHash, name: "Super Admin", role: "admin", isActive: true, isSuperAdmin: true } })
     .returning();
   console.log("Admin:", admin.email);
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { useCompanySettings } from "@/lib/company-settings";
 
 const services = [
   "Mobile Recharge", "DTH Recharge", "Data Card Recharge", "Postpaid Bill",
@@ -58,6 +59,7 @@ const apiServices = [
 ];
 
 export default function WhitelabelSolutionsPage() {
+  const { companyName, supportPhone } = useCompanySettings();
   return (
     <main className="wl-page">
       <style>{`
@@ -287,6 +289,9 @@ export default function WhitelabelSolutionsPage() {
           <div><h4>Utility APIs</h4><a>Recharge API</a><a>BBPS API</a><a>FASTag</a><a>KYC</a></div>
           <div><h4>Travel</h4><a>Flight Booking</a><a>Hotel Booking</a><a>Bus Booking</a></div>
           <div><h4>Developers</h4><a href="/api-docs">API Docs</a><a href="/upi-collection-api">UPI API</a><a href="/merchant">Console Login</a></div>
+        </div>
+        <div className="wl-wrap" style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,.08)", fontSize: ".75rem", color: "rgba(255,255,255,.5)", textAlign: "center" }}>
+          Powered by RasoKart · Operated by {companyName} · Support: {supportPhone}
         </div>
       </footer>
     </main>

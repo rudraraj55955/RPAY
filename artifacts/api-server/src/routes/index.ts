@@ -42,6 +42,7 @@ import cashfreePayoutWebhookRouter from "./cashfreePayoutWebhook";
 import payinOrdersRouter from "./payinOrders";
 import payinWebhookRouter from "./payinWebhook";
 import adminPayinOrdersRouter from "./adminPayinOrders";
+import adminPayinGatewayDebugRouter from "./adminPayinGatewayDebug";
 import providerIntegrationsRouter from "./providerIntegrations";
 import rasokartServicesRouter from "./rasokartServices";
 import smartRoutingRouter from "./smartRouting";
@@ -99,6 +100,7 @@ router.use("/ekqr", ekqrRouter);
 router.use("/merchant", cashfreeOrdersRouter);
 router.use("/merchant", payinOrdersRouter);
 router.use("/admin/payin", adminPayinOrdersRouter);
+router.use("/admin/payin-gateway", adminPayinGatewayDebugRouter);
 // Payout webhook — public, no auth — must be mounted BEFORE the auth-guarded cashfree-payout router
 router.use("/cashfree-payout/webhook", cashfreePayoutWebhookRouter);
 router.use("/cashfree-payout", cashfreePayoutRouter);

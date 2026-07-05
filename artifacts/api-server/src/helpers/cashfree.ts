@@ -18,6 +18,11 @@ function resolveBaseUrl(env: CashfreeEnv, override?: string): string {
   return env === "live" ? CASHFREE_API_BASE_PROD : CASHFREE_API_BASE_TEST;
 }
 
+/** Exported for the admin diagnostic route — reports the resolved base URL without making a request. */
+export function resolveCashfreeBaseUrl(env: CashfreeEnv, override?: string): string {
+  return resolveBaseUrl(env, override);
+}
+
 function headers(clientId: string, clientSecret: string, apiVersion?: string): Record<string, string> {
   return {
     "Content-Type": "application/json",
@@ -72,7 +77,7 @@ export async function cashfreeCreateOrder(
   env: CashfreeEnv,
   payload: CashfreeOrderRequest,
   options?: CashfreeRequestOptions,
-): Promise<{ raw: string; parsed: CashfreeOrderResponse }> {
+): Promise<{ raw: string; parsed: CashfreeOrderResponse; status: number }> {
   const res = await fetch(`${resolveBaseUrl(env, options?.baseUrl)}/orders`, {
     method: "POST",
     headers: headers(clientId, clientSecret, options?.apiVersion),
@@ -85,7 +90,7 @@ export async function cashfreeCreateOrder(
   } catch {
     parsed = { message: raw };
   }
-  return { raw, parsed };
+  return { raw, parsed, status: res.status };
 }
 
 /**

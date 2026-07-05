@@ -4150,6 +4150,26 @@ export interface CashfreeTestCreateOrderResult {
   env?: CashfreeTestCreateOrderResultEnv;
 }
 
+export type PayinGatewayDebugCreateOrderResultEnv = typeof PayinGatewayDebugCreateOrderResultEnv[keyof typeof PayinGatewayDebugCreateOrderResultEnv];
+
+
+export const PayinGatewayDebugCreateOrderResultEnv = {
+  test: 'test',
+  live: 'live',
+} as const;
+
+export interface PayinGatewayDebugCreateOrderResult {
+  baseUrlValid: boolean;
+  apiVersion: string;
+  env: PayinGatewayDebugCreateOrderResultEnv;
+  merchantId: number;
+  amount: number;
+  httpStatus?: number | null;
+  safeSubCode?: string | null;
+  safeMessage?: string | null;
+  orderCreated: boolean;
+}
+
 export type PayinOrderCreateResultStatus = typeof PayinOrderCreateResultStatus[keyof typeof PayinOrderCreateResultStatus];
 
 
@@ -6606,6 +6626,11 @@ export type UpdateGithubSyncConfigBody = {
 export type ListCashfreePaymentLogsParams = {
 page?: number;
 limit?: number;
+};
+
+export type DebugPayinGatewayCreateOrderBody = {
+  merchantId: number;
+  amount?: number;
 };
 
 export type CreatePayinOrderBody = {

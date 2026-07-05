@@ -104,6 +104,7 @@ import type {
   CredentialEventList,
   CredentialEventListResponse,
   DashboardStats,
+  DebugPayinGatewayCreateOrderBody,
   DeleteAccountDetail200,
   DeleteAdminMerchantReportSchedule200,
   DeleteReportSchedule200,
@@ -250,6 +251,7 @@ import type {
   Notification,
   NotificationListResponse,
   NotificationUnreadCounts,
+  PayinGatewayDebugCreateOrderResult,
   PayinOrderCreateResult,
   PayinOrderStatus,
   PayinOrderStatusCheck,
@@ -22843,6 +22845,77 @@ export const useTestCashfreeCreateOrder = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getTestCashfreeCreateOrderMutationOptions(options));
+    }
+
+export const getDebugPayinGatewayCreateOrderUrl = () => {
+
+
+
+
+  return `/api/admin/payin-gateway/debug-create-order`
+}
+
+/**
+ * @summary Fire a diagnostic create-order request at the live Payin gateway (admin only, sanitized response)
+ */
+export const debugPayinGatewayCreateOrder = async (debugPayinGatewayCreateOrderBody: DebugPayinGatewayCreateOrderBody, options?: RequestInit): Promise<PayinGatewayDebugCreateOrderResult> => {
+
+  return customFetch<PayinGatewayDebugCreateOrderResult>(getDebugPayinGatewayCreateOrderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      debugPayinGatewayCreateOrderBody,)
+  }
+);}
+
+
+
+
+export const getDebugPayinGatewayCreateOrderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof debugPayinGatewayCreateOrder>>, TError,{data: BodyType<DebugPayinGatewayCreateOrderBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof debugPayinGatewayCreateOrder>>, TError,{data: BodyType<DebugPayinGatewayCreateOrderBody>}, TContext> => {
+
+const mutationKey = ['debugPayinGatewayCreateOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof debugPayinGatewayCreateOrder>>, {data: BodyType<DebugPayinGatewayCreateOrderBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  debugPayinGatewayCreateOrder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DebugPayinGatewayCreateOrderMutationResult = NonNullable<Awaited<ReturnType<typeof debugPayinGatewayCreateOrder>>>
+    export type DebugPayinGatewayCreateOrderMutationBody = BodyType<DebugPayinGatewayCreateOrderBody>
+    export type DebugPayinGatewayCreateOrderMutationError = ErrorType<void>
+
+    /**
+ * @summary Fire a diagnostic create-order request at the live Payin gateway (admin only, sanitized response)
+ */
+export const useDebugPayinGatewayCreateOrder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof debugPayinGatewayCreateOrder>>, TError,{data: BodyType<DebugPayinGatewayCreateOrderBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof debugPayinGatewayCreateOrder>>,
+        TError,
+        {data: BodyType<DebugPayinGatewayCreateOrderBody>},
+        TContext
+      > => {
+      return useMutation(getDebugPayinGatewayCreateOrderMutationOptions(options));
     }
 
 export const getGetPayinStatusUrl = () => {

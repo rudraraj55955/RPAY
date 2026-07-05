@@ -1,9 +1,12 @@
 import { Router } from "express";
-import { db, cashfreePaymentOrdersTable, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, PAYIN_ORDER_STATUS } from "@workspace/db";
-import { eq, inArray, and, gte, sql } from "drizzle-orm";
-import { cashfreeCreateOrder, cashfreeGetOrder, type CashfreeEnv } from "../helpers/cashfree";
+import { db, cashfreePaymentOrdersTable, PAYIN_ORDER_STATUS } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { cashfreeCreateOrder, cashfreeGetOrder } from "../helpers/cashfree";
 import { decryptSecret } from "../helpers/cryptoUtils";
 import { requireAuth } from "../middlewares/auth";
+import { loadPayinConfig } from "../helpers/payinConfig";
+import { ensurePayinOrdersSchemaGuard } from "../helpers/payinSchemaGuard";
+import { getMerchantDailyPaidTotal } from "../helpers/payinDailyLimit";
 
 const router = Router();
 
@@ -12,37 +15,6 @@ const router = Router();
 // No "Cashfree", cf_order_id, payment_session_id, or raw provider payloads are
 // ever exposed here — only RasoKart-branded fields.
 // ─────────────────────────────────────────────────────────────────────────────
-
-async function loadPayinConfig() {
-  const keys = [
-    SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_ID,
-    SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_SECRET,
-    SYSTEM_CONFIG_KEYS.CASHFREE_ENV,
-    SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED,
-    SYSTEM_CONFIG_KEYS.CASHFREE_BASE_URL,
-    SYSTEM_CONFIG_KEYS.CASHFREE_API_VERSION,
-    SYSTEM_CONFIG_KEYS.CASHFREE_UPI_ENABLED,
-    SYSTEM_CONFIG_KEYS.CASHFREE_MERCHANT_PAYIN_ENABLED,
-    SYSTEM_CONFIG_KEYS.CASHFREE_MIN_AMOUNT,
-    SYSTEM_CONFIG_KEYS.CASHFREE_MAX_AMOUNT,
-    SYSTEM_CONFIG_KEYS.CASHFREE_DAILY_LIMIT,
-  ];
-  const rows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, keys));
-  const cfg = new Map(rows.map((r) => [r.key, r.value]));
-  return {
-    clientId: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_ID) ?? "",
-    rawClientSecret: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_CLIENT_SECRET) ?? "",
-    env: (cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_ENV) ?? "test") as CashfreeEnv,
-    enabled: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_ENABLED) === "true",
-    baseUrl: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_BASE_URL) || undefined,
-    apiVersion: cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_API_VERSION) || undefined,
-    upiEnabled: (cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_UPI_ENABLED) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_UPI_ENABLED]) !== "false",
-    merchantPayinEnabled: (cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_MERCHANT_PAYIN_ENABLED) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_MERCHANT_PAYIN_ENABLED]) !== "false",
-    minAmount: parseFloat(cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_MIN_AMOUNT) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_MIN_AMOUNT]),
-    maxAmount: parseFloat(cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_MAX_AMOUNT) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_MAX_AMOUNT]),
-    dailyLimit: parseFloat(cfg.get(SYSTEM_CONFIG_KEYS.CASHFREE_DAILY_LIMIT) ?? SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.CASHFREE_DAILY_LIMIT]),
-  };
-}
 
 /**
  * GET /api/merchant/payin/status
@@ -87,6 +59,16 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
 
     req.log.info({ event: "payin_deposit_create_started", merchantId }, "payin_deposit_create_started");
 
+    req.log.info({ event: "payin_schema_guard_started", merchantId }, "payin_schema_guard_started");
+    try {
+      await ensurePayinOrdersSchemaGuard();
+      req.log.info({ event: "payin_schema_guard_success", merchantId }, "payin_schema_guard_success");
+    } catch (guardErr) {
+      req.log.error({ event: "payin_schema_guard_failed", merchantId }, "payin_schema_guard_failed");
+      genericFailure();
+      return;
+    }
+
     const { amount, customerPhone, customerName, customerEmail } = req.body as {
       amount?: number;
       customerPhone?: string;
@@ -114,21 +96,19 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
       return;
     }
 
-    // Daily limit check — sum of this merchant's PAID payin orders created today.
+    // Daily limit check — sum of this merchant's PAID payin orders "today".
+    // Uses paid_at when present; older rows from before paid_at was populated
+    // fall back to created_at so the query never crashes or silently under/
+    // over-counts on a partially-migrated table. COALESCE(SUM(...), 0) plus
+    // the `?? 0` below guarantees a safe numeric result even when zero rows
+    // match (fresh merchant, empty table, etc) — this must never throw.
     req.log.info({ event: "payin_daily_limit_check_started", merchantId }, "payin_daily_limit_check_started");
     let dailyTotal: number;
     try {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
-      const [dailyTotalRow] = await db
-        .select({ total: sql<string>`COALESCE(SUM(${cashfreePaymentOrdersTable.amount}), 0)` })
-        .from(cashfreePaymentOrdersTable)
-        .where(and(
-          eq(cashfreePaymentOrdersTable.merchantId, merchantId),
-          eq(cashfreePaymentOrdersTable.status, PAYIN_ORDER_STATUS.PAID),
-          gte(cashfreePaymentOrdersTable.paidAt, startOfDay),
-        ));
-      dailyTotal = Number(dailyTotalRow?.total ?? 0);
+      dailyTotal = await getMerchantDailyPaidTotal(merchantId, startOfDay);
+      req.log.info({ event: "payin_daily_limit_check_success", merchantId, dailyTotal }, "payin_daily_limit_check_success");
     } catch (limitErr) {
       req.log.error({ event: "payin_daily_limit_check_failed", merchantId }, "payin_daily_limit_check_failed");
       genericFailure();
@@ -155,6 +135,7 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
 
     let raw: string;
     let parsed: Awaited<ReturnType<typeof cashfreeCreateOrder>>["parsed"];
+    req.log.info({ event: "payin_provider_create_order_started", merchantId }, "payin_provider_create_order_started");
     try {
       ({ raw, parsed } = await cashfreeCreateOrder(cfg.clientId, decrypted.value, cfg.env, {
         order_id: publicOrderId,
@@ -168,7 +149,9 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
         },
         order_note: "RasoKart UPI Deposit",
       }, { baseUrl: cfg.baseUrl, apiVersion: cfg.apiVersion }));
+      req.log.info({ event: "payin_provider_create_order_success", merchantId }, "payin_provider_create_order_success");
     } catch (providerErr) {
+      req.log.error({ event: "payin_provider_create_order_failed", merchantId, safeReason: "provider_request_error" }, "payin_provider_create_order_failed");
       req.log.error({ event: "payin_deposit_order_create_failed", merchantId, safeReason: "provider_request_error" }, "payin_deposit_order_create_failed");
       genericFailure();
       return;

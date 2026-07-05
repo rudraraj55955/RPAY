@@ -256,6 +256,15 @@ async function migrate() {
       queued_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS quiet_hours_queue_user_id_idx ON quiet_hours_queue(user_id);
+
+    -- ── cashfree_payment_orders: permanent schema guard ─────────────────────────
+    -- Ensures paid_at exists and all statuses are canonical uppercase
+    -- (CREATED/PENDING/PAID/FAILED/EXPIRED) on every deploy, so this never again
+    -- depends on a manual VPS SQL hotfix. Safe/idempotent to run repeatedly —
+    -- ADD COLUMN IF NOT EXISTS is a no-op once applied, and the UPDATE only
+    -- touches rows whose status isn't already uppercase.
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+    UPDATE cashfree_payment_orders SET status = UPPER(status) WHERE status IS NOT NULL AND status <> UPPER(status);
   `);
 
   console.log("DB migrations complete.");

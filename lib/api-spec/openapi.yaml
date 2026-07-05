@@ -7744,6 +7744,39 @@ paths:
         "403":
           description: Forbidden
 
+  /admin/payin-gateway/debug-create-order:
+    post:
+      operationId: debugPayinGatewayCreateOrder
+      tags: [system-config]
+      summary: Fire a diagnostic create-order request at the live Payin gateway (admin only, sanitized response)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [merchantId]
+              properties:
+                merchantId:
+                  type: integer
+                amount:
+                  type: number
+      responses:
+        "200":
+          description: Sanitized diagnostic result — never includes raw provider identifiers, credentials, or payment_session_id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayinGatewayDebugCreateOrderResult"
+        "400":
+          description: Invalid input
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
   /merchant/payin/status:
     get:
       operationId: getPayinStatus
@@ -14431,6 +14464,33 @@ components:
         env:
           type: string
           enum: [test, live]
+
+    PayinGatewayDebugCreateOrderResult:
+      type: object
+      required: [baseUrlValid, apiVersion, env, merchantId, amount, orderCreated]
+      properties:
+        baseUrlValid:
+          type: boolean
+        apiVersion:
+          type: string
+        env:
+          type: string
+          enum: [test, live]
+        merchantId:
+          type: integer
+        amount:
+          type: number
+        httpStatus:
+          type: integer
+          nullable: true
+        safeSubCode:
+          type: string
+          nullable: true
+        safeMessage:
+          type: string
+          nullable: true
+        orderCreated:
+          type: boolean
 
     PayinOrderCreateResult:
       type: object

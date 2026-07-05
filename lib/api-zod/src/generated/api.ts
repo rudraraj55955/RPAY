@@ -7369,6 +7369,27 @@ export const TestCashfreeCreateOrderResponse = zod.object({
 
 
 /**
+ * @summary Fire a diagnostic create-order request at the live Payin gateway (admin only, sanitized response)
+ */
+export const DebugPayinGatewayCreateOrderBody = zod.object({
+  "merchantId": zod.number(),
+  "amount": zod.number().optional()
+})
+
+export const DebugPayinGatewayCreateOrderResponse = zod.object({
+  "baseUrlValid": zod.boolean(),
+  "apiVersion": zod.string(),
+  "env": zod.enum(['test', 'live']),
+  "merchantId": zod.number(),
+  "amount": zod.number(),
+  "httpStatus": zod.number().nullish(),
+  "safeSubCode": zod.string().nullish(),
+  "safeMessage": zod.string().nullish(),
+  "orderCreated": zod.boolean()
+})
+
+
+/**
  * @summary Whether RasoKart UPI deposits are available to the current merchant
  */
 export const GetPayinStatusResponse = zod.object({

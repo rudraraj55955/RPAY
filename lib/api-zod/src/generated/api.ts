@@ -90,6 +90,106 @@ export const RegisterMerchantBody = zod.object({
 
 
 /**
+ * Sends a one-time login code to a registered merchant's email if the identifier matches an account. Always returns the same safe message regardless of whether the account exists, to avoid leaking account existence.
+ * @summary Request a merchant login OTP
+ */
+export const RequestMerchantOtpBody = zod.object({
+  "identifier": zod.string().describe('Registered merchant email or mobile number.')
+})
+
+export const RequestMerchantOtpResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Verify a merchant login OTP and create a session
+ */
+export const VerifyMerchantOtpBody = zod.object({
+  "identifier": zod.string(),
+  "otp": zod.string().describe('6-digit one-time code.')
+})
+
+export const VerifyMerchantOtpResponse = zod.object({
+  "token": zod.string(),
+  "user": zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'merchant']),
+  "name": zod.string(),
+  "isActive": zod.boolean().optional(),
+  "merchantId": zod.number().nullish(),
+  "merchantStatus": zod.string().nullish(),
+  "reconciliationAlertEmails": zod.boolean().optional(),
+  "planExpiryAlertEmails": zod.boolean().optional(),
+  "settlementStateEmails": zod.boolean().optional(),
+  "signatureFailureAlertEmails": zod.boolean().optional(),
+  "webhookFailureEmails": zod.boolean().optional(),
+  "reportFailureAlertEmails": zod.boolean().optional(),
+  "githubSyncFailureAlertEmails": zod.boolean().optional().describe('Whether the admin wants an escalated email when GitHub sync fails repeatedly (crosses the consecutive-failure threshold). Defaults to true.'),
+  "weeklyDeliveryDigestEmails": zod.boolean().optional().describe('Whether the admin wants to receive the weekly report delivery health digest email. Defaults to true.'),
+  "apiKeyGeneratedEmails": zod.boolean().optional(),
+  "apiKeyRevokedEmails": zod.boolean().optional(),
+  "loginAlertEmails": zod.boolean().optional(),
+  "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an admin changes their report schedule. Defaults to true.'),
+  "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their settlement request changes state. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant wants an email when an EKQR synchronisation issue is detected. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant wants an email when their subscription plan is changed by an admin. Defaults to true.'),
+  "reconciliationAlertNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications for reconciliation alerts. Defaults to true.'),
+  "planExpiryAlertNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications for plan expiry alerts. Defaults to true.'),
+  "settlementStateNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications for settlement state updates. Defaults to true.'),
+  "signatureFailureAlertNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications for signature failure alerts. Defaults to true.'),
+  "webhookFailureNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications for webhook failure alerts. Defaults to true.'),
+  "ekqrSyncAlertNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications for EKQR sync alerts. Defaults to true.'),
+  "reportFailureAlertNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications for report failure alerts. Defaults to true.'),
+  "weeklyDeliveryDigestNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications for weekly delivery digest. Defaults to true.'),
+  "apiKeyGeneratedNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications when an API key is generated. Defaults to true.'),
+  "apiKeyRevokedNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications when an API key is revoked. Defaults to true.'),
+  "loginAlertNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications for new login alerts. Defaults to true.'),
+  "reportScheduleChangedNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications when their report schedule changes. Defaults to true.'),
+  "settlementStateChangedNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications when their settlement state changes. Defaults to true.'),
+  "planChangeNotifs": zod.boolean().optional().describe('Whether the merchant wants in-app notifications when their plan is changed. Defaults to true.'),
+  "notifPrefsDisabledAt": zod.string().nullish().describe('ISO timestamp of when any email notification preference was first disabled. Null if all are currently enabled.'),
+  "notifReminderSentAt": zod.string().nullish().describe('ISO timestamp of when the last notification reminder was sent to this user. Null if no reminder has ever been sent.'),
+  "notifFieldDisabledAt": zod.record(zod.string(), zod.string()).nullish().describe('Map of notification field name to ISO timestamp of when that specific field was disabled. Only present for fields that are currently disabled. Null or empty if all are enabled.'),
+  "quietHoursStart": zod.string().nullish().describe('Start of quiet hours window in HH:mm format (e.g. \"22:00\"). Null means quiet hours disabled.'),
+  "quietHoursEnd": zod.string().nullish().describe('End of quiet hours window in HH:mm format (e.g. \"07:00\"). Null means quiet hours disabled.'),
+  "quietHoursTimezone": zod.string().nullish().describe('IANA timezone for quiet hours interpretation (e.g. \"Asia\/Kolkata\"). Null means quiet hours disabled.'),
+  "reportsBadgeSnoozedUntil": zod.string().nullish().describe('ISO timestamp until which the admin\'s reports sidebar badge is snoozed. Null means not snoozed. Deprecated — use badgeSnoozedUntil.'),
+  "badgeSnoozedUntil": zod.record(zod.string(), zod.string()).nullish().describe('Map of badge key to ISO timestamp until which that badge is snoozed. Keys include \"reports\" and \"audit\". Null or absent key means not snoozed.'),
+  "createdAt": zod.string()
+})
+})
+
+
+/**
+ * Sends a password-reset OTP to a registered merchant's email if the identifier matches an account. Always returns the same safe message regardless of whether the account exists.
+ * @summary Request a merchant password reset code
+ */
+export const RequestMerchantPasswordResetBody = zod.object({
+  "identifier": zod.string().describe('Registered merchant email or mobile number.')
+})
+
+export const RequestMerchantPasswordResetResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Verify a merchant password reset OTP and set a new password
+ */
+export const ResetMerchantPasswordBody = zod.object({
+  "identifier": zod.string(),
+  "otp": zod.string().describe('6-digit one-time code.'),
+  "newPassword": zod.string().describe('New password — minimum 8 characters, at least 1 letter and 1 number.')
+})
+
+export const ResetMerchantPasswordResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary Get current user
  */
 export const GetMeResponse = zod.object({

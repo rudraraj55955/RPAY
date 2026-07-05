@@ -137,6 +137,120 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/merchant/otp/request:
+    post:
+      operationId: requestMerchantOtp
+      tags: [auth]
+      summary: Request a merchant login OTP
+      description: Sends a one-time login code to a registered merchant's email if the identifier matches an account. Always returns the same safe message regardless of whether the account exists, to avoid leaking account existence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantOtpRequestInput"
+      responses:
+        "200":
+          description: Safe acknowledgement (does not reveal whether the account exists)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/merchant/otp/verify:
+    post:
+      operationId: verifyMerchantOtp
+      tags: [auth]
+      summary: Verify a merchant login OTP and create a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantOtpVerifyInput"
+      responses:
+        "200":
+          description: OTP verified — session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid or expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/merchant/password/forgot:
+    post:
+      operationId: requestMerchantPasswordReset
+      tags: [auth]
+      summary: Request a merchant password reset code
+      description: Sends a password-reset OTP to a registered merchant's email if the identifier matches an account. Always returns the same safe message regardless of whether the account exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantOtpRequestInput"
+      responses:
+        "200":
+          description: Safe acknowledgement (does not reveal whether the account exists)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/merchant/password/reset:
+    post:
+      operationId: resetMerchantPassword
+      tags: [auth]
+      summary: Verify a merchant password reset OTP and set a new password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantPasswordResetInput"
+      responses:
+        "200":
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid OTP, expired OTP, or weak password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/me:
     get:
       operationId: getMe
@@ -9796,6 +9910,37 @@ components:
           type: string
         user:
           $ref: "#/components/schemas/User"
+
+    MerchantOtpRequestInput:
+      type: object
+      required: [identifier]
+      properties:
+        identifier:
+          type: string
+          description: Registered merchant email or mobile number.
+
+    MerchantOtpVerifyInput:
+      type: object
+      required: [identifier, otp]
+      properties:
+        identifier:
+          type: string
+        otp:
+          type: string
+          description: 6-digit one-time code.
+
+    MerchantPasswordResetInput:
+      type: object
+      required: [identifier, otp, newPassword]
+      properties:
+        identifier:
+          type: string
+        otp:
+          type: string
+          description: 6-digit one-time code.
+        newPassword:
+          type: string
+          description: New password — minimum 8 characters, at least 1 letter and 1 number.
 
     User:
       type: object

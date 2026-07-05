@@ -1,15 +1,30 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { db, usersTable, merchantsTable, credentialEventsTable, merchantTrustedIpsTable, auditLogsTable } from "@workspace/db";
+import { db, usersTable, merchantsTable, credentialEventsTable, merchantTrustedIpsTable, auditLogsTable, merchantAuthOtpsTable } from "@workspace/db";
 import { DbRateLimitStore } from "../lib/rateLimitStore";
 import { eq, and, count, desc } from "drizzle-orm";
 import { generateToken, requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
-import { makeRateLimiter } from "../helpers/makeRateLimiter";
+import { makeRateLimiter, safeIpKey } from "../helpers/makeRateLimiter";
 import { sendNewLoginAlertEmail } from "../helpers/newLoginEmail";
 import { sendPrefChangeUnknownDeviceEmail } from "../helpers/prefChangeEmail";
 import { createNotification } from "../helpers/notifications";
+import { sendMerchantOtpEmail } from "../helpers/merchantOtpEmail";
+import {
+  generateOtp,
+  hashOtp,
+  verifyOtpHash,
+  hashIdentifier,
+  hashIp,
+  normalizeIdentifier,
+  isEmailIdentifier,
+  maskIdentifier,
+  validatePasswordStrength,
+  OTP_EXPIRY_MS,
+  OTP_MAX_ATTEMPTS,
+  OTP_RESEND_COOLDOWN_MS,
+} from "../helpers/otp";
 
 const router = Router();
 
@@ -1175,6 +1190,349 @@ router.post("/quiet-hours/flush", requireAuth, async (req, res, next) => {
 // POST /api/auth/logout
 router.post("/logout", (_req, res) => {
   res.json({ message: "Logged out successfully" });
+});
+
+// ---------------------------------------------------------------------------
+// Merchant OTP login + forgot-password
+// ---------------------------------------------------------------------------
+
+const SAFE_OTP_REQUEST_MESSAGE = "If this account is registered, an OTP has been sent.";
+const SAFE_PASSWORD_RESET_MESSAGE = "If this account is registered, password reset instructions have been sent.";
+
+const otpRequestLimiter = makeRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  store: new DbRateLimitStore(),
+  message: { error: "Too many OTP requests. Please try again later." },
+  keyGenerator: (req) => {
+    const identifier = typeof req.body?.identifier === "string" ? normalizeIdentifier(req.body.identifier) : "";
+    return `otp-req:${safeIpKey(req)}:${identifier}`;
+  },
+});
+
+const otpVerifyLimiter = makeRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  store: new DbRateLimitStore(),
+  message: { error: "Too many attempts. Please try again later." },
+  keyGenerator: (req) => {
+    const identifier = typeof req.body?.identifier === "string" ? normalizeIdentifier(req.body.identifier) : "";
+    return `otp-verify:${safeIpKey(req)}:${identifier}`;
+  },
+});
+
+const passwordForgotLimiter = makeRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  store: new DbRateLimitStore(),
+  message: { error: "Too many requests. Please try again later." },
+  keyGenerator: (req) => {
+    const identifier = typeof req.body?.identifier === "string" ? normalizeIdentifier(req.body.identifier) : "";
+    return `pwd-forgot:${safeIpKey(req)}:${identifier}`;
+  },
+});
+
+const passwordResetLimiter = makeRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  store: new DbRateLimitStore(),
+  message: { error: "Too many attempts. Please try again later." },
+  keyGenerator: (req) => {
+    const identifier = typeof req.body?.identifier === "string" ? normalizeIdentifier(req.body.identifier) : "";
+    return `pwd-reset:${safeIpKey(req)}:${identifier}`;
+  },
+});
+
+function requestIp(req: import("express").Request): string | null {
+  return (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    ?? req.socket.remoteAddress
+    ?? null;
+}
+
+/** Looks up the merchant user account matching an email or phone identifier, without revealing existence to the caller. */
+async function findMerchantUserByIdentifier(identifier: string): Promise<{ id: number; email: string; merchantId: number | null } | null> {
+  const normalized = normalizeIdentifier(identifier);
+  if (isEmailIdentifier(normalized)) {
+    const [user] = await db
+      .select({ id: usersTable.id, email: usersTable.email, merchantId: usersTable.merchantId })
+      .from(usersTable)
+      .where(and(eq(usersTable.email, normalized), eq(usersTable.role, "merchant")))
+      .limit(1);
+    return user ?? null;
+  }
+  const digits = normalized.replace(/\D/g, "");
+  if (!digits) return null;
+  const [merchant] = await db
+    .select({ id: merchantsTable.id })
+    .from(merchantsTable)
+    .where(eq(merchantsTable.phone, digits))
+    .limit(1);
+  if (!merchant) return null;
+  const [user] = await db
+    .select({ id: usersTable.id, email: usersTable.email, merchantId: usersTable.merchantId })
+    .from(usersTable)
+    .where(and(eq(usersTable.merchantId, merchant.id), eq(usersTable.role, "merchant")))
+    .limit(1);
+  return user ?? null;
+}
+
+async function createAndSendOtp(opts: {
+  req: import("express").Request;
+  identifier: string;
+  purpose: "LOGIN" | "PASSWORD_RESET";
+  user: { id: number; email: string; merchantId: number | null };
+}): Promise<void> {
+  const { req, identifier, purpose, user } = opts;
+  const identifierHash = hashIdentifier(identifier);
+  const ip = requestIp(req);
+  const ipHash = hashIp(ip);
+
+  const [existing] = await db
+    .select({ id: merchantAuthOtpsTable.id, createdAt: merchantAuthOtpsTable.createdAt, resendCount: merchantAuthOtpsTable.resendCount })
+    .from(merchantAuthOtpsTable)
+    .where(and(
+      eq(merchantAuthOtpsTable.identifierHash, identifierHash),
+      eq(merchantAuthOtpsTable.purpose, purpose),
+    ))
+    .orderBy(desc(merchantAuthOtpsTable.createdAt))
+    .limit(1);
+
+  if (existing && Date.now() - existing.createdAt.getTime() < OTP_RESEND_COOLDOWN_MS) {
+    req.log.info({ purpose, hasUser: true, cooldown: true }, "merchant_otp_requested");
+    return;
+  }
+
+  const otp = generateOtp();
+  const otpHash = await hashOtp(otp);
+  const resendCount = existing ? existing.resendCount + 1 : 0;
+
+  await db.insert(merchantAuthOtpsTable).values({
+    merchantId: user.merchantId,
+    identifierHash,
+    otpHash,
+    purpose,
+    expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
+    attempts: 0,
+    resendCount,
+    ipHash,
+  });
+
+  req.log.info({ purpose, hasUser: true }, "merchant_otp_requested");
+
+  const sent = await sendMerchantOtpEmail({ to: user.email, otp, purpose }).catch((err: unknown) => {
+    req.log.warn({ err, purpose }, "merchant_otp_send_error");
+    return false;
+  });
+
+  req.log.info({ purpose, sent }, "merchant_otp_sent");
+}
+
+// POST /api/auth/merchant/otp/request
+router.post("/merchant/otp/request", otpRequestLimiter, async (req, res, next) => {
+  try {
+    const { identifier } = req.body as { identifier?: string };
+    if (!identifier || typeof identifier !== "string") {
+      res.status(400).json({ error: "identifier is required" });
+      return;
+    }
+    const user = await findMerchantUserByIdentifier(identifier);
+    if (!user) {
+      req.log.info({ purpose: "LOGIN", hasUser: false }, "merchant_otp_requested");
+      res.json({ message: SAFE_OTP_REQUEST_MESSAGE });
+      return;
+    }
+    await createAndSendOtp({ req, identifier, purpose: "LOGIN", user });
+    res.json({ message: SAFE_OTP_REQUEST_MESSAGE });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/merchant/otp/verify
+router.post("/merchant/otp/verify", otpVerifyLimiter, async (req, res, next) => {
+  try {
+    const { identifier, otp } = req.body as { identifier?: string; otp?: string };
+    if (!identifier || !otp || typeof identifier !== "string" || typeof otp !== "string") {
+      res.status(400).json({ error: "identifier and otp are required" });
+      return;
+    }
+
+    const user = await findMerchantUserByIdentifier(identifier);
+    if (!user) {
+      req.log.warn({ purpose: "LOGIN" }, "merchant_otp_failed");
+      res.status(400).json({ error: "Invalid or expired code. Please request a new one." });
+      return;
+    }
+
+    const identifierHash = hashIdentifier(identifier);
+    const [otpRow] = await db
+      .select()
+      .from(merchantAuthOtpsTable)
+      .where(and(
+        eq(merchantAuthOtpsTable.identifierHash, identifierHash),
+        eq(merchantAuthOtpsTable.purpose, "LOGIN"),
+      ))
+      .orderBy(desc(merchantAuthOtpsTable.createdAt))
+      .limit(1);
+
+    if (!otpRow || otpRow.consumedAt || otpRow.expiresAt.getTime() < Date.now()) {
+      req.log.warn({ userId: user.id, purpose: "LOGIN", reason: "no_active_otp" }, "merchant_otp_failed");
+      res.status(400).json({ error: "Invalid or expired code. Please request a new one." });
+      return;
+    }
+
+    if (otpRow.attempts >= OTP_MAX_ATTEMPTS) {
+      req.log.warn({ userId: user.id, purpose: "LOGIN" }, "merchant_otp_rate_limited");
+      res.status(429).json({ error: "Too many attempts. Please request a new code." });
+      return;
+    }
+
+    const valid = await verifyOtpHash(otp, otpRow.otpHash);
+    if (!valid) {
+      await db.update(merchantAuthOtpsTable).set({ attempts: otpRow.attempts + 1 }).where(eq(merchantAuthOtpsTable.id, otpRow.id));
+      req.log.warn({ userId: user.id, purpose: "LOGIN", reason: "mismatch" }, "merchant_otp_failed");
+      res.status(400).json({ error: "Invalid or expired code. Please request a new one." });
+      return;
+    }
+
+    await db.update(merchantAuthOtpsTable).set({ consumedAt: new Date() }).where(eq(merchantAuthOtpsTable.id, otpRow.id));
+
+    const [fullUser] = await db.select().from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
+    if (!fullUser || !fullUser.isActive) {
+      req.log.warn({ userId: user.id, purpose: "LOGIN", reason: "inactive" }, "merchant_otp_failed");
+      res.status(400).json({ error: "Invalid or expired code. Please request a new one." });
+      return;
+    }
+
+    req.log.info({ userId: fullUser.id, purpose: "LOGIN" }, "merchant_otp_verified");
+
+    const token = generateToken({ userId: fullUser.id, role: fullUser.role });
+    const loginIp = requestIp(req);
+
+    db.update(usersTable)
+      .set({ lastLoginAt: new Date(), ...(loginIp ? { lastSeenIp: loginIp } : {}) })
+      .where(eq(usersTable.id, fullUser.id))
+      .catch((err: unknown) => {
+        logger.warn({ err, userId: fullUser.id }, "Failed to update lastLoginAt after OTP login");
+      });
+
+    if (fullUser.merchantId) {
+      db.insert(credentialEventsTable).values({
+        merchantId: fullUser.merchantId,
+        eventType: "merchant_login",
+        actorId: fullUser.id,
+        actorEmail: fullUser.email,
+        keyPrefix: null,
+        ipAddress: loginIp,
+      }).catch((err: unknown) => {
+        req.log.warn({ err, merchantId: fullUser.merchantId }, "Failed to record OTP login event");
+      });
+    }
+
+    res.json({
+      token,
+      user: {
+        id: fullUser.id,
+        email: fullUser.email,
+        role: fullUser.role,
+        name: fullUser.name,
+        isActive: fullUser.isActive,
+        merchantId: fullUser.merchantId,
+        createdAt: fullUser.createdAt,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/merchant/password/forgot
+router.post("/merchant/password/forgot", passwordForgotLimiter, async (req, res, next) => {
+  try {
+    const { identifier } = req.body as { identifier?: string };
+    if (!identifier || typeof identifier !== "string") {
+      res.status(400).json({ error: "identifier is required" });
+      return;
+    }
+    const user = await findMerchantUserByIdentifier(identifier);
+    if (!user) {
+      req.log.info({ purpose: "PASSWORD_RESET", hasUser: false }, "merchant_otp_requested");
+      res.json({ message: SAFE_PASSWORD_RESET_MESSAGE });
+      return;
+    }
+    await createAndSendOtp({ req, identifier, purpose: "PASSWORD_RESET", user });
+    res.json({ message: SAFE_PASSWORD_RESET_MESSAGE });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/merchant/password/reset
+router.post("/merchant/password/reset", passwordResetLimiter, async (req, res, next) => {
+  try {
+    const { identifier, otp, newPassword } = req.body as { identifier?: string; otp?: string; newPassword?: string };
+    if (!identifier || !otp || !newPassword || typeof identifier !== "string" || typeof otp !== "string" || typeof newPassword !== "string") {
+      res.status(400).json({ error: "identifier, otp, and newPassword are required" });
+      return;
+    }
+
+    const passwordError = validatePasswordStrength(newPassword);
+    if (passwordError) {
+      res.status(400).json({ error: passwordError });
+      return;
+    }
+
+    const user = await findMerchantUserByIdentifier(identifier);
+    if (!user) {
+      req.log.warn({ purpose: "PASSWORD_RESET" }, "merchant_otp_failed");
+      res.status(400).json({ error: "Invalid or expired code. Please request a new one." });
+      return;
+    }
+
+    const identifierHash = hashIdentifier(identifier);
+    const [otpRow] = await db
+      .select()
+      .from(merchantAuthOtpsTable)
+      .where(and(
+        eq(merchantAuthOtpsTable.identifierHash, identifierHash),
+        eq(merchantAuthOtpsTable.purpose, "PASSWORD_RESET"),
+      ))
+      .orderBy(desc(merchantAuthOtpsTable.createdAt))
+      .limit(1);
+
+    if (!otpRow || otpRow.consumedAt || otpRow.expiresAt.getTime() < Date.now()) {
+      req.log.warn({ userId: user.id, purpose: "PASSWORD_RESET", reason: "no_active_otp" }, "merchant_otp_failed");
+      res.status(400).json({ error: "Invalid or expired code. Please request a new one." });
+      return;
+    }
+
+    if (otpRow.attempts >= OTP_MAX_ATTEMPTS) {
+      req.log.warn({ userId: user.id, purpose: "PASSWORD_RESET" }, "merchant_otp_rate_limited");
+      res.status(429).json({ error: "Too many attempts. Please request a new code." });
+      return;
+    }
+
+    const valid = await verifyOtpHash(otp, otpRow.otpHash);
+    if (!valid) {
+      await db.update(merchantAuthOtpsTable).set({ attempts: otpRow.attempts + 1 }).where(eq(merchantAuthOtpsTable.id, otpRow.id));
+      req.log.warn({ userId: user.id, purpose: "PASSWORD_RESET", reason: "mismatch" }, "merchant_otp_failed");
+      res.status(400).json({ error: "Invalid or expired code. Please request a new one." });
+      return;
+    }
+
+    await db.update(merchantAuthOtpsTable).set({ consumedAt: new Date() }).where(eq(merchantAuthOtpsTable.id, otpRow.id));
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await db.update(usersTable)
+      .set({ passwordHash, passwordUpdatedAt: new Date() })
+      .where(eq(usersTable.id, user.id));
+
+    req.log.info({ userId: user.id, purpose: "PASSWORD_RESET" }, "merchant_otp_verified");
+
+    res.json({ message: "Your password has been reset successfully. Please log in with your new password." });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

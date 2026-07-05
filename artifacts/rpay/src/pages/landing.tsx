@@ -137,9 +137,9 @@ export default function Landing() {
             <Link href="/merchant">
               <Button variant="ghost" size="sm">Merchant Login</Button>
             </Link>
-            <Link href="/admin">
+            <Link href="/merchant/apply">
               <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
-                Admin Portal
+                Apply Now
               </Button>
             </Link>
           </div>
@@ -610,16 +610,15 @@ export default function Landing() {
               </div>
 
               {/* Portal links */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: "Admin Portal", href: "/admin", color: "text-rose-400", bg: "bg-rose-400/10" },
-                  { label: "Merchant Portal", href: "/merchant", color: "text-cyan-400", bg: "bg-cyan-400/10" },
-                  { label: "Agent Portal", href: "/agent", color: "text-violet-400", bg: "bg-violet-400/10" },
+                  { label: "Merchant Portal", href: "/merchant", cta: "Login →", color: "text-cyan-400", bg: "bg-cyan-400/10" },
+                  { label: "Apply as Merchant", href: "/merchant/apply", cta: "Get started →", color: "text-emerald-400", bg: "bg-emerald-400/10" },
                 ].map((p) => (
                   <Link key={p.label} href={p.href}>
                     <div className={`cursor-pointer rounded-xl border border-border/40 ${p.bg} p-4 text-center transition-all hover:border-border/80`}>
                       <div className={`text-xs font-medium ${p.color}`}>{p.label}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">Login →</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{p.cta}</div>
                     </div>
                   </Link>
                 ))}
@@ -685,10 +684,9 @@ export default function Landing() {
             <div>
               <div className="mb-3 text-sm font-semibold">Portal Access</div>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/admin" className="transition-colors hover:text-foreground">Admin Login</Link></li>
                 <li><Link href="/merchant" className="transition-colors hover:text-foreground">Merchant Login</Link></li>
-                <li><Link href="/agent" className="transition-colors hover:text-foreground">Agent Login</Link></li>
                 <li><Link href="/merchant/apply" className="transition-colors hover:text-foreground">Apply as Merchant</Link></li>
+                <li><a href="mailto:support@rasokart.com" className="transition-colors hover:text-foreground">Support</a></li>
               </ul>
             </div>
 

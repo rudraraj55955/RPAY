@@ -363,6 +363,25 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface MerchantOtpRequestInput {
+  /** Registered merchant email or mobile number. */
+  identifier: string;
+}
+
+export interface MerchantOtpVerifyInput {
+  identifier: string;
+  /** 6-digit one-time code. */
+  otp: string;
+}
+
+export interface MerchantPasswordResetInput {
+  identifier: string;
+  /** 6-digit one-time code. */
+  otp: string;
+  /** New password — minimum 8 characters, at least 1 letter and 1 number. */
+  newPassword: string;
+}
+
 export type MerchantStatus = typeof MerchantStatus[keyof typeof MerchantStatus];
 
 

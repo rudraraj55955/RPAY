@@ -239,6 +239,9 @@ import type {
   MerchantFeaturesRecord,
   MerchantListCredentialEvent,
   MerchantListResponse,
+  MerchantOtpRequestInput,
+  MerchantOtpVerifyInput,
+  MerchantPasswordResetInput,
   MerchantPlan,
   MerchantPlanWithDetails,
   MerchantProduct,
@@ -651,6 +654,292 @@ export const useRegisterMerchant = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getRegisterMerchantMutationOptions(options));
+    }
+
+export const getRequestMerchantOtpUrl = () => {
+
+
+
+
+  return `/api/auth/merchant/otp/request`
+}
+
+/**
+ * Sends a one-time login code to a registered merchant's email if the identifier matches an account. Always returns the same safe message regardless of whether the account exists, to avoid leaking account existence.
+ * @summary Request a merchant login OTP
+ */
+export const requestMerchantOtp = async (merchantOtpRequestInput: MerchantOtpRequestInput, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getRequestMerchantOtpUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      merchantOtpRequestInput,)
+  }
+);}
+
+
+
+
+export const getRequestMerchantOtpMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestMerchantOtp>>, TError,{data: BodyType<MerchantOtpRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestMerchantOtp>>, TError,{data: BodyType<MerchantOtpRequestInput>}, TContext> => {
+
+const mutationKey = ['requestMerchantOtp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestMerchantOtp>>, {data: BodyType<MerchantOtpRequestInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestMerchantOtp(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestMerchantOtpMutationResult = NonNullable<Awaited<ReturnType<typeof requestMerchantOtp>>>
+    export type RequestMerchantOtpMutationBody = BodyType<MerchantOtpRequestInput>
+    export type RequestMerchantOtpMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Request a merchant login OTP
+ */
+export const useRequestMerchantOtp = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestMerchantOtp>>, TError,{data: BodyType<MerchantOtpRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestMerchantOtp>>,
+        TError,
+        {data: BodyType<MerchantOtpRequestInput>},
+        TContext
+      > => {
+      return useMutation(getRequestMerchantOtpMutationOptions(options));
+    }
+
+export const getVerifyMerchantOtpUrl = () => {
+
+
+
+
+  return `/api/auth/merchant/otp/verify`
+}
+
+/**
+ * @summary Verify a merchant login OTP and create a session
+ */
+export const verifyMerchantOtp = async (merchantOtpVerifyInput: MerchantOtpVerifyInput, options?: RequestInit): Promise<AuthResponse> => {
+
+  return customFetch<AuthResponse>(getVerifyMerchantOtpUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      merchantOtpVerifyInput,)
+  }
+);}
+
+
+
+
+export const getVerifyMerchantOtpMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyMerchantOtp>>, TError,{data: BodyType<MerchantOtpVerifyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyMerchantOtp>>, TError,{data: BodyType<MerchantOtpVerifyInput>}, TContext> => {
+
+const mutationKey = ['verifyMerchantOtp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyMerchantOtp>>, {data: BodyType<MerchantOtpVerifyInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  verifyMerchantOtp(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyMerchantOtpMutationResult = NonNullable<Awaited<ReturnType<typeof verifyMerchantOtp>>>
+    export type VerifyMerchantOtpMutationBody = BodyType<MerchantOtpVerifyInput>
+    export type VerifyMerchantOtpMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Verify a merchant login OTP and create a session
+ */
+export const useVerifyMerchantOtp = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyMerchantOtp>>, TError,{data: BodyType<MerchantOtpVerifyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyMerchantOtp>>,
+        TError,
+        {data: BodyType<MerchantOtpVerifyInput>},
+        TContext
+      > => {
+      return useMutation(getVerifyMerchantOtpMutationOptions(options));
+    }
+
+export const getRequestMerchantPasswordResetUrl = () => {
+
+
+
+
+  return `/api/auth/merchant/password/forgot`
+}
+
+/**
+ * Sends a password-reset OTP to a registered merchant's email if the identifier matches an account. Always returns the same safe message regardless of whether the account exists.
+ * @summary Request a merchant password reset code
+ */
+export const requestMerchantPasswordReset = async (merchantOtpRequestInput: MerchantOtpRequestInput, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getRequestMerchantPasswordResetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      merchantOtpRequestInput,)
+  }
+);}
+
+
+
+
+export const getRequestMerchantPasswordResetMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestMerchantPasswordReset>>, TError,{data: BodyType<MerchantOtpRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestMerchantPasswordReset>>, TError,{data: BodyType<MerchantOtpRequestInput>}, TContext> => {
+
+const mutationKey = ['requestMerchantPasswordReset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestMerchantPasswordReset>>, {data: BodyType<MerchantOtpRequestInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestMerchantPasswordReset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestMerchantPasswordResetMutationResult = NonNullable<Awaited<ReturnType<typeof requestMerchantPasswordReset>>>
+    export type RequestMerchantPasswordResetMutationBody = BodyType<MerchantOtpRequestInput>
+    export type RequestMerchantPasswordResetMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Request a merchant password reset code
+ */
+export const useRequestMerchantPasswordReset = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestMerchantPasswordReset>>, TError,{data: BodyType<MerchantOtpRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestMerchantPasswordReset>>,
+        TError,
+        {data: BodyType<MerchantOtpRequestInput>},
+        TContext
+      > => {
+      return useMutation(getRequestMerchantPasswordResetMutationOptions(options));
+    }
+
+export const getResetMerchantPasswordUrl = () => {
+
+
+
+
+  return `/api/auth/merchant/password/reset`
+}
+
+/**
+ * @summary Verify a merchant password reset OTP and set a new password
+ */
+export const resetMerchantPassword = async (merchantPasswordResetInput: MerchantPasswordResetInput, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getResetMerchantPasswordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      merchantPasswordResetInput,)
+  }
+);}
+
+
+
+
+export const getResetMerchantPasswordMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetMerchantPassword>>, TError,{data: BodyType<MerchantPasswordResetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetMerchantPassword>>, TError,{data: BodyType<MerchantPasswordResetInput>}, TContext> => {
+
+const mutationKey = ['resetMerchantPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetMerchantPassword>>, {data: BodyType<MerchantPasswordResetInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  resetMerchantPassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetMerchantPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof resetMerchantPassword>>>
+    export type ResetMerchantPasswordMutationBody = BodyType<MerchantPasswordResetInput>
+    export type ResetMerchantPasswordMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Verify a merchant password reset OTP and set a new password
+ */
+export const useResetMerchantPassword = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetMerchantPassword>>, TError,{data: BodyType<MerchantPasswordResetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetMerchantPassword>>,
+        TError,
+        {data: BodyType<MerchantPasswordResetInput>},
+        TContext
+      > => {
+      return useMutation(getResetMerchantPasswordMutationOptions(options));
     }
 
 export const getGetMeUrl = () => {

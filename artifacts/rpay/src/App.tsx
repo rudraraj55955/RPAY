@@ -10,6 +10,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { PageErrorBoundary } from "@/components/error-boundary";
 import { Spinner } from "@/components/ui/spinner";
 import { UserRole } from "@workspace/api-client-react";
+import { useNoIndexSync } from "@/lib/use-no-index";
 import NotFound from "@/pages/not-found";
 
 // Landing Page
@@ -220,6 +221,7 @@ function PublicPage({ component: Component }: { component: React.ComponentType }
 }
 
 function Router() {
+  useNoIndexSync();
   return (
     <Switch>
       {/* Public landing page */}

@@ -8,9 +8,11 @@ const JWT_SECRET = process.env.SESSION_SECRET || "rasokart-secret-key-change-in-
 export interface AuthPayload {
   userId: number;
   role: string;
+  iat?: number;
+  exp?: number;
 }
 
-export function generateToken(payload: AuthPayload): string {
+export function generateToken(payload: { userId: number; role: string }): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
 
@@ -30,6 +32,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, payload.userId)).limit(1);
     if (!user || !user.isActive) {
       res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    // Sessions issued before the most recent password change are treated as
+    // invalidated (e.g. after a forgot-password reset).
+    if (user.passwordUpdatedAt && payload.iat != null && payload.iat * 1000 < user.passwordUpdatedAt.getTime()) {
+      res.status(401).json({ error: "Session expired. Please log in again." });
       return;
     }
     (req as any).user = user;

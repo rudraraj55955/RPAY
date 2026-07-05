@@ -235,6 +235,7 @@ export * from './githubSyncConfig';
 export * from './githubSyncHistory';
 export * from './githubSyncHistoryEntry';
 export * from './githubSyncHistoryEntryStatus';
+export * from './githubSyncRunLog';
 export * from './githubSyncStatus';
 export * from './githubSyncStatusStatus';
 export * from './healthStatus';

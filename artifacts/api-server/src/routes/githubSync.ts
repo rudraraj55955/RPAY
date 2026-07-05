@@ -12,6 +12,7 @@ router.use(requireAdmin);
 
 const STATUS_FILE = new URL("../../../.github-sync-status.json", import.meta.url).pathname;
 const HISTORY_FILE = new URL("../../../.github-sync-history.json", import.meta.url).pathname;
+const LOG_DIR = new URL("../../../.github-sync-logs/", import.meta.url).pathname;
 const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 
 const GITHUB_SYNC_KEYS = ["github_sync_enabled", "github_sync_schedule"] as const;
@@ -143,6 +144,27 @@ router.get("/history", (req, res, next) => {
     } catch {
     }
     res.json({ entries });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/github-sync/history/:id/log
+router.get("/history/:id/log", (req, res, next) => {
+  try {
+    const id = req.params["id"] as string;
+
+    if (!/^[a-zA-Z0-9-]+$/.test(id)) {
+      res.status(400).json({ error: "Invalid history entry id" });
+      return;
+    }
+
+    try {
+      const log = readFileSync(`${LOG_DIR}${id}.log`, "utf-8");
+      res.json({ log });
+    } catch {
+      res.status(404).json({ error: "No log available for this sync run" });
+    }
   } catch (err) {
     next(err);
   }

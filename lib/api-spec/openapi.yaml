@@ -7539,6 +7539,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /github-sync/history/{id}/log:
+    get:
+      operationId: getGithubSyncRunLog
+      tags: [github-sync]
+      summary: Get the full captured log output for a specific sync run
+      description: Returns the full stdout/stderr captured during a specific sync run's git fetch/push commands, keyed by the history entry's id.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Full log output for the sync run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GithubSyncRunLog"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No log available for this sync run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /github-sync/run:
     post:
       operationId: runGithubSync
@@ -9879,6 +9919,9 @@ components:
       type: object
       required: [status, syncedAt, repo]
       properties:
+        id:
+          type: string
+          description: Unique identifier for this sync run, used to fetch its full captured log via /github-sync/history/{id}/log. Absent on entries recorded before this field was introduced.
         status:
           type: string
           enum: [success, failure]
@@ -9893,6 +9936,9 @@ components:
         errorMessage:
           type: string
           description: Error detail when status is "failure"
+        hasLog:
+          type: boolean
+          description: Whether a full captured log is available for this run via /github-sync/history/{id}/log
 
     GithubSyncHistory:
       type: object
@@ -9903,6 +9949,14 @@ components:
           items:
             $ref: "#/components/schemas/GithubSyncHistoryEntry"
           description: Past sync runs, newest first, capped at 50
+
+    GithubSyncRunLog:
+      type: object
+      required: [log]
+      properties:
+        log:
+          type: string
+          description: Full captured stdout/stderr output for this sync run (git fetch/push commands)
 
     SavedFilter:
       type: object

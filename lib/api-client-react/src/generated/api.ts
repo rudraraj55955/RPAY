@@ -162,6 +162,7 @@ import type {
   GetWebhookPlatformDefaults200,
   GithubSyncConfig,
   GithubSyncHistory,
+  GithubSyncRunLog,
   GithubSyncStatus,
   HealthStatus,
   Invoice,
@@ -22088,6 +22089,84 @@ export function useGetGithubSyncStatus<TData = Awaited<ReturnType<typeof getGith
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetGithubSyncStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetGithubSyncRunLogUrl = (id: string,) => {
+
+
+
+
+  return `/api/github-sync/history/${id}/log`
+}
+
+/**
+ * Returns the full stdout/stderr captured during a specific sync run's git fetch/push commands, keyed by the history entry's id.
+ * @summary Get the full captured log output for a specific sync run
+ */
+export const getGithubSyncRunLog = async (id: string, options?: RequestInit): Promise<GithubSyncRunLog> => {
+
+  return customFetch<GithubSyncRunLog>(getGetGithubSyncRunLogUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGithubSyncRunLogQueryKey = (id: string,) => {
+    return [
+    `/api/github-sync/history/${id}/log`
+    ] as const;
+    }
+
+
+export const getGetGithubSyncRunLogQueryOptions = <TData = Awaited<ReturnType<typeof getGithubSyncRunLog>>, TError = ErrorType<ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGithubSyncRunLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGithubSyncRunLogQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGithubSyncRunLog>>> = ({ signal }) => getGithubSyncRunLog(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGithubSyncRunLog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGithubSyncRunLogQueryResult = NonNullable<Awaited<ReturnType<typeof getGithubSyncRunLog>>>
+export type GetGithubSyncRunLogQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get the full captured log output for a specific sync run
+ */
+
+export function useGetGithubSyncRunLog<TData = Awaited<ReturnType<typeof getGithubSyncRunLog>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGithubSyncRunLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGithubSyncRunLogQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

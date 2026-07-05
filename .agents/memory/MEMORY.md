@@ -29,3 +29,4 @@
 - [Try It panel share-link pattern](tryit-share-link-pattern.md) — context + recursive child scan auto-opens the right collapsed Section for a shared link, no per-section wiring needed.
 - [Checkout session vs order-create distinction](checkout-session-optional-vs-order.md) — order-create 200 can still have null checkoutUrl; model 3 UI states and test the null case via mocked network, not real sandbox creds.
 - [Super admin as boolean flag, not a role](super-admin-flag-not-role.md) — add narrower permission tiers as a boolean flag + dedicated middleware, not a new role enum value, to avoid auditing ~dozens of `role === "admin"` call sites.
+- [GitHub sync per-run log capture](github-sync-run-log-capture.md) — can't literally "replay" a past sync run (git push always uses current HEAD); expose id+captured stdout/stderr per run instead.

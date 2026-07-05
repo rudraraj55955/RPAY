@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, Wifi, WifiOff, Trash2, Server, Eye, EyeOff, History, XCircle, HardDrive, RotateCcw, ShieldAlert, KeyRound, RefreshCw, Wrench, GitBranch, Zap, FlaskConical, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetGithubSyncStatus, getGetGithubSyncStatusQueryKey, useGetGithubSyncHistory, getGetGithubSyncHistoryQueryKey, useRunGithubSync, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetGithubSyncStatus, getGetGithubSyncStatusQueryKey, useGetGithubSyncHistory, getGetGithubSyncHistoryQueryKey, useRunGithubSync, useGetGithubSyncRunLog, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry, type GithubSyncHistoryEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -901,6 +902,12 @@ export default function AdminSettings() {
       onError: (err: Error) => toast.error(getApiErrorMessage(err, "Failed to start GitHub sync")),
     },
   });
+
+  const [selectedSyncRun, setSelectedSyncRun] = useState<GithubSyncHistoryEntry | null>(null);
+  const { data: selectedSyncRunLog, isLoading: selectedSyncRunLogLoading, isError: selectedSyncRunLogError } = useGetGithubSyncRunLog(
+    selectedSyncRun?.id ?? "",
+    { query: { enabled: !!selectedSyncRun?.id && !!selectedSyncRun?.hasLog } } as any,
+  );
 
   const { data: quietHoursFlushData, isLoading: quietHoursFlushLoading } = useGetQuietHoursFlushConfig({
     query: {
@@ -2945,7 +2952,11 @@ export default function AdminSettings() {
                   </thead>
                   <tbody className="divide-y divide-border/20">
                     {githubSyncHistory.entries.map((entry, i) => (
-                      <tr key={i} className="hover:bg-muted/10 transition-colors">
+                      <tr
+                        key={entry.id ?? i}
+                        className={`hover:bg-muted/10 transition-colors ${entry.status === "failure" ? "cursor-pointer" : ""}`}
+                        onClick={() => { if (entry.status === "failure") setSelectedSyncRun(entry); }}
+                      >
                         <td className="px-3 py-2">
                           {entry.status === "success"
                             ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -2961,7 +2972,7 @@ export default function AdminSettings() {
                           {entry.status === "success" ? (
                             <span className="text-emerald-400 font-medium">success</span>
                           ) : (
-                            <span className="text-red-400 font-medium" title={entry.errorMessage ?? ""}>
+                            <span className="text-red-400 font-medium underline decoration-dotted" title={entry.errorMessage ?? ""}>
                               failure{entry.errorMessage ? ` — ${entry.errorMessage.slice(0, 60)}${entry.errorMessage.length > 60 ? "…" : ""}` : ""}
                             </span>
                           )}
@@ -3058,6 +3069,62 @@ export default function AdminSettings() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!selectedSyncRun} onOpenChange={open => { if (!open) setSelectedSyncRun(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[calc(100dvh-4rem)] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="w-4 h-4 text-red-400" />
+              Failed Sync Run{selectedSyncRun?.syncedAt ? ` — ${new Date(selectedSyncRun.syncedAt).toLocaleString()}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedSyncRun && (
+            <div className="space-y-4 text-sm overflow-y-auto">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-muted/20 p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Repository</p>
+                  <p className="text-xs font-mono">{selectedSyncRun.repo ?? "—"}</p>
+                </div>
+                <div className="rounded-lg bg-muted/20 p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Status</p>
+                  <p className="text-xs font-medium text-red-400">failure</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Error detail</p>
+                <pre className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300 whitespace-pre-wrap break-all">
+                  {selectedSyncRun.errorMessage || "No error detail was captured for this run."}
+                </pre>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Full log</p>
+                {!selectedSyncRun.hasLog && (
+                  <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/5 px-3 py-2.5">
+                    No full log was captured for this run.
+                  </p>
+                )}
+                {selectedSyncRun.hasLog && selectedSyncRunLogLoading && (
+                  <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/5 px-3 py-2.5">
+                    Loading log…
+                  </p>
+                )}
+                {selectedSyncRun.hasLog && !selectedSyncRunLogLoading && selectedSyncRunLogError && (
+                  <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/5 px-3 py-2.5">
+                    Could not load the full log for this run.
+                  </p>
+                )}
+                {selectedSyncRun.hasLog && !selectedSyncRunLogLoading && !selectedSyncRunLogError && selectedSyncRunLog && (
+                  <pre className="rounded-lg border border-border/50 bg-black/30 p-3 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-64 overflow-y-auto">
+                    {selectedSyncRunLog.log}
+                  </pre>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Quiet Hours Flush Interval */}
       <Card className="border-border/50">

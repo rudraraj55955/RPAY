@@ -8,6 +8,8 @@
 import type { GithubSyncHistoryEntryStatus } from './githubSyncHistoryEntryStatus';
 
 export interface GithubSyncHistoryEntry {
+  /** Unique identifier for this sync run, used to fetch its full captured log via /github-sync/history/{id}/log. Absent on entries recorded before this field was introduced. */
+  id?: string;
   /** Outcome of the sync run */
   status: GithubSyncHistoryEntryStatus;
   /** ISO timestamp of when the sync completed */
@@ -16,4 +18,6 @@ export interface GithubSyncHistoryEntry {
   repo: string;
   /** Error detail when status is "failure" */
   errorMessage?: string;
+  /** Whether a full captured log is available for this run via /github-sync/history/{id}/log */
+  hasLog?: boolean;
 }

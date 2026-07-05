@@ -1,5 +1,6 @@
 import { execSync } from "child_process";
-import { writeFileSync, readFileSync } from "fs";
+import { writeFileSync, readFileSync, mkdirSync, unlinkSync } from "fs";
+import { randomUUID } from "crypto";
 import { sendAdminAlert } from "./mailer.js";
 import { notifyAdminsOfGithubSyncFailing } from "./githubSyncAlertEmail.js";
 import { db, systemSettingsTable } from "@workspace/db";
@@ -10,6 +11,7 @@ const GITHUB_REPO =
 const REMOTE_NAME = "github";
 const STATUS_FILE = new URL("../../.github-sync-status.json", import.meta.url).pathname;
 const HISTORY_FILE = new URL("../../.github-sync-history.json", import.meta.url).pathname;
+const LOG_DIR = new URL("../../.github-sync-logs/", import.meta.url).pathname;
 const HISTORY_MAX = 50;
 
 // Mirrors the dashboard's GITHUB_SYNC_FAILURE_THRESHOLD (artifacts/api-server/src/routes/dashboard.ts)
@@ -19,10 +21,12 @@ const FAILURE_ESCALATION_THRESHOLD = 3;
 const FAILURE_ESCALATION_RENOTIFY_INTERVAL = 10;
 
 interface GithubSyncHistoryEntry {
+  id: string;
   status: "success" | "failure";
   syncedAt: string;
   repo: string;
   errorMessage?: string;
+  hasLog?: boolean;
 }
 
 function countConsecutiveFailures(): number {
@@ -161,9 +165,27 @@ function buildFailureHtml(reason: string, detail: string): string {
 </html>`;
 }
 
-function writeStatus(status: "success" | "failure", errorMessage?: string) {
+function ensureLogDir() {
+  try {
+    mkdirSync(LOG_DIR, { recursive: true });
+  } catch {
+  }
+}
+
+function writeLogFile(id: string, content: string): boolean {
+  try {
+    ensureLogDir();
+    writeFileSync(`${LOG_DIR}${id}.log`, content, "utf-8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function writeStatus(status: "success" | "failure", id: string, logLines: string[], errorMessage?: string) {
   const syncedAt = new Date().toISOString();
   const payload: Record<string, string> = {
+    id,
     status,
     syncedAt,
     repo: GITHUB_REPO,
@@ -175,10 +197,11 @@ function writeStatus(status: "success" | "failure", errorMessage?: string) {
     writeFileSync(STATUS_FILE, JSON.stringify(payload, null, 2), "utf-8");
   } catch {
   }
-  appendHistory({ status, syncedAt, repo: GITHUB_REPO, errorMessage });
+  const hasLog = logLines.length > 0 && writeLogFile(id, logLines.join("\n"));
+  appendHistory({ id, status, syncedAt, repo: GITHUB_REPO, errorMessage, hasLog });
 }
 
-function appendHistory(entry: { status: "success" | "failure"; syncedAt: string; repo: string; errorMessage?: string }) {
+function appendHistory(entry: GithubSyncHistoryEntry) {
   try {
     let history: typeof entry[] = [];
     try {
@@ -188,8 +211,20 @@ function appendHistory(entry: { status: "success" | "failure"; syncedAt: string;
     } catch {
     }
     history.unshift(entry);
-    if (history.length > HISTORY_MAX) history = history.slice(0, HISTORY_MAX);
+    let removed: typeof entry[] = [];
+    if (history.length > HISTORY_MAX) {
+      removed = history.slice(HISTORY_MAX);
+      history = history.slice(0, HISTORY_MAX);
+    }
     writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), "utf-8");
+    for (const old of removed) {
+      if (old.hasLog && old.id) {
+        try {
+          unlinkSync(`${LOG_DIR}${old.id}.log`);
+        } catch {
+        }
+      }
+    }
   } catch {
   }
 }
@@ -257,21 +292,47 @@ async function main() {
     run(`git remote add ${REMOTE_NAME} ${remoteUrl}`);
   }
 
-  try {
-    console.log(`GITHUB_SYNC: Pushing to ${GITHUB_REPO}...`);
+  const runId = randomUUID();
+  const logLines: string[] = [];
+  const redact = (text: string) => text.split(token).join("<REDACTED>");
+  const log = (line: string) => {
+    console.log(line);
+    logLines.push(redact(line));
+  };
+  const runCaptured = (cmd: string) => {
     try {
-      run(`git fetch ${REMOTE_NAME} main`, { stdio: "inherit" });
-    } catch {
+      const out = execSync(cmd, { stdio: ["ignore", "pipe", "pipe"] }).toString();
+      if (out.trim()) {
+        console.log(out);
+        logLines.push(redact(out.trimEnd()));
+      }
+      return out;
+    } catch (err: unknown) {
+      const stdout = (err as { stdout?: Buffer })?.stdout?.toString() ?? "";
+      const stderr = (err as { stderr?: Buffer })?.stderr?.toString() ?? "";
+      if (stdout.trim()) logLines.push(redact(stdout.trimEnd()));
+      if (stderr.trim()) logLines.push(redact(stderr.trimEnd()));
+      throw err;
     }
-    run(`git push ${REMOTE_NAME} HEAD:main --force`, { stdio: "inherit" });
-    console.log("GITHUB_SYNC: Sync complete.");
-    writeStatus("success");
+  };
+
+  try {
+    log(`GITHUB_SYNC: Pushing to ${GITHUB_REPO}...`);
+    try {
+      runCaptured(`git fetch ${REMOTE_NAME} main`);
+    } catch (fetchErr: unknown) {
+      const fetchMessage = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      logLines.push(redact(`git fetch warning: ${fetchMessage}`));
+    }
+    runCaptured(`git push ${REMOTE_NAME} HEAD:main --force`);
+    log("GITHUB_SYNC: Sync complete.");
+    writeStatus("success", runId, logLines);
   } catch (err: unknown) {
     const message =
       err instanceof Error
         ? err.message.replace(token, "<REDACTED>")
         : String(err).replace(token, "<REDACTED>");
-    writeStatus("failure", message);
+    writeStatus("failure", runId, logLines, message);
     const pushError = new Error(`Push failed — ${message}`);
 
     await sendAdminAlert({

@@ -7213,14 +7213,29 @@ export const GetGithubSyncStatusResponse = zod.object({
 
 
 /**
+ * Returns the full stdout/stderr captured during a specific sync run's git fetch/push commands, keyed by the history entry's id.
+ * @summary Get the full captured log output for a specific sync run
+ */
+export const GetGithubSyncRunLogParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetGithubSyncRunLogResponse = zod.object({
+  "log": zod.string().describe('Full captured stdout\/stderr output for this sync run (git fetch\/push commands)')
+})
+
+
+/**
  * @summary Get GitHub sync run history (last N runs)
  */
 export const GetGithubSyncHistoryResponse = zod.object({
   "entries": zod.array(zod.object({
+  "id": zod.string().optional().describe('Unique identifier for this sync run, used to fetch its full captured log via \/github-sync\/history\/{id}\/log. Absent on entries recorded before this field was introduced.'),
   "status": zod.enum(['success', 'failure']).describe('Outcome of the sync run'),
   "syncedAt": zod.coerce.date().describe('ISO timestamp of when the sync completed'),
   "repo": zod.string().describe('GitHub repository that was synced'),
-  "errorMessage": zod.string().optional().describe('Error detail when status is \"failure\"')
+  "errorMessage": zod.string().optional().describe('Error detail when status is \"failure\"'),
+  "hasLog": zod.boolean().optional().describe('Whether a full captured log is available for this run via \/github-sync\/history\/{id}\/log')
 })).describe('Past sync runs, newest first, capped at 50')
 })
 

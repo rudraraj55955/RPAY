@@ -18,6 +18,7 @@ import {
   merchantPlansTable,
   ledgerEntriesTable,
   providersTable,
+  providerIntegrationsTable,
   merchantConnectionsTable,
   notificationsTable,
   reconciliationRunsTable,
@@ -749,6 +750,40 @@ export async function seed() {
     name: "EKQR / UPI Gateway", slug: "ekqr", category: "gateway", status: "live",
     description: "EKQR UPI payment gateway — dynamic QR & auto-credit deposits", sortOrder: 17,
   }).onConflictDoUpdate({ target: providersTable.slug, set: { name: "EKQR / UPI Gateway", status: "live", sortOrder: 17 } });
+
+  // ── UPI Gateways consolidation: schema guard so envs that haven't run a full db push
+  // (e.g. a fresh/older prod DB) still get the columns the UPI Gateways route depends on.
+  await db.execute(sql`ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS is_custom boolean NOT NULL DEFAULT false`);
+  await db.execute(sql`ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS api_key_encrypted text`);
+  await db.execute(sql`ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS api_secret_encrypted text`);
+  await db.execute(sql`ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS webhook_secret_encrypted text`);
+
+  // ── UPI Gateways consolidation: ensure every UPI/Bank UPI provider has a matching
+  // provider_integrations row so it's fully configurable from the UPI Gateways admin page.
+  // Merchant-scoped guard pattern doesn't apply here (global catalog); use per-key existence
+  // check so this is safe to re-run and never overwrites admin-entered config.
+  const upiProviderRows = await db.select().from(providersTable)
+    .where(inArray(providersTable.category, ["upi", "bank"]));
+  const ekqrRow = await db.select().from(providersTable).where(eq(providersTable.slug, "ekqr")).limit(1);
+  for (const p of [...upiProviderRows, ...ekqrRow]) {
+    const [existingIntegration] = await db.select({ id: providerIntegrationsTable.id })
+      .from(providerIntegrationsTable).where(eq(providerIntegrationsTable.providerKey, p.slug)).limit(1);
+    if (!existingIntegration) {
+      await db.insert(providerIntegrationsTable).values({
+        providerKey: p.slug,
+        providerNameInternal: p.name,
+        displayNamePublic: "RasoKart UPI Collection",
+        environment: "test",
+        isEnabled: p.status === "live",
+        isCustom: false,
+        supportsDynamicQr: true,
+        supportsStaticQr: true,
+        supportsPaymentLinks: p.category === "upi",
+        supportsWebhooks: false,
+      }).onConflictDoNothing();
+    }
+  }
+  console.log("UPI gateway integrations backfilled");
 
   // ── Merchant Connections (demo data) ──────────────────────────────────────
   const [connSeedMerchant] = await db.select({ id: merchantsTable.id }).from(merchantsTable).where(eq(merchantsTable.email, "merchant2@demo.com")).limit(1);

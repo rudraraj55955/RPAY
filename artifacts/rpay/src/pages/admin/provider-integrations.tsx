@@ -466,6 +466,9 @@ export default function AdminProviderIntegrations() {
             Super Admin view — backend provider identities are visible here only.
             Merchants see only RasoKart-branded service names.
           </p>
+          <Link href="/admin/upi-gateways" className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-1.5">
+            UPI / Bank UPI / QR gateways are now consolidated on the UPI Gateways page →
+          </Link>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <AddGatewayDialog

@@ -168,6 +168,9 @@ function EkqrCard({ onConfigure }: { onConfigure: () => void }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        <Link href="/admin/upi-gateways" className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+          <ArrowRight className="w-3 h-3" /> Manage in the new UPI Gateways page
+        </Link>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">API Key</span>
@@ -338,6 +341,10 @@ function EkqrConfigPanel() {
           {!ekqrLoading && ekqrConfig && <EnvBadge env={(ekqrConfig as any).env ?? "test"} />}
         </div>
       </div>
+
+      <Link href="/admin/upi-gateways" className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+        <ArrowRight className="w-3 h-3" /> This gateway is now managed from the consolidated UPI Gateways page
+      </Link>
 
       {/* Webhook URL */}
       <div className="space-y-1.5">

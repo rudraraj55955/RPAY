@@ -4533,6 +4533,208 @@ export interface CreateProviderIntegrationBody {
   webhookSecret?: string;
 }
 
+export type UpiGatewayCategory = typeof UpiGatewayCategory[keyof typeof UpiGatewayCategory];
+
+
+export const UpiGatewayCategory = {
+  upi: 'upi',
+  bank_upi: 'bank_upi',
+  qr: 'qr',
+  custom: 'custom',
+} as const;
+
+export type UpiGatewayStatus = typeof UpiGatewayStatus[keyof typeof UpiGatewayStatus];
+
+
+export const UpiGatewayStatus = {
+  live: 'live',
+  testing: 'testing',
+  coming_soon: 'coming_soon',
+  disabled: 'disabled',
+} as const;
+
+export type UpiGatewayMode = typeof UpiGatewayMode[keyof typeof UpiGatewayMode];
+
+
+export const UpiGatewayMode = {
+  live: 'live',
+  test: 'test',
+} as const;
+
+export interface UpiGateway {
+  id: number;
+  name: string;
+  slug: string;
+  category: UpiGatewayCategory;
+  status: UpiGatewayStatus;
+  mode: UpiGatewayMode;
+  isEnabled: boolean;
+  isCustom: boolean;
+  logoUrl?: string | null;
+  description?: string | null;
+  /** Priority / sort order — also drives Smart Routing priority for this gateway. */
+  sortOrder: number;
+  apiBaseUrl?: string | null;
+  webhookUrl?: string | null;
+  notes?: string | null;
+  apiKeySet: boolean;
+  apiKeyMasked?: string;
+  clientIdSet: boolean;
+  clientIdMasked?: string;
+  clientSecretSet: boolean;
+  webhookSecretSet: boolean;
+  minAmount?: string | null;
+  maxAmount?: string | null;
+  dailyLimit?: string | null;
+  supportsDynamicQr: boolean;
+  supportsStaticQr: boolean;
+  supportsPaymentLinks: boolean;
+  supportsWebhooks: boolean;
+  /** Number of explicit merchant-level visibility rules set for this gateway. */
+  visibilityCount: number;
+  /** Number of merchants for which this gateway is currently visible/active. */
+  assignedMerchantsCount: number;
+  globalVisible?: boolean | null;
+  routingPriority?: number | null;
+  updatedByEmail?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type UpiGatewayCreateBodyCategory = typeof UpiGatewayCreateBodyCategory[keyof typeof UpiGatewayCreateBodyCategory];
+
+
+export const UpiGatewayCreateBodyCategory = {
+  upi: 'upi',
+  bank_upi: 'bank_upi',
+  qr: 'qr',
+  custom: 'custom',
+} as const;
+
+export type UpiGatewayCreateBodyStatus = typeof UpiGatewayCreateBodyStatus[keyof typeof UpiGatewayCreateBodyStatus];
+
+
+export const UpiGatewayCreateBodyStatus = {
+  live: 'live',
+  testing: 'testing',
+  coming_soon: 'coming_soon',
+  disabled: 'disabled',
+} as const;
+
+export type UpiGatewayCreateBodyMode = typeof UpiGatewayCreateBodyMode[keyof typeof UpiGatewayCreateBodyMode];
+
+
+export const UpiGatewayCreateBodyMode = {
+  live: 'live',
+  test: 'test',
+} as const;
+
+export interface UpiGatewayCreateBody {
+  name: string;
+  /** Internal slug; auto-generated from name if omitted. */
+  slug?: string;
+  category?: UpiGatewayCreateBodyCategory;
+  status?: UpiGatewayCreateBodyStatus;
+  mode?: UpiGatewayCreateBodyMode;
+  apiBaseUrl?: string;
+  apiKey?: string;
+  clientId?: string;
+  clientSecret?: string;
+  webhookSecret?: string;
+  supportsDynamicQr?: boolean;
+  supportsStaticQr?: boolean;
+  supportsPaymentLinks?: boolean;
+  supportsWebhooks?: boolean;
+  minAmount?: string;
+  maxAmount?: string;
+  dailyLimit?: string;
+  priority?: number;
+  notes?: string;
+}
+
+export type UpiGatewayUpdateBodyCategory = typeof UpiGatewayUpdateBodyCategory[keyof typeof UpiGatewayUpdateBodyCategory];
+
+
+export const UpiGatewayUpdateBodyCategory = {
+  upi: 'upi',
+  bank_upi: 'bank_upi',
+  qr: 'qr',
+  custom: 'custom',
+} as const;
+
+export type UpiGatewayUpdateBodyStatus = typeof UpiGatewayUpdateBodyStatus[keyof typeof UpiGatewayUpdateBodyStatus];
+
+
+export const UpiGatewayUpdateBodyStatus = {
+  live: 'live',
+  testing: 'testing',
+  coming_soon: 'coming_soon',
+  disabled: 'disabled',
+} as const;
+
+export type UpiGatewayUpdateBodyMode = typeof UpiGatewayUpdateBodyMode[keyof typeof UpiGatewayUpdateBodyMode];
+
+
+export const UpiGatewayUpdateBodyMode = {
+  live: 'live',
+  test: 'test',
+} as const;
+
+export interface UpiGatewayUpdateBody {
+  name?: string;
+  category?: UpiGatewayUpdateBodyCategory;
+  status?: UpiGatewayUpdateBodyStatus;
+  mode?: UpiGatewayUpdateBodyMode;
+  isEnabled?: boolean;
+  apiBaseUrl?: string;
+  /** New value to rotate in. Send an empty string to clear. */
+  apiKey?: string;
+  /** New value to rotate in. Send an empty string to clear. */
+  clientId?: string;
+  /** New value to rotate in. Send an empty string to clear. */
+  clientSecret?: string;
+  /** New value to rotate in. Send an empty string to clear. */
+  webhookSecret?: string;
+  supportsDynamicQr?: boolean;
+  supportsStaticQr?: boolean;
+  supportsPaymentLinks?: boolean;
+  supportsWebhooks?: boolean;
+  minAmount?: string;
+  maxAmount?: string;
+  dailyLimit?: string;
+  priority?: number;
+  notes?: string;
+}
+
+export interface UpiGatewayTestResult {
+  success: boolean;
+  message: string;
+}
+
+export type UpiGatewayAssignMerchantsBodyMode = typeof UpiGatewayAssignMerchantsBodyMode[keyof typeof UpiGatewayAssignMerchantsBodyMode];
+
+
+export const UpiGatewayAssignMerchantsBodyMode = {
+  all: 'all',
+  selected: 'selected',
+  hide: 'hide',
+} as const;
+
+export type UpiGatewayAssignMerchantsBodyPerMerchantItem = {
+  merchantId: number;
+  isActive?: boolean;
+  minAmount?: string;
+  maxAmount?: string;
+  dailyLimit?: string;
+  priorityOverride?: number;
+};
+
+export interface UpiGatewayAssignMerchantsBody {
+  mode: UpiGatewayAssignMerchantsBodyMode;
+  merchantIds?: number[];
+  perMerchant?: UpiGatewayAssignMerchantsBodyPerMerchantItem[];
+}
+
 export interface ProviderProduct {
   id: number;
   productKey: string;
@@ -6793,6 +6995,47 @@ export type EkqrPaymentWebhook200 = {
 
 export type ListProductVisibilityParams = {
 merchantId?: number;
+};
+
+export type ListUpiGatewaysParams = {
+search?: string;
+category?: ListUpiGatewaysCategory;
+status?: ListUpiGatewaysStatus;
+visibility?: ListUpiGatewaysVisibility;
+};
+
+export type ListUpiGatewaysCategory = typeof ListUpiGatewaysCategory[keyof typeof ListUpiGatewaysCategory];
+
+
+export const ListUpiGatewaysCategory = {
+  upi: 'upi',
+  bank_upi: 'bank_upi',
+  qr: 'qr',
+  custom: 'custom',
+} as const;
+
+export type ListUpiGatewaysStatus = typeof ListUpiGatewaysStatus[keyof typeof ListUpiGatewaysStatus];
+
+
+export const ListUpiGatewaysStatus = {
+  live: 'live',
+  testing: 'testing',
+  coming_soon: 'coming_soon',
+  disabled: 'disabled',
+} as const;
+
+export type ListUpiGatewaysVisibility = typeof ListUpiGatewaysVisibility[keyof typeof ListUpiGatewaysVisibility];
+
+
+export const ListUpiGatewaysVisibility = {
+  all: 'all',
+  selected: 'selected',
+  hidden: 'hidden',
+} as const;
+
+export type ListUpiGateways200 = {
+  data: UpiGateway[];
+  total: number;
 };
 
 export type DeleteRoutingRule200 = {

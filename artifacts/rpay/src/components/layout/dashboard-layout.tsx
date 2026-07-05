@@ -354,6 +354,7 @@ const ADMIN_NAV = [
   {
     group: "Gateways",
     items: [
+      { title: "UPI Gateways", icon: Zap, href: "/admin/upi-gateways" },
       { title: "Payment Gateways", icon: Plug, href: "/admin/payment-gateways" },
       { title: "Payin Gateway", icon: CreditCard, href: "/admin/payin-gateway" },
       { title: "Payout Gateway", icon: Landmark, href: "/admin/payout-gateway" },

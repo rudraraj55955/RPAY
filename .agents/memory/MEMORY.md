@@ -27,6 +27,7 @@
 - [DB insert fallback + sanitized error pattern](db-insert-fallback-pattern.md) — every Drizzle column needs a matching ALTER TABLE in both in-process guard and deploy migration, or prod silently drifts from dev.
 - [Smart routing rule priority tie-break](smart-routing-priority-tiebreak.md) — equal-priority routing_rules silently favor the lowest-id row; a new rule must use a strictly lower priority number to actually win over the seeded default.
 - [Try It panel share-link pattern](tryit-share-link-pattern.md) — context + recursive child scan auto-opens the right collapsed Section for a shared link, no per-section wiring needed.
+- [Schema guard for new Drizzle columns](schema-guard-for-new-columns.md) — a schema.ts column edit alone doesn't change the live DB; typecheck/build can't catch drift, only a real e2e login test can.
 - [Checkout session vs order-create distinction](checkout-session-optional-vs-order.md) — order-create 200 can still have null checkoutUrl; model 3 UI states and test the null case via mocked network, not real sandbox creds.
 - [Super admin as boolean flag, not a role](super-admin-flag-not-role.md) — add narrower permission tiers as a boolean flag + dedicated middleware, not a new role enum value, to avoid auditing ~dozens of `role === "admin"` call sites.
 - [GitHub sync per-run log capture](github-sync-run-log-capture.md) — can't literally "replay" a past sync run (git push always uses current HEAD); expose id+captured stdout/stderr per run instead.

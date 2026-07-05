@@ -223,6 +223,8 @@ import type {
   ListStorageCleanupRunsParams,
   ListSupportTicketsParams,
   ListTransactionsParams,
+  ListUpiGateways200,
+  ListUpiGatewaysParams,
   ListUsersParams,
   ListVaBalanceAuditParams,
   ListVirtualAccountsParams,
@@ -390,6 +392,11 @@ import type {
   UpdateProviderIntegrationBody,
   UpdateProviderProductBody,
   UpdateTicketStatusInput,
+  UpiGateway,
+  UpiGatewayAssignMerchantsBody,
+  UpiGatewayCreateBody,
+  UpiGatewayTestResult,
+  UpiGatewayUpdateBody,
   UploadUrlRequest,
   UploadUrlResponse,
   UpsertAdminMerchantReportSchedule200,
@@ -25678,6 +25685,592 @@ export function useListMerchantActivationRequests<TData = Awaited<ReturnType<typ
 
 
 
+
+export const getListUpiGatewaysUrl = (params?: ListUpiGatewaysParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/upi-gateways?${stringifiedParams}` : `/api/admin/upi-gateways`
+}
+
+/**
+ * @summary List all UPI gateways with filters (admin, super admin)
+ */
+export const listUpiGateways = async (params?: ListUpiGatewaysParams, options?: RequestInit): Promise<ListUpiGateways200> => {
+
+  return customFetch<ListUpiGateways200>(getListUpiGatewaysUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListUpiGatewaysQueryKey = (params?: ListUpiGatewaysParams,) => {
+    return [
+    `/api/admin/upi-gateways`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListUpiGatewaysQueryOptions = <TData = Awaited<ReturnType<typeof listUpiGateways>>, TError = ErrorType<unknown>>(params?: ListUpiGatewaysParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUpiGateways>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListUpiGatewaysQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUpiGateways>>> = ({ signal }) => listUpiGateways(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUpiGateways>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListUpiGatewaysQueryResult = NonNullable<Awaited<ReturnType<typeof listUpiGateways>>>
+export type ListUpiGatewaysQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all UPI gateways with filters (admin, super admin)
+ */
+
+export function useListUpiGateways<TData = Awaited<ReturnType<typeof listUpiGateways>>, TError = ErrorType<unknown>>(
+ params?: ListUpiGatewaysParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUpiGateways>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListUpiGatewaysQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateUpiGatewayUrl = () => {
+
+
+
+
+  return `/api/admin/upi-gateways`
+}
+
+/**
+ * @summary Add a new UPI gateway (super admin only)
+ */
+export const createUpiGateway = async (upiGatewayCreateBody: UpiGatewayCreateBody, options?: RequestInit): Promise<UpiGateway> => {
+
+  return customFetch<UpiGateway>(getCreateUpiGatewayUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      upiGatewayCreateBody,)
+  }
+);}
+
+
+
+
+export const getCreateUpiGatewayMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUpiGateway>>, TError,{data: BodyType<UpiGatewayCreateBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createUpiGateway>>, TError,{data: BodyType<UpiGatewayCreateBody>}, TContext> => {
+
+const mutationKey = ['createUpiGateway'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUpiGateway>>, {data: BodyType<UpiGatewayCreateBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createUpiGateway(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateUpiGatewayMutationResult = NonNullable<Awaited<ReturnType<typeof createUpiGateway>>>
+    export type CreateUpiGatewayMutationBody = BodyType<UpiGatewayCreateBody>
+    export type CreateUpiGatewayMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Add a new UPI gateway (super admin only)
+ */
+export const useCreateUpiGateway = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUpiGateway>>, TError,{data: BodyType<UpiGatewayCreateBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createUpiGateway>>,
+        TError,
+        {data: BodyType<UpiGatewayCreateBody>},
+        TContext
+      > => {
+      return useMutation(getCreateUpiGatewayMutationOptions(options));
+    }
+
+export const getGetUpiGatewayUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/upi-gateways/${id}`
+}
+
+/**
+ * @summary Get a single UPI gateway (admin, super admin)
+ */
+export const getUpiGateway = async (id: number, options?: RequestInit): Promise<UpiGateway> => {
+
+  return customFetch<UpiGateway>(getGetUpiGatewayUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUpiGatewayQueryKey = (id: number,) => {
+    return [
+    `/api/admin/upi-gateways/${id}`
+    ] as const;
+    }
+
+
+export const getGetUpiGatewayQueryOptions = <TData = Awaited<ReturnType<typeof getUpiGateway>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUpiGateway>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUpiGatewayQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUpiGateway>>> = ({ signal }) => getUpiGateway(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUpiGateway>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUpiGatewayQueryResult = NonNullable<Awaited<ReturnType<typeof getUpiGateway>>>
+export type GetUpiGatewayQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get a single UPI gateway (admin, super admin)
+ */
+
+export function useGetUpiGateway<TData = Awaited<ReturnType<typeof getUpiGateway>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUpiGateway>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUpiGatewayQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateUpiGatewayUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/upi-gateways/${id}`
+}
+
+/**
+ * @summary Update a UPI gateway, including credentials (super admin only)
+ */
+export const updateUpiGateway = async (id: number,
+    upiGatewayUpdateBody: UpiGatewayUpdateBody, options?: RequestInit): Promise<UpiGateway> => {
+
+  return customFetch<UpiGateway>(getUpdateUpiGatewayUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      upiGatewayUpdateBody,)
+  }
+);}
+
+
+
+
+export const getUpdateUpiGatewayMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUpiGateway>>, TError,{id: number;data: BodyType<UpiGatewayUpdateBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateUpiGateway>>, TError,{id: number;data: BodyType<UpiGatewayUpdateBody>}, TContext> => {
+
+const mutationKey = ['updateUpiGateway'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUpiGateway>>, {id: number;data: BodyType<UpiGatewayUpdateBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateUpiGateway(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateUpiGatewayMutationResult = NonNullable<Awaited<ReturnType<typeof updateUpiGateway>>>
+    export type UpdateUpiGatewayMutationBody = BodyType<UpiGatewayUpdateBody>
+    export type UpdateUpiGatewayMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update a UPI gateway, including credentials (super admin only)
+ */
+export const useUpdateUpiGateway = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUpiGateway>>, TError,{id: number;data: BodyType<UpiGatewayUpdateBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateUpiGateway>>,
+        TError,
+        {id: number;data: BodyType<UpiGatewayUpdateBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateUpiGatewayMutationOptions(options));
+    }
+
+export const getDeleteUpiGatewayUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/upi-gateways/${id}`
+}
+
+/**
+ * @summary Delete a UPI gateway if unused (super admin only)
+ */
+export const deleteUpiGateway = async (id: number, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getDeleteUpiGatewayUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteUpiGatewayMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUpiGateway>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteUpiGateway>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteUpiGateway'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUpiGateway>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteUpiGateway(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteUpiGatewayMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUpiGateway>>>
+
+    export type DeleteUpiGatewayMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Delete a UPI gateway if unused (super admin only)
+ */
+export const useDeleteUpiGateway = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUpiGateway>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteUpiGateway>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteUpiGatewayMutationOptions(options));
+    }
+
+export const getTestUpiGatewayConnectionUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/upi-gateways/${id}/test-connection`
+}
+
+/**
+ * @summary Run a safe connectivity/credential-presence check (admin, super admin)
+ */
+export const testUpiGatewayConnection = async (id: number, options?: RequestInit): Promise<UpiGatewayTestResult> => {
+
+  return customFetch<UpiGatewayTestResult>(getTestUpiGatewayConnectionUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getTestUpiGatewayConnectionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testUpiGatewayConnection>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testUpiGatewayConnection>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['testUpiGatewayConnection'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testUpiGatewayConnection>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  testUpiGatewayConnection(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestUpiGatewayConnectionMutationResult = NonNullable<Awaited<ReturnType<typeof testUpiGatewayConnection>>>
+
+    export type TestUpiGatewayConnectionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Run a safe connectivity/credential-presence check (admin, super admin)
+ */
+export const useTestUpiGatewayConnection = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testUpiGatewayConnection>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testUpiGatewayConnection>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getTestUpiGatewayConnectionMutationOptions(options));
+    }
+
+export const getTestUpiGatewayWebhookUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/upi-gateways/${id}/test-webhook`
+}
+
+/**
+ * @summary Send a safe test webhook payload (admin, super admin)
+ */
+export const testUpiGatewayWebhook = async (id: number, options?: RequestInit): Promise<UpiGatewayTestResult> => {
+
+  return customFetch<UpiGatewayTestResult>(getTestUpiGatewayWebhookUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getTestUpiGatewayWebhookMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testUpiGatewayWebhook>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testUpiGatewayWebhook>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['testUpiGatewayWebhook'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testUpiGatewayWebhook>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  testUpiGatewayWebhook(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestUpiGatewayWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof testUpiGatewayWebhook>>>
+
+    export type TestUpiGatewayWebhookMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Send a safe test webhook payload (admin, super admin)
+ */
+export const useTestUpiGatewayWebhook = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testUpiGatewayWebhook>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testUpiGatewayWebhook>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getTestUpiGatewayWebhookMutationOptions(options));
+    }
+
+export const getAssignUpiGatewayMerchantsUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/upi-gateways/${id}/assign-merchants`
+}
+
+/**
+ * @summary Assign/hide a UPI gateway for merchants, with optional per-merchant limits (super admin only)
+ */
+export const assignUpiGatewayMerchants = async (id: number,
+    upiGatewayAssignMerchantsBody: UpiGatewayAssignMerchantsBody, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getAssignUpiGatewayMerchantsUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      upiGatewayAssignMerchantsBody,)
+  }
+);}
+
+
+
+
+export const getAssignUpiGatewayMerchantsMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignUpiGatewayMerchants>>, TError,{id: number;data: BodyType<UpiGatewayAssignMerchantsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignUpiGatewayMerchants>>, TError,{id: number;data: BodyType<UpiGatewayAssignMerchantsBody>}, TContext> => {
+
+const mutationKey = ['assignUpiGatewayMerchants'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignUpiGatewayMerchants>>, {id: number;data: BodyType<UpiGatewayAssignMerchantsBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  assignUpiGatewayMerchants(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignUpiGatewayMerchantsMutationResult = NonNullable<Awaited<ReturnType<typeof assignUpiGatewayMerchants>>>
+    export type AssignUpiGatewayMerchantsMutationBody = BodyType<UpiGatewayAssignMerchantsBody>
+    export type AssignUpiGatewayMerchantsMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Assign/hide a UPI gateway for merchants, with optional per-merchant limits (super admin only)
+ */
+export const useAssignUpiGatewayMerchants = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignUpiGatewayMerchants>>, TError,{id: number;data: BodyType<UpiGatewayAssignMerchantsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignUpiGatewayMerchants>>,
+        TError,
+        {id: number;data: BodyType<UpiGatewayAssignMerchantsBody>},
+        TContext
+      > => {
+      return useMutation(getAssignUpiGatewayMerchantsMutationOptions(options));
+    }
 
 export const getListRoutingConfigsUrl = () => {
 

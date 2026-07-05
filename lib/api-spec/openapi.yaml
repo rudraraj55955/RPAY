@@ -8757,6 +8757,250 @@ paths:
                 items:
                   $ref: "#/components/schemas/MerchantActivationRequest"
 
+  # ── UPI Gateways (consolidated admin management) ──────────────────────────────
+  /admin/upi-gateways:
+    get:
+      operationId: listUpiGateways
+      summary: List all UPI gateways with filters (admin, super admin)
+      tags: [UpiGateways]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string, enum: [upi, bank_upi, qr, custom] }
+        - in: query
+          name: status
+          schema: { type: string, enum: [live, testing, coming_soon, disabled] }
+        - in: query
+          name: visibility
+          schema: { type: string, enum: [all, selected, hidden] }
+      responses:
+        "200":
+          description: List of UPI gateways
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UpiGateway"
+                  total:
+                    type: integer
+    post:
+      operationId: createUpiGateway
+      summary: Add a new UPI gateway (super admin only)
+      tags: [UpiGateways]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpiGatewayCreateBody"
+      responses:
+        "201":
+          description: Created gateway
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpiGateway"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Only super admins may add UPI gateways
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/upi-gateways/{id}:
+    get:
+      operationId: getUpiGateway
+      summary: Get a single UPI gateway (admin, super admin)
+      tags: [UpiGateways]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Gateway detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpiGateway"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateUpiGateway
+      summary: Update a UPI gateway, including credentials (super admin only)
+      tags: [UpiGateways]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpiGatewayUpdateBody"
+      responses:
+        "200":
+          description: Updated gateway
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpiGateway"
+        "403":
+          description: Only super admins may update UPI gateways
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteUpiGateway
+      summary: Delete a UPI gateway if unused (super admin only)
+      tags: [UpiGateways]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Only super admins may delete UPI gateways
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Gateway is still in use (assigned to merchants or routing)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/upi-gateways/{id}/test-connection:
+    post:
+      operationId: testUpiGatewayConnection
+      summary: Run a safe connectivity/credential-presence check (admin, super admin)
+      tags: [UpiGateways]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpiGatewayTestResult"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/upi-gateways/{id}/test-webhook:
+    post:
+      operationId: testUpiGatewayWebhook
+      summary: Send a safe test webhook payload (admin, super admin)
+      tags: [UpiGateways]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpiGatewayTestResult"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/upi-gateways/{id}/assign-merchants:
+    post:
+      operationId: assignUpiGatewayMerchants
+      summary: Assign/hide a UPI gateway for merchants, with optional per-merchant limits (super admin only)
+      tags: [UpiGateways]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpiGatewayAssignMerchantsBody"
+      responses:
+        "200":
+          description: Assignment result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Only super admins may assign merchants
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /smart-routing/configs:
     get:
       summary: List routing configs (admin)
@@ -15357,6 +15601,138 @@ components:
           type: string
         webhookSecret:
           type: string
+
+    UpiGateway:
+      type: object
+      required: [id, name, slug, category, status, mode, isEnabled, isCustom, sortOrder, apiKeySet, clientIdSet, clientSecretSet, webhookSecretSet, supportsDynamicQr, supportsStaticQr, supportsPaymentLinks, supportsWebhooks, visibilityCount, assignedMerchantsCount, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        slug: { type: string }
+        category: { type: string, enum: [upi, bank_upi, qr, custom] }
+        status: { type: string, enum: [live, testing, coming_soon, disabled] }
+        mode: { type: string, enum: [live, test] }
+        isEnabled: { type: boolean }
+        isCustom: { type: boolean }
+        logoUrl: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        sortOrder:
+          type: integer
+          description: Priority / sort order — also drives Smart Routing priority for this gateway.
+        apiBaseUrl: { type: string, nullable: true }
+        webhookUrl: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        apiKeySet: { type: boolean }
+        apiKeyMasked: { type: string }
+        clientIdSet: { type: boolean }
+        clientIdMasked: { type: string }
+        clientSecretSet: { type: boolean }
+        webhookSecretSet: { type: boolean }
+        minAmount: { type: string, nullable: true }
+        maxAmount: { type: string, nullable: true }
+        dailyLimit: { type: string, nullable: true }
+        supportsDynamicQr: { type: boolean }
+        supportsStaticQr: { type: boolean }
+        supportsPaymentLinks: { type: boolean }
+        supportsWebhooks: { type: boolean }
+        visibilityCount:
+          type: integer
+          description: Number of explicit merchant-level visibility rules set for this gateway.
+        assignedMerchantsCount:
+          type: integer
+          description: Number of merchants for which this gateway is currently visible/active.
+        globalVisible: { type: boolean, nullable: true }
+        routingPriority: { type: integer, nullable: true }
+        updatedByEmail: { type: string, nullable: true }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    UpiGatewayCreateBody:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        slug:
+          type: string
+          description: Internal slug; auto-generated from name if omitted.
+        category: { type: string, enum: [upi, bank_upi, qr, custom], default: upi }
+        status: { type: string, enum: [live, testing, coming_soon, disabled], default: testing }
+        mode: { type: string, enum: [live, test], default: test }
+        apiBaseUrl: { type: string }
+        apiKey: { type: string }
+        clientId: { type: string }
+        clientSecret: { type: string }
+        webhookSecret: { type: string }
+        supportsDynamicQr: { type: boolean }
+        supportsStaticQr: { type: boolean }
+        supportsPaymentLinks: { type: boolean }
+        supportsWebhooks: { type: boolean }
+        minAmount: { type: string }
+        maxAmount: { type: string }
+        dailyLimit: { type: string }
+        priority: { type: integer }
+        notes: { type: string }
+
+    UpiGatewayUpdateBody:
+      type: object
+      properties:
+        name: { type: string }
+        category: { type: string, enum: [upi, bank_upi, qr, custom] }
+        status: { type: string, enum: [live, testing, coming_soon, disabled] }
+        mode: { type: string, enum: [live, test] }
+        isEnabled: { type: boolean }
+        apiBaseUrl: { type: string }
+        apiKey:
+          type: string
+          description: New value to rotate in. Send an empty string to clear.
+        clientId:
+          type: string
+          description: New value to rotate in. Send an empty string to clear.
+        clientSecret:
+          type: string
+          description: New value to rotate in. Send an empty string to clear.
+        webhookSecret:
+          type: string
+          description: New value to rotate in. Send an empty string to clear.
+        supportsDynamicQr: { type: boolean }
+        supportsStaticQr: { type: boolean }
+        supportsPaymentLinks: { type: boolean }
+        supportsWebhooks: { type: boolean }
+        minAmount: { type: string }
+        maxAmount: { type: string }
+        dailyLimit: { type: string }
+        priority: { type: integer }
+        notes: { type: string }
+
+    UpiGatewayTestResult:
+      type: object
+      required: [success, message]
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+
+    UpiGatewayAssignMerchantsBody:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [all, selected, hide]
+        merchantIds:
+          type: array
+          items: { type: integer }
+        perMerchant:
+          type: array
+          items:
+            type: object
+            required: [merchantId]
+            properties:
+              merchantId: { type: integer }
+              isActive: { type: boolean }
+              minAmount: { type: string }
+              maxAmount: { type: string }
+              dailyLimit: { type: string }
+              priorityOverride: { type: integer }
 
     ProviderProduct:
       type: object

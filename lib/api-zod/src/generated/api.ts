@@ -8193,6 +8193,262 @@ export const ListMerchantActivationRequestsResponse = zod.array(ListMerchantActi
 
 
 /**
+ * @summary List all UPI gateways with filters (admin, super admin)
+ */
+export const ListUpiGatewaysQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "category": zod.enum(['upi', 'bank_upi', 'qr', 'custom']).optional(),
+  "status": zod.enum(['live', 'testing', 'coming_soon', 'disabled']).optional(),
+  "visibility": zod.enum(['all', 'selected', 'hidden']).optional()
+})
+
+export const ListUpiGatewaysResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "category": zod.enum(['upi', 'bank_upi', 'qr', 'custom']),
+  "status": zod.enum(['live', 'testing', 'coming_soon', 'disabled']),
+  "mode": zod.enum(['live', 'test']),
+  "isEnabled": zod.boolean(),
+  "isCustom": zod.boolean(),
+  "logoUrl": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "sortOrder": zod.number().describe('Priority \/ sort order — also drives Smart Routing priority for this gateway.'),
+  "apiBaseUrl": zod.string().nullish(),
+  "webhookUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "apiKeySet": zod.boolean(),
+  "apiKeyMasked": zod.string().optional(),
+  "clientIdSet": zod.boolean(),
+  "clientIdMasked": zod.string().optional(),
+  "clientSecretSet": zod.boolean(),
+  "webhookSecretSet": zod.boolean(),
+  "minAmount": zod.string().nullish(),
+  "maxAmount": zod.string().nullish(),
+  "dailyLimit": zod.string().nullish(),
+  "supportsDynamicQr": zod.boolean(),
+  "supportsStaticQr": zod.boolean(),
+  "supportsPaymentLinks": zod.boolean(),
+  "supportsWebhooks": zod.boolean(),
+  "visibilityCount": zod.number().describe('Number of explicit merchant-level visibility rules set for this gateway.'),
+  "assignedMerchantsCount": zod.number().describe('Number of merchants for which this gateway is currently visible\/active.'),
+  "globalVisible": zod.boolean().nullish(),
+  "routingPriority": zod.number().nullish(),
+  "updatedByEmail": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Add a new UPI gateway (super admin only)
+ */
+export const createUpiGatewayBodyCategoryDefault = `upi`;
+export const createUpiGatewayBodyStatusDefault = `testing`;
+export const createUpiGatewayBodyModeDefault = `test`;
+
+export const CreateUpiGatewayBody = zod.object({
+  "name": zod.string(),
+  "slug": zod.string().optional().describe('Internal slug; auto-generated from name if omitted.'),
+  "category": zod.enum(['upi', 'bank_upi', 'qr', 'custom']).default(createUpiGatewayBodyCategoryDefault),
+  "status": zod.enum(['live', 'testing', 'coming_soon', 'disabled']).default(createUpiGatewayBodyStatusDefault),
+  "mode": zod.enum(['live', 'test']).default(createUpiGatewayBodyModeDefault),
+  "apiBaseUrl": zod.string().optional(),
+  "apiKey": zod.string().optional(),
+  "clientId": zod.string().optional(),
+  "clientSecret": zod.string().optional(),
+  "webhookSecret": zod.string().optional(),
+  "supportsDynamicQr": zod.boolean().optional(),
+  "supportsStaticQr": zod.boolean().optional(),
+  "supportsPaymentLinks": zod.boolean().optional(),
+  "supportsWebhooks": zod.boolean().optional(),
+  "minAmount": zod.string().optional(),
+  "maxAmount": zod.string().optional(),
+  "dailyLimit": zod.string().optional(),
+  "priority": zod.number().optional(),
+  "notes": zod.string().optional()
+})
+
+
+/**
+ * @summary Get a single UPI gateway (admin, super admin)
+ */
+export const GetUpiGatewayParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetUpiGatewayResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "category": zod.enum(['upi', 'bank_upi', 'qr', 'custom']),
+  "status": zod.enum(['live', 'testing', 'coming_soon', 'disabled']),
+  "mode": zod.enum(['live', 'test']),
+  "isEnabled": zod.boolean(),
+  "isCustom": zod.boolean(),
+  "logoUrl": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "sortOrder": zod.number().describe('Priority \/ sort order — also drives Smart Routing priority for this gateway.'),
+  "apiBaseUrl": zod.string().nullish(),
+  "webhookUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "apiKeySet": zod.boolean(),
+  "apiKeyMasked": zod.string().optional(),
+  "clientIdSet": zod.boolean(),
+  "clientIdMasked": zod.string().optional(),
+  "clientSecretSet": zod.boolean(),
+  "webhookSecretSet": zod.boolean(),
+  "minAmount": zod.string().nullish(),
+  "maxAmount": zod.string().nullish(),
+  "dailyLimit": zod.string().nullish(),
+  "supportsDynamicQr": zod.boolean(),
+  "supportsStaticQr": zod.boolean(),
+  "supportsPaymentLinks": zod.boolean(),
+  "supportsWebhooks": zod.boolean(),
+  "visibilityCount": zod.number().describe('Number of explicit merchant-level visibility rules set for this gateway.'),
+  "assignedMerchantsCount": zod.number().describe('Number of merchants for which this gateway is currently visible\/active.'),
+  "globalVisible": zod.boolean().nullish(),
+  "routingPriority": zod.number().nullish(),
+  "updatedByEmail": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update a UPI gateway, including credentials (super admin only)
+ */
+export const UpdateUpiGatewayParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateUpiGatewayBody = zod.object({
+  "name": zod.string().optional(),
+  "category": zod.enum(['upi', 'bank_upi', 'qr', 'custom']).optional(),
+  "status": zod.enum(['live', 'testing', 'coming_soon', 'disabled']).optional(),
+  "mode": zod.enum(['live', 'test']).optional(),
+  "isEnabled": zod.boolean().optional(),
+  "apiBaseUrl": zod.string().optional(),
+  "apiKey": zod.string().optional().describe('New value to rotate in. Send an empty string to clear.'),
+  "clientId": zod.string().optional().describe('New value to rotate in. Send an empty string to clear.'),
+  "clientSecret": zod.string().optional().describe('New value to rotate in. Send an empty string to clear.'),
+  "webhookSecret": zod.string().optional().describe('New value to rotate in. Send an empty string to clear.'),
+  "supportsDynamicQr": zod.boolean().optional(),
+  "supportsStaticQr": zod.boolean().optional(),
+  "supportsPaymentLinks": zod.boolean().optional(),
+  "supportsWebhooks": zod.boolean().optional(),
+  "minAmount": zod.string().optional(),
+  "maxAmount": zod.string().optional(),
+  "dailyLimit": zod.string().optional(),
+  "priority": zod.number().optional(),
+  "notes": zod.string().optional()
+})
+
+export const UpdateUpiGatewayResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "category": zod.enum(['upi', 'bank_upi', 'qr', 'custom']),
+  "status": zod.enum(['live', 'testing', 'coming_soon', 'disabled']),
+  "mode": zod.enum(['live', 'test']),
+  "isEnabled": zod.boolean(),
+  "isCustom": zod.boolean(),
+  "logoUrl": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "sortOrder": zod.number().describe('Priority \/ sort order — also drives Smart Routing priority for this gateway.'),
+  "apiBaseUrl": zod.string().nullish(),
+  "webhookUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "apiKeySet": zod.boolean(),
+  "apiKeyMasked": zod.string().optional(),
+  "clientIdSet": zod.boolean(),
+  "clientIdMasked": zod.string().optional(),
+  "clientSecretSet": zod.boolean(),
+  "webhookSecretSet": zod.boolean(),
+  "minAmount": zod.string().nullish(),
+  "maxAmount": zod.string().nullish(),
+  "dailyLimit": zod.string().nullish(),
+  "supportsDynamicQr": zod.boolean(),
+  "supportsStaticQr": zod.boolean(),
+  "supportsPaymentLinks": zod.boolean(),
+  "supportsWebhooks": zod.boolean(),
+  "visibilityCount": zod.number().describe('Number of explicit merchant-level visibility rules set for this gateway.'),
+  "assignedMerchantsCount": zod.number().describe('Number of merchants for which this gateway is currently visible\/active.'),
+  "globalVisible": zod.boolean().nullish(),
+  "routingPriority": zod.number().nullish(),
+  "updatedByEmail": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a UPI gateway if unused (super admin only)
+ */
+export const DeleteUpiGatewayParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteUpiGatewayResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Run a safe connectivity/credential-presence check (admin, super admin)
+ */
+export const TestUpiGatewayConnectionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const TestUpiGatewayConnectionResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Send a safe test webhook payload (admin, super admin)
+ */
+export const TestUpiGatewayWebhookParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const TestUpiGatewayWebhookResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Assign/hide a UPI gateway for merchants, with optional per-merchant limits (super admin only)
+ */
+export const AssignUpiGatewayMerchantsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AssignUpiGatewayMerchantsBody = zod.object({
+  "mode": zod.enum(['all', 'selected', 'hide']),
+  "merchantIds": zod.array(zod.number()).optional(),
+  "perMerchant": zod.array(zod.object({
+  "merchantId": zod.number(),
+  "isActive": zod.boolean().optional(),
+  "minAmount": zod.string().optional(),
+  "maxAmount": zod.string().optional(),
+  "dailyLimit": zod.string().optional(),
+  "priorityOverride": zod.number().optional()
+})).optional()
+})
+
+export const AssignUpiGatewayMerchantsResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary List routing configs (admin)
  */
 export const ListRoutingConfigsResponseItem = zod.object({

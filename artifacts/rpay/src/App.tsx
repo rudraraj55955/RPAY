@@ -60,6 +60,7 @@ import AdminCompanyBranding from "@/pages/admin/company-branding";
 import AdminPaymentGateway from "@/pages/admin/payment-gateway";
 import AdminPayoutGateway from "@/pages/admin/payout-gateway";
 import AdminPaymentGateways from "@/pages/admin/payment-gateways";
+import AdminUpiGateways from "@/pages/admin/upi-gateways";
 import AdminProviderIntegrations from "@/pages/admin/provider-integrations";
 import AdminSmartRouting from "@/pages/admin/smart-routing";
 import AdminModuleControl from "@/pages/admin/module-control";
@@ -275,6 +276,7 @@ function Router() {
       <Route path="/admin/settings"><AdminRoute component={AdminSettings} /></Route>
       <Route path="/admin/company-branding"><AdminRoute component={AdminCompanyBranding} /></Route>
       <Route path="/admin/payment-gateways"><AdminRoute component={AdminPaymentGateways} /></Route>
+      <Route path="/admin/upi-gateways"><AdminRoute component={AdminUpiGateways} /></Route>
       <Route path="/admin/payin-gateway"><AdminRoute component={AdminPaymentGateway} /></Route>
       <Route path="/admin/payment-gateway"><AdminRoute component={AdminPaymentGateway} /></Route>
       <Route path="/admin/payout-gateway"><AdminRoute component={AdminPayoutGateway} /></Route>

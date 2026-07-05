@@ -325,6 +325,9 @@ export default function AdminProviders() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Payment Providers</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage provider catalogue and control merchant visibility</p>
+          <Link href="/admin/upi-gateways" className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-1.5">
+            UPI / Bank UPI / QR gateway configuration has moved to the new UPI Gateways page →
+          </Link>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">

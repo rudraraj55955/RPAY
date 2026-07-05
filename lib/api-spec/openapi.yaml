@@ -14537,6 +14537,10 @@ components:
         paymentToken:
           type: string
           description: Opaque token used to render the RasoKart Secure Checkout — never a raw provider identifier
+        checkoutUrl:
+          type: string
+          nullable: true
+          description: URL to open (in a new tab or redirect) to complete the RasoKart Secure Checkout. Null if a payment session could not be started.
         amount:
           type: number
         status:

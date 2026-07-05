@@ -7424,6 +7424,7 @@ export const CreatePayinOrderBody = zod.object({
 export const CreatePayinOrderResponse = zod.object({
   "publicOrderId": zod.string().describe('RasoKart-branded order identifier (RKPAYIN_...)'),
   "paymentToken": zod.string().describe('Opaque token used to render the RasoKart Secure Checkout — never a raw provider identifier'),
+  "checkoutUrl": zod.string().nullish().describe('URL to open (in a new tab or redirect) to complete the RasoKart Secure Checkout. Null if a payment session could not be started.'),
   "amount": zod.number(),
   "status": zod.enum(['CREATED']),
   "checkoutLabel": zod.string(),

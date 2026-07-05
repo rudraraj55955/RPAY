@@ -880,7 +880,9 @@ export default function MerchantDeposits() {
   const [cfName, setCfName] = useState("");
   const [cfEmail, setCfEmail] = useState("");
   const [cfCreating, setCfCreating] = useState(false);
-  const [activePayinOrder, setActivePayinOrder] = useState<{ publicOrderId: string; paymentToken: string; amount: number } | null>(null);
+  const [activePayinOrder, setActivePayinOrder] = useState<{ publicOrderId: string; paymentToken: string; checkoutUrl: string | null; amount: number } | null>(null);
+  const [checkoutAutoOpenFailed, setCheckoutAutoOpenFailed] = useState(false);
+  const checkoutOpenAttempted = useRef(false);
 
   const { data: payinStatusData } = useGetPayinStatus();
   const cashfreeEnabled = payinStatusData?.enabled ?? false;
@@ -911,7 +913,23 @@ export default function MerchantDeposits() {
   const resetPayinDialog = () => {
     setShowCashfree(false);
     setActivePayinOrder(null);
+    setCheckoutAutoOpenFailed(false);
+    checkoutOpenAttempted.current = false;
     setCfAmount(""); setCfPhone(""); setCfName(""); setCfEmail("");
+  };
+
+  // Opens the RasoKart Secure Checkout in a new tab. Never logs the raw
+  // checkout URL/session — only order-scoped, non-sensitive identifiers.
+  const openSecureCheckout = (publicOrderId: string, checkoutUrl: string) => {
+    console.info("[RasoKart] merchant_checkout_open_started", { publicOrderId });
+    try {
+      const win = window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+      if (!win) throw new Error("popup_blocked");
+      setCheckoutAutoOpenFailed(false);
+    } catch {
+      console.warn("[RasoKart] merchant_checkout_open_failed", { publicOrderId });
+      setCheckoutAutoOpenFailed(true);
+    }
   };
 
   const handleCashfreePay = async () => {
@@ -927,7 +945,19 @@ export default function MerchantDeposits() {
           customerEmail: cfEmail.trim() || undefined,
         },
       });
-      setActivePayinOrder({ publicOrderId: result.publicOrderId, paymentToken: result.paymentToken, amount: result.amount });
+      const checkoutUrl = result.checkoutUrl ?? null;
+      console.info("[RasoKart] merchant_checkout_session_received", {
+        publicOrderId: result.publicOrderId,
+        hasCheckoutUrl: !!checkoutUrl,
+      });
+      setActivePayinOrder({
+        publicOrderId: result.publicOrderId,
+        paymentToken: result.paymentToken,
+        checkoutUrl,
+        amount: result.amount,
+      });
+      checkoutOpenAttempted.current = false;
+      setCheckoutAutoOpenFailed(false);
       toast.success("Deposit order created");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to create deposit order");
@@ -935,6 +965,15 @@ export default function MerchantDeposits() {
       setCfCreating(false);
     }
   };
+
+  // Auto-open the checkout exactly once per created order, as soon as we
+  // have a usable checkout URL.
+  useEffect(() => {
+    if (!activePayinOrder || checkoutOpenAttempted.current) return;
+    if (!activePayinOrder.checkoutUrl) return;
+    checkoutOpenAttempted.current = true;
+    openSecureCheckout(activePayinOrder.publicOrderId, activePayinOrder.checkoutUrl);
+  }, [activePayinOrder]);
 
   // Simulate payment dialog state
   const [showSimulate, setShowSimulate] = useState(false);
@@ -1858,11 +1897,25 @@ export default function MerchantDeposits() {
                     {activeOrderStatus.status === "EXPIRED" ? "Order expired" : "Payment failed"}
                   </p>
                 </div>
+              ) : !activePayinOrder.checkoutUrl ? (
+                <div className="rounded-md border border-rose-500/30 bg-rose-500/10 p-4 text-center space-y-1">
+                  <XCircle className="w-8 h-8 text-rose-400 mx-auto" />
+                  <p className="text-sm font-medium text-rose-300">Payment session could not be started. Please retry.</p>
+                </div>
               ) : (
-                <div className="rounded-md border border-sky-500/30 bg-sky-500/10 p-4 text-center space-y-2">
+                <div className="rounded-md border border-sky-500/30 bg-sky-500/10 p-4 text-center space-y-3">
                   <Loader2 className="w-6 h-6 text-sky-400 mx-auto animate-spin" />
-                  <p className="text-sm text-sky-300">Waiting for the customer to complete UPI payment…</p>
+                  <p className="text-sm text-sky-300">Payment status: Waiting for payment</p>
                   <p className="text-xs text-muted-foreground">This will update automatically once payment is confirmed.</p>
+                  {checkoutAutoOpenFailed && (
+                    <Button
+                      size="sm"
+                      onClick={() => openSecureCheckout(activePayinOrder.publicOrderId, activePayinOrder.checkoutUrl!)}
+                      className="mt-1"
+                    >
+                      Open Secure Checkout
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

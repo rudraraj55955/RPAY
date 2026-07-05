@@ -195,9 +195,19 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
 
           req.log.info({ event: "payin_deposit_order_created", merchantId, amount: depositAmount, routedVia: "custom_gateway" }, "payin_deposit_order_created");
 
+          // Custom gateways are dispatched via arbitrary HTTP endpoints — only
+          // treat the returned value as a checkout URL if it is actually an
+          // absolute http(s) URL; a bare provider order id is never usable
+          // as a checkout destination.
+          const customCheckoutUrl =
+            gatewayResult.paymentUrl && /^https?:\/\//i.test(gatewayResult.paymentUrl)
+              ? gatewayResult.paymentUrl
+              : null;
+
           res.json({
             publicOrderId,
             paymentToken: gatewayResult.paymentUrl ?? gatewayResult.providerOrderId,
+            checkoutUrl: customCheckoutUrl,
             amount: depositAmount,
             status: PAYIN_ORDER_STATUS.CREATED,
             checkoutLabel: "RasoKart Secure Checkout",
@@ -299,9 +309,13 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
     }
 
     // checkoutUrl / paymentToken point to our own branded checkout — never expose provider internals.
+    const checkoutEnv = cfg.env === "live" ? "prod" : "sandbox";
+    const checkoutUrl = `/checkout?token=${encodeURIComponent(parsed.payment_session_id)}&env=${checkoutEnv}&amount=${encodeURIComponent(depositAmount.toFixed(2))}`;
+
     res.json({
       publicOrderId,
       paymentToken: parsed.payment_session_id,
+      checkoutUrl,
       amount: depositAmount,
       status: PAYIN_ORDER_STATUS.CREATED,
       checkoutLabel: "RasoKart Secure Checkout",

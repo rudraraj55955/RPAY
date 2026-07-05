@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable, signatureFailureAlertLogsTable, webhookFailureAlertLogsTable, storageCleanupRunsTable, uploadedObjectsTable, merchantsTable, merchantConnectionsTable, qrCodesTable, cashfreePaymentOrdersTable, cashfreePayoutsTable } from "@workspace/db";
+import { db, systemConfigTable, SYSTEM_CONFIG_KEYS, SYSTEM_CONFIG_DEFAULTS, auditLogsTable, signatureFailureAlertLogsTable, webhookFailureAlertLogsTable, storageCleanupRunsTable, uploadedObjectsTable, merchantsTable, merchantConnectionsTable, qrCodesTable, cashfreePaymentOrdersTable, cashfreePayoutsTable, providerIntegrationsTable } from "@workspace/db";
 import { ekqrCreateOrder, ekqrClientTxnId } from "../helpers/ekqr";
 import { testPayoutConnection, cashfreePayoutGetTransferStatus, normalizeCashfreePayoutStatus, type CashfreePayoutEnv } from "../helpers/cashfreePayout";
 import { cashfreeCreateOrder, type CashfreeEnv } from "../helpers/cashfree";
@@ -1696,6 +1696,29 @@ router.get("/gateway-usage/:provider", async (req, res, next) => {
         .select({ total: countDistinct(cashfreePayoutsTable.merchantId) })
         .from(cashfreePayoutsTable);
       res.json({ provider, merchantCount: merchantRow?.total ?? 0, qrCodeCount: 0 });
+      return;
+    }
+
+    // Custom provider integration (added via the "Add Gateway" flow). Transactions
+    // and payouts routed to a custom provider carry its providerKey, so usage is
+    // computed the same way as the built-in cashfree / cashfree-payout providers.
+    const [integration] = await db
+      .select({ id: providerIntegrationsTable.id })
+      .from(providerIntegrationsTable)
+      .where(eq(providerIntegrationsTable.providerKey, provider))
+      .limit(1);
+
+    if (integration) {
+      const [[payinRow], [payoutRow]] = await Promise.all([
+        db.select({ total: countDistinct(cashfreePaymentOrdersTable.merchantId) })
+          .from(cashfreePaymentOrdersTable)
+          .where(eq(cashfreePaymentOrdersTable.providerKey, provider)),
+        db.select({ total: countDistinct(cashfreePayoutsTable.merchantId) })
+          .from(cashfreePayoutsTable)
+          .where(eq(cashfreePayoutsTable.providerKey, provider)),
+      ]);
+      const merchantCount = Math.max(payinRow?.total ?? 0, payoutRow?.total ?? 0);
+      res.json({ provider, merchantCount, qrCodeCount: 0 });
       return;
     }
 

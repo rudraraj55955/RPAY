@@ -8,3 +8,5 @@ The rule: every call to `makeRateLimiter({ store: ... })` must get its own `new 
 **Why:** express-rate-limit v8 added a validation that throws `ERR_ERL_STORE_REUSE` at startup if it detects the same store object reference used across multiple `rateLimit()` calls. This crashes the server before it can listen.
 
 **How to apply:** In any route file that creates multiple rate limiters backed by the DB store, import the class (`DbRateLimitStore`) not the singleton (`dbRateLimitStore`) and call `new DbRateLimitStore()` inline for each limiter.
+
+**Separate gotcha — persistence:** because the store is DB-backed (`rate_limit_hits` table), restarting the API server does NOT clear a rate-limit lockout (unlike a typical in-memory limiter). To clear it during development/testing, run `DELETE FROM rate_limit_hits;` against the dev DB directly.

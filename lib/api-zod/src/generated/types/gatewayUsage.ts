@@ -5,11 +5,10 @@
  * RasoKart Payment Gateway API
  * OpenAPI spec version: 0.1.0
  */
-import type { GatewayUsageProvider } from './gatewayUsageProvider';
 
 export interface GatewayUsage {
-  /** The gateway provider this usage snapshot describes */
-  provider: GatewayUsageProvider;
+  /** The gateway provider this usage snapshot describes (built-in key or custom provider key) */
+  provider: string;
   /** Number of merchants actively relying on this gateway */
   merchantCount: number;
   /** Number of active QR codes generated through this gateway (0 for providers without QR association) */

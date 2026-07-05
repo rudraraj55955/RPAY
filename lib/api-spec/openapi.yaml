@@ -7671,7 +7671,7 @@ paths:
     get:
       operationId: getGatewayUsage
       tags: [system-config]
-      summary: Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it)
+      summary: Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it). Accepts the built-in provider keys (ekqr, cashfree, cashfree-payout) or any custom provider key created via Provider Integrations.
       security:
         - bearerAuth: []
       parameters:
@@ -7680,7 +7680,6 @@ paths:
           required: true
           schema:
             type: string
-            enum: [ekqr, cashfree, cashfree-payout]
       responses:
         "200":
           description: Gateway usage snapshot
@@ -14227,8 +14226,7 @@ components:
       properties:
         provider:
           type: string
-          enum: [ekqr, cashfree, cashfree-payout]
-          description: The gateway provider this usage snapshot describes
+          description: The gateway provider this usage snapshot describes (built-in key or custom provider key)
         merchantCount:
           type: integer
           description: Number of merchants actively relying on this gateway

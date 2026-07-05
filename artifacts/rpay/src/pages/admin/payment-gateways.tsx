@@ -627,6 +627,11 @@ function CustomGatewayConfigPanel({ integration }: { integration: ProviderIntegr
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const { guardSave, dialog: disableGuardDialog } = useDisableGatewayGuard(
+    integration.providerKey,
+    integration.displayNamePublic,
+  );
+
   const { mutate: saveConfig, isPending: saving } = useUpdateProviderIntegration({
     request: { headers: authHeader() },
     mutation: {
@@ -650,7 +655,7 @@ function CustomGatewayConfigPanel({ integration }: { integration: ProviderIntegr
     },
   } as any);
 
-  function handleSave() {
+  function doSave() {
     const body: Record<string, unknown> = {
       displayNamePublic: displayName.trim(),
       productType,
@@ -663,6 +668,11 @@ function CustomGatewayConfigPanel({ integration }: { integration: ProviderIntegr
     if (apiSecret.trim()) body.apiSecret = apiSecret.trim();
     if (webhookSecret.trim()) body.webhookSecret = webhookSecret.trim();
     saveConfig({ key: integration.providerKey, data: body as any });
+  }
+
+  function handleSave() {
+    const willDisable = integration.isEnabled === true && enabled === false;
+    guardSave(willDisable, doSave);
   }
 
   return (
@@ -814,13 +824,15 @@ function CustomGatewayConfigPanel({ integration }: { integration: ProviderIntegr
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setConfirmDelete(false)}>Cancel</Button>
               <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700" disabled={deleting}
-                onClick={() => deleteIntegration({ key: integration.providerKey })}>
+                onClick={() => guardSave(true, () => deleteIntegration({ key: integration.providerKey }))}>
                 {deleting ? "Removing…" : "Confirm Remove"}
               </Button>
             </div>
           </div>
         )}
       </div>
+
+      {disableGuardDialog}
     </div>
   );
 }

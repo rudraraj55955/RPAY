@@ -9,9 +9,12 @@ import { AlertTriangle } from "lucide-react";
 
 const authHeader = () => ({ Authorization: `Bearer ${getToken()}` });
 
-export type GatewayUsageProvider = "ekqr" | "cashfree" | "cashfree-payout";
+// Built-in providers plus any custom provider key created via the "Add Gateway"
+// flow (Provider Integrations). Custom keys are arbitrary strings, so this is
+// intentionally widened beyond a strict union.
+export type GatewayUsageProvider = "ekqr" | "cashfree" | "cashfree-payout" | (string & {});
 
-const GATEWAY_LABELS: Record<GatewayUsageProvider, string> = {
+const GATEWAY_LABELS: Record<string, string> = {
   ekqr: "UPI Gateway",
   cashfree: "Payin Gateway",
   "cashfree-payout": "Payout Gateway",
@@ -21,8 +24,12 @@ const GATEWAY_LABELS: Record<GatewayUsageProvider, string> = {
  * Guards a gateway-config save behind a confirmation dialog whenever the save
  * would flip `enabled: true -> false`. Renders `dialog` wherever the panel's
  * JSX lives, and call `guardSave(willDisable, save)` from the Save handler.
+ *
+ * `label` is optional for the built-in providers (ekqr/cashfree/cashfree-payout)
+ * since they have a known display name; pass it for custom gateways so the
+ * dialog reads naturally (e.g. the custom gateway's display name).
  */
-export function useDisableGatewayGuard(provider: GatewayUsageProvider) {
+export function useDisableGatewayGuard(provider: GatewayUsageProvider, label?: string) {
   const [pendingSave, setPendingSave] = useState<(() => void) | null>(null);
 
   function guardSave(willDisable: boolean, save: () => void) {
@@ -36,6 +43,7 @@ export function useDisableGatewayGuard(provider: GatewayUsageProvider) {
   const dialog = (
     <DisableGatewayDialog
       provider={provider}
+      label={label ?? GATEWAY_LABELS[provider] ?? "this gateway"}
       open={pendingSave !== null}
       onCancel={() => setPendingSave(null)}
       onConfirm={() => {
@@ -50,9 +58,10 @@ export function useDisableGatewayGuard(provider: GatewayUsageProvider) {
 }
 
 function DisableGatewayDialog({
-  provider, open, onCancel, onConfirm,
+  provider, label, open, onCancel, onConfirm,
 }: {
   provider: GatewayUsageProvider;
+  label: string;
   open: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -62,7 +71,6 @@ function DisableGatewayDialog({
     request: { headers: authHeader() },
   } as any);
 
-  const label = GATEWAY_LABELS[provider];
   const merchantCount = data?.merchantCount ?? 0;
   const qrCodeCount = data?.qrCodeCount ?? 0;
   const hasUsage = merchantCount > 0 || qrCodeCount > 0;

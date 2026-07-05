@@ -22616,7 +22616,7 @@ export const useUpdateCashfreeConfig = <TError = ErrorType<void>,
       return useMutation(getUpdateCashfreeConfigMutationOptions(options));
     }
 
-export const getGetGatewayUsageUrl = (provider: 'ekqr' | 'cashfree' | 'cashfree-payout',) => {
+export const getGetGatewayUsageUrl = (provider: string,) => {
 
 
 
@@ -22625,9 +22625,9 @@ export const getGetGatewayUsageUrl = (provider: 'ekqr' | 'cashfree' | 'cashfree-
 }
 
 /**
- * @summary Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it)
+ * @summary Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it). Accepts the built-in provider keys (ekqr, cashfree, cashfree-payout) or any custom provider key created via Provider Integrations.
  */
-export const getGatewayUsage = async (provider: 'ekqr' | 'cashfree' | 'cashfree-payout', options?: RequestInit): Promise<GatewayUsage> => {
+export const getGatewayUsage = async (provider: string, options?: RequestInit): Promise<GatewayUsage> => {
 
   return customFetch<GatewayUsage>(getGetGatewayUsageUrl(provider),
   {
@@ -22642,14 +22642,14 @@ export const getGatewayUsage = async (provider: 'ekqr' | 'cashfree' | 'cashfree-
 
 
 
-export const getGetGatewayUsageQueryKey = (provider: 'ekqr' | 'cashfree' | 'cashfree-payout',) => {
+export const getGetGatewayUsageQueryKey = (provider: string,) => {
     return [
     `/api/system-config/gateway-usage/${provider}`
     ] as const;
     }
 
 
-export const getGetGatewayUsageQueryOptions = <TData = Awaited<ReturnType<typeof getGatewayUsage>>, TError = ErrorType<void>>(provider: 'ekqr' | 'cashfree' | 'cashfree-payout', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGatewayUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetGatewayUsageQueryOptions = <TData = Awaited<ReturnType<typeof getGatewayUsage>>, TError = ErrorType<void>>(provider: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGatewayUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -22672,11 +22672,11 @@ export type GetGatewayUsageQueryError = ErrorType<void>
 
 
 /**
- * @summary Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it)
+ * @summary Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it). Accepts the built-in provider keys (ekqr, cashfree, cashfree-payout) or any custom provider key created via Provider Integrations.
  */
 
 export function useGetGatewayUsage<TData = Awaited<ReturnType<typeof getGatewayUsage>>, TError = ErrorType<void>>(
- provider: 'ekqr' | 'cashfree' | 'cashfree-payout', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGatewayUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ provider: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGatewayUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 

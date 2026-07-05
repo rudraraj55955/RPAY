@@ -3944,21 +3944,9 @@ export interface EkqrConfigInput {
   webhookSecret?: string;
 }
 
-/**
- * The gateway provider this usage snapshot describes
- */
-export type GatewayUsageProvider = typeof GatewayUsageProvider[keyof typeof GatewayUsageProvider];
-
-
-export const GatewayUsageProvider = {
-  ekqr: 'ekqr',
-  cashfree: 'cashfree',
-  'cashfree-payout': 'cashfree-payout',
-} as const;
-
 export interface GatewayUsage {
-  /** The gateway provider this usage snapshot describes */
-  provider: GatewayUsageProvider;
+  /** The gateway provider this usage snapshot describes (built-in key or custom provider key) */
+  provider: string;
   /** Number of merchants actively relying on this gateway */
   merchantCount: number;
   /** Number of active QR codes generated through this gateway (0 for providers without QR association) */

@@ -7315,14 +7315,14 @@ export const UpdateCashfreeConfigResponse = zod.object({
 
 
 /**
- * @summary Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it)
+ * @summary Get count of merchants/QR codes actively relying on a payment gateway provider (used to warn admins before disabling it). Accepts the built-in provider keys (ekqr, cashfree, cashfree-payout) or any custom provider key created via Provider Integrations.
  */
 export const GetGatewayUsageParams = zod.object({
-  "provider": zod.enum(['ekqr', 'cashfree', 'cashfree-payout'])
+  "provider": zod.coerce.string()
 })
 
 export const GetGatewayUsageResponse = zod.object({
-  "provider": zod.enum(['ekqr', 'cashfree', 'cashfree-payout']).describe('The gateway provider this usage snapshot describes'),
+  "provider": zod.string().describe('The gateway provider this usage snapshot describes (built-in key or custom provider key)'),
   "merchantCount": zod.number().describe('Number of merchants actively relying on this gateway'),
   "qrCodeCount": zod.number().describe('Number of active QR codes generated through this gateway (0 for providers without QR association)')
 })

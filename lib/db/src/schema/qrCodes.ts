@@ -15,6 +15,9 @@ export const qrCodesTable = pgTable("qr_codes", {
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   ekqrOrderId: text("ekqr_order_id"),       // EKQR order ID returned by create_order
   ekqrPaymentUrl: text("ekqr_payment_url"), // EKQR hosted payment URL (for non-UPI clients)
+  providerKey: text("provider_key"),                 // set when dispatched through an admin-added custom gateway (provider_integrations.providerKey)
+  providerOrderId: text("provider_order_id"),         // custom gateway's order/reference id
+  providerPaymentUrl: text("provider_payment_url"),   // custom gateway's hosted payment URL, if any
   status: text("status").notNull().default("active"), // active | inactive | expired | used
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

@@ -192,6 +192,24 @@ export default function AdminSmartRouting() {
     refetchInterval: 30000,
   });
 
+  // Admin-added custom gateways — offered as provider key suggestions alongside the built-ins.
+  const integrationsQ = useQuery<{ providerKey: string; displayNamePublic: string; isEnabled: boolean }[]>({
+    queryKey: ["smart-routing-integrations"],
+    queryFn: async () => {
+      const r = await fetch(`/api/provider-integrations/integrations`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!r.ok) return [];
+      return r.json();
+    },
+  });
+  const providerKeyOptions = [
+    { providerKey: "cashfree_payin", displayNamePublic: "Cashfree (Payin)" },
+    { providerKey: "cashfree_payout", displayNamePublic: "Cashfree (Payout)" },
+    { providerKey: "ekqr", displayNamePublic: "EKQR" },
+    ...((integrationsQ.data ?? []).filter(i => i.isEnabled).map(i => ({ providerKey: i.providerKey, displayNamePublic: i.displayNamePublic }))),
+  ];
+
   // Mutations
   const updateConfigM = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => apiReq(`/configs/${id}`, "PUT", data),
@@ -748,8 +766,14 @@ export default function AdminSmartRouting() {
                 onChange={e => setRfProviderKey(e.target.value)}
                 placeholder="e.g. cashfree_payin"
                 className="bg-zinc-900 border-zinc-700 text-white font-mono"
+                list="provider-key-options"
               />
-              <p className="text-xs text-zinc-600 mt-1">Internal identifier — not shown to merchants</p>
+              <datalist id="provider-key-options">
+                {providerKeyOptions.map(p => <option key={p.providerKey} value={p.providerKey}>{p.displayNamePublic}</option>)}
+              </datalist>
+              <p className="text-xs text-zinc-600 mt-1">
+                Internal identifier — not shown to merchants. Pick a built-in gateway or any admin-added custom gateway's provider key.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

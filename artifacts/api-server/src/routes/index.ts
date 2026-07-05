@@ -41,6 +41,7 @@ import cashfreePayoutRouter from "./cashfreePayout";
 import cashfreePayoutWebhookRouter from "./cashfreePayoutWebhook";
 import payinOrdersRouter from "./payinOrders";
 import payinWebhookRouter from "./payinWebhook";
+import payinCustomWebhookRouter from "./payinCustomWebhook";
 import adminPayinOrdersRouter from "./adminPayinOrders";
 import adminPayinGatewayDebugRouter from "./adminPayinGatewayDebug";
 import providerIntegrationsRouter from "./providerIntegrations";
@@ -68,6 +69,8 @@ router.use("/api-keys", apiKeysRouter);
 router.use("/webhooks/payouts/cashfree", cashfreePayoutWebhookRouter);
 // Public payin webhook — must come BEFORE /webhooks (which has global requireAuth)
 router.use("/webhooks/payin", payinWebhookRouter);
+// Public generic custom-gateway payin webhook — same reason as above.
+router.use("/webhooks/payin/custom", payinCustomWebhookRouter);
 router.use("/webhooks", webhooksRouter);
 router.use("/callbacks", callbacksRouter);
 router.use("/settlements", settlementsRouter);

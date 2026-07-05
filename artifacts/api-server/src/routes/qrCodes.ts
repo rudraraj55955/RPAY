@@ -1,10 +1,11 @@
 import { Router, type Request } from "express";
-import { db, qrCodesTable, merchantsTable, merchantConnectionsTable, transactionsTable, qrPaymentEventsTable, auditLogsTable, systemConfigTable, SYSTEM_CONFIG_KEYS } from "@workspace/db";
+import { db, qrCodesTable, merchantsTable, merchantConnectionsTable, transactionsTable, qrPaymentEventsTable, auditLogsTable, systemConfigTable, SYSTEM_CONFIG_KEYS, providerIntegrationsTable } from "@workspace/db";
 import { eq, and, ilike, count, sql, or, desc, gte, lte, inArray, type SQL } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { checkPlanLimit, rejectWithLimitError } from "../helpers/planLimits";
 import { makeRateLimiter } from "../helpers/makeRateLimiter";
 import { ekqrCreateOrder, ekqrCheckOrderStatus, ekqrClientTxnId, ekqrFormatDate } from "../helpers/ekqr";
+import { createCustomGatewayOrder } from "../helpers/customGatewayClient";
 import { logger } from "../lib/logger";
 
 const qrCodeCreateLimiter = makeRateLimiter({
@@ -404,6 +405,65 @@ router.post("/", qrCodeCreateLimiter, async (req, res) => {
         logger.error({ err, qrId: row.id }, "EKQR create_order failed");
         res.status(502).json({ error: "EKQR gateway error. Please try again." });
       }
+      return;
+    }
+  }
+
+  // ── Custom gateway path: merchant has an active connection whose provider
+  // matches an admin-added, enabled custom gateway (provider_integrations) ──
+  const customConn = connections.find(c => c.provider && !["ekqr", "upi_id"].includes(c.provider) && !(c.provider in PROVIDER_VPA_SUFFIX));
+  if (customConn) {
+    const [integration] = await db.select().from(providerIntegrationsTable)
+      .where(and(
+        eq(providerIntegrationsTable.providerKey, customConn.provider),
+        eq(providerIntegrationsTable.isEnabled, true),
+        eq(providerIntegrationsTable.isCustom, true),
+      )).limit(1);
+
+    if (integration) {
+      const [row] = await db.insert(qrCodesTable).values({
+        merchantId, type, label: label ?? null,
+        payload: "", // placeholder — updated after the gateway responds
+        amount: amount ?? null,
+        orderId: orderId ?? null,
+        callbackUrl: callbackUrl ?? null,
+        merchantReference: merchantReference ?? null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        providerKey: integration.providerKey,
+      }).returning();
+
+      const gatewayOrderId = `RKQR_${row.id}`;
+      const gatewayResult = await createCustomGatewayOrder(integration, {
+        publicOrderId: gatewayOrderId,
+        amount: Number(amount ?? 1),
+        currency: "INR",
+        customerName: merchant?.businessName ?? "Customer",
+        note: label ?? merchantReference ?? "QR Payment",
+      });
+
+      if (!gatewayResult.ok || !gatewayResult.providerOrderId) {
+        await db.delete(qrCodesTable).where(eq(qrCodesTable.id, row.id)).catch(() => {});
+        logger.error({ qrId: row.id, providerKey: integration.providerKey, errorMessage: gatewayResult.errorMessage }, "Custom gateway create_order failed");
+        res.status(502).json({ error: "Payment gateway error. Please try again." });
+        return;
+      }
+
+      const upiPayload = gatewayResult.paymentUrl || `upi://pay?tid=${gatewayResult.providerOrderId}`;
+
+      await db.update(qrCodesTable).set({
+        payload: upiPayload,
+        providerOrderId: gatewayResult.providerOrderId,
+        providerPaymentUrl: gatewayResult.paymentUrl ?? null,
+      }).where(eq(qrCodesTable.id, row.id));
+
+      const updatedRow = { ...row, payload: upiPayload, providerOrderId: gatewayResult.providerOrderId, providerPaymentUrl: gatewayResult.paymentUrl ?? null };
+      await logQrAudit(req, "qr_code_created", row.id, { label: row.label ?? null, type: row.type, merchantId, provider: integration.providerKey });
+
+      res.status(201).json({
+        ...serializeQr(updatedRow as typeof row, merchant?.businessName ?? null),
+        provider: integration.providerKey,
+        providerPaymentUrl: gatewayResult.paymentUrl ?? null,
+      });
       return;
     }
   }

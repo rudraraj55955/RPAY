@@ -23,6 +23,8 @@ const QR_PROVIDERS = [
   { value: "ekqr",          label: "UPI Gateway",    color: "bg-teal-500/10 text-teal-400 border-teal-500/20" },
 ];
 
+const CUSTOM_PROVIDER_COLOR = "bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20";
+
 function getToken() { return localStorage.getItem("rasokart_token") ?? ""; }
 async function api(method: string, path: string, body?: object) {
   const res = await fetch(`/api${path}`, {
@@ -34,12 +36,13 @@ async function api(method: string, path: string, body?: object) {
   return res.json();
 }
 
-function ProviderBadge({ provider }: { provider: string }) {
+function ProviderBadge({ provider, customLabels }: { provider: string; customLabels?: Record<string, string> }) {
   const p = QR_PROVIDERS.find(p => p.value === provider);
+  const customLabel = customLabels?.[provider];
   return (
-    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${p?.color ?? "bg-muted/50 text-muted-foreground border-border"}`}>
+    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${p?.color ?? (customLabel ? CUSTOM_PROVIDER_COLOR : "bg-muted/50 text-muted-foreground border-border")}`}>
       <QrCode className="w-3 h-3" />
-      {p?.label ?? provider}
+      {p?.label ?? customLabel ?? provider}
     </span>
   );
 }
@@ -67,9 +70,23 @@ export default function AdminQrProviders() {
     enabled: dialog === "create" || dialog === "edit",
   });
 
+  // Fetch admin-added custom gateways so they show up as selectable QR providers too
+  const { data: integrationsData } = useQuery({
+    queryKey: ["provider-integrations-for-qr"],
+    queryFn: () => api("GET", "/provider-integrations/integrations"),
+  });
+
   const rows: any[] = data?.data ?? [];
   const total: number = data?.total ?? 0;
   const merchants: any[] = merchantData?.data ?? [];
+  const customIntegrations: any[] = (integrationsData?.data ?? integrationsData ?? []).filter((i: any) => i.isCustom && i.isEnabled);
+  const customLabels: Record<string, string> = Object.fromEntries(customIntegrations.map((i: any) => [i.providerKey, i.displayNamePublic ?? i.providerKey]));
+  const allProviderOptions = [
+    ...QR_PROVIDERS,
+    ...customIntegrations
+      .filter((i: any) => !QR_PROVIDERS.some(p => p.value === i.providerKey))
+      .map((i: any) => ({ value: i.providerKey, label: i.displayNamePublic ?? i.providerKey, color: CUSTOM_PROVIDER_COLOR })),
+  ];
 
   const createMutation = useMutation({
     mutationFn: (body: object) => api("POST", "/connections", body),
@@ -145,7 +162,7 @@ export default function AdminQrProviders() {
               <SelectTrigger className="w-[180px]"><SelectValue placeholder="All providers" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Providers</SelectItem>
-                {QR_PROVIDERS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                {allProviderOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -193,7 +210,7 @@ export default function AdminQrProviders() {
                       <p className="text-xs text-muted-foreground">{row.merchantEmail ?? `ID #${row.merchantId}`}</p>
                     </div>
                   </TableCell>
-                  <TableCell><ProviderBadge provider={row.provider} /></TableCell>
+                  <TableCell><ProviderBadge provider={row.provider} customLabels={customLabels} /></TableCell>
                   <TableCell className="font-mono text-sm">
                     {hasLimit ? `₹${limit.toLocaleString("en-IN")}` : <span className="text-muted-foreground text-xs">No limit</span>}
                   </TableCell>
@@ -287,7 +304,7 @@ export default function AdminQrProviders() {
               <Select value={form.provider} onValueChange={v => setForm(f => ({ ...f, provider: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {QR_PROVIDERS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                  {allProviderOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -333,7 +350,7 @@ export default function AdminQrProviders() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Remove QR Provider</DialogTitle>
-            <DialogDescription>Remove {QR_PROVIDERS.find(p => p.value === editing?.provider)?.label ?? editing?.provider} from merchant #{editing?.merchantId}?</DialogDescription>
+            <DialogDescription>Remove {allProviderOptions.find(p => p.value === editing?.provider)?.label ?? editing?.provider} from merchant #{editing?.merchantId}?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>

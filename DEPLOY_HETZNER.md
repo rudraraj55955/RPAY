@@ -25,7 +25,15 @@ BASE_PATH=/ pnpm --filter @workspace/rpay run build
 
 # Confirm the deploy applied schema/columns correctly:
 curl -s https://rasokart.com/api/healthz/deep
+
+# Fail loudly (non-zero exit) if a documented demo/test login is broken.
+# Run this after pm2 restart so seed.ts has finished re-upserting demo accounts.
+pnpm --filter @workspace/scripts run verify-demo-credentials
 ```
+
+If `verify-demo-credentials` exits non-zero, do not consider the deploy complete — a documented
+demo/test account is broken (wrong password hash, wrong role, or deactivated). Investigate before
+telling anyone the deploy succeeded.
 
 ---
 

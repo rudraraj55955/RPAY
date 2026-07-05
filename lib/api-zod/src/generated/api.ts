@@ -7390,6 +7390,18 @@ export const DebugPayinGatewayCreateOrderResponse = zod.object({
 
 
 /**
+ * @summary Test the cashfree_payment_orders schema guard + a minimal insert in a rolled-back transaction (admin only, sanitized response)
+ */
+export const DebugPayinGatewayDbInsertResponse = zod.object({
+  "schemaOk": zod.boolean(),
+  "insertOk": zod.boolean(),
+  "safeDbCode": zod.string().nullable(),
+  "safeColumn": zod.string().nullable(),
+  "safeConstraint": zod.string().nullable()
+})
+
+
+/**
  * @summary Whether RasoKart UPI deposits are available to the current merchant
  */
 export const GetPayinStatusResponse = zod.object({

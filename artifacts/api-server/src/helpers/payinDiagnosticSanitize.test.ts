@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { isValidHttpsUrl, sanitizeDiagnosticMessage, sanitizeSubCode } from "./payinDiagnosticSanitize";
+import { isValidHttpsUrl, sanitizeDiagnosticMessage, sanitizeSubCode, sanitizeDbError } from "./payinDiagnosticSanitize";
 
 describe("isValidHttpsUrl", () => {
   it("accepts a well-formed https URL", () => {
@@ -70,5 +70,64 @@ describe("sanitizeSubCode", () => {
     const long = "a".repeat(500);
     const safe = sanitizeSubCode(long);
     assert.equal(safe!.length, 100);
+  });
+});
+
+describe("sanitizeDbError", () => {
+  it("extracts only code/table/column/constraint from a pg-style error", () => {
+    const pgErr = {
+      code: "23502",
+      table: "cashfree_payment_orders",
+      column: "customer_phone",
+      constraint: null,
+      message: "null value in column \"customer_phone\" violates not-null constraint",
+      detail: "Failing row contains (1, 42, RKPAYIN_42_123, 9876543210, ...).",
+    };
+    const safe = sanitizeDbError(pgErr);
+    assert.deepEqual(safe, {
+      safeDbCode: "23502",
+      safeTable: "cashfree_payment_orders",
+      safeColumn: "customer_phone",
+      safeConstraint: null,
+    });
+  });
+
+  it("never leaks message or detail even if present on the error object", () => {
+    const pgErr = {
+      code: "23505",
+      constraint: "cashfree_payment_orders_cashfree_order_id_unique",
+      message: "duplicate key value violates unique constraint containing secret_token_ABC123",
+      detail: "Key (cashfree_order_id)=(secret_token_ABC123) already exists.",
+    };
+    const safe = sanitizeDbError(pgErr) as any;
+    assert.equal(safe.message, undefined);
+    assert.equal(safe.detail, undefined);
+    assert.equal(JSON.stringify(safe).includes("secret_token_ABC123"), false);
+  });
+
+  it("returns all-null fields for a non-pg error (e.g. a plain Error or thrown string)", () => {
+    assert.deepEqual(sanitizeDbError(new Error("boom")), {
+      safeDbCode: null,
+      safeTable: null,
+      safeColumn: null,
+      safeConstraint: null,
+    });
+    assert.deepEqual(sanitizeDbError(null), {
+      safeDbCode: null,
+      safeTable: null,
+      safeColumn: null,
+      safeConstraint: null,
+    });
+    assert.deepEqual(sanitizeDbError(undefined), {
+      safeDbCode: null,
+      safeTable: null,
+      safeColumn: null,
+      safeConstraint: null,
+    });
+  });
+
+  it("truncates overly long identifier fields", () => {
+    const safe = sanitizeDbError({ code: "x".repeat(500) });
+    assert.equal(safe.safeDbCode!.length, 100);
   });
 });

@@ -1,9 +1,12 @@
 import { Router } from "express";
+import { db, cashfreePaymentOrdersTable, PAYIN_ORDER_STATUS } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import { cashfreeCreateOrder, resolveCashfreeBaseUrl, CASHFREE_API_VERSION } from "../helpers/cashfree";
 import { decryptSecret } from "../helpers/cryptoUtils";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { loadPayinConfig } from "../helpers/payinConfig";
-import { isValidHttpsUrl, sanitizeDiagnosticMessage, sanitizeSubCode } from "../helpers/payinDiagnosticSanitize";
+import { isValidHttpsUrl, sanitizeDiagnosticMessage, sanitizeSubCode, sanitizeDbError } from "../helpers/payinDiagnosticSanitize";
+import { ensurePayinOrdersSchemaGuard } from "../helpers/payinSchemaGuard";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -98,6 +101,82 @@ router.post("/debug-create-order", async (req, res) => {
     res.json({ baseUrlValid, apiVersion, env: cfg.env, merchantId, amount, httpStatus, safeSubCode, safeMessage, orderCreated });
   } catch (err) {
     req.log.error({ event: "payin_provider_create_order_failed", adminId: admin?.id, diagnostic: true, safeReason: "unexpected_error" }, "payin_provider_create_order_failed");
+    res.status(500).json({ error: "Diagnostic check failed. Please try again." });
+  }
+});
+
+/**
+ * POST /api/admin/payin-gateway/debug-db-insert
+ *
+ * Admin-only diagnostic: runs the `cashfree_payment_orders` schema guard,
+ * then attempts a minimal insert of a throwaway test row inside a
+ * transaction that is always rolled back — so this never leaves any trace
+ * in the table and never touches a real merchant/order. Lets an admin tell
+ * whether a broken deposit flow is a DB-schema problem (the exact
+ * "provider succeeded, DB insert failed" incident class) independent of
+ * the live provider entirely.
+ *
+ * Returns only sanitized schema-identifier fields — never a raw SQL
+ * message, stack trace, or row value.
+ */
+router.post("/debug-db-insert", async (req, res) => {
+  const admin = (req as any).user;
+  let schemaOk = false;
+  let insertOk = false;
+  let safeDbCode: string | null = null;
+  let safeColumn: string | null = null;
+  let safeConstraint: string | null = null;
+
+  try {
+    try {
+      await ensurePayinOrdersSchemaGuard();
+      schemaOk = true;
+    } catch (guardErr) {
+      const safe = sanitizeDbError(guardErr);
+      safeDbCode = safe.safeDbCode;
+      safeColumn = safe.safeColumn;
+      safeConstraint = safe.safeConstraint;
+      req.log.error({ event: "payin_db_insert_failed", adminId: admin?.id, diagnostic: true, ...safe }, "payin_db_insert_failed");
+      res.json({ schemaOk, insertOk, safeDbCode, safeColumn, safeConstraint });
+      return;
+    }
+
+    const testOrderId = `RKDEBUGDB_${admin?.id ?? "admin"}_${Date.now()}`;
+    req.log.info({ event: "payin_db_insert_started", adminId: admin?.id, diagnostic: true }, "payin_db_insert_started");
+
+    try {
+      await db.transaction(async (tx) => {
+        await tx.insert(cashfreePaymentOrdersTable).values({
+          merchantId: -1,
+          publicOrderId: testOrderId,
+          providerKey: "cashfree",
+          cashfreeOrderId: testOrderId,
+          paymentSessionId: "diagnostic-session",
+          amount: "1.00",
+          currency: "INR",
+          status: PAYIN_ORDER_STATUS.CREATED,
+          customerPhone: "9999999999",
+        });
+        // Always roll back — this is a schema/insert probe, never a real row.
+        await tx.execute(sql`SELECT 1`);
+        throw new Error("__diagnostic_rollback__");
+      });
+    } catch (txErr) {
+      if (txErr instanceof Error && txErr.message === "__diagnostic_rollback__") {
+        insertOk = true;
+        req.log.info({ event: "payin_db_insert_minimal_retry_success", adminId: admin?.id, diagnostic: true }, "payin_db_insert_minimal_retry_success");
+      } else {
+        const safe = sanitizeDbError(txErr);
+        safeDbCode = safe.safeDbCode;
+        safeColumn = safe.safeColumn;
+        safeConstraint = safe.safeConstraint;
+        req.log.error({ event: "payin_db_insert_minimal_retry_failed", adminId: admin?.id, diagnostic: true, ...safe }, "payin_db_insert_minimal_retry_failed");
+      }
+    }
+
+    res.json({ schemaOk, insertOk, safeDbCode, safeColumn, safeConstraint });
+  } catch (err) {
+    req.log.error({ event: "payin_db_insert_failed", adminId: admin?.id, diagnostic: true, safeReason: "unexpected_error" }, "payin_db_insert_failed");
     res.status(500).json({ error: "Diagnostic check failed. Please try again." });
   }
 });

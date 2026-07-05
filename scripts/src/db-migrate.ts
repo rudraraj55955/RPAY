@@ -258,12 +258,55 @@ async function migrate() {
     CREATE INDEX IF NOT EXISTS quiet_hours_queue_user_id_idx ON quiet_hours_queue(user_id);
 
     -- ── cashfree_payment_orders: permanent schema guard ─────────────────────────
-    -- Ensures paid_at exists and all statuses are canonical uppercase
-    -- (CREATED/PENDING/PAID/FAILED/EXPIRED) on every deploy, so this never again
-    -- depends on a manual VPS SQL hotfix. Safe/idempotent to run repeatedly —
-    -- ADD COLUMN IF NOT EXISTS is a no-op once applied, and the UPDATE only
-    -- touches rows whose status isn't already uppercase.
+    -- Ensures every column the deposit-order insert (payinOrders.ts) needs
+    -- actually exists on the live table, and all statuses are canonical
+    -- uppercase (CREATED/PENDING/PAID/FAILED/EXPIRED), on every deploy — so
+    -- this never again depends on a manual VPS SQL hotfix. This is the fix
+    -- for the "provider order created, but DB insert failed" incident: the
+    -- live table was missing columns (provider_key, payment_method,
+    -- customer_email, raw_provider_status, failure_reason, raw_payload,
+    -- public_order_id) that existed in the Drizzle schema but were never
+    -- applied to the database. Safe/idempotent to run repeatedly — every
+    -- ADD COLUMN is IF NOT EXISTS and nullable/defaulted (never NOT NULL
+    -- without a DEFAULT), so it can never fail against a table with rows.
+    CREATE TABLE IF NOT EXISTS cashfree_payment_orders (
+      id SERIAL PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      cashfree_order_id TEXT NOT NULL UNIQUE,
+      amount NUMERIC(18,2) NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'INR',
+      status TEXT NOT NULL DEFAULT 'CREATED',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS public_order_id TEXT;
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS provider_key TEXT DEFAULT 'cashfree';
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS payment_session_id TEXT;
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS payment_method TEXT;
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS utr TEXT;
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS customer_phone TEXT;
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS customer_email TEXT;
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS raw_provider_status TEXT;
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS failure_reason TEXT;
     ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+    ALTER TABLE cashfree_payment_orders ADD COLUMN IF NOT EXISTS raw_payload TEXT;
+
+    DO $$
+    DECLARE col TEXT;
+    BEGIN
+      FOREACH col IN ARRAY ARRAY[
+        'public_order_id', 'provider_key', 'payment_session_id', 'payment_method',
+        'utr', 'customer_phone', 'customer_email', 'raw_provider_status',
+        'failure_reason', 'raw_payload'
+      ]
+      LOOP
+        BEGIN
+          EXECUTE format('ALTER TABLE cashfree_payment_orders ALTER COLUMN %I DROP NOT NULL', col);
+        EXCEPTION WHEN undefined_column THEN NULL;
+        END;
+      END LOOP;
+    END $$;
+
     UPDATE cashfree_payment_orders SET status = UPPER(status) WHERE status IS NOT NULL AND status <> UPPER(status);
   `);
 

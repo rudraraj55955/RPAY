@@ -7776,6 +7776,25 @@ paths:
         "403":
           description: Forbidden
 
+  /admin/payin-gateway/debug-db-insert:
+    post:
+      operationId: debugPayinGatewayDbInsert
+      tags: [system-config]
+      summary: Test the cashfree_payment_orders schema guard + a minimal insert in a rolled-back transaction (admin only, sanitized response)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Sanitized DB schema/insert diagnostic result — never includes raw SQL, stack traces, or row values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayinGatewayDebugDbInsertResult"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
   /merchant/payin/status:
     get:
       operationId: getPayinStatus
@@ -14489,6 +14508,24 @@ components:
           nullable: true
         orderCreated:
           type: boolean
+
+    PayinGatewayDebugDbInsertResult:
+      type: object
+      required: [schemaOk, insertOk, safeDbCode, safeColumn, safeConstraint]
+      properties:
+        schemaOk:
+          type: boolean
+        insertOk:
+          type: boolean
+        safeDbCode:
+          type: string
+          nullable: true
+        safeColumn:
+          type: string
+          nullable: true
+        safeConstraint:
+          type: string
+          nullable: true
 
     PayinOrderCreateResult:
       type: object

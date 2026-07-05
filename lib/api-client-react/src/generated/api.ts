@@ -252,6 +252,7 @@ import type {
   NotificationListResponse,
   NotificationUnreadCounts,
   PayinGatewayDebugCreateOrderResult,
+  PayinGatewayDebugDbInsertResult,
   PayinOrderCreateResult,
   PayinOrderStatus,
   PayinOrderStatusCheck,
@@ -22916,6 +22917,76 @@ export const useDebugPayinGatewayCreateOrder = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDebugPayinGatewayCreateOrderMutationOptions(options));
+    }
+
+export const getDebugPayinGatewayDbInsertUrl = () => {
+
+
+
+
+  return `/api/admin/payin-gateway/debug-db-insert`
+}
+
+/**
+ * @summary Test the cashfree_payment_orders schema guard + a minimal insert in a rolled-back transaction (admin only, sanitized response)
+ */
+export const debugPayinGatewayDbInsert = async ( options?: RequestInit): Promise<PayinGatewayDebugDbInsertResult> => {
+
+  return customFetch<PayinGatewayDebugDbInsertResult>(getDebugPayinGatewayDbInsertUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getDebugPayinGatewayDbInsertMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof debugPayinGatewayDbInsert>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof debugPayinGatewayDbInsert>>, TError,void, TContext> => {
+
+const mutationKey = ['debugPayinGatewayDbInsert'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof debugPayinGatewayDbInsert>>, void> = () => {
+
+
+          return  debugPayinGatewayDbInsert(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DebugPayinGatewayDbInsertMutationResult = NonNullable<Awaited<ReturnType<typeof debugPayinGatewayDbInsert>>>
+
+    export type DebugPayinGatewayDbInsertMutationError = ErrorType<void>
+
+    /**
+ * @summary Test the cashfree_payment_orders schema guard + a minimal insert in a rolled-back transaction (admin only, sanitized response)
+ */
+export const useDebugPayinGatewayDbInsert = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof debugPayinGatewayDbInsert>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof debugPayinGatewayDbInsert>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDebugPayinGatewayDbInsertMutationOptions(options));
     }
 
 export const getGetPayinStatusUrl = () => {

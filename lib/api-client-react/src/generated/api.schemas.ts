@@ -4158,6 +4158,14 @@ export interface PayinGatewayDebugCreateOrderResult {
   orderCreated: boolean;
 }
 
+export interface PayinGatewayDebugDbInsertResult {
+  schemaOk: boolean;
+  insertOk: boolean;
+  safeDbCode: string | null;
+  safeColumn: string | null;
+  safeConstraint: string | null;
+}
+
 export type PayinOrderCreateResultStatus = typeof PayinOrderCreateResultStatus[keyof typeof PayinOrderCreateResultStatus];
 
 

@@ -7,6 +7,7 @@ import { requireAuth } from "../middlewares/auth";
 import { loadPayinConfig } from "../helpers/payinConfig";
 import { ensurePayinOrdersSchemaGuard } from "../helpers/payinSchemaGuard";
 import { getMerchantDailyPaidTotal } from "../helpers/payinDailyLimit";
+import { insertPayinOrderWithFallback } from "../helpers/payinOrderInsert";
 
 const router = Router();
 
@@ -163,22 +164,18 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
       return;
     }
 
-    try {
-      await db.insert(cashfreePaymentOrdersTable).values({
-        merchantId,
-        publicOrderId,
-        providerKey: "cashfree",
-        cashfreeOrderId: parsed.order_id ?? publicOrderId,
-        paymentSessionId: parsed.payment_session_id,
-        amount: depositAmount.toFixed(2),
-        currency: "INR",
-        status: PAYIN_ORDER_STATUS.CREATED,
-        paymentMethod: "upi",
-        customerPhone,
-        customerEmail: customerEmail ?? null,
-        rawPayload: raw,
-      }).onConflictDoNothing();
-    } catch (insertErr) {
+    const insertResult = await insertPayinOrderWithFallback({
+      merchantId,
+      publicOrderId,
+      cashfreeOrderId: parsed.order_id ?? publicOrderId,
+      paymentSessionId: parsed.payment_session_id,
+      amount: depositAmount.toFixed(2),
+      customerPhone,
+      customerEmail: customerEmail ?? null,
+      rawPayload: raw,
+    }, req.log);
+
+    if (!insertResult.ok) {
       req.log.error({ event: "payin_deposit_order_create_failed", merchantId, safeReason: "db_insert_failed" }, "payin_deposit_order_create_failed");
       genericFailure();
       return;

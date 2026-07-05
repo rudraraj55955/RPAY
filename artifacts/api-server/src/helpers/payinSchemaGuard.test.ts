@@ -43,10 +43,48 @@ describe("ensurePayinOrdersSchemaGuard", () => {
   it("runs an idempotent ADD COLUMN IF NOT EXISTS for paid_at", async () => {
     mockExecute(() => {});
     await ensurePayinOrdersSchemaGuard();
-    const addColumnCall = calls.find((c) => /ADD COLUMN IF NOT EXISTS/i.test(c));
-    assert.ok(addColumnCall, "expected an ADD COLUMN IF NOT EXISTS statement");
-    assert.match(addColumnCall!, /paid_at/i);
-    assert.match(addColumnCall!, /cashfree_payment_orders/i);
+    const paidAtCall = calls.find((c) => /ADD COLUMN IF NOT EXISTS/i.test(c) && /paid_at/i.test(c));
+    assert.ok(paidAtCall, "expected an ADD COLUMN IF NOT EXISTS statement for paid_at");
+    assert.match(paidAtCall!, /cashfree_payment_orders/i);
+  });
+
+  it("creates the table if it does not exist, with the core NOT NULL columns", async () => {
+    mockExecute(() => {});
+    await ensurePayinOrdersSchemaGuard();
+    const createCall = calls.find((c) => /CREATE TABLE IF NOT EXISTS/i.test(c) && /cashfree_payment_orders/i.test(c));
+    assert.ok(createCall, "expected a CREATE TABLE IF NOT EXISTS statement");
+    assert.match(createCall!, /merchant_id/i);
+    assert.match(createCall!, /cashfree_order_id/i);
+  });
+
+  it("adds every column the deposit-order insert needs, matching payinOrderInsert.ts exactly", async () => {
+    mockExecute(() => {});
+    await ensurePayinOrdersSchemaGuard();
+    const requiredColumns = [
+      "public_order_id",
+      "provider_key",
+      "payment_session_id",
+      "payment_method",
+      "utr",
+      "customer_phone",
+      "customer_email",
+      "raw_provider_status",
+      "failure_reason",
+      "paid_at",
+      "raw_payload",
+    ];
+    for (const col of requiredColumns) {
+      const call = calls.find((c) => /ADD COLUMN IF NOT EXISTS/i.test(c) && new RegExp(`\\b${col}\\b`, "i").test(c));
+      assert.ok(call, `expected an ADD COLUMN IF NOT EXISTS statement for ${col}`);
+    }
+  });
+
+  it("relaxes NOT NULL on optional columns so a legitimate insert can never hard-fail", async () => {
+    mockExecute(() => {});
+    await ensurePayinOrdersSchemaGuard();
+    const dropNotNullCall = calls.find((c) => /DROP NOT NULL/i.test(c));
+    assert.ok(dropNotNullCall, "expected a DROP NOT NULL statement for optional columns");
+    assert.match(dropNotNullCall!, /undefined_column/i);
   });
 
   it("uppercases any non-uppercase status values", async () => {

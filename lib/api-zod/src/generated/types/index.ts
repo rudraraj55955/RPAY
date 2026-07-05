@@ -375,6 +375,7 @@ export * from './notificationUnreadCounts';
 export * from './notificationUnreadCountsCounts';
 export * from './payinGatewayDebugCreateOrderResult';
 export * from './payinGatewayDebugCreateOrderResultEnv';
+export * from './payinGatewayDebugDbInsertResult';
 export * from './payinOrderCreateResult';
 export * from './payinOrderCreateResultStatus';
 export * from './payinOrderStatus';

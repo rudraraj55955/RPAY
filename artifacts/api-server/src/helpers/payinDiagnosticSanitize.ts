@@ -42,3 +42,33 @@ export function sanitizeSubCode(code: unknown): string | null {
   if (typeof code !== "string" || !code.trim()) return null;
   return code.slice(0, 100);
 }
+
+/**
+ * Sanitized shape of a Postgres error, safe to log or return to an admin.
+ * Deliberately omits `message`/`detail`/`hint` — those can echo back raw
+ * column *values* (e.g. a customer phone number in a duplicate-key detail
+ * message), whereas `code`/`table`/`column`/`constraint` are just schema
+ * identifiers with no row data in them.
+ */
+export interface SafeDbError {
+  safeDbCode: string | null;
+  safeTable: string | null;
+  safeColumn: string | null;
+  safeConstraint: string | null;
+}
+
+/**
+ * Extracts only schema-identifier fields from a `pg` driver error. Never
+ * pass through `message`, `detail`, or `hint` — those may contain the raw
+ * value that violated a constraint.
+ */
+export function sanitizeDbError(err: unknown): SafeDbError {
+  const e = err as { code?: unknown; table?: unknown; column?: unknown; constraint?: unknown } | null | undefined;
+  const clamp = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.slice(0, 100) : null);
+  return {
+    safeDbCode: clamp(e?.code),
+    safeTable: clamp(e?.table),
+    safeColumn: clamp(e?.column),
+    safeConstraint: clamp(e?.constraint),
+  };
+}

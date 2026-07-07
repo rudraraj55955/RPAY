@@ -49,6 +49,8 @@ import {
   Share2,
   Clock,
   LinkIcon,
+  Download,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -1194,10 +1196,62 @@ function TryItPanel({
   );
 }
 
+interface PresetsExportFile {
+  version: 1;
+  exportedAt: string;
+  presets: Record<string, SavedQueryPreset[]>;
+}
+
+function isValidSavedQueryPreset(v: unknown): v is SavedQueryPreset {
+  if (!v || typeof v !== "object") return false;
+  const p = v as Record<string, unknown>;
+  return (
+    typeof p["id"] === "string" &&
+    typeof p["name"] === "string" &&
+    typeof p["body"] === "string" &&
+    p["pathValues"] !== null &&
+    typeof p["pathValues"] === "object" &&
+    !Array.isArray(p["pathValues"]) &&
+    Array.isArray(p["queryParams"]) &&
+    (p["queryParams"] as unknown[]).every(
+      (row) =>
+        row !== null &&
+        typeof row === "object" &&
+        typeof (row as Record<string, unknown>)["key"] === "string" &&
+        typeof (row as Record<string, unknown>)["value"] === "string"
+    )
+  );
+}
+
+function parsePresetsExportFile(raw: string): PresetsExportFile | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const obj = parsed as Record<string, unknown>;
+    if (obj["version"] !== 1) return null;
+    if (typeof obj["exportedAt"] !== "string") return null;
+    if (!obj["presets"] || typeof obj["presets"] !== "object" || Array.isArray(obj["presets"])) return null;
+    const presets = obj["presets"] as Record<string, unknown>;
+    for (const key of Object.keys(presets)) {
+      const arr = presets[key];
+      if (!Array.isArray(arr)) return null;
+      if (!arr.every(isValidSavedQueryPreset)) return null;
+    }
+    return {
+      version: 1,
+      exportedAt: obj["exportedAt"] as string,
+      presets: presets as Record<string, SavedQueryPreset[]>,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function ManagePresetsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [presets, setPresets] = useState<FlatPreset[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(() => {
     setPresets(loadAllPresetsFlat());
@@ -1228,6 +1282,89 @@ function ManagePresetsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     toast.success(`Deleted preset "${item.preset.name}"`);
   };
 
+  const handleExport = useCallback(() => {
+    const all = loadAllPresets();
+    const totalCount = Object.values(all).reduce((sum, arr) => sum + arr.length, 0);
+    if (totalCount === 0) {
+      toast.error("No presets to export.");
+      return;
+    }
+    const file: PresetsExportFile = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      presets: all,
+    };
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    a.download = `rasokart-presets-${dateStr}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${totalCount} preset${totalCount === 1 ? "" : "s"}`);
+  }, []);
+
+  const handleImportFile = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      e.target.value = "";
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const raw = ev.target?.result;
+        if (typeof raw !== "string") {
+          toast.error("Could not read the file.");
+          return;
+        }
+        const parsed = parsePresetsExportFile(raw);
+        if (!parsed) {
+          toast.error("Invalid presets file. Make sure you're importing a file exported from this page.");
+          return;
+        }
+        const existing = loadAllPresets();
+        let imported = 0;
+        let skipped = 0;
+        for (const key of Object.keys(parsed.presets)) {
+          const incoming = parsed.presets[key];
+          if (!Array.isArray(incoming)) continue;
+          const existingForKey = Array.isArray(existing[key]) ? existing[key] : [];
+          const existingNames = new Set(existingForKey.map((p) => p.name));
+          const toAdd: SavedQueryPreset[] = [];
+          for (const preset of incoming) {
+            if (existingNames.has(preset.name)) {
+              skipped++;
+            } else {
+              toAdd.push({
+                ...preset,
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              });
+              existingNames.add(preset.name);
+              imported++;
+            }
+          }
+          if (toAdd.length > 0) {
+            existing[key] = [...existingForKey, ...toAdd];
+          }
+        }
+        saveAllPresets(existing);
+        if (imported === 0 && skipped === 0) {
+          toast.info("The file contained no presets.");
+        } else if (imported === 0) {
+          toast.info(`All ${skipped} preset${skipped === 1 ? "" : "s"} already exist — nothing new was imported.`);
+        } else if (skipped === 0) {
+          toast.success(`Imported ${imported} preset${imported === 1 ? "" : "s"}.`);
+        } else {
+          toast.success(
+            `Imported ${imported} preset${imported === 1 ? "" : "s"} — ${skipped} already existed and were kept as-is.`
+          );
+        }
+      };
+      reader.readAsText(file);
+    },
+    []
+  );
+
   const methodColors: Record<string, string> = {
     GET: "bg-blue-500/20 text-blue-400",
     POST: "bg-emerald-500/20 text-emerald-400",
@@ -1246,6 +1383,39 @@ function ManagePresetsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             here — changes sync immediately to the endpoint panels below.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="flex items-center gap-2 pt-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs gap-1.5"
+            onClick={handleExport}
+          >
+            <Download className="w-3 h-3" />
+            Export
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs gap-1.5"
+            onClick={() => importInputRef.current?.click()}
+          >
+            <Upload className="w-3 h-3" />
+            Import
+          </Button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <span className="text-xs text-muted-foreground ml-auto">
+            {presets.length > 0
+              ? `${presets.length} preset${presets.length === 1 ? "" : "s"} saved`
+              : "No presets saved yet"}
+          </span>
+        </div>
 
         {presets.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">

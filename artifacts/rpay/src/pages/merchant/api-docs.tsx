@@ -25,6 +25,11 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   ChevronDown,
   ChevronRight,
   Copy,
@@ -42,6 +47,8 @@ import {
   Save,
   AlertTriangle,
   Share2,
+  Clock,
+  LinkIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -315,7 +322,21 @@ interface SharedTryItPreset {
   pathValues: Record<string, string>;
   queryParams: { key: string; value: string }[];
   body: string;
+  expiresAt?: string;
 }
+
+interface SharedPresetReadResult {
+  preset: SharedTryItPreset | null;
+  expired: boolean;
+}
+
+const EXPIRY_OPTIONS: { label: string; minutes: number | null }[] = [
+  { label: "No expiry", minutes: null },
+  { label: "1 hour", minutes: 60 },
+  { label: "24 hours", minutes: 60 * 24 },
+  { label: "7 days", minutes: 60 * 24 * 7 },
+  { label: "30 days", minutes: 60 * 24 * 30 },
+];
 
 function encodeSharedPreset(preset: SharedTryItPreset): string {
   const json = JSON.stringify(preset);
@@ -358,6 +379,7 @@ function decodeSharedPreset(encoded: string): SharedTryItPreset | null {
             typeof (row as { value?: unknown }).value === "string"
         ),
         body: parsed.body,
+        expiresAt: typeof parsed.expiresAt === "string" ? parsed.expiresAt : undefined,
       };
     }
     return null;
@@ -374,14 +396,19 @@ function buildSharedPresetUrl(preset: SharedTryItPreset): string {
   return url.toString();
 }
 
-function readSharedPresetFromLocation(): SharedTryItPreset | null {
+function readSharedPresetFromLocation(): SharedPresetReadResult {
   try {
     const params = new URLSearchParams(window.location.search);
     const encoded = params.get(SHARE_QUERY_PARAM);
-    if (!encoded) return null;
-    return decodeSharedPreset(encoded);
+    if (!encoded) return { preset: null, expired: false };
+    const preset = decodeSharedPreset(encoded);
+    if (!preset) return { preset: null, expired: false };
+    if (preset.expiresAt && new Date(preset.expiresAt).getTime() < Date.now()) {
+      return { preset: null, expired: true };
+    }
+    return { preset, expired: false };
   } catch {
-    return null;
+    return { preset: null, expired: false };
   }
 }
 
@@ -574,7 +601,13 @@ function TryItPanel({
     setTimeout(() => setCurlCopied(false), 2000);
   }, [buildCurlCommand]);
 
-  const handleShare = useCallback(() => {
+  const [sharePopoverOpen, setSharePopoverOpen] = useState(false);
+
+  const handleShare = useCallback((expiryMinutes: number | null) => {
+    const expiresAt =
+      expiryMinutes != null
+        ? new Date(Date.now() + expiryMinutes * 60 * 1000).toISOString()
+        : undefined;
     const shareUrl = buildSharedPresetUrl({
       method,
       path,
@@ -583,10 +616,15 @@ function TryItPanel({
         .filter((row) => row.key.trim().length > 0)
         .map((row) => ({ key: row.key, value: row.value })),
       body,
+      expiresAt,
     });
     navigator.clipboard.writeText(shareUrl);
     setShareCopied(true);
-    toast.success("Share link copied — opening it pre-loads this exact request");
+    setSharePopoverOpen(false);
+    const label = expiryMinutes != null
+      ? EXPIRY_OPTIONS.find((o) => o.minutes === expiryMinutes)?.label ?? "custom expiry"
+      : "no expiry";
+    toast.success(`Share link copied (${label}) — opening it pre-loads this exact request`);
     setTimeout(() => setShareCopied(false), 2000);
   }, [method, path, pathValues, queryParams, body]);
 
@@ -920,19 +958,41 @@ function TryItPanel({
               )}
               {curlCopied ? "Copied!" : "Copy as cURL"}
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs gap-1.5"
-              onClick={handleShare}
-            >
-              {shareCopied ? (
-                <Check className="w-3 h-3 text-emerald-400" />
-              ) : (
-                <Share2 className="w-3 h-3" />
-              )}
-              {shareCopied ? "Link copied!" : "Share"}
-            </Button>
+            <Popover open={sharePopoverOpen} onOpenChange={setSharePopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                >
+                  {shareCopied ? (
+                    <Check className="w-3 h-3 text-emerald-400" />
+                  ) : (
+                    <Share2 className="w-3 h-3" />
+                  )}
+                  {shareCopied ? "Link copied!" : "Share"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2" align="start">
+                <p className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">
+                  Link expires in…
+                </p>
+                {EXPIRY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.label}
+                    className="flex items-center gap-2 w-full rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors text-left"
+                    onClick={() => handleShare(opt.minutes)}
+                  >
+                    {opt.minutes == null ? (
+                      <LinkIcon className="w-3 h-3 text-muted-foreground shrink-0" />
+                    ) : (
+                      <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+                    )}
+                    {opt.label}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
             <span className="text-xs text-muted-foreground font-mono truncate">{url}</span>
           </div>
 
@@ -1152,14 +1212,16 @@ export default function ApiDocs() {
       return "";
     }
   });
-  const [sharedPreset] = useState<SharedTryItPreset | null>(() => readSharedPresetFromLocation());
+  const [{ preset: sharedPreset, expired: sharedLinkExpired }] = useState<SharedPresetReadResult>(
+    () => readSharedPresetFromLocation()
+  );
   const [managePresetsOpen, setManagePresetsOpen] = useState(false);
 
   useEffect(() => {
-    if (sharedPreset) {
+    if (sharedPreset || sharedLinkExpired) {
       stripSharedPresetFromUrl();
     }
-  }, [sharedPreset]);
+  }, [sharedPreset, sharedLinkExpired]);
 
   const handleTokenChange = (val: string) => {
     setGlobalToken(val);
@@ -1191,6 +1253,18 @@ export default function ApiDocs() {
       </div>
 
       <ManagePresetsDialog open={managePresetsOpen} onOpenChange={setManagePresetsOpen} />
+
+      {sharedLinkExpired && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+          <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-300">This shared link has expired</p>
+            <p className="text-xs text-amber-400/80 mt-0.5">
+              The person who shared this link set an expiry. Ask them to generate a new share link.
+            </p>
+          </div>
+        </div>
+      )}
 
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="pt-4 pb-4 space-y-3">

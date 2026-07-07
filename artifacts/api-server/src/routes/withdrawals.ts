@@ -10,7 +10,7 @@ import {
   payoutBeneficiariesTable,
   SYSTEM_CONFIG_KEYS,
 } from "@workspace/db";
-import { eq, and, count, sum, sql, inArray } from "drizzle-orm";
+import { eq, and, count, sum, sql, inArray, ne, isNull } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { requireModule } from "../middlewares/checkModule";
 import { checkPlanLimit, rejectWithLimitError } from "../helpers/planLimits";
@@ -163,6 +163,8 @@ function mapWithdrawal(
     ifscCode: w.ifscCode,
     accountHolder: w.accountHolder,
     rejectionReason: w.rejectionReason,
+    rejectedAt: isAdmin ? (w.rejectedAt?.toISOString() ?? null) : null,
+    rejectedByAdminId: isAdmin ? (w.rejectedByAdminId ?? null) : null,
     approvedAt: w.approvedAt?.toISOString() ?? null,
     completedAt: w.completedAt?.toISOString() ?? null,
     createdAt: w.createdAt.toISOString(),
@@ -675,57 +677,93 @@ router.post("/:id/approve", requireAdmin, async (req, res) => {
 });
 
 // POST /api/withdrawals/:id/reject
-// Atomically claims the payout (status pending → rejected) BEFORE releasing the
-// wallet hold, so no two concurrent rejects can double-credit the hold.
+// Rejects a payout with a mandatory reason. Allowed for:
+//   - pending rows (hold still locked → release it)
+//   - approved rows with non-SUCCESS transferStatus and no UTR (cleanup / failed rows)
+//     For FAILED/REVERSED rows the hold was already released — skip wallet mutation.
+//     For NOT_STARTED/INITIATED/PENDING rows the hold is still locked — release it.
+// Atomically guards against concurrent state changes via a conditional UPDATE.
 router.post("/:id/reject", requireAdmin, async (req, res) => {
   const user = (req as any).user;
   const id = parseInt(req.params["id"] as string);
   const { reason } = req.body;
-  if (!reason?.trim()) {
-    res.status(400).json({ error: "Rejection reason required" });
+  if (!reason?.trim() || reason.trim().length < 3) {
+    res.status(400).json({ error: "Rejection reason is required (minimum 3 characters)" });
     return;
   }
 
-  // Step 1: Atomically claim: transition pending → rejected with conditional UPDATE.
+  // Step 1: Fetch current state to validate and determine wallet action.
+  const [existing] = await db
+    .select({ w: withdrawalsTable, merchantName: merchantsTable.businessName })
+    .from(withdrawalsTable)
+    .leftJoin(merchantsTable, eq(withdrawalsTable.merchantId, merchantsTable.id))
+    .where(eq(withdrawalsTable.id, id))
+    .limit(1);
+
+  if (!existing) {
+    res.status(404).json({ error: "Payout not found" });
+    return;
+  }
+
+  const w = existing.w;
+
+  if (w.status === "rejected") {
+    res.status(409).json({ error: "Payout is already rejected" });
+    return;
+  }
+  if (w.transferStatus === "SUCCESS" || w.utr) {
+    res.status(409).json({ error: "Cannot reject a payout that has already been sent successfully" });
+    return;
+  }
+  if (w.status !== "pending" && w.status !== "approved") {
+    res.status(409).json({ error: `Payout is in status '${w.status}' — cannot reject` });
+    return;
+  }
+
+  // Step 2: Atomically claim: conditional UPDATE guards against concurrent state changes.
   const [claimed] = await db
     .update(withdrawalsTable)
-    .set({ status: "rejected", rejectionReason: reason.trim() })
-    .where(and(eq(withdrawalsTable.id, id), eq(withdrawalsTable.status, "pending")))
+    .set({
+      status: "rejected",
+      rejectionReason: reason.trim(),
+      rejectedByAdminId: user.id,
+      rejectedAt: new Date(),
+    })
+    .where(and(
+      eq(withdrawalsTable.id, id),
+      inArray(withdrawalsTable.status, ["pending", "approved"]),
+      ne(withdrawalsTable.transferStatus, "SUCCESS"),
+      isNull(withdrawalsTable.utr),
+    ))
     .returning();
 
   if (!claimed) {
-    const [existing] = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.id, id)).limit(1);
-    if (!existing) {
-      res.status(404).json({ error: "Payout not found" });
-    } else {
-      res.status(409).json({ error: `Payout is already ${existing.status} — cannot reject again` });
-    }
+    res.status(409).json({ error: "Payout state changed concurrently — please refresh and try again" });
     return;
   }
 
-  const [merchantRow] = await db
-    .select({ businessName: merchantsTable.businessName })
-    .from(merchantsTable)
-    .where(eq(merchantsTable.id, claimed.merchantId))
-    .limit(1);
-  const merchantName = merchantRow?.businessName ?? null;
-  const amt = Number(claimed.amount);
+  const merchantName = existing.merchantName ?? null;
+  const amt = Number(w.amount);
 
-  // Step 2: Release the wallet hold AFTER the status row is committed as "rejected".
-  // mutateWallet is internally transactional.
-  await mutateWallet(
-    claimed.merchantId,
-    { holdDelta: -amt, availableDelta: amt },
-    {
-      txnType: "payout_release",
-      bucket: "hold",
-      amount: amt,
-      referenceType: "withdrawal",
-      referenceId: id,
-      description: `Payout #${id} rejected — ₹${fmtAmt(amt)} released back`,
-      createdBy: user.id,
-    }
-  );
+  // Step 3: Wallet mutation — only release hold if it was still locked.
+  // FAILED/REVERSED rows already had the hold released when the transfer failed.
+  const holdAlreadyReleased = ["FAILED", "REVERSED"].includes(w.transferStatus);
+
+  if (!holdAlreadyReleased) {
+    await mutateWallet(
+      w.merchantId,
+      { holdDelta: -amt, availableDelta: amt },
+      {
+        txnType: "payout_rejected_release",
+        bucket: "hold",
+        amount: amt,
+        referenceType: "withdrawal",
+        referenceId: id,
+        description: `Payout #${id} rejected — ₹${fmtAmt(amt)} released back`,
+        createdBy: user.id,
+      }
+    );
+  }
 
   await db.insert(auditLogsTable).values({
     adminId: user.id,
@@ -733,11 +771,20 @@ router.post("/:id/reject", requireAdmin, async (req, res) => {
     action: "payout_rejected",
     targetType: "withdrawal",
     targetId: id,
-    details: JSON.stringify({ amount: amt, reason: reason.trim() }),
+    details: JSON.stringify({
+      amount: amt,
+      reason: reason.trim(),
+      oldStatus: w.status,
+      oldTransferStatus: w.transferStatus,
+      holdReleased: !holdAlreadyReleased,
+    }),
     ipAddress: (req as any).ip ?? null,
   });
 
-  req.log.info({ withdrawalId: id, adminId: user.id }, "payout_rejected");
+  req.log.info(
+    { withdrawalId: id, adminId: user.id, oldStatus: w.status, oldTransferStatus: w.transferStatus, holdAlreadyReleased },
+    "payout_rejected"
+  );
   res.json(mapWithdrawal(claimed, merchantName, true));
 });
 

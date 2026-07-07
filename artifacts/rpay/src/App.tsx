@@ -43,6 +43,7 @@ import AdminQrCodes from "@/pages/admin/qr-codes";
 import AdminVirtualAccounts from "@/pages/admin/virtual-accounts";
 import AdminDeposits from "@/pages/admin/deposits";
 import AdminWebhookLogs from "@/pages/admin/webhook-logs";
+import AdminPayoutWebhookLogs from "@/pages/admin/payout-webhook-logs";
 import AdminApiMonitoring from "@/pages/admin/api-monitoring";
 import AdminAuditLogs from "@/pages/admin/audit-logs";
 import AdminUserRoles from "@/pages/admin/user-roles";
@@ -261,6 +262,7 @@ function Router() {
       <Route path="/admin/virtual-accounts"><AdminRoute component={AdminVirtualAccounts} /></Route>
       <Route path="/admin/deposits"><AdminRoute component={AdminDeposits} /></Route>
       <Route path="/admin/webhook-logs"><AdminRoute component={AdminWebhookLogs} /></Route>
+      <Route path="/admin/payout-webhook-logs"><AdminRoute component={AdminPayoutWebhookLogs} /></Route>
       <Route path="/admin/api-monitoring"><AdminRoute component={AdminApiMonitoring} /></Route>
       <Route path="/admin/audit-logs"><AdminRoute component={AdminAuditLogs} /></Route>
       <Route path="/admin/user-roles"><AdminRoute component={AdminUserRoles} /></Route>

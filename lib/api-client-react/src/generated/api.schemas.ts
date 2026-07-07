@@ -1282,6 +1282,16 @@ export interface Withdrawal {
   hasProviderReference?: boolean | null;
   /** @nullable */
   rejectionReason?: string | null;
+  /**
+     * ISO timestamp when admin rejected the payout (admin-only)
+     * @nullable
+     */
+  rejectedAt?: string | null;
+  /**
+     * Admin user ID who rejected the payout (admin-only)
+     * @nullable
+     */
+  rejectedByAdminId?: number | null;
   /** @nullable */
   approvedAt?: string | null;
   /** @nullable */

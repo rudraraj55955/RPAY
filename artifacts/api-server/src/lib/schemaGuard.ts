@@ -206,6 +206,11 @@ async function runGuard(): Promise<void> {
   await db.execute(sql`CREATE INDEX IF NOT EXISTS quiet_hours_queue_flushed_deliver_after_idx ON quiet_hours_queue(flushed, deliver_after)`);
   logger.info({ table: "quiet_hours_queue" }, "schema_guard_column_added");
 
+  // Withdrawals: rejection audit columns (admin ID + timestamp)
+  await db.execute(sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejected_by_admin_id INTEGER`);
+  await db.execute(sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ`);
+  logger.info({ table: "withdrawals" }, "schema_guard_column_added");
+
   logger.info("schema_guard_completed");
 }
 

@@ -74,6 +74,7 @@ export default function AdminPayouts() {
   const [page, setPage] = useState(1);
   const [rejectId, setRejectId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [rejectReasonError, setRejectReasonError] = useState("");
   const [confirmApproveId, setConfirmApproveId] = useState<number | null>(null);
   const [confirmApproveAmount, setConfirmApproveAmount] = useState<number>(0);
   const [detailId, setDetailId] = useState<number | null>(null);
@@ -124,19 +125,31 @@ export default function AdminPayouts() {
   };
 
   const handleReject = () => {
-    if (!rejectId || !rejectReason.trim()) return;
+    if (!rejectId) return;
+    if (!rejectReason.trim() || rejectReason.trim().length < 3) {
+      setRejectReasonError("Rejection reason is required (minimum 3 characters)");
+      return;
+    }
+    setRejectReasonError("");
     rejectMutation.mutate(
       { id: rejectId, data: { reason: rejectReason } },
       {
         onSuccess: () => {
-          toast.success("Payout rejected — funds released back to merchant");
+          toast.success("Payout rejected successfully");
           setRejectId(null);
           setRejectReason("");
+          setRejectReasonError("");
           invalidate();
         },
         onError: (e: any) => toast.error((e?.data as any)?.error ?? e?.message ?? "Failed to reject payout"),
       }
     );
+  };
+
+  const openRejectModal = (id: number) => {
+    setRejectId(id);
+    setRejectReason("");
+    setRejectReasonError("");
   };
 
   const handleRefreshStatus = (id: number) => {
@@ -488,10 +501,7 @@ export default function AdminPayouts() {
                                       size="sm"
                                       variant="ghost"
                                       className="text-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
-                                      onClick={() => {
-                                        setRejectId(w.id);
-                                        setRejectReason("");
-                                      }}
+                                      onClick={() => openRejectModal(w.id)}
                                     >
                                       <XCircle className="w-4 h-4 mr-1" />
                                       Reject
@@ -588,6 +598,18 @@ export default function AdminPayouts() {
                                     Check Beneficiary
                                   </Button>
                                 )}
+                                {w.status === "approved" && w.transferStatus !== "SUCCESS" && !w.utr && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
+                                    onClick={() => openRejectModal(w.id)}
+                                    title="Reject and close out this payout with a mandatory reason."
+                                  >
+                                    <XCircle className="w-4 h-4 mr-1" />
+                                    Reject
+                                  </Button>
+                                )}
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -678,17 +700,26 @@ export default function AdminPayouts() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">
-              Rejecting will release the locked funds back to the merchant's available balance.
+              Are you sure you want to reject this payout? Locked funds will be released back to the merchant's available balance.
             </p>
             <div>
-              <Label>Reason for rejection</Label>
+              <Label htmlFor="reject-reason">
+                Rejection reason <span className="text-destructive">*</span>
+              </Label>
               <Textarea
-                className="mt-1.5"
-                placeholder="Reason for rejection..."
+                id="reject-reason"
+                className={`mt-1.5 ${rejectReasonError ? "border-destructive" : ""}`}
+                placeholder="Enter reason shown to merchant/admin record..."
                 value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)}
+                onChange={e => {
+                  setRejectReason(e.target.value);
+                  if (rejectReasonError) setRejectReasonError("");
+                }}
                 rows={3}
               />
+              {rejectReasonError && (
+                <p className="text-xs text-destructive mt-1">{rejectReasonError}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -698,7 +729,7 @@ export default function AdminPayouts() {
             <Button
               variant="destructive"
               onClick={handleReject}
-              disabled={!rejectReason.trim() || rejectMutation.isPending}
+              disabled={rejectMutation.isPending}
             >
               {rejectMutation.isPending ? "Rejecting..." : "Reject Payout"}
             </Button>
@@ -742,6 +773,18 @@ export default function AdminPayouts() {
                 <span className="text-sm text-muted-foreground">UTR</span>
                 <span className="font-mono text-sm">{detailPayout.utr ?? "—"}</span>
               </div>
+              {detailPayout.rejectionReason && (
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground">Rejection Reason</span>
+                  <p className="text-sm text-rose-400">{detailPayout.rejectionReason}</p>
+                </div>
+              )}
+              {(detailPayout as any).rejectedAt && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Rejected At</span>
+                  <span className="text-sm">{format(new Date((detailPayout as any).rejectedAt), "MMM d, yyyy HH:mm")}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Updated At</span>
                 <span className="text-sm">{detailPayout.updatedAt ? format(new Date(detailPayout.updatedAt), "MMM d, yyyy HH:mm") : "—"}</span>
@@ -816,6 +859,21 @@ export default function AdminPayouts() {
                       </Button>
                     </>
                   )
+                )}
+                {detailPayout.status !== "rejected" && detailPayout.transferStatus !== "SUCCESS" && !detailPayout.utr && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-rose-500 border-rose-500/30"
+                    onClick={() => {
+                      setDetailId(null);
+                      openRejectModal(detailPayout.id);
+                    }}
+                    disabled={rejectMutation.isPending}
+                  >
+                    <XCircle className="w-4 h-4 mr-1" />
+                    Reject Payout
+                  </Button>
                 )}
               </div>
             </div>

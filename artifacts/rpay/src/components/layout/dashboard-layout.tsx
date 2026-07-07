@@ -370,6 +370,7 @@ const ADMIN_NAV = [
     group: "Monitoring",
     items: [
       { title: "Webhook Logs", icon: Webhook, href: "/admin/webhook-logs" },
+      { title: "Payout Webhook Logs", icon: Activity, href: "/admin/payout-webhook-logs" },
       { title: "Callback Logs", icon: Activity, href: "/admin/callbacks" },
       { title: "API Monitoring", icon: Activity, href: "/admin/api-monitoring" },
     ],

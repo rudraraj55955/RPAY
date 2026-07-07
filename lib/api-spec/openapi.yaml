@@ -11539,6 +11539,12 @@ components:
           description: Admin-only — true when a provider reference ID exists, meaning the payout reached the provider and may have succeeded even if local status is FAILED. Retry is blocked while this is true.
         rejectionReason:
           type: ["string", "null"]
+        rejectedAt:
+          type: ["string", "null"]
+          description: "ISO timestamp when admin rejected the payout (admin-only)"
+        rejectedByAdminId:
+          type: ["integer", "null"]
+          description: "Admin user ID who rejected the payout (admin-only)"
         approvedAt:
           type: ["string", "null"]
         completedAt:

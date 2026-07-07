@@ -348,13 +348,13 @@ function formatProvider(p: string | null | undefined): string {
   return PROVIDER_LABELS[p] ?? p.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function ProviderBadge({ provider }: { provider: string | null | undefined }) {
-  if (!provider) return <span className="text-muted-foreground text-xs">—</span>;
+function GatewayBadge({ label }: { label: string | null | undefined }) {
+  if (!label) return <span className="text-muted-foreground text-xs">—</span>;
   return (
-    <Badge variant="outline" className="text-xs gap-1 border-violet-500/30 text-violet-300 bg-violet-500/10">
-      <Zap className="w-3 h-3" />
-      {formatProvider(provider)}
-    </Badge>
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-300/80 bg-sky-500/10 border border-sky-500/20 rounded px-1.5 py-0.5">
+      <CreditCard className="w-3 h-3 shrink-0" />
+      {label}
+    </span>
   );
 }
 
@@ -444,20 +444,17 @@ function TransactionDetailPanel({ id, open, onClose, utrSearch }: { id: number |
               </div>
             </div>
 
-            {/* Provider Connection — only shown when a provider is linked */}
-            {(tx as any).connectionProvider != null && (
+            {/* Gateway — only shown when a provider connection is linked */}
+            {(tx as any).payinGatewayLabel != null && (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5" /> Provider Connection
+                  <CreditCard className="w-3.5 h-3.5" /> Payment Gateway
                 </p>
                 <div className="space-y-0 rounded-lg border divide-y divide-border bg-card/40">
                   <div className="flex items-start justify-between gap-4 px-4 py-3">
-                    <span className="text-sm text-muted-foreground shrink-0">Provider</span>
-                    <ProviderBadge provider={(tx as any).connectionProvider} />
+                    <span className="text-sm text-muted-foreground shrink-0">Gateway</span>
+                    <GatewayBadge label={(tx as any).payinGatewayLabel} />
                   </div>
-                  {(tx as any).connectionId != null && (
-                    <DetailRow label="Connection ID" value={`#${(tx as any).connectionId}`} mono />
-                  )}
                 </div>
               </div>
             )}
@@ -1849,7 +1846,7 @@ export default function MerchantTransactions() {
                 <TableHead>UTR</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Provider</TableHead>
+                <TableHead>Gateway</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead>Date</TableHead>
@@ -1871,7 +1868,7 @@ export default function MerchantTransactions() {
                   <TableCell className="font-mono text-xs">{highlightUtr(tx.utr ?? "", utrSearch)}</TableCell>
                   <TableCell><Badge variant="outline" className="text-xs">{tx.type}</Badge></TableCell>
                   <TableCell><StatusBadge status={tx.status} /></TableCell>
-                  <TableCell><ProviderBadge provider={tx.connectionProvider} /></TableCell>
+                  <TableCell><GatewayBadge label={(tx as any).payinGatewayLabel} /></TableCell>
                   <TableCell className="text-right font-mono font-semibold">₹{Number(tx.amount).toLocaleString()}</TableCell>
                   <TableCell className="text-xs text-muted-foreground font-mono">{tx.referenceId || "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{format(new Date(tx.createdAt), "MMM d, HH:mm")}</TableCell>

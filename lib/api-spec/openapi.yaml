@@ -11131,6 +11131,9 @@ components:
         connectionProvider:
           type: ["string", "null"]
           description: Provider key from the linked merchant connection (e.g. phonepe, paytm, upi_id)
+        payinGatewayLabel:
+          type: ["string", "null"]
+          description: "White-label gateway indicator for merchant display (e.g. Payment Gateway A). Never exposes the raw provider key or internal name."
         merchantName:
           type: ["string", "null"]
         type:

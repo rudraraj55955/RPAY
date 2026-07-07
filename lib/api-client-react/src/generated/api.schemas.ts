@@ -742,6 +742,11 @@ export interface Transaction {
      * @nullable
      */
   connectionProvider?: string | null;
+  /**
+     * White-label gateway indicator for merchant display (e.g. Payment Gateway A). Never exposes the raw provider key or internal name.
+     * @nullable
+     */
+  payinGatewayLabel?: string | null;
   /** @nullable */
   merchantName?: string | null;
   type: TransactionType;

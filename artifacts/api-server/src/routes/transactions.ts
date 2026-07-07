@@ -156,8 +156,37 @@ router.get("/", async (req, res, next) => {
       .offset(offset)
       .orderBy(sql`${transactionsTable.createdAt} DESC`);
 
+    // Build a white-label gateway label (e.g. "Payment Gateway A") for each
+    // unique provider across the FULL filtered dataset (not just the current
+    // page) so the mapping stays stable regardless of which page the merchant
+    // is viewing. The raw providerKey is never surfaced to merchant-facing
+    // screens — only the opaque letter suffix reaches the client.
+    const allProviderRows = await db
+      .selectDistinct({ connectionProvider: merchantConnectionsTable.provider })
+      .from(transactionsTable)
+      .leftJoin(merchantConnectionsTable, eq(transactionsTable.connectionId, merchantConnectionsTable.id))
+      .where(and(where, sql`${merchantConnectionsTable.provider} IS NOT NULL`));
+
+    const uniqueProviders = allProviderRows
+      .map(r => r.connectionProvider)
+      .filter((p): p is string => Boolean(p))
+      .sort();
+    const providerToLabel = new Map<string, string>(
+      uniqueProviders.map((p, i) => [p, `Payment Gateway ${String.fromCharCode(65 + i)}`])
+    );
+
+    const isMerchantUser = user.role !== "admin";
+
     res.json({
-      data: rows.map(r => ({ ...r.transaction, amount: Number(r.transaction.amount), merchantName: r.merchantName ?? null, connectionProvider: r.connectionProvider ?? null })),
+      data: rows.map(r => ({
+        ...r.transaction,
+        amount: Number(r.transaction.amount),
+        merchantName: r.merchantName ?? null,
+        // Omit raw connectionProvider from merchant-facing responses — only
+        // admins need the raw key. Merchants get the white-label label instead.
+        connectionProvider: isMerchantUser ? undefined : (r.connectionProvider ?? null),
+        payinGatewayLabel: r.connectionProvider ? (providerToLabel.get(r.connectionProvider) ?? null) : null,
+      })),
       total,
       page: pageNum,
       limit: limitNum,
@@ -597,8 +626,17 @@ router.get("/:id", async (req, res, next) => {
       .limit(1);
 
     if (rows.length === 0) { res.status(404).json({ error: "Transaction not found" }); return; }
-    const r = rows[0];
-    res.json({ ...r.transaction, amount: Number(r.transaction.amount), merchantName: r.merchantName ?? null, connectionProvider: r.connectionProvider ?? null });
+    const r = rows[0]!;
+    const isMerchantUser = user.role !== "admin";
+    // A single transaction has at most one gateway; label is always "A".
+    const payinGatewayLabel = r.connectionProvider ? "Payment Gateway A" : null;
+    res.json({
+      ...r.transaction,
+      amount: Number(r.transaction.amount),
+      merchantName: r.merchantName ?? null,
+      connectionProvider: isMerchantUser ? undefined : (r.connectionProvider ?? null),
+      payinGatewayLabel,
+    });
   } catch (err) {
     next(err);
   }

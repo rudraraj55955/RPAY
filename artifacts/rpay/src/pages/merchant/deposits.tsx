@@ -1766,6 +1766,7 @@ export default function MerchantDeposits() {
                 <TableHead>Amount</TableHead>
                 <TableHead>UTR</TableHead>
                 <TableHead>Source</TableHead>
+                <TableHead>Gateway</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
@@ -1775,16 +1776,16 @@ export default function MerchantDeposits() {
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : isError ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-10"><div className="flex flex-col items-center gap-2 text-destructive"><XCircle className="w-5 h-5" /><p className="text-sm font-medium">Failed to load deposits</p><p className="text-xs text-muted-foreground">Please refresh the page and try again.</p></div></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10"><div className="flex flex-col items-center gap-2 text-destructive"><XCircle className="w-5 h-5" /><p className="text-sm font-medium">Failed to load deposits</p><p className="text-xs text-muted-foreground">Please refresh the page and try again.</p></div></TableCell></TableRow>
               ) : !data?.data?.length ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                     <div className="flex flex-col items-center gap-3">
                       <ArrowDownLeft className="w-8 h-8 text-muted-foreground/40" />
                       <p>No deposit transactions found</p>
@@ -1815,6 +1816,16 @@ export default function MerchantDeposits() {
                           {sourceInfo}
                         </span>
                       ) : <span className="text-muted-foreground text-xs">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      {t.payinGatewayLabel ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-300/80 bg-sky-500/10 border border-sky-500/20 rounded px-1.5 py-0.5">
+                          <CreditCard className="w-3 h-3 shrink-0" />
+                          {t.payinGatewayLabel}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
                       {t.description ?? "—"}

@@ -10,12 +10,17 @@ import { getMerchantDailyPaidTotal } from "../helpers/payinDailyLimit";
 import { insertPayinOrderWithFallback } from "../helpers/payinOrderInsert";
 import { selectProvider, recordRoutingResult } from "../helpers/smartRouter";
 import { createCustomGatewayOrder } from "../helpers/customGatewayClient";
+import { loadUpigatewayConfig, upigatewayCreateOrder } from "../helpers/upigatewayPayin";
 
 const router = Router();
 
 // providerKey values reserved for the built-in Cashfree payin flow — a smart
 // routing rule using one of these just re-selects the existing hardcoded path.
 const CASHFREE_PROVIDER_KEYS = new Set(["cashfree_payin", "cashfree"]);
+
+// providerKey for the UPIGateway / EKQR payin flow (system-config-driven,
+// not a provider_integrations row — handled inline below).
+const UPIGATEWAY_PROVIDER_KEYS = new Set(["upigateway"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // White-label merchant Payin routes (RasoKart UPI Deposit).
@@ -169,6 +174,94 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
       if (CASHFREE_PROVIDER_KEYS.has(decision.providerKey)) {
         cashfreeRoutingLogId = decision.routingLogId;
         break;
+      }
+
+      // UPIGateway / EKQR payin path — system-config-driven inline dispatch.
+      if (UPIGATEWAY_PROVIDER_KEYS.has(decision.providerKey)) {
+        providerAttemptCounts[decision.providerKey] = (providerAttemptCounts[decision.providerKey] ?? 0) + 1;
+        if (!decision.isFallbackOnly) primaryAttempted = true;
+
+        const ugCfg = await loadUpigatewayConfig().catch(() => null);
+        if (!ugCfg || !ugCfg.enabled || !ugCfg.apiKeySet) {
+          req.log.warn({ event: "payin_upigateway_not_configured", merchantId }, "payin_upigateway_not_configured");
+          await recordRoutingResult({ routingLogId: decision.routingLogId, providerKey: decision.providerKey, result: "skipped", errorMessage: "UPIGateway not configured or disabled" });
+          excludedProviders.push(decision.providerKey);
+          continue;
+        }
+
+        const ugPublicOrderId = `RKPAYIN_${merchantId}_${Date.now()}`;
+        const ugStartedAt = Date.now();
+
+        let ugPaymentUrl: string | null = null;
+        let ugRaw = "";
+        try {
+          const { raw, parsed } = await upigatewayCreateOrder(ugCfg, {
+            key: ugCfg.apiKey,
+            client_txn_id: ugPublicOrderId,
+            amount: depositAmount.toFixed(2),
+            p_info: "RasoKart UPI Deposit",
+            customer_name: customerName ?? "Customer",
+            customer_email: customerEmail ?? "noreply@rasokart.com",
+            customer_mobile: customerPhone,
+            redirect_url: "https://rasokart.com",
+          });
+          ugRaw = raw;
+          if (parsed.status && parsed.payment_url) {
+            ugPaymentUrl = parsed.payment_url;
+          }
+        } catch {
+          req.log.error({ event: "payin_upigateway_dispatch_failed", merchantId }, "payin_upigateway_dispatch_failed");
+        }
+
+        const ugResponseTimeMs = Date.now() - ugStartedAt;
+
+        if (ugPaymentUrl) {
+          try {
+            await db.insert(cashfreePaymentOrdersTable).values({
+              merchantId,
+              publicOrderId: ugPublicOrderId,
+              providerKey: decision.providerKey,
+              cashfreeOrderId: ugPublicOrderId,
+              paymentSessionId: ugPaymentUrl,
+              amount: depositAmount.toFixed(2),
+              currency: "INR",
+              status: PAYIN_ORDER_STATUS.CREATED,
+              paymentMethod: "upi",
+              customerPhone,
+              customerEmail: customerEmail ?? null,
+              rawPayload: ugRaw,
+            }).onConflictDoNothing();
+          } catch {
+            req.log.error({ event: "payin_deposit_order_create_failed", merchantId, safeReason: "db_insert_failed" }, "payin_deposit_order_create_failed");
+            await recordRoutingResult({ routingLogId: decision.routingLogId, providerKey: decision.providerKey, result: "failed", responseTimeMs: ugResponseTimeMs, errorMessage: "db_insert_failed" });
+            genericFailure();
+            return;
+          }
+
+          await recordRoutingResult({ routingLogId: decision.routingLogId, providerKey: decision.providerKey, result: "success", responseTimeMs: ugResponseTimeMs, publicReferenceId: ugPublicOrderId, providerReferenceId: ugPublicOrderId });
+          req.log.info({ event: "payin_deposit_order_created", merchantId, amount: depositAmount, routedVia: "upigateway", attempt }, "payin_deposit_order_created");
+
+          res.json({
+            publicOrderId: ugPublicOrderId,
+            paymentToken: ugPaymentUrl,
+            paymentSessionId: ugPaymentUrl,
+            checkoutUrl: ugPaymentUrl,
+            amount: depositAmount,
+            status: PAYIN_ORDER_STATUS.CREATED,
+            checkoutLabel: "RasoKart Secure Checkout",
+            message: "Deposit order created. Complete the payment via UPI to add funds to your wallet.",
+            safeMessage: "Deposit order created. Complete the payment via UPI to add funds to your wallet.",
+          });
+          return;
+        }
+
+        // Dispatch failed
+        req.log.warn({ event: "payin_upigateway_dispatch_failed", merchantId, attempt }, "payin_upigateway_dispatch_failed");
+        await recordRoutingResult({ routingLogId: decision.routingLogId, providerKey: decision.providerKey, result: "failed", responseTimeMs: ugResponseTimeMs, errorMessage: "UPIGateway order creation failed" });
+        if ((providerAttemptCounts[decision.providerKey] ?? 0) >= decision.maxRetries) {
+          excludedProviders.push(decision.providerKey);
+        }
+        continue;
       }
 
       // Track per-provider attempts

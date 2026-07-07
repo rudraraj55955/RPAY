@@ -7833,6 +7833,117 @@ paths:
         "403":
           description: Forbidden
 
+  /admin/upigateway/settings:
+    get:
+      operationId: getUpigatewaySettings
+      tags: [system-config]
+      summary: Get UPIGateway payin configuration (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: UPIGateway payin configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpigatewaySettings"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+    put:
+      operationId: updateUpigatewaySettings
+      tags: [system-config]
+      summary: Update UPIGateway payin configuration (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpigatewaySettingsInput"
+      responses:
+        "200":
+          description: Updated UPIGateway payin configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpigatewaySettings"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/upigateway/test-credentials:
+    post:
+      operationId: testUpigatewayCredentials
+      tags: [system-config]
+      summary: Test UPIGateway API key connectivity (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpigatewayTestResult"
+        "400":
+          description: API key not configured
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/upigateway/test-order:
+    post:
+      operationId: testUpigatewayOrder
+      tags: [system-config]
+      summary: Create a ₹1 test order via UPIGateway to verify end-to-end integration (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Test order result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpigatewayTestOrderResult"
+        "400":
+          description: API key not configured
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/upigateway/check-status:
+    post:
+      operationId: checkUpigatewayStatus
+      tags: [system-config]
+      summary: Check a UPIGateway order status by client_txn_id and date (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpigatewayCheckStatusInput"
+      responses:
+        "200":
+          description: Order status result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpigatewayCheckStatusResult"
+        "400":
+          description: clientTxnId required or API key not configured
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
   /ekqr/webhook-stats:
     get:
       operationId: getEkqrWebhookStats
@@ -15062,6 +15173,176 @@ components:
         raw:
           type: string
           description: Raw EKQR API response body
+
+    UpigatewaySettings:
+      type: object
+      required: [enabled, env, baseUrl, apiKeySet, apiKeyMasked, merchantId, createOrderEndpoint, checkStatusEndpoint, webhookSecretSet, minAmount, maxAmount, merchantAccess]
+      properties:
+        enabled:
+          type: boolean
+          description: Whether UPIGateway payin is enabled
+        env:
+          type: string
+          enum: [test, live]
+          description: Gateway environment
+        baseUrl:
+          type: string
+          description: API base URL (default https://api.ekqr.in)
+        apiKeySet:
+          type: boolean
+          description: Whether an API key has been configured
+        apiKeyMasked:
+          type: string
+          description: Masked version of the API key
+        merchantId:
+          type: string
+          description: Merchant ID (optional, sent as udf1)
+        createOrderEndpoint:
+          type: string
+          description: Relative endpoint path for order creation (default /api/create_order)
+        checkStatusEndpoint:
+          type: string
+          description: Relative endpoint path for order status check (default /api/check_order_status)
+        webhookSecretSet:
+          type: boolean
+          description: Whether a webhook signature secret has been configured
+        minAmount:
+          type: integer
+          description: Minimum allowed deposit amount in INR
+        maxAmount:
+          type: integer
+          description: Maximum allowed deposit amount in INR
+        merchantAccess:
+          type: boolean
+          description: Whether merchants can view UPIGateway payin orders in their portal
+        lastUpdatedByEmail:
+          type: string
+          nullable: true
+          description: Email of the admin who last changed this config
+        lastUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the most recent config change
+
+    UpigatewaySettingsInput:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Enable or disable UPIGateway payin
+        env:
+          type: string
+          enum: [test, live]
+          description: Gateway environment
+        baseUrl:
+          type: string
+          description: API base URL (omit to leave unchanged)
+        apiKey:
+          type: string
+          description: API key (omit to leave unchanged, empty string to clear)
+        webhookSecret:
+          type: string
+          description: Webhook signature secret (omit to leave unchanged, empty string to clear)
+        merchantId:
+          type: string
+          description: Merchant ID (omit to leave unchanged)
+        createOrderEndpoint:
+          type: string
+          description: Relative endpoint path for order creation (omit to leave unchanged)
+        checkStatusEndpoint:
+          type: string
+          description: Relative endpoint path for status check (omit to leave unchanged)
+        minAmount:
+          type: integer
+          description: Minimum deposit amount in INR
+        maxAmount:
+          type: integer
+          description: Maximum deposit amount in INR
+        merchantAccess:
+          type: boolean
+          description: Whether merchants can view UPIGateway payin orders
+
+    UpigatewayTestResult:
+      type: object
+      required: [ok, message]
+      properties:
+        ok:
+          type: boolean
+          description: Whether the credentials are reachable
+        message:
+          type: string
+          description: Human-readable result message
+
+    UpigatewayTestOrderResult:
+      type: object
+      required: [ok, clientTxnId, message]
+      properties:
+        ok:
+          type: boolean
+          description: Whether the test order was created successfully
+        clientTxnId:
+          type: string
+          description: The client_txn_id used for the test order
+        paymentUrl:
+          type: string
+          nullable: true
+          description: Payment URL returned by the gateway
+        message:
+          type: string
+          description: Gateway response message
+        txnDate:
+          type: string
+          nullable: true
+          description: Date in DD-MM-YYYY format, use with check-status endpoint
+        raw:
+          type: string
+          nullable: true
+          description: Raw gateway response (on failure only)
+
+    UpigatewayCheckStatusInput:
+      type: object
+      required: [clientTxnId]
+      properties:
+        clientTxnId:
+          type: string
+          description: The client_txn_id to check
+        txnDate:
+          type: string
+          description: Date in DD-MM-YYYY format (defaults to today)
+
+    UpigatewayCheckStatusResult:
+      type: object
+      required: [ok, message]
+      properties:
+        ok:
+          type: boolean
+          description: Whether the status check was successful
+        message:
+          type: string
+          description: Gateway response message
+        data:
+          type: object
+          nullable: true
+          properties:
+            status:
+              type: string
+              description: Order status (SUCCESS, FAILED, PENDING)
+            amount:
+              type: string
+              description: Order amount
+            upiTxnId:
+              type: string
+              nullable: true
+              description: UPI transaction ID
+            remark:
+              type: string
+              nullable: true
+              description: Gateway remark
+        raw:
+          type: string
+          nullable: true
+          description: Raw gateway response
 
     EkqrSyncResult:
       type: object

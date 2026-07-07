@@ -400,6 +400,12 @@ import type {
   UpiGatewayCreateBody,
   UpiGatewayTestResult,
   UpiGatewayUpdateBody,
+  UpigatewayCheckStatusInput,
+  UpigatewayCheckStatusResult,
+  UpigatewaySettings,
+  UpigatewaySettingsInput,
+  UpigatewayTestOrderResult,
+  UpigatewayTestResult,
   UploadUrlRequest,
   UploadUrlResponse,
   UpsertAdminMerchantReportSchedule200,
@@ -22912,6 +22918,365 @@ export const useTestEkqrWebhook = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getTestEkqrWebhookMutationOptions(options));
+    }
+
+export const getGetUpigatewaySettingsUrl = () => {
+
+
+
+
+  return `/api/admin/upigateway/settings`
+}
+
+/**
+ * @summary Get UPIGateway payin configuration (admin only)
+ */
+export const getUpigatewaySettings = async ( options?: RequestInit): Promise<UpigatewaySettings> => {
+
+  return customFetch<UpigatewaySettings>(getGetUpigatewaySettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUpigatewaySettingsQueryKey = () => {
+    return [
+    `/api/admin/upigateway/settings`
+    ] as const;
+    }
+
+
+export const getGetUpigatewaySettingsQueryOptions = <TData = Awaited<ReturnType<typeof getUpigatewaySettings>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUpigatewaySettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUpigatewaySettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUpigatewaySettings>>> = ({ signal }) => getUpigatewaySettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUpigatewaySettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUpigatewaySettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getUpigatewaySettings>>>
+export type GetUpigatewaySettingsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get UPIGateway payin configuration (admin only)
+ */
+
+export function useGetUpigatewaySettings<TData = Awaited<ReturnType<typeof getUpigatewaySettings>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUpigatewaySettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUpigatewaySettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateUpigatewaySettingsUrl = () => {
+
+
+
+
+  return `/api/admin/upigateway/settings`
+}
+
+/**
+ * @summary Update UPIGateway payin configuration (admin only)
+ */
+export const updateUpigatewaySettings = async (upigatewaySettingsInput: UpigatewaySettingsInput, options?: RequestInit): Promise<UpigatewaySettings> => {
+
+  return customFetch<UpigatewaySettings>(getUpdateUpigatewaySettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      upigatewaySettingsInput,)
+  }
+);}
+
+
+
+
+export const getUpdateUpigatewaySettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUpigatewaySettings>>, TError,{data: BodyType<UpigatewaySettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateUpigatewaySettings>>, TError,{data: BodyType<UpigatewaySettingsInput>}, TContext> => {
+
+const mutationKey = ['updateUpigatewaySettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUpigatewaySettings>>, {data: BodyType<UpigatewaySettingsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateUpigatewaySettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateUpigatewaySettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateUpigatewaySettings>>>
+    export type UpdateUpigatewaySettingsMutationBody = BodyType<UpigatewaySettingsInput>
+    export type UpdateUpigatewaySettingsMutationError = ErrorType<void>
+
+    /**
+ * @summary Update UPIGateway payin configuration (admin only)
+ */
+export const useUpdateUpigatewaySettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUpigatewaySettings>>, TError,{data: BodyType<UpigatewaySettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateUpigatewaySettings>>,
+        TError,
+        {data: BodyType<UpigatewaySettingsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateUpigatewaySettingsMutationOptions(options));
+    }
+
+export const getTestUpigatewayCredentialsUrl = () => {
+
+
+
+
+  return `/api/admin/upigateway/test-credentials`
+}
+
+/**
+ * @summary Test UPIGateway API key connectivity (admin only)
+ */
+export const testUpigatewayCredentials = async ( options?: RequestInit): Promise<UpigatewayTestResult> => {
+
+  return customFetch<UpigatewayTestResult>(getTestUpigatewayCredentialsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getTestUpigatewayCredentialsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testUpigatewayCredentials>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testUpigatewayCredentials>>, TError,void, TContext> => {
+
+const mutationKey = ['testUpigatewayCredentials'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testUpigatewayCredentials>>, void> = () => {
+
+
+          return  testUpigatewayCredentials(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestUpigatewayCredentialsMutationResult = NonNullable<Awaited<ReturnType<typeof testUpigatewayCredentials>>>
+
+    export type TestUpigatewayCredentialsMutationError = ErrorType<void>
+
+    /**
+ * @summary Test UPIGateway API key connectivity (admin only)
+ */
+export const useTestUpigatewayCredentials = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testUpigatewayCredentials>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testUpigatewayCredentials>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getTestUpigatewayCredentialsMutationOptions(options));
+    }
+
+export const getTestUpigatewayOrderUrl = () => {
+
+
+
+
+  return `/api/admin/upigateway/test-order`
+}
+
+/**
+ * @summary Create a ₹1 test order via UPIGateway to verify end-to-end integration (admin only)
+ */
+export const testUpigatewayOrder = async ( options?: RequestInit): Promise<UpigatewayTestOrderResult> => {
+
+  return customFetch<UpigatewayTestOrderResult>(getTestUpigatewayOrderUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getTestUpigatewayOrderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testUpigatewayOrder>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testUpigatewayOrder>>, TError,void, TContext> => {
+
+const mutationKey = ['testUpigatewayOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testUpigatewayOrder>>, void> = () => {
+
+
+          return  testUpigatewayOrder(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestUpigatewayOrderMutationResult = NonNullable<Awaited<ReturnType<typeof testUpigatewayOrder>>>
+
+    export type TestUpigatewayOrderMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a ₹1 test order via UPIGateway to verify end-to-end integration (admin only)
+ */
+export const useTestUpigatewayOrder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testUpigatewayOrder>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testUpigatewayOrder>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getTestUpigatewayOrderMutationOptions(options));
+    }
+
+export const getCheckUpigatewayStatusUrl = () => {
+
+
+
+
+  return `/api/admin/upigateway/check-status`
+}
+
+/**
+ * @summary Check a UPIGateway order status by client_txn_id and date (admin only)
+ */
+export const checkUpigatewayStatus = async (upigatewayCheckStatusInput: UpigatewayCheckStatusInput, options?: RequestInit): Promise<UpigatewayCheckStatusResult> => {
+
+  return customFetch<UpigatewayCheckStatusResult>(getCheckUpigatewayStatusUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      upigatewayCheckStatusInput,)
+  }
+);}
+
+
+
+
+export const getCheckUpigatewayStatusMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkUpigatewayStatus>>, TError,{data: BodyType<UpigatewayCheckStatusInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkUpigatewayStatus>>, TError,{data: BodyType<UpigatewayCheckStatusInput>}, TContext> => {
+
+const mutationKey = ['checkUpigatewayStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkUpigatewayStatus>>, {data: BodyType<UpigatewayCheckStatusInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  checkUpigatewayStatus(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckUpigatewayStatusMutationResult = NonNullable<Awaited<ReturnType<typeof checkUpigatewayStatus>>>
+    export type CheckUpigatewayStatusMutationBody = BodyType<UpigatewayCheckStatusInput>
+    export type CheckUpigatewayStatusMutationError = ErrorType<void>
+
+    /**
+ * @summary Check a UPIGateway order status by client_txn_id and date (admin only)
+ */
+export const useCheckUpigatewayStatus = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkUpigatewayStatus>>, TError,{data: BodyType<UpigatewayCheckStatusInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof checkUpigatewayStatus>>,
+        TError,
+        {data: BodyType<UpigatewayCheckStatusInput>},
+        TContext
+      > => {
+      return useMutation(getCheckUpigatewayStatusMutationOptions(options));
     }
 
 export const getGetEkqrWebhookStatsUrl = () => {

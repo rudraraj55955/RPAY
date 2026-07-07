@@ -4177,6 +4177,134 @@ export interface EkqrTestResult {
 }
 
 /**
+ * Gateway environment
+ */
+export type UpigatewaySettingsEnv = typeof UpigatewaySettingsEnv[keyof typeof UpigatewaySettingsEnv];
+
+
+export const UpigatewaySettingsEnv = {
+  test: 'test',
+  live: 'live',
+} as const;
+
+export interface UpigatewaySettings {
+  /** Whether UPIGateway payin is enabled */
+  enabled: boolean;
+  /** Gateway environment */
+  env: UpigatewaySettingsEnv;
+  /** API base URL (default https://api.ekqr.in) */
+  baseUrl: string;
+  /** Whether an API key has been configured */
+  apiKeySet: boolean;
+  /** Masked version of the API key */
+  apiKeyMasked: string;
+  /** Merchant ID (optional, sent as udf1) */
+  merchantId: string;
+  /** Relative endpoint path for order creation (default /api/create_order) */
+  createOrderEndpoint: string;
+  /** Relative endpoint path for order status check (default /api/check_order_status) */
+  checkStatusEndpoint: string;
+  /** Whether a webhook signature secret has been configured */
+  webhookSecretSet: boolean;
+  /** Minimum allowed deposit amount in INR */
+  minAmount: number;
+  /** Maximum allowed deposit amount in INR */
+  maxAmount: number;
+  /** Whether merchants can view UPIGateway payin orders in their portal */
+  merchantAccess: boolean;
+  /** Email of the admin who last changed this config */
+  lastUpdatedByEmail?: string | null;
+  /** Timestamp of the most recent config change */
+  lastUpdatedAt?: string | null;
+}
+
+/**
+ * Gateway environment
+ */
+export type UpigatewaySettingsInputEnv = typeof UpigatewaySettingsInputEnv[keyof typeof UpigatewaySettingsInputEnv];
+
+
+export const UpigatewaySettingsInputEnv = {
+  test: 'test',
+  live: 'live',
+} as const;
+
+export interface UpigatewaySettingsInput {
+  /** Enable or disable UPIGateway payin */
+  enabled?: boolean;
+  /** Gateway environment */
+  env?: UpigatewaySettingsInputEnv;
+  /** API base URL (omit to leave unchanged) */
+  baseUrl?: string;
+  /** API key (omit to leave unchanged, empty string to clear) */
+  apiKey?: string;
+  /** Webhook signature secret (omit to leave unchanged, empty string to clear) */
+  webhookSecret?: string;
+  /** Merchant ID (omit to leave unchanged) */
+  merchantId?: string;
+  /** Relative endpoint path for order creation (omit to leave unchanged) */
+  createOrderEndpoint?: string;
+  /** Relative endpoint path for status check (omit to leave unchanged) */
+  checkStatusEndpoint?: string;
+  /** Minimum deposit amount in INR */
+  minAmount?: number;
+  /** Maximum deposit amount in INR */
+  maxAmount?: number;
+  /** Whether merchants can view UPIGateway payin orders */
+  merchantAccess?: boolean;
+}
+
+export interface UpigatewayTestResult {
+  /** Whether the credentials are reachable */
+  ok: boolean;
+  /** Human-readable result message */
+  message: string;
+}
+
+export interface UpigatewayTestOrderResult {
+  /** Whether the test order was created successfully */
+  ok: boolean;
+  /** The client_txn_id used for the test order */
+  clientTxnId: string;
+  /** Payment URL returned by the gateway */
+  paymentUrl?: string | null;
+  /** Gateway response message */
+  message: string;
+  /** Date in DD-MM-YYYY format, use with check-status endpoint */
+  txnDate?: string | null;
+  /** Raw gateway response (on failure only) */
+  raw?: string | null;
+}
+
+export interface UpigatewayCheckStatusInput {
+  /** The client_txn_id to check */
+  clientTxnId: string;
+  /** Date in DD-MM-YYYY format (defaults to today) */
+  txnDate?: string;
+}
+
+export type UpigatewayCheckStatusResultData = {
+  /** Order status (SUCCESS, FAILED, PENDING) */
+  status?: string;
+  /** Order amount */
+  amount?: string;
+  /** UPI transaction ID */
+  upiTxnId?: string | null;
+  /** Gateway remark */
+  remark?: string | null;
+} | null;
+
+export interface UpigatewayCheckStatusResult {
+  /** Whether the status check was successful */
+  ok: boolean;
+  /** Gateway response message */
+  message: string;
+  data?: UpigatewayCheckStatusResultData;
+  /** Raw gateway response */
+  raw?: string | null;
+}
+
+/**
  * Parsed EKQR response object
  */
 export type EkqrSyncResultParsed = { [key: string]: unknown };

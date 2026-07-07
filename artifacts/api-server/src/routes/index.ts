@@ -56,6 +56,8 @@ import kycRouter from "./kyc";
 import reportsRouter from "./reports";
 import supportRouter from "./support";
 import verificationRouter from "./verification";
+import upigatewaySettingsRouter from "./upigatewaySettings";
+import upigatewayWebhookRouter from "./upigatewayWebhook";
 
 const router: IRouter = Router();
 
@@ -78,6 +80,8 @@ router.use("/webhooks/payouts/cashfree", cashfreePayoutWebhookRouter);
 router.use("/webhooks/payin", payinWebhookRouter);
 // Public generic custom-gateway payin webhook — same reason as above.
 router.use("/webhooks/payin/custom", payinCustomWebhookRouter);
+// Public UPIGateway payin webhook — must come BEFORE /webhooks (which has global requireAuth)
+router.use("/webhooks/upigateway", upigatewayWebhookRouter);
 router.use("/webhooks", webhooksRouter);
 router.use("/callbacks", callbacksRouter);
 router.use("/settlements", settlementsRouter);
@@ -117,6 +121,7 @@ router.use("/cashfree-payout/webhook", cashfreePayoutWebhookRouter);
 router.use("/cashfree-payout", cashfreePayoutRouter);
 router.use("/provider-integrations", providerIntegrationsRouter);
 router.use("/admin/upi-gateways", upiGatewaysRouter);
+router.use("/admin/upigateway", upigatewaySettingsRouter);
 router.use("/merchant", rasokartServicesRouter);
 router.use("/smart-routing", smartRoutingRouter);
 router.use("/module-control", moduleControlRouter);

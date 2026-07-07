@@ -5,6 +5,8 @@ import {
   useGetCashfreeConfig, useGetCashfreePayoutConfig,
   useGetEkqrConfig, useUpdateEkqrConfig, useTestEkqrConnection, useTestEkqrWebhook,
   getGetEkqrConfigQueryKey,
+  useGetUpigatewaySettings, useUpdateUpigatewaySettings, getGetUpigatewaySettingsQueryKey,
+  useTestUpigatewayCredentials, useTestUpigatewayOrder, useCheckUpigatewayStatus,
   useListProviderIntegrations, useUpdateProviderIntegration, useDeleteProviderIntegration,
   getListProviderIntegrationsQueryKey,
 } from "@workspace/api-client-react";
@@ -535,6 +537,404 @@ function EkqrConfigPanel() {
   );
 }
 
+// ── UPIGateway Payin Panel ───────────────────────────────────────────────────
+
+function UpigatewayPayinPanel() {
+  const qc = useQueryClient();
+  const { data: cfg, isLoading } = useGetUpigatewaySettings({ request: { headers: authHeader() } } as any);
+
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [env, setEnv] = useState<"test" | "live" | null>(null);
+  const [baseUrl, setBaseUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
+  const [merchantId, setMerchantId] = useState("");
+  const [createOrderEndpoint, setCreateOrderEndpoint] = useState("");
+  const [checkStatusEndpoint, setCheckStatusEndpoint] = useState("");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [merchantAccess, setMerchantAccess] = useState<boolean | null>(null);
+
+  const [showKey, setShowKey] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testOrderResult, setTestOrderResult] = useState<{ ok: boolean; clientTxnId?: string; paymentUrl?: string | null; message: string; txnDate?: string | null } | null>(null);
+  const [checkStatusResult, setCheckStatusResult] = useState<{ ok: boolean; message: string; data?: { status: string; amount: string; upiTxnId?: string | null } | null } | null>(null);
+  const [checkTxnId, setCheckTxnId] = useState("");
+
+  const currentEnabled = enabled !== null ? enabled : (cfg?.enabled ?? false);
+  const currentEnv: "test" | "live" = env !== null ? env : ((cfg?.env as "test" | "live") ?? "test");
+  const currentMerchantAccess = merchantAccess !== null ? merchantAccess : (cfg?.merchantAccess ?? false);
+
+  const unchanged = apiKey === "" && webhookSecret === "" && enabled === null && env === null
+    && baseUrl === "" && merchantId === "" && createOrderEndpoint === "" && checkStatusEndpoint === ""
+    && minAmount === "" && maxAmount === "" && merchantAccess === null;
+
+  const { mutate: saveSettings, isPending: saving } = useUpdateUpigatewaySettings({
+    mutation: {
+      onSuccess: () => {
+        toast.success("UPIGateway Payin settings saved");
+        setApiKey(""); setWebhookSecret(""); setEnabled(null); setEnv(null);
+        setBaseUrl(""); setMerchantId(""); setCreateOrderEndpoint(""); setCheckStatusEndpoint("");
+        setMinAmount(""); setMaxAmount(""); setMerchantAccess(null);
+        qc.invalidateQueries({ queryKey: getGetUpigatewaySettingsQueryKey() });
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
+
+  const { mutate: testCreds, isPending: testingCreds } = useTestUpigatewayCredentials({
+    mutation: {
+      onSuccess: (d: any) => {
+        setTestResult(d);
+        if (d.ok) toast.success("Gateway endpoint reachable");
+        else toast.error(`Test failed: ${d.message}`);
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
+
+  const { mutate: createTestOrder, isPending: creatingOrder } = useTestUpigatewayOrder({
+    mutation: {
+      onSuccess: (d: any) => {
+        setTestOrderResult(d);
+        if (d.ok) {
+          if (d.paymentUrl) setCheckTxnId(d.clientTxnId ?? "");
+          toast.success("Test order created");
+        } else {
+          toast.error(`Order creation failed: ${d.message}`);
+        }
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
+
+  const { mutate: checkStatus, isPending: checkingStatus } = useCheckUpigatewayStatus({
+    mutation: {
+      onSuccess: (d: any) => {
+        setCheckStatusResult(d);
+        if (d.ok) toast.success(`Status: ${d.data?.status ?? d.message}`);
+        else toast.error(d.message);
+      },
+      onError: (err: Error) => toast.error(err.message),
+    },
+  });
+
+  function handleSave() {
+    const body: Record<string, unknown> = { enabled: currentEnabled, env: currentEnv, merchantAccess: currentMerchantAccess };
+    if (baseUrl.trim()) body.baseUrl = baseUrl.trim();
+    if (merchantId.trim()) body.merchantId = merchantId.trim();
+    if (createOrderEndpoint.trim()) body.createOrderEndpoint = createOrderEndpoint.trim();
+    if (checkStatusEndpoint.trim()) body.checkStatusEndpoint = checkStatusEndpoint.trim();
+    if (minAmount.trim()) body.minAmount = parseInt(minAmount);
+    if (maxAmount.trim()) body.maxAmount = parseInt(maxAmount);
+    if (apiKey !== "") body.apiKey = apiKey.trim();
+    if (webhookSecret !== "") body.webhookSecret = webhookSecret.trim();
+    saveSettings({ data: body as any });
+  }
+
+  const WEBHOOK_URL = "https://rasokart.com/api/webhooks/upigateway";
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      {/* Status header */}
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/20 border border-border/40">
+        <div className="p-2 rounded-lg bg-teal-500/10 border border-teal-500/20">
+          <Zap className="w-4 h-4 text-teal-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium">UPIGateway Payin Orders</p>
+          <p className="text-xs text-muted-foreground">Full checkout flow — collects UPI deposits via payment URL redirect</p>
+          {cfg?.lastUpdatedByEmail && cfg?.lastUpdatedAt && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Last changed by <span className="font-medium text-foreground">{cfg.lastUpdatedByEmail}</span> on {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(cfg.lastUpdatedAt))}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {!isLoading && cfg && <StatusBadge enabled={cfg.enabled} />}
+          {!isLoading && cfg && <EnvBadge env={cfg.env} />}
+        </div>
+      </div>
+
+      {/* Webhook URL */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Webhook URL (configure in your UPIGateway / EKQR dashboard)</Label>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 text-xs font-mono bg-muted/40 border border-border/40 rounded-md px-3 py-2 text-teal-300 truncate">
+            {WEBHOOK_URL}
+          </code>
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 shrink-0"
+            onClick={() => copyToClipboard(WEBHOOK_URL, "Webhook URL")}>
+            <Copy className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Enable + Mode */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/10">
+          <div>
+            <p className="text-sm font-medium">Enable Payin Orders</p>
+            <p className="text-xs text-muted-foreground">Accept checkout-flow UPI deposits</p>
+          </div>
+          <Switch checked={currentEnabled} onCheckedChange={v => setEnabled(v)} disabled={isLoading} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Mode</Label>
+          <Select value={currentEnv} onValueChange={v => setEnv(v as "test" | "live")} disabled={isLoading}>
+            <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="test" className="text-xs">
+                <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Sandbox / Test</span>
+              </SelectItem>
+              <SelectItem value="live" className="text-xs">
+                <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />Live / Production</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* API Base URL */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">API Base URL</Label>
+        <Input
+          className="h-9 text-xs font-mono"
+          placeholder={cfg?.baseUrl ?? "https://api.ekqr.in"}
+          value={baseUrl}
+          onChange={e => setBaseUrl(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">Defaults to https://api.ekqr.in. Override only if using a custom endpoint.</p>
+      </div>
+
+      {/* API Key */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">API Key</Label>
+        {cfg?.apiKeySet && apiKey === "" && (
+          <p className="text-xs text-muted-foreground">
+            Current key: <span className="font-mono text-foreground/80">{cfg.apiKeyMasked || "••••••••"}</span>
+            {" — "}enter a new key to replace
+          </p>
+        )}
+        <div className="relative">
+          <Input
+            type={showKey ? "text" : "password"}
+            placeholder={cfg?.apiKeySet ? "Enter new API key to replace…" : "Enter gateway API key"}
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            className="h-9 text-xs pr-9 font-mono"
+          />
+          <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowKey(v => !v)}>
+            {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Webhook Secret */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Webhook Signature Secret</Label>
+        <p className="text-xs text-muted-foreground">
+          {cfg?.webhookSecretSet
+            ? "A secret is configured — webhooks are HMAC-SHA256 verified. Enter new value to rotate."
+            : "Optional. When set, incoming webhooks must pass HMAC-SHA256 signature verification."}
+        </p>
+        <div className="relative">
+          <Input
+            type={showSecret ? "text" : "password"}
+            placeholder={cfg?.webhookSecretSet ? "Enter new secret to rotate…" : "Enter webhook signature secret"}
+            value={webhookSecret}
+            onChange={e => setWebhookSecret(e.target.value)}
+            className="h-9 text-xs pr-9 font-mono"
+          />
+          <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowSecret(v => !v)}>
+            {showSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+        {cfg?.webhookSecretSet && (
+          <p className="text-xs text-emerald-400 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3" />Signature verification active
+          </p>
+        )}
+      </div>
+
+      {/* Advanced fields — collapsible section */}
+      <div className="rounded-lg border border-border/40 overflow-hidden">
+        <div className="p-3 bg-muted/10">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Advanced Settings</p>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Merchant ID</Label>
+            <Input
+              className="h-9 text-xs font-mono"
+              placeholder={cfg?.merchantId || "Optional — passed as udf1 on order creation"}
+              value={merchantId}
+              onChange={e => setMerchantId(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Create Order Endpoint</Label>
+              <Input
+                className="h-9 text-xs font-mono"
+                placeholder={cfg?.createOrderEndpoint ?? "/api/create_order"}
+                value={createOrderEndpoint}
+                onChange={e => setCreateOrderEndpoint(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Check Status Endpoint</Label>
+              <Input
+                className="h-9 text-xs font-mono"
+                placeholder={cfg?.checkStatusEndpoint ?? "/api/check_order_status"}
+                value={checkStatusEndpoint}
+                onChange={e => setCheckStatusEndpoint(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Min Amount (₹)</Label>
+              <Input
+                type="number"
+                className="h-9 text-xs"
+                placeholder={String(cfg?.minAmount ?? 1)}
+                value={minAmount}
+                onChange={e => setMinAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Max Amount (₹)</Label>
+              <Input
+                type="number"
+                className="h-9 text-xs"
+                placeholder={String(cfg?.maxAmount ?? 200000)}
+                value={maxAmount}
+                onChange={e => setMaxAmount(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/10">
+            <div>
+              <p className="text-sm font-medium">Merchant Portal Access</p>
+              <p className="text-xs text-muted-foreground">Allow merchants to view UPIGateway payin orders in their portal</p>
+            </div>
+            <Switch checked={currentMerchantAccess} onCheckedChange={v => setMerchantAccess(v)} disabled={isLoading} />
+          </div>
+        </div>
+      </div>
+
+      {/* Result banners */}
+      {testResult && (
+        <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-md border ${
+          testResult.ok ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-destructive/10 text-destructive border-destructive/20"
+        }`}>
+          {testResult.ok ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+          {testResult.message}
+        </div>
+      )}
+
+      {testOrderResult && (
+        <div className={`space-y-1.5 text-xs px-3 py-2 rounded-md border ${
+          testOrderResult.ok ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-destructive/10 text-destructive border-destructive/20"
+        }`}>
+          <div className="flex items-center gap-2">
+            {testOrderResult.ok ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+            <span>{testOrderResult.ok ? "Test order created" : "Order creation failed"} — {testOrderResult.message}</span>
+          </div>
+          {testOrderResult.ok && testOrderResult.clientTxnId && (
+            <p className="text-xs font-mono pl-5">client_txn_id: {testOrderResult.clientTxnId} (date: {testOrderResult.txnDate ?? "today"})</p>
+          )}
+          {testOrderResult.ok && testOrderResult.paymentUrl && (
+            <a href={testOrderResult.paymentUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 pl-5 underline text-teal-400">
+              <ExternalLink className="w-3 h-3" />Open test payment link
+            </a>
+          )}
+        </div>
+      )}
+
+      {checkStatusResult && (
+        <div className={`text-xs px-3 py-2 rounded-md border ${
+          checkStatusResult.ok ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-destructive/10 text-destructive border-destructive/20"
+        }`}>
+          <div className="flex items-center gap-2">
+            {checkStatusResult.ok ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+            {checkStatusResult.message}
+          </div>
+          {checkStatusResult.data && (
+            <p className="text-xs font-mono pl-5 mt-1">
+              Status: {checkStatusResult.data.status} | ₹{checkStatusResult.data.amount}
+              {checkStatusResult.data.upiTxnId ? ` | UPI: ${checkStatusResult.data.upiTxnId}` : ""}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-2 flex-wrap pt-1">
+        <Button size="sm" onClick={handleSave} disabled={saving || isLoading || unchanged}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />{saving ? "Saving…" : "Save Changes"}
+        </Button>
+        <Button size="sm" variant="outline"
+          onClick={() => { setTestResult(null); testCreds(undefined as any); }}
+          disabled={testingCreds || isLoading || !cfg?.apiKeySet}>
+          <FlaskConical className="w-3.5 h-3.5 mr-1.5" />{testingCreds ? "Testing…" : "Test Credentials"}
+        </Button>
+        <Button size="sm" variant="outline"
+          onClick={() => { setTestOrderResult(null); setCheckStatusResult(null); createTestOrder(undefined as any); }}
+          disabled={creatingOrder || isLoading || !cfg?.apiKeySet}>
+          <Zap className="w-3.5 h-3.5 mr-1.5" />{creatingOrder ? "Creating…" : "Create ₹1 Test Order"}
+        </Button>
+        {!unchanged && (
+          <Button size="sm" variant="ghost" onClick={() => {
+            setApiKey(""); setWebhookSecret(""); setEnabled(null); setEnv(null);
+            setBaseUrl(""); setMerchantId(""); setCreateOrderEndpoint(""); setCheckStatusEndpoint("");
+            setMinAmount(""); setMaxAmount(""); setMerchantAccess(null);
+            setTestResult(null); setTestOrderResult(null); setCheckStatusResult(null);
+          }} disabled={saving}>Cancel</Button>
+        )}
+      </div>
+
+      {/* Check status inline */}
+      <Separator className="opacity-30" />
+      <div className="space-y-2">
+        <p className="text-xs font-medium">Check Order Status</p>
+        <p className="text-xs text-muted-foreground">Enter a client_txn_id to check its status at the gateway.</p>
+        <div className="flex gap-2">
+          <Input
+            className="h-9 text-xs font-mono flex-1"
+            placeholder="e.g. UGTEST_1234567890"
+            value={checkTxnId}
+            onChange={e => setCheckTxnId(e.target.value)}
+          />
+          <Button size="sm" variant="outline"
+            onClick={() => { setCheckStatusResult(null); checkStatus({ data: { clientTxnId: checkTxnId } } as any); }}
+            disabled={checkingStatus || !checkTxnId.trim() || !cfg?.apiKeySet}>
+            {checkingStatus ? "Checking…" : "Check"}
+          </Button>
+        </div>
+      </div>
+
+      <Separator className="opacity-30" />
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick links</p>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5" asChild>
+            <Link href="/admin/webhook-logs"><Activity className="w-3 h-3" />Webhook Logs</Link>
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5" asChild>
+            <Link href="/admin/smart-routing"><GitMerge className="w-3 h-3" />Smart Routing</Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Cashfree summary panels ───────────────────────────────────────────────────
 
 function CashfreePayinPanel() {
@@ -1052,7 +1452,20 @@ export default function AdminPaymentGateways() {
               </TabsList>
               <TabsContent value="cashfree-payin"><CashfreePayinPanel /></TabsContent>
               <TabsContent value="cashfree-payout"><CashfreePayoutPanel /></TabsContent>
-              <TabsContent value="ekqr"><EkqrConfigPanel /></TabsContent>
+              <TabsContent value="ekqr">
+                <Tabs defaultValue="qr-codes">
+                  <TabsList className="h-8 mb-5">
+                    <TabsTrigger value="qr-codes" className="text-xs px-3">
+                      <Layers className="w-3 h-3 mr-1.5" />QR Code Payments
+                    </TabsTrigger>
+                    <TabsTrigger value="payin-orders" className="text-xs px-3">
+                      <Zap className="w-3 h-3 mr-1.5" />Payin Orders
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="qr-codes"><EkqrConfigPanel /></TabsContent>
+                  <TabsContent value="payin-orders"><UpigatewayPayinPanel /></TabsContent>
+                </Tabs>
+              </TabsContent>
               {customIntegrations.map((integration: ProviderIntegration) => (
                 <TabsContent key={integration.providerKey} value={integration.providerKey}>
                   <CustomGatewayConfigPanel integration={integration} />

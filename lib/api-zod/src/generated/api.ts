@@ -7469,6 +7469,105 @@ export const TestEkqrWebhookResponse = zod.object({
 
 
 /**
+ * @summary Get UPIGateway payin configuration (admin only)
+ */
+export const GetUpigatewaySettingsResponse = zod.object({
+  "enabled": zod.boolean().describe('Whether UPIGateway payin is enabled'),
+  "env": zod.enum(['test', 'live']).describe('Gateway environment'),
+  "baseUrl": zod.string().describe('API base URL (default https:\/\/api.ekqr.in)'),
+  "apiKeySet": zod.boolean().describe('Whether an API key has been configured'),
+  "apiKeyMasked": zod.string().describe('Masked version of the API key'),
+  "merchantId": zod.string().describe('Merchant ID (optional, sent as udf1)'),
+  "createOrderEndpoint": zod.string().describe('Relative endpoint path for order creation (default \/api\/create_order)'),
+  "checkStatusEndpoint": zod.string().describe('Relative endpoint path for order status check (default \/api\/check_order_status)'),
+  "webhookSecretSet": zod.boolean().describe('Whether a webhook signature secret has been configured'),
+  "minAmount": zod.number().describe('Minimum allowed deposit amount in INR'),
+  "maxAmount": zod.number().describe('Maximum allowed deposit amount in INR'),
+  "merchantAccess": zod.boolean().describe('Whether merchants can view UPIGateway payin orders in their portal'),
+  "lastUpdatedByEmail": zod.string().nullish().describe('Email of the admin who last changed this config'),
+  "lastUpdatedAt": zod.coerce.date().nullish().describe('Timestamp of the most recent config change')
+})
+
+
+/**
+ * @summary Update UPIGateway payin configuration (admin only)
+ */
+export const UpdateUpigatewaySettingsBody = zod.object({
+  "enabled": zod.boolean().optional().describe('Enable or disable UPIGateway payin'),
+  "env": zod.enum(['test', 'live']).optional().describe('Gateway environment'),
+  "baseUrl": zod.string().optional().describe('API base URL (omit to leave unchanged)'),
+  "apiKey": zod.string().optional().describe('API key (omit to leave unchanged, empty string to clear)'),
+  "webhookSecret": zod.string().optional().describe('Webhook signature secret (omit to leave unchanged, empty string to clear)'),
+  "merchantId": zod.string().optional().describe('Merchant ID (omit to leave unchanged)'),
+  "createOrderEndpoint": zod.string().optional().describe('Relative endpoint path for order creation (omit to leave unchanged)'),
+  "checkStatusEndpoint": zod.string().optional().describe('Relative endpoint path for status check (omit to leave unchanged)'),
+  "minAmount": zod.number().optional().describe('Minimum deposit amount in INR'),
+  "maxAmount": zod.number().optional().describe('Maximum deposit amount in INR'),
+  "merchantAccess": zod.boolean().optional().describe('Whether merchants can view UPIGateway payin orders')
+})
+
+export const UpdateUpigatewaySettingsResponse = zod.object({
+  "enabled": zod.boolean().describe('Whether UPIGateway payin is enabled'),
+  "env": zod.enum(['test', 'live']).describe('Gateway environment'),
+  "baseUrl": zod.string().describe('API base URL (default https:\/\/api.ekqr.in)'),
+  "apiKeySet": zod.boolean().describe('Whether an API key has been configured'),
+  "apiKeyMasked": zod.string().describe('Masked version of the API key'),
+  "merchantId": zod.string().describe('Merchant ID (optional, sent as udf1)'),
+  "createOrderEndpoint": zod.string().describe('Relative endpoint path for order creation (default \/api\/create_order)'),
+  "checkStatusEndpoint": zod.string().describe('Relative endpoint path for order status check (default \/api\/check_order_status)'),
+  "webhookSecretSet": zod.boolean().describe('Whether a webhook signature secret has been configured'),
+  "minAmount": zod.number().describe('Minimum allowed deposit amount in INR'),
+  "maxAmount": zod.number().describe('Maximum allowed deposit amount in INR'),
+  "merchantAccess": zod.boolean().describe('Whether merchants can view UPIGateway payin orders in their portal'),
+  "lastUpdatedByEmail": zod.string().nullish().describe('Email of the admin who last changed this config'),
+  "lastUpdatedAt": zod.coerce.date().nullish().describe('Timestamp of the most recent config change')
+})
+
+
+/**
+ * @summary Test UPIGateway API key connectivity (admin only)
+ */
+export const TestUpigatewayCredentialsResponse = zod.object({
+  "ok": zod.boolean().describe('Whether the credentials are reachable'),
+  "message": zod.string().describe('Human-readable result message')
+})
+
+
+/**
+ * @summary Create a ₹1 test order via UPIGateway to verify end-to-end integration (admin only)
+ */
+export const TestUpigatewayOrderResponse = zod.object({
+  "ok": zod.boolean().describe('Whether the test order was created successfully'),
+  "clientTxnId": zod.string().describe('The client_txn_id used for the test order'),
+  "paymentUrl": zod.string().nullish().describe('Payment URL returned by the gateway'),
+  "message": zod.string().describe('Gateway response message'),
+  "txnDate": zod.string().nullish().describe('Date in DD-MM-YYYY format, use with check-status endpoint'),
+  "raw": zod.string().nullish().describe('Raw gateway response (on failure only)')
+})
+
+
+/**
+ * @summary Check a UPIGateway order status by client_txn_id and date (admin only)
+ */
+export const CheckUpigatewayStatusBody = zod.object({
+  "clientTxnId": zod.string().describe('The client_txn_id to check'),
+  "txnDate": zod.string().optional().describe('Date in DD-MM-YYYY format (defaults to today)')
+})
+
+export const CheckUpigatewayStatusResponse = zod.object({
+  "ok": zod.boolean().describe('Whether the status check was successful'),
+  "message": zod.string().describe('Gateway response message'),
+  "data": zod.object({
+  "status": zod.string().optional().describe('Order status (SUCCESS, FAILED, PENDING)'),
+  "amount": zod.string().optional().describe('Order amount'),
+  "upiTxnId": zod.string().nullish().describe('UPI transaction ID'),
+  "remark": zod.string().nullish().describe('Gateway remark')
+}).nullish(),
+  "raw": zod.string().nullish().describe('Raw gateway response')
+})
+
+
+/**
  * @summary Get EKQR webhook stats for the last 24 hours (admin only)
  */
 export const GetEkqrWebhookStatsResponse = zod.object({

@@ -6,6 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export interface UpigatewayTestResult {
+  /** Whether the credentials are reachable */
+  ok: boolean;
+  /** Human-readable result message */
+  message: string;
+}
+
 export interface UpiGatewayTestResult {
   success: boolean;
   message: string;

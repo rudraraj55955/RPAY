@@ -125,10 +125,10 @@ router.get("/configs/:id/rules", async (req, res, next) => {
 router.post("/configs/:id/rules", async (req, res, next) => {
   try {
     const configId = parseInt(req.params["id"] as string);
-    const { providerKey, priority, weightPercent, minAmount, maxAmount, allowedPaymentModes, isEnabled, notes } = req.body as {
+    const { providerKey, priority, weightPercent, minAmount, maxAmount, allowedPaymentModes, isEnabled, isFallbackOnly, maxRetries, notes } = req.body as {
       providerKey?: string; priority?: number; weightPercent?: number;
       minAmount?: number; maxAmount?: number; allowedPaymentModes?: string[];
-      isEnabled?: boolean; notes?: string;
+      isEnabled?: boolean; isFallbackOnly?: boolean; maxRetries?: number; notes?: string;
     };
 
     if (!providerKey?.trim()) { res.status(400).json({ error: "providerKey is required" }); return; }
@@ -160,10 +160,12 @@ router.post("/configs/:id/rules", async (req, res, next) => {
       maxAmount: maxAmount != null ? String(maxAmount) : null,
       allowedPaymentModes: allowedPaymentModes ? JSON.stringify(allowedPaymentModes) : null,
       isEnabled: isEnabled ?? true,
+      isFallbackOnly: isFallbackOnly ?? false,
+      maxRetries: maxRetries != null ? Math.max(1, Math.min(5, maxRetries)) : 1,
       notes: notes?.trim() ?? null,
     }).returning();
 
-    req.log.info({ configId, providerKey, priority }, "Routing rule created");
+    req.log.info({ configId, providerKey, priority, isFallbackOnly, maxRetries }, "Routing rule created");
     res.json({ ...row!, createdAt: row!.createdAt.toISOString(), updatedAt: row!.updatedAt.toISOString() });
   } catch (err) { next(err); }
 });
@@ -172,10 +174,10 @@ router.post("/configs/:id/rules", async (req, res, next) => {
 router.put("/rules/:id", async (req, res, next) => {
   try {
     const id = parseInt(req.params["id"] as string);
-    const { providerKey, priority, weightPercent, minAmount, maxAmount, allowedPaymentModes, isEnabled, notes } = req.body as {
+    const { providerKey, priority, weightPercent, minAmount, maxAmount, allowedPaymentModes, isEnabled, isFallbackOnly, maxRetries, notes } = req.body as {
       providerKey?: string; priority?: number; weightPercent?: number;
       minAmount?: number | null; maxAmount?: number | null; allowedPaymentModes?: string[];
-      isEnabled?: boolean; notes?: string;
+      isEnabled?: boolean; isFallbackOnly?: boolean; maxRetries?: number; notes?: string;
     };
 
     const [existing] = await db.select().from(routingRulesTable).where(eq(routingRulesTable.id, id)).limit(1);
@@ -209,6 +211,8 @@ router.put("/rules/:id", async (req, res, next) => {
     if (maxAmount !== undefined) updateSet.maxAmount = maxAmount != null ? String(maxAmount) : null;
     if (allowedPaymentModes !== undefined) updateSet.allowedPaymentModes = JSON.stringify(allowedPaymentModes);
     if (isEnabled !== undefined) updateSet.isEnabled = isEnabled;
+    if (isFallbackOnly !== undefined) updateSet.isFallbackOnly = isFallbackOnly;
+    if (maxRetries !== undefined) updateSet.maxRetries = Math.max(1, Math.min(5, maxRetries));
     if (notes !== undefined) updateSet.notes = notes;
 
     const [updated] = await db.update(routingRulesTable).set(updateSet as any).where(eq(routingRulesTable.id, id)).returning();

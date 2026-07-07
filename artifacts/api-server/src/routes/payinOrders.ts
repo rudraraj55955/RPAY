@@ -127,120 +127,164 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
       return;
     }
 
-    // ── Smart routing: if an enabled routing config/rule points at an
-    // admin-added custom gateway, dispatch there instead of the hardcoded
-    // Cashfree path. No decision, or a decision naming the reserved
-    // cashfree_payin/cashfree key, falls straight through to Cashfree below —
-    // this keeps existing behavior unchanged for merchants with no rules set up.
-    req.log.info({ event: "payin_smart_routing_select_started", merchantId }, "payin_smart_routing_select_started");
-    const routingDecision = await selectProvider(
-      { merchantId, amount: depositAmount, paymentMode: "upi", logger: req.log },
-    ).catch((routingErr) => {
-      req.log.warn({ event: "payin_smart_routing_select_failed", merchantId }, "payin_smart_routing_select_failed");
-      return null;
-    });
+    // ── Smart routing: multi-provider retry loop ─────────────────────────────
+    // Walk through all enabled smart routing rules in order. Each rule may
+    // specify isFallbackOnly (skip until a primary has been attempted) and
+    // maxRetries (how many times to try this provider before moving on).
+    //
+    // IMPORTANT: Cashfree is only used as the final step when:
+    //   a) The router explicitly selects it as a routing rule, OR
+    //   b) No routing config exists at all (routingWasConfigured stays false).
+    // When a routing config IS present and all its rules fail, we stop — we do
+    // NOT silently append implicit Cashfree. Admins control the chain entirely.
+    req.log.info({ event: "payin_smart_routing_started", merchantId }, "payin_smart_routing_started");
 
-    if (routingDecision && !CASHFREE_PROVIDER_KEYS.has(routingDecision.providerKey)) {
+    // Large safety cap so the loop can never run indefinitely even if there is
+    // a bug in the exclusion logic. In practice selectProvider returns null
+    // once every provider has hit its maxRetries budget — this cap is never
+    // reached under normal operation regardless of how many rules/retries are
+    // configured (5 rules × 5 maxRetries each = 25 max real iterations).
+    const ROUTING_SAFETY_CAP = 50;
+    const excludedProviders: string[] = [];           // providers that have exhausted maxRetries
+    const providerAttemptCounts: Record<string, number> = {}; // per-provider dispatch counter
+    let primaryAttempted = false;     // has at least one non-fallback rule been tried?
+    let routingWasConfigured = false; // did selectProvider return a non-null result?
+    let cashfreeRoutingLogId: number | null = null;   // log ID when Cashfree is in the routing chain
+
+    for (let attempt = 1; attempt <= ROUTING_SAFETY_CAP; attempt++) {
+      const decision = await selectProvider(
+        { merchantId, amount: depositAmount, paymentMode: "upi", logger: req.log },
+        excludedProviders,
+        attempt,
+        primaryAttempted, // allow fallback-only rules only after a primary has been tried
+      ).catch(() => null);
+
+      if (!decision) break; // no more eligible providers — chain exhausted
+
+      // First non-null decision signals that routing is configured.
+      routingWasConfigured = true;
+
+      // Cashfree built-in path — record the log ID and let the hardcoded
+      // flow below handle the actual dispatch, then stop the loop.
+      if (CASHFREE_PROVIDER_KEYS.has(decision.providerKey)) {
+        cashfreeRoutingLogId = decision.routingLogId;
+        break;
+      }
+
+      // Track per-provider attempts
+      providerAttemptCounts[decision.providerKey] = (providerAttemptCounts[decision.providerKey] ?? 0) + 1;
+      if (!decision.isFallbackOnly) primaryAttempted = true;
+
+      // Dispatch to the custom gateway
       const [integration] = await db.select().from(providerIntegrationsTable)
         .where(and(
-          eq(providerIntegrationsTable.providerKey, routingDecision.providerKey),
+          eq(providerIntegrationsTable.providerKey, decision.providerKey),
           eq(providerIntegrationsTable.isEnabled, true),
         )).limit(1);
 
-      if (integration) {
-        const publicOrderId = `RKPAYIN_${merchantId}_${Date.now()}`;
-        const startedAt = Date.now();
-        const gatewayResult = await createCustomGatewayOrder(integration, {
-          publicOrderId,
-          amount: depositAmount,
-          currency: "INR",
-          customerPhone,
-          customerEmail: customerEmail ?? null,
-          customerName: customerName ?? null,
-          note: "RasoKart UPI Deposit",
-        });
-        const responseTimeMs = Date.now() - startedAt;
+      if (!integration) {
+        req.log.warn({ event: "payin_custom_gateway_not_found", merchantId, providerKey: decision.providerKey }, "payin_custom_gateway_not_found");
+        await recordRoutingResult({ routingLogId: decision.routingLogId, providerKey: decision.providerKey, result: "skipped", errorMessage: "Integration not found or disabled" });
+        excludedProviders.push(decision.providerKey);
+        continue;
+      }
 
-        if (gatewayResult.ok && gatewayResult.providerOrderId) {
-          try {
-            await db.insert(cashfreePaymentOrdersTable).values({
-              merchantId,
-              publicOrderId,
-              providerKey: routingDecision.providerKey,
-              cashfreeOrderId: gatewayResult.providerOrderId,
-              paymentSessionId: gatewayResult.paymentUrl ?? gatewayResult.providerOrderId,
-              amount: depositAmount.toFixed(2),
-              currency: "INR",
-              status: PAYIN_ORDER_STATUS.CREATED,
-              paymentMethod: "upi",
-              customerPhone,
-              customerEmail: customerEmail ?? null,
-              rawPayload: gatewayResult.raw ?? null,
-            }).onConflictDoNothing();
-          } catch (insertErr) {
-            req.log.error({ event: "payin_deposit_order_create_failed", merchantId, safeReason: "db_insert_failed" }, "payin_deposit_order_create_failed");
-            await recordRoutingResult({ routingLogId: routingDecision.routingLogId, providerKey: routingDecision.providerKey, result: "failed", responseTimeMs, errorMessage: "db_insert_failed" });
-            genericFailure();
-            return;
-          }
+      const publicOrderId = `RKPAYIN_${merchantId}_${Date.now()}`;
+      const startedAt = Date.now();
+      const gatewayResult = await createCustomGatewayOrder(integration, {
+        publicOrderId,
+        amount: depositAmount,
+        currency: "INR",
+        customerPhone,
+        customerEmail: customerEmail ?? null,
+        customerName: customerName ?? null,
+        note: "RasoKart UPI Deposit",
+      });
+      const responseTimeMs = Date.now() - startedAt;
 
-          await recordRoutingResult({
-            routingLogId: routingDecision.routingLogId,
-            providerKey: routingDecision.providerKey,
-            result: "success",
-            responseTimeMs,
-            publicReferenceId: publicOrderId,
-            providerReferenceId: gatewayResult.providerOrderId,
-          });
-
-          req.log.info({ event: "payin_deposit_order_created", merchantId, amount: depositAmount, routedVia: "custom_gateway" }, "payin_deposit_order_created");
-
-          // Custom gateways are dispatched via arbitrary HTTP endpoints — only
-          // treat the returned value as a checkout URL if it is actually an
-          // absolute http(s) URL; a bare provider order id is never usable
-          // as a checkout destination.
-          const customCheckoutUrl =
-            gatewayResult.paymentUrl && /^https?:\/\//i.test(gatewayResult.paymentUrl)
-              ? gatewayResult.paymentUrl
-              : null;
-
-          {
-            const safeToken = gatewayResult.paymentUrl ?? gatewayResult.providerOrderId;
-            const safeMessage = "Deposit order created. Complete the payment via UPI to add funds to your wallet.";
-            res.json({
-              publicOrderId,
-              paymentToken: safeToken,
-              paymentSessionId: safeToken,
-              checkoutUrl: customCheckoutUrl,
-              amount: depositAmount,
-              status: PAYIN_ORDER_STATUS.CREATED,
-              checkoutLabel: "RasoKart Secure Checkout",
-              message: safeMessage,
-              safeMessage,
-            });
-          }
+      if (gatewayResult.ok && gatewayResult.providerOrderId) {
+        try {
+          await db.insert(cashfreePaymentOrdersTable).values({
+            merchantId,
+            publicOrderId,
+            providerKey: decision.providerKey,
+            cashfreeOrderId: gatewayResult.providerOrderId,
+            paymentSessionId: gatewayResult.paymentUrl ?? gatewayResult.providerOrderId,
+            amount: depositAmount.toFixed(2),
+            currency: "INR",
+            status: PAYIN_ORDER_STATUS.CREATED,
+            paymentMethod: "upi",
+            customerPhone,
+            customerEmail: customerEmail ?? null,
+            rawPayload: gatewayResult.raw ?? null,
+          }).onConflictDoNothing();
+        } catch (insertErr) {
+          req.log.error({ event: "payin_deposit_order_create_failed", merchantId, safeReason: "db_insert_failed" }, "payin_deposit_order_create_failed");
+          await recordRoutingResult({ routingLogId: decision.routingLogId, providerKey: decision.providerKey, result: "failed", responseTimeMs, errorMessage: "db_insert_failed" });
+          genericFailure();
           return;
         }
 
-        // Custom gateway attempt failed — record it and fall through to the
-        // hardcoded Cashfree path below only when fallback is expected
-        // (routing rules always allow a single hardcoded fallback attempt).
-        req.log.warn({ event: "payin_custom_gateway_dispatch_failed", merchantId, providerKey: routingDecision.providerKey }, "payin_custom_gateway_dispatch_failed");
         await recordRoutingResult({
-          routingLogId: routingDecision.routingLogId,
-          providerKey: routingDecision.providerKey,
-          result: "failed",
+          routingLogId: decision.routingLogId,
+          providerKey: decision.providerKey,
+          result: "success",
           responseTimeMs,
-          errorMessage: gatewayResult.errorMessage ?? "Custom gateway order creation failed",
+          publicReferenceId: publicOrderId,
+          providerReferenceId: gatewayResult.providerOrderId,
         });
-      } else {
-        req.log.warn({ event: "payin_custom_gateway_not_found", merchantId, providerKey: routingDecision.providerKey }, "payin_custom_gateway_not_found");
-        await recordRoutingResult({ routingLogId: routingDecision.routingLogId, providerKey: routingDecision.providerKey, result: "skipped", errorMessage: "Integration not found or disabled" });
+
+        req.log.info({ event: "payin_deposit_order_created", merchantId, amount: depositAmount, routedVia: "custom_gateway", providerKey: decision.providerKey, attempt }, "payin_deposit_order_created");
+
+        const customCheckoutUrl =
+          gatewayResult.paymentUrl && /^https?:\/\//i.test(gatewayResult.paymentUrl)
+            ? gatewayResult.paymentUrl
+            : null;
+
+        const safeToken = gatewayResult.paymentUrl ?? gatewayResult.providerOrderId;
+        res.json({
+          publicOrderId,
+          paymentToken: safeToken,
+          paymentSessionId: safeToken,
+          checkoutUrl: customCheckoutUrl,
+          amount: depositAmount,
+          status: PAYIN_ORDER_STATUS.CREATED,
+          checkoutLabel: "RasoKart Secure Checkout",
+          message: "Deposit order created. Complete the payment via UPI to add funds to your wallet.",
+          safeMessage: "Deposit order created. Complete the payment via UPI to add funds to your wallet.",
+        });
+        return;
       }
-    } else if (routingDecision) {
-      // Routing selected the built-in Cashfree provider — record success once the
-      // hardcoded flow below actually succeeds (handled after order creation).
+
+      // Dispatch failed — record it and decide whether to retry this provider
+      req.log.warn({ event: "payin_custom_gateway_dispatch_failed", merchantId, providerKey: decision.providerKey, attempt }, "payin_custom_gateway_dispatch_failed");
+      await recordRoutingResult({
+        routingLogId: decision.routingLogId,
+        providerKey: decision.providerKey,
+        result: "failed",
+        responseTimeMs,
+        errorMessage: gatewayResult.errorMessage ?? "Custom gateway order creation failed",
+      });
+
+      // Exhaust this provider when its maxRetries budget is spent
+      if (providerAttemptCounts[decision.providerKey] >= decision.maxRetries) {
+        excludedProviders.push(decision.providerKey);
+      }
     }
+
+    // ── Post-loop routing gate ────────────────────────────────────────────────
+    // If the routing chain was active (had at least one decision) but did NOT
+    // select Cashfree, all configured providers are exhausted — fail the order
+    // instead of silently falling through to an implicit Cashfree attempt the
+    // admin never configured. This makes the failover chain authoritative.
+    if (routingWasConfigured && cashfreeRoutingLogId === null) {
+      req.log.warn({ event: "payin_routing_chain_exhausted", merchantId }, "payin_routing_chain_exhausted");
+      res.status(503).json({ error: "Payment is temporarily unavailable. All configured gateways could not process the request. Please try again later or contact support." });
+      return;
+    }
+
+    // No routing config at all, or Cashfree was explicitly selected by the
+    // router — proceed to the hardcoded Cashfree path below.
 
     if (!cfg.clientId || !cfg.rawClientSecret) {
       res.status(400).json({ error: "UPI deposits are not available right now. Please try again later." });
@@ -304,10 +348,10 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
 
     req.log.info({ event: "payin_deposit_order_created", merchantId, amount: depositAmount }, "payin_deposit_order_created");
 
-    if (routingDecision && CASHFREE_PROVIDER_KEYS.has(routingDecision.providerKey)) {
+    if (cashfreeRoutingLogId != null) {
       await recordRoutingResult({
-        routingLogId: routingDecision.routingLogId,
-        providerKey: routingDecision.providerKey,
+        routingLogId: cashfreeRoutingLogId,
+        providerKey: "cashfree_payin",
         result: "success",
         publicReferenceId: publicOrderId,
         providerReferenceId: parsed.order_id ?? publicOrderId,

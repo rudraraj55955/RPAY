@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import {
   GitMerge, Activity, BarChart2, ScrollText, Plus, Pencil, Trash2,
   RefreshCw, ArrowUpDown, CheckCircle2, XCircle, Clock, AlertTriangle,
-  ShieldCheck, Zap, Settings2,
+  ShieldCheck, Zap, Settings2, ChevronsDown, Shield,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 
@@ -46,6 +46,8 @@ type RoutingRule = {
   maxAmount: string | null;
   allowedPaymentModes: string | null;
   isEnabled: boolean;
+  isFallbackOnly: boolean;
+  maxRetries: number;
   notes: string | null;
   updatedAt: string;
 };
@@ -160,6 +162,8 @@ export default function AdminSmartRouting() {
   const [rfMaxAmount, setRfMaxAmount] = useState("");
   const [rfModes, setRfModes] = useState<string[]>([]);
   const [rfEnabled, setRfEnabled] = useState(true);
+  const [rfFallbackOnly, setRfFallbackOnly] = useState(false);
+  const [rfMaxRetries, setRfMaxRetries] = useState(1);
   const [rfNotes, setRfNotes] = useState("");
 
   // Queries
@@ -251,7 +255,8 @@ export default function AdminSmartRouting() {
   function openAddRule() {
     setEditingRule(null);
     setRfProviderKey("cashfree_payin");
-    setRfPriority(1); setRfWeight(100); setRfMinAmount(""); setRfMaxAmount(""); setRfModes([]); setRfEnabled(true); setRfNotes("");
+    setRfPriority(1); setRfWeight(100); setRfMinAmount(""); setRfMaxAmount(""); setRfModes([]);
+    setRfEnabled(true); setRfFallbackOnly(false); setRfMaxRetries(1); setRfNotes("");
     setRuleDialogOpen(true);
   }
 
@@ -261,7 +266,8 @@ export default function AdminSmartRouting() {
     setRfPriority(rule.priority); setRfWeight(rule.weightPercent);
     setRfMinAmount(rule.minAmount ?? ""); setRfMaxAmount(rule.maxAmount ?? "");
     setRfModes(rule.allowedPaymentModes ? JSON.parse(rule.allowedPaymentModes) : []);
-    setRfEnabled(rule.isEnabled); setRfNotes(rule.notes ?? "");
+    setRfEnabled(rule.isEnabled); setRfFallbackOnly(rule.isFallbackOnly ?? false);
+    setRfMaxRetries(rule.maxRetries ?? 1); setRfNotes(rule.notes ?? "");
     setRuleDialogOpen(true);
   }
 
@@ -270,7 +276,8 @@ export default function AdminSmartRouting() {
       providerKey: rfProviderKey, priority: rfPriority, weightPercent: rfWeight,
       minAmount: rfMinAmount ? Number(rfMinAmount) : null,
       maxAmount: rfMaxAmount ? Number(rfMaxAmount) : null,
-      allowedPaymentModes: rfModes, isEnabled: rfEnabled, notes: rfNotes,
+      allowedPaymentModes: rfModes, isEnabled: rfEnabled,
+      isFallbackOnly: rfFallbackOnly, maxRetries: rfMaxRetries, notes: rfNotes,
     });
   }
 
@@ -499,57 +506,119 @@ export default function AdminSmartRouting() {
                       <TableRow className="border-zinc-800 hover:bg-transparent">
                         <TableHead className="text-zinc-400">Priority</TableHead>
                         <TableHead className="text-zinc-400">Provider Key</TableHead>
+                        <TableHead className="text-zinc-400">Role</TableHead>
+                        <TableHead className="text-zinc-400">Retries</TableHead>
                         <TableHead className="text-zinc-400">Weight</TableHead>
                         <TableHead className="text-zinc-400">Amount Range</TableHead>
-                        <TableHead className="text-zinc-400">Payment Modes</TableHead>
                         <TableHead className="text-zinc-400">Status</TableHead>
                         <TableHead className="text-zinc-400 text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(rulesQ.data ?? []).map(rule => {
-                        let modes: string[] = [];
-                        try { modes = rule.allowedPaymentModes ? JSON.parse(rule.allowedPaymentModes) : []; } catch { /* ignore */ }
-                        return (
-                          <TableRow key={rule.id} className="border-zinc-800 hover:bg-zinc-800/50">
-                            <TableCell>
-                              <Badge variant="outline" className="text-violet-400 border-violet-500/30 font-mono">
-                                #{rule.priority}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="font-mono text-sm text-zinc-300">{rule.providerKey}</TableCell>
-                            <TableCell className="text-zinc-300">{rule.weightPercent}%</TableCell>
-                            <TableCell className="text-zinc-400 text-sm">
-                              {rule.minAmount || rule.maxAmount
-                                ? `₹${rule.minAmount ?? "0"} – ${rule.maxAmount ? `₹${rule.maxAmount}` : "∞"}`
-                                : <span className="text-zinc-600">All amounts</span>}
-                            </TableCell>
-                            <TableCell>
-                              {modes.length === 0
-                                ? <span className="text-zinc-600 text-sm">All modes</span>
-                                : <div className="flex flex-wrap gap-1">{modes.map(m => <Badge key={m} variant="outline" className="text-xs text-zinc-400 border-zinc-700">{m}</Badge>)}</div>}
-                            </TableCell>
-                            <TableCell>
-                              {rule.isEnabled
-                                ? <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Enabled</Badge>
-                                : <Badge className="bg-zinc-700 text-zinc-400">Disabled</Badge>}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="sm" onClick={() => openEditRule(rule)} className="text-zinc-400 hover:text-white h-7 px-2">
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="sm" onClick={() => setDeleteRuleId(rule.id)} className="text-red-400 hover:text-red-300 h-7 px-2">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {(rulesQ.data ?? []).map(rule => (
+                        <TableRow key={rule.id} className="border-zinc-800 hover:bg-zinc-800/50">
+                          <TableCell>
+                            <Badge variant="outline" className="text-violet-400 border-violet-500/30 font-mono">
+                              #{rule.priority}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm text-zinc-300">{rule.providerKey}</TableCell>
+                          <TableCell>
+                            {rule.isFallbackOnly
+                              ? <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs"><Shield className="w-3 h-3 mr-1 inline" />Fallback Only</Badge>
+                              : <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">Primary</Badge>}
+                          </TableCell>
+                          <TableCell className="text-zinc-300 text-sm">
+                            {(rule.maxRetries ?? 1) > 1
+                              ? <span className="font-mono">{rule.maxRetries}×</span>
+                              : <span className="text-zinc-600">1×</span>}
+                          </TableCell>
+                          <TableCell className="text-zinc-300">{rule.weightPercent}%</TableCell>
+                          <TableCell className="text-zinc-400 text-sm">
+                            {rule.minAmount || rule.maxAmount
+                              ? `₹${rule.minAmount ?? "0"} – ${rule.maxAmount ? `₹${rule.maxAmount}` : "∞"}`
+                              : <span className="text-zinc-600">All amounts</span>}
+                          </TableCell>
+                          <TableCell>
+                            {rule.isEnabled
+                              ? <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Enabled</Badge>
+                              : <Badge className="bg-zinc-700 text-zinc-400">Disabled</Badge>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => openEditRule(rule)} className="text-zinc-400 hover:text-white h-7 px-2">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => setDeleteRuleId(rule.id)} className="text-red-400 hover:text-red-300 h-7 px-2">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </Card>
+
+                {/* Failover chain visualisation */}
+                {(() => {
+                  const sortedEnabled = (rulesQ.data ?? [])
+                    .filter(r => r.isEnabled)
+                    .sort((a, b) => a.priority - b.priority);
+                  if (sortedEnabled.length === 0) return null;
+                  return (
+                    <Card className="bg-zinc-900 border-zinc-800">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-zinc-300 text-sm flex items-center gap-2">
+                          <ChevronsDown className="w-4 h-4 text-violet-400" />
+                          Failover Chain
+                        </CardTitle>
+                        <CardDescription className="text-zinc-500 text-xs">
+                          Order in which providers are tried on failure. Fallback-only providers are skipped until a primary attempt has been made.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="space-y-1">
+                          {sortedEnabled.map((rule, idx) => (
+                            <div key={rule.id}>
+                              <div className={`flex items-center gap-3 p-2.5 rounded-lg border ${rule.isFallbackOnly ? "bg-amber-500/5 border-amber-500/20" : "bg-blue-500/5 border-blue-500/20"}`}>
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${rule.isFallbackOnly ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"}`}>
+                                  {idx + 1}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-mono text-sm text-white">{rule.providerKey}</span>
+                                    {rule.isFallbackOnly && (
+                                      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs py-0"><Shield className="w-3 h-3 mr-1 inline" />Fallback Only</Badge>
+                                    )}
+                                    {(rule.maxRetries ?? 1) > 1 && (
+                                      <Badge variant="outline" className="text-zinc-400 border-zinc-600 text-xs py-0">up to {rule.maxRetries} attempts</Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-zinc-500 mt-0.5">Priority #{rule.priority}{rule.isFallbackOnly ? " — only tried after a primary route fails" : ""}</p>
+                                </div>
+                                <div className="text-xs text-zinc-600">
+                                  {idx < sortedEnabled.length - 1 ? "→ fails" : "→ order fails"}
+                                </div>
+                              </div>
+                              {idx < sortedEnabled.length - 1 && (
+                                <div className="flex items-center justify-center py-0.5">
+                                  <div className="w-px h-3 bg-zinc-700" />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          <div className="flex items-center gap-3 p-2.5 rounded-lg border border-dashed border-zinc-700 mt-1">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-zinc-800 text-zinc-500">
+                              ✕
+                            </div>
+                            <p className="text-xs text-zinc-500">No more providers — payment order fails and merchant is notified</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
                 </>
               )}
 
@@ -862,6 +931,26 @@ export default function AdminSmartRouting() {
                 ))}
               </div>
               <p className="text-xs text-zinc-600 mt-1.5">Leave unchecked to allow all payment modes</p>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-zinc-300 text-sm">Fallback Only</Label>
+                <p className="text-xs text-zinc-500">Only tried after a primary provider has failed</p>
+              </div>
+              <Switch checked={rfFallbackOnly} onCheckedChange={setRfFallbackOnly} />
+            </div>
+
+            <div>
+              <Label className="text-zinc-400 text-sm mb-1.5 block">Max Retries: {rfMaxRetries}</Label>
+              <Slider
+                min={1} max={5} step={1}
+                value={[rfMaxRetries]}
+                onValueChange={([v]) => setRfMaxRetries(v)}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-zinc-600 mt-1"><span>1 (no retry)</span><span>5</span></div>
+              <p className="text-xs text-zinc-600 mt-1">How many times to attempt this provider before moving to the next</p>
             </div>
 
             <div className="flex items-center justify-between">

@@ -11,6 +11,8 @@ export const routingRulesTable = pgTable("routing_rules", {
   maxAmount: numeric("max_amount", { precision: 18, scale: 2 }),
   allowedPaymentModes: text("allowed_payment_modes"),
   isEnabled: boolean("is_enabled").notNull().default(true),
+  isFallbackOnly: boolean("is_fallback_only").notNull().default(false),
+  maxRetries: integer("max_retries").notNull().default(1),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

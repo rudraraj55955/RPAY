@@ -45,6 +45,10 @@ export interface RoutingDecision {
   strategy: string;
   priority: number;
   attemptNumber: number;
+  /** Whether this rule is marked as fallback-only (only used after a primary has failed). */
+  isFallbackOnly: boolean;
+  /** Max dispatch attempts for this provider before skipping it (default 1). */
+  maxRetries: number;
 }
 
 export interface RoutingResult {
@@ -65,11 +69,18 @@ const rrCounters: Record<string, number> = {};
  * Select the next provider based on routing config + strategy.
  * Returns null if no eligible providers are found.
  * Does NOT make the actual API call — caller is responsible for that.
+ *
+ * @param exclude      Provider keys to skip (already tried / exhausted).
+ * @param attemptNumber  Current attempt count (used for logging).
+ * @param allowFallbackOnly  When false (default), fallback-only rules are excluded
+ *                           from selection. Pass true once a primary rule has been
+ *                           tried at least once so fallback rules become eligible.
  */
 export async function selectProvider(
   ctx: RoutingContext,
   exclude: string[] = [],
   attemptNumber = 1,
+  allowFallbackOnly = false,
 ): Promise<RoutingDecision | null> {
   const configName = ctx.configName ?? "default";
 
@@ -85,14 +96,12 @@ export async function selectProvider(
     return null;
   }
 
-  // Load enabled rules for this config (excluding already-tried providers)
-  let rulesQuery = db.select().from(routingRulesTable)
+  // Load enabled rules for this config (excluding already-exhausted providers)
+  const rules = (await db.select().from(routingRulesTable)
     .where(and(
       eq(routingRulesTable.configId, config.id),
       eq(routingRulesTable.isEnabled, true),
-    ));
-
-  const rules = (await rulesQuery).filter(r => {
+    ))).filter(r => {
     if (exclude.includes(r.providerKey)) return false;
 
     // Amount range filter
@@ -106,6 +115,9 @@ export async function selectProvider(
         if (modes.length > 0 && !modes.includes("all") && !modes.includes(ctx.paymentMode)) return false;
       } catch { /* ignore parse error */ }
     }
+
+    // Fallback-only filter: skip fallback-only rules until a primary has been tried
+    if (r.isFallbackOnly && !allowFallbackOnly) return false;
 
     return true;
   });
@@ -186,6 +198,8 @@ export async function selectProvider(
     strategy: config.strategy,
     providerKey: selectedRule.providerKey,
     priority: selectedRule.priority,
+    isFallbackOnly: selectedRule.isFallbackOnly,
+    maxRetries: selectedRule.maxRetries,
     attemptNumber,
   }, "Smart routing: provider selected");
 
@@ -197,6 +211,8 @@ export async function selectProvider(
     strategy: config.strategy,
     priority: selectedRule.priority,
     attemptNumber,
+    isFallbackOnly: selectedRule.isFallbackOnly,
+    maxRetries: selectedRule.maxRetries,
   };
 }
 

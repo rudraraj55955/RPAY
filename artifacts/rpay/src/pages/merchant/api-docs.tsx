@@ -171,6 +171,60 @@ interface TryItPanelProps {
   expectedBodyKeys?: string[];
 }
 
+function looksLikeCredential(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("rasokart_live_") || trimmed.startsWith("rasokart_secret_")) return true;
+  const parts = trimmed.split(".");
+  if (parts.length === 3 && parts[0].startsWith("ey") && parts[1].startsWith("ey")) return true;
+  return false;
+}
+
+function walkJsonStrings(value: unknown, path: string, found: { path: string; value: string }[]) {
+  if (typeof value === "string") {
+    if (looksLikeCredential(value)) found.push({ path, value });
+  } else if (Array.isArray(value)) {
+    value.forEach((item, i) => walkJsonStrings(item, `${path}[${i}]`, found));
+  } else if (value !== null && typeof value === "object") {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      walkJsonStrings(v, path ? `${path}.${k}` : k, found);
+    }
+  }
+}
+
+function collectCredentialWarnings(
+  queryParams: { key: string; value: string }[],
+  body: string,
+  pathValues: Record<string, string>
+): string[] {
+  const warnings: string[] = [];
+  for (const row of queryParams) {
+    if (row.key.trim() && looksLikeCredential(row.value)) {
+      warnings.push(`query param "${row.key}"`);
+    }
+  }
+  for (const [key, val] of Object.entries(pathValues)) {
+    if (looksLikeCredential(val)) {
+      warnings.push(`path param "{${key}}"`);
+    }
+  }
+  if (body.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(body);
+      const found: { path: string; value: string }[] = [];
+      walkJsonStrings(parsed, "", found);
+      for (const hit of found) {
+        warnings.push(hit.path ? `body field "${hit.path}"` : "request body");
+      }
+    } catch {
+      if (looksLikeCredential(body)) {
+        warnings.push("request body");
+      }
+    }
+  }
+  return warnings;
+}
+
 function getUnknownBodyKeys(body: string, expectedBodyKeys: string[]): string[] {
   if (expectedBodyKeys.length === 0 || !body.trim()) return [];
   try {
@@ -602,8 +656,11 @@ function TryItPanel({
   }, [buildCurlCommand]);
 
   const [sharePopoverOpen, setSharePopoverOpen] = useState(false);
+  const [showShareWarning, setShowShareWarning] = useState(false);
+  const [pendingShareExpiry, setPendingShareExpiry] = useState<number | null>(null);
+  const [shareCredentialWarnings, setShareCredentialWarnings] = useState<string[]>([]);
 
-  const handleShare = useCallback((expiryMinutes: number | null) => {
+  const doShare = useCallback((expiryMinutes: number | null) => {
     const expiresAt =
       expiryMinutes != null
         ? new Date(Date.now() + expiryMinutes * 60 * 1000).toISOString()
@@ -627,6 +684,21 @@ function TryItPanel({
     toast.success(`Share link copied (${label}) — opening it pre-loads this exact request`);
     setTimeout(() => setShareCopied(false), 2000);
   }, [method, path, pathValues, queryParams, body]);
+
+  const handleShare = useCallback((expiryMinutes: number | null) => {
+    const filteredParams = queryParams
+      .filter((row) => row.key.trim().length > 0)
+      .map((row) => ({ key: row.key, value: row.value }));
+    const warnings = collectCredentialWarnings(filteredParams, body, pathValues);
+    if (warnings.length > 0) {
+      setShareCredentialWarnings(warnings);
+      setPendingShareExpiry(expiryMinutes);
+      setSharePopoverOpen(false);
+      setShowShareWarning(true);
+      return;
+    }
+    doShare(expiryMinutes);
+  }, [queryParams, body, pathValues, doShare]);
 
   const handleCopyAllHeaders = useCallback(() => {
     if (!response) return;
@@ -1072,6 +1144,52 @@ function TryItPanel({
           )}
         </div>
       )}
+
+      <Dialog open={showShareWarning} onOpenChange={setShowShareWarning}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-400">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              Possible credential in share link
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground pt-1">
+              The following field{shareCredentialWarnings.length > 1 ? "s" : ""} look{shareCredentialWarnings.length === 1 ? "s" : ""} like a token or API key:
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="mt-1 space-y-1 pl-1">
+            {shareCredentialWarnings.map((w) => (
+              <li key={w} className="flex items-center gap-2 text-xs font-mono text-amber-300">
+                <AlertTriangle className="w-3 h-3 shrink-0 text-amber-400" />
+                {w}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground mt-2">
+            Share links encode everything you've typed here into the URL. Anyone with the link will be able to see these values. Remove them before sharing, or continue only if you're sure this is safe.
+          </p>
+          <div className="flex gap-2 mt-3 justify-end">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowShareWarning(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="gap-1.5"
+              onClick={() => {
+                setShowShareWarning(false);
+                doShare(pendingShareExpiry);
+              }}
+            >
+              <Share2 className="w-3 h-3" />
+              Share anyway
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

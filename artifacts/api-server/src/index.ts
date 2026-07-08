@@ -27,6 +27,7 @@ import { eq } from "drizzle-orm";
 import { initNotifReminderScheduler, runNotifReminderScan } from "./helpers/notifReminderScheduler";
 import { initSnoozeCleanupScheduler, runSnoozeCleanup } from "./helpers/snoozeCleanupScheduler";
 import { initPayoutStuckCleanupScheduler, runStuckPayoutCleanup } from "./helpers/payoutStuckCleanupScheduler";
+import { initGithubSyncLogCleanupScheduler, runGithubSyncLogCleanup } from "./helpers/githubSyncLogCleanupScheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -148,6 +149,7 @@ async function main() {
   initNotifReminderScheduler();
   initSnoozeCleanupScheduler();
   initPayoutStuckCleanupScheduler();
+  initGithubSyncLogCleanupScheduler();
   scheduleCallbackRetryWorker();
   initQuietHoursFlushScheduler();
 
@@ -195,6 +197,15 @@ async function main() {
   runStuckPayoutCleanup().catch((err) => {
     logger.warn({ err }, "Startup stuck payout cleanup sweep failed");
   });
+
+  // Startup sweep: remove any orphaned .github-sync-logs/ files whose id is
+  // not present in the current history (e.g. from a mid-write crash or manual
+  // history edit) so they don't accumulate indefinitely on disk.
+  try {
+    runGithubSyncLogCleanup();
+  } catch (err) {
+    logger.warn({ err }, "Startup GitHub sync log cleanup sweep failed");
+  }
 
   app.listen(port, (err) => {
     if (err) {

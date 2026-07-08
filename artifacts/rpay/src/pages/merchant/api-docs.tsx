@@ -447,6 +447,39 @@ const EXPIRY_OPTIONS: { label: string; minutes: number | null }[] = [
   { label: "30 days", minutes: 60 * 24 * 30 },
 ];
 
+function findClosestExpiryOption(expiresAt: string): number | null {
+  const ts = new Date(expiresAt).getTime();
+  if (!Number.isFinite(ts)) return null;
+  const remainingMs = ts - Date.now();
+  if (remainingMs <= 0) return null;
+  const remainingMinutes = remainingMs / 60000;
+  const tieredOptions = EXPIRY_OPTIONS.filter((o) => o.minutes != null);
+  if (tieredOptions.length === 0) return null;
+  let closest = tieredOptions[0];
+  let closestDiff = Math.abs((closest.minutes ?? 0) - remainingMinutes);
+  for (const opt of tieredOptions) {
+    const diff = Math.abs((opt.minutes ?? 0) - remainingMinutes);
+    if (diff < closestDiff) {
+      closest = opt;
+      closestDiff = diff;
+    }
+  }
+  return closest.minutes ?? null;
+}
+
+function formatRemainingTime(expiresAt: string): string {
+  const ts = new Date(expiresAt).getTime();
+  if (!Number.isFinite(ts)) return "expired";
+  const remainingMs = ts - Date.now();
+  if (remainingMs <= 0) return "expired";
+  const minutes = Math.floor(remainingMs / 60000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+}
+
 function encodeSharedPreset(preset: SharedTryItPreset): string {
   const json = JSON.stringify(preset);
   const bytes = new TextEncoder().encode(json);
@@ -589,6 +622,12 @@ function TryItPanel({
     loadPresetsForEndpoint(method, path)
   );
   const [presetName, setPresetName] = useState("");
+
+  const suggestedExpiryMinutes = useMemo(
+    () => (sharedMatch?.expiresAt ? findClosestExpiryOption(sharedMatch.expiresAt) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   useEffect(() => {
     if (sharedMatch) {
@@ -1116,24 +1155,39 @@ function TryItPanel({
                   {shareCopied ? "Link copied!" : "Share"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-52 p-2" align="start">
+              <PopoverContent className="w-56 p-2" align="start">
                 <p className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">
                   Link expires in…
                 </p>
-                {EXPIRY_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.label}
-                    className="flex items-center gap-2 w-full rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors text-left"
-                    onClick={() => handleShare(opt.minutes)}
-                  >
-                    {opt.minutes == null ? (
-                      <LinkIcon className="w-3 h-3 text-muted-foreground shrink-0" />
-                    ) : (
-                      <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
-                    )}
-                    {opt.label}
-                  </button>
-                ))}
+                {sharedMatch?.expiresAt && (
+                  <p className="text-[11px] text-amber-400/80 px-2 pb-1.5 flex items-center gap-1">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    Original expires in {formatRemainingTime(sharedMatch.expiresAt)}
+                  </p>
+                )}
+                {EXPIRY_OPTIONS.map((opt) => {
+                  const isSuggested =
+                    suggestedExpiryMinutes != null && opt.minutes === suggestedExpiryMinutes;
+                  return (
+                    <button
+                      key={opt.label}
+                      className={`flex items-center gap-2 w-full rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors text-left${isSuggested ? " bg-accent/50 font-medium" : ""}`}
+                      onClick={() => handleShare(opt.minutes)}
+                    >
+                      {opt.minutes == null ? (
+                        <LinkIcon className="w-3 h-3 text-muted-foreground shrink-0" />
+                      ) : (
+                        <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+                      )}
+                      {opt.label}
+                      {isSuggested && (
+                        <span className="ml-auto text-[10px] text-amber-400/80 font-normal shrink-0">
+                          suggested
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </PopoverContent>
             </Popover>
             <span className="text-xs text-muted-foreground font-mono truncate">{url}</span>

@@ -1315,51 +1315,107 @@ function RoutingPanel() {
 
 // ── Payin Charges Panel ───────────────────────────────────────────────────────
 
+// ── Pure client-side charge calculation (mirrors chargeCalculator.ts) ─────────
+type PreviewFormState = {
+  enabled: boolean;
+  mdrPct: string;
+  fixedFee: string;
+  minFee: string;
+  maxFee: string;
+  gstPct: string;
+  gstEnabled: boolean;
+  roundingMode: string;
+  applyToOwnStaticUpi: boolean;
+  applyToDynamicQr: boolean;
+  applyToPaymentLinks: boolean;
+  applyToApiGateway: boolean;
+};
+
+type PreviewChannel = "own_static_upi" | "dynamic_qr" | "payment_links" | "api_gateway";
+
+type PreviewResult = {
+  payinFee: number;
+  gstAmount: number;
+  netAmount: number;
+  grossAmount: number;
+  chargesApplied: boolean;
+  reason: string | null;
+};
+
+function calcPreview(form: PreviewFormState, gross: number, channel: PreviewChannel): PreviewResult {
+  const zero: PreviewResult = { payinFee: 0, gstAmount: 0, netAmount: gross, grossAmount: gross, chargesApplied: false, reason: null };
+  if (!form.enabled) return { ...zero, reason: "Global charges are disabled" };
+
+  const channelOn =
+    channel === "own_static_upi" ? form.applyToOwnStaticUpi :
+    channel === "dynamic_qr"     ? form.applyToDynamicQr :
+    channel === "payment_links"  ? form.applyToPaymentLinks :
+                                   form.applyToApiGateway;
+  if (!channelOn) return { ...zero, reason: "Charges are disabled for this channel" };
+
+  const mdrPct   = Math.max(0, parseFloat(form.mdrPct)   || 0);
+  const fixedFee = Math.max(0, parseFloat(form.fixedFee) || 0);
+  const minFee   = Math.max(0, parseFloat(form.minFee)   || 0);
+  const maxFee   = form.maxFee !== "" ? Math.max(0, parseFloat(form.maxFee) || 0) : null;
+  const gstPct   = Math.max(0, parseFloat(form.gstPct)   || 0);
+
+  const round2 = (v: number) => {
+    const f = 100;
+    if (form.roundingMode === "ceil")  return Math.ceil(v  * f) / f;
+    if (form.roundingMode === "floor") return Math.floor(v * f) / f;
+    return Math.round(v * f) / f;
+  };
+
+  let fee = gross * (mdrPct / 100) + fixedFee;
+  if (fee < minFee) fee = minFee;
+  if (maxFee != null && fee > maxFee) fee = maxFee;
+  fee = round2(fee);
+
+  const gstAmount = form.gstEnabled ? round2(fee * (gstPct / 100)) : 0;
+  const netAmount = round2(Math.max(0, gross - fee - gstAmount));
+
+  return { payinFee: fee, gstAmount, netAmount, grossAmount: gross, chargesApplied: true, reason: null };
+}
+
+const CHANNEL_OPTIONS: { value: PreviewChannel; label: string }[] = [
+  { value: "own_static_upi", label: "Own Static UPI" },
+  { value: "dynamic_qr",     label: "Dynamic QR" },
+  { value: "payment_links",  label: "Payment Links" },
+  { value: "api_gateway",    label: "API Gateway" },
+];
+
 function PayinChargesPanel() {
   const qc = useQueryClient();
   const { data: settings, isLoading } = useGetPayinChargeSettings({
     request: { headers: authHeader() },
   } as any);
 
-  const [form, setForm] = useState<{
-    enabled: boolean;
-    mdrPct: string;
-    fixedFee: string;
-    minFee: string;
-    maxFee: string;
-    gstPct: string;
-    gstEnabled: boolean;
-    roundingMode: string;
-    applyToOwnStaticUpi: boolean;
-    applyToDynamicQr: boolean;
-    applyToPaymentLinks: boolean;
-    applyToApiGateway: boolean;
-  } | null>(null);
-
+  const [form, setForm] = useState<PreviewFormState | null>(null);
   const [previewAmount, setPreviewAmount] = useState("1000");
-  const [previewResult, setPreviewResult] = useState<{ payinFee: number; gstAmount: number; netAmount: number; chargesApplied: boolean } | null>(null);
+  const [previewChannel, setPreviewChannel] = useState<PreviewChannel>("payment_links");
+  const [previewResult, setPreviewResult] = useState<PreviewResult | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const { mutateAsync: updateSettings } = useUpdatePayinChargeSettings({
     request: { headers: authHeader() },
   } as any);
 
-  // Sync form when settings arrive
+  // Sync form when settings arrive (one-shot initialisation)
   const initialized = form !== null;
   if (settings && !initialized) {
     setForm({
-      enabled: settings.enabled,
-      mdrPct: String(settings.mdrPct),
-      fixedFee: String(settings.fixedFee),
-      minFee: String(settings.minFee),
-      maxFee: settings.maxFee != null ? String(settings.maxFee) : "",
-      gstPct: String(settings.gstPct),
-      gstEnabled: settings.gstEnabled,
-      roundingMode: settings.roundingMode,
+      enabled:            settings.enabled,
+      mdrPct:             String(settings.mdrPct),
+      fixedFee:           String(settings.fixedFee),
+      minFee:             String(settings.minFee),
+      maxFee:             settings.maxFee != null ? String(settings.maxFee) : "",
+      gstPct:             String(settings.gstPct),
+      gstEnabled:         settings.gstEnabled,
+      roundingMode:       settings.roundingMode,
       applyToOwnStaticUpi: settings.applyToOwnStaticUpi,
-      applyToDynamicQr: settings.applyToDynamicQr,
+      applyToDynamicQr:   settings.applyToDynamicQr,
       applyToPaymentLinks: settings.applyToPaymentLinks,
-      applyToApiGateway: settings.applyToApiGateway,
+      applyToApiGateway:  settings.applyToApiGateway,
     });
   }
 
@@ -1369,18 +1425,18 @@ function PayinChargesPanel() {
     try {
       await updateSettings({
         data: {
-          enabled: form.enabled,
-          mdrPct: parseFloat(form.mdrPct) || 0,
-          fixedFee: parseFloat(form.fixedFee) || 0,
-          minFee: parseFloat(form.minFee) || 0,
-          maxFee: form.maxFee !== "" ? parseFloat(form.maxFee) : null,
-          gstPct: parseFloat(form.gstPct) || 0,
-          gstEnabled: form.gstEnabled,
-          roundingMode: form.roundingMode as "round" | "ceil" | "floor",
+          enabled:             form.enabled,
+          mdrPct:              parseFloat(form.mdrPct)    || 0,
+          fixedFee:            parseFloat(form.fixedFee)  || 0,
+          minFee:              parseFloat(form.minFee)    || 0,
+          maxFee:              form.maxFee !== "" ? (parseFloat(form.maxFee) || 0) : null,
+          gstPct:              parseFloat(form.gstPct)    || 0,
+          gstEnabled:          form.gstEnabled,
+          roundingMode:        form.roundingMode as "round" | "ceil" | "floor",
           applyToOwnStaticUpi: form.applyToOwnStaticUpi,
-          applyToDynamicQr: form.applyToDynamicQr,
+          applyToDynamicQr:    form.applyToDynamicQr,
           applyToPaymentLinks: form.applyToPaymentLinks,
-          applyToApiGateway: form.applyToApiGateway,
+          applyToApiGateway:   form.applyToApiGateway,
         },
       });
       qc.invalidateQueries({ queryKey: getGetPayinChargeSettingsQueryKey() });
@@ -1392,21 +1448,12 @@ function PayinChargesPanel() {
     }
   }
 
-  async function handlePreview() {
+  // Client-side preview: uses current form values, no DB round-trip
+  function handlePreview() {
+    if (!form) return;
     const amt = parseFloat(previewAmount);
-    if (!amt || amt <= 0) return;
-    try {
-      const token = getToken();
-      const res = await fetch(`/api/admin/payin-charges/preview?amount=${amt}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPreviewResult(data);
-      }
-    } catch {
-      toast.error("Preview failed");
-    }
+    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
+    setPreviewResult(calcPreview(form, amt, previewChannel));
   }
 
   if (isLoading || !form) {
@@ -1495,9 +1542,9 @@ function PayinChargesPanel() {
             <CardContent className="px-4 pb-4 space-y-2.5">
               {([
                 ["applyToOwnStaticUpi", "Own Static UPI (UTR verifications)"] as const,
-                ["applyToDynamicQr", "Dynamic QR (EKQR / UPI gateway)"] as const,
+                ["applyToDynamicQr",    "Dynamic QR (EKQR / UPI gateway)"] as const,
                 ["applyToPaymentLinks", "Payment Links"] as const,
-                ["applyToApiGateway", "API Gateway (Cashfree payin orders)"] as const,
+                ["applyToApiGateway",   "API Gateway (Cashfree payin orders)"] as const,
               ]).map(([key, label]) => (
                 <div key={key} className="flex items-center justify-between">
                   <Label className="text-xs text-muted-foreground">{label}</Label>
@@ -1510,29 +1557,71 @@ function PayinChargesPanel() {
             </CardContent>
           </Card>
 
-          {/* Preview calculator */}
+          {/* Preview calculator — uses current form values, no save required */}
           <Card className="border-border/40">
             <CardHeader className="pb-3 pt-4 px-4">
               <CardTitle className="text-sm flex items-center gap-2"><ReceiptText className="w-4 h-4 text-emerald-400" />Charge Preview</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-3">
-              <div className="flex gap-2 items-end">
-                <div className="space-y-1.5 flex-1">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
                   <Label className="text-xs">Gross Amount (₹)</Label>
                   <Input className="h-8 text-sm" type="number" min="1" value={previewAmount}
                     onChange={e => setPreviewAmount(e.target.value)} />
                 </div>
-                <Button size="sm" variant="outline" className="h-8" onClick={handlePreview}>Preview</Button>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Channel</Label>
+                  <Select value={previewChannel} onValueChange={v => setPreviewChannel(v as PreviewChannel)}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CHANNEL_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+              <Button size="sm" variant="outline" className="h-8 w-full" onClick={handlePreview}>
+                Calculate Preview
+              </Button>
               {previewResult && (
                 <div className="rounded-lg border border-border/40 bg-muted/20 p-3 text-xs space-y-1.5">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Gross Amount</span><span>₹{parseFloat(previewAmount).toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Payin Fee</span><span className="text-rose-400">−₹{previewResult.payinFee.toFixed(2)}</span></div>
-                  {previewResult.gstAmount > 0 && <div className="flex justify-between"><span className="text-muted-foreground">GST on Fee</span><span className="text-rose-400">−₹{previewResult.gstAmount.toFixed(2)}</span></div>}
-                  <Separator />
-                  <div className="flex justify-between font-semibold"><span>Net to Merchant</span><span className="text-emerald-400">₹{previewResult.netAmount.toFixed(2)}</span></div>
-                  {!previewResult.chargesApplied && (
-                    <div className="flex items-center gap-1.5 text-amber-400 mt-1"><Info className="w-3 h-3" /><span>No charges applied (disabled for this channel or merchant)</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Gross Amount</span>
+                    <span>₹{previewResult.grossAmount.toFixed(2)}</span>
+                  </div>
+                  {previewResult.chargesApplied ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Payin Fee (MDR + Fixed)</span>
+                        <span className="text-rose-400">−₹{previewResult.payinFee.toFixed(2)}</span>
+                      </div>
+                      {previewResult.gstAmount > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">GST on Fee</span>
+                          <span className="text-rose-400">−₹{previewResult.gstAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between font-semibold">
+                        <span>Net to Merchant</span>
+                        <span className="text-emerald-400">₹{previewResult.netAmount.toFixed(2)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Separator />
+                      <div className="flex justify-between font-semibold">
+                        <span>Net to Merchant</span>
+                        <span className="text-emerald-400">₹{previewResult.netAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-amber-400 mt-1">
+                        <Info className="w-3 h-3 shrink-0" />
+                        <span>{previewResult.reason ?? "No charges applied"}</span>
+                      </div>
+                    </>
                   )}
                 </div>
               )}

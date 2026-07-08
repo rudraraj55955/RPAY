@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 
 type User = {
   id: number;
@@ -65,11 +66,17 @@ export default function AdminUsers() {
     });
   };
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
   const handleDelete = (id: number) => {
-    if (!confirm("Delete this user?")) return;
-    deleteMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("User deleted"); qc.invalidateQueries({ queryKey: getListUsersQueryKey() }); },
-      onError: () => toast.error("Failed to delete user"),
+    setConfirmDeleteId(id);
+  };
+
+  const doDelete = () => {
+    if (confirmDeleteId == null) return;
+    deleteMutation.mutate({ id: confirmDeleteId }, {
+      onSuccess: () => { toast.success("User deleted"); setConfirmDeleteId(null); qc.invalidateQueries({ queryKey: getListUsersQueryKey() }); },
+      onError: () => { toast.error("Failed to delete user"); setConfirmDeleteId(null); },
     });
   };
 
@@ -267,6 +274,17 @@ export default function AdminUsers() {
           )}
         </SheetContent>
       </Sheet>
+
+      <RasoConfirmModal
+        open={confirmDeleteId != null}
+        onOpenChange={v => { if (!v) setConfirmDeleteId(null); }}
+        variant="destructive"
+        title="Delete User"
+        description="This admin user will be permanently deleted and will lose access immediately. This cannot be undone."
+        confirmLabel="Delete User"
+        onConfirm={doDelete}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

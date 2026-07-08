@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Pencil, Trash2, PlusCircle, Search, Infinity, KeyRound, Webhook, Percent, CheckCircle2, XCircle, Network } from "lucide-react";
 import { toast } from "sonner";
 import type { Plan } from "@workspace/api-client-react";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 
 interface PricingObj { qr: { monthly: number; perTx: number }; va: { monthly: number; perTx: number } }
 const DEFAULT_PRICING: PricingObj = { qr: { monthly: 0, perTx: 0 }, va: { monthly: 0, perTx: 0 } };
@@ -151,11 +152,17 @@ export default function AdminPlans() {
     }
   };
 
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
+
   const handleDelete = (id: number, name: string) => {
-    if (!confirm(`Delete plan "${name}"? This will unassign it from any merchants.`)) return;
-    deleteMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Plan deleted"); qc.invalidateQueries({ queryKey: getListPlansQueryKey() }); },
-      onError: () => toast.error("Failed to delete"),
+    setConfirmDelete({ id, name });
+  };
+
+  const doDelete = () => {
+    if (!confirmDelete) return;
+    deleteMutation.mutate({ id: confirmDelete.id }, {
+      onSuccess: () => { toast.success("Plan deleted"); setConfirmDelete(null); qc.invalidateQueries({ queryKey: getListPlansQueryKey() }); },
+      onError: () => { toast.error("Failed to delete"); setConfirmDelete(null); },
     });
   };
 
@@ -428,6 +435,17 @@ export default function AdminPlans() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RasoConfirmModal
+        open={confirmDelete != null}
+        onOpenChange={v => { if (!v) setConfirmDelete(null); }}
+        variant="destructive"
+        title="Delete Plan"
+        description={confirmDelete ? `Delete plan "${confirmDelete.name}"? This will unassign it from any merchants currently on this plan.` : ""}
+        confirmLabel="Delete Plan"
+        onConfirm={doDelete}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { Search, Trash2, Download, QrCode, X, RefreshCw, ChevronDown, ChevronRig
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 
 function statusBadge(status: string) {
   if (status === "active") return <Badge className="text-xs bg-emerald-500/15 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">Active</Badge>;
@@ -385,11 +386,17 @@ export default function AdminQrCodes() {
     setSelectedIds(new Set());
   };
 
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+
   const handleDelete = (id: number) => {
-    if (!confirm("Delete this QR code?")) return;
-    deleteMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("QR code deleted"); invalidateQr(); },
-      onError: () => toast.error("Failed to delete"),
+    setConfirmDelete(id);
+  };
+
+  const doDelete = () => {
+    if (confirmDelete == null) return;
+    deleteMutation.mutate({ id: confirmDelete }, {
+      onSuccess: () => { toast.success("QR code deleted"); setConfirmDelete(null); invalidateQr(); },
+      onError: () => { toast.error("Failed to delete"); setConfirmDelete(null); },
     });
   };
 
@@ -737,6 +744,17 @@ export default function AdminQrCodes() {
           isPending={bulkDeleteMutation.isPending}
         />
       )}
+
+      <RasoConfirmModal
+        open={confirmDelete != null}
+        onOpenChange={v => { if (!v) setConfirmDelete(null); }}
+        variant="destructive"
+        title="Delete QR Code"
+        description="This QR code will be permanently deleted. Existing scan links will stop working."
+        confirmLabel="Delete"
+        onConfirm={doDelete}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

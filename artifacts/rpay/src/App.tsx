@@ -1,5 +1,6 @@
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, MutationCache, QueryCache } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -104,8 +105,37 @@ import MerchantReports from "@/pages/merchant/reports";
 import AdminReports from "@/pages/admin/reports";
 import AdminPlatformProfit from "@/pages/admin/platform-profit";
 import MerchantSupport from "@/pages/merchant/support";
+import MerchantAccountStatement from "@/pages/merchant/account-statement";
+import AdminMerchantStatements from "@/pages/admin/merchant-statements";
 
+function extractApiError(error: unknown): string | null {
+  if (!error) return null;
+  const e = error as any;
+  return e?.response?.data?.error ?? e?.message ?? null;
+}
+
+// Errors from queries/mutations that set their own onError are left alone.
+// This global handler only fires when NO per-call onError was set.
 const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onError(error, _variables, _context, mutation) {
+      // Skip if the mutation has a specific onError handler
+      if (mutation.options.onError) return;
+      const msg = extractApiError(error);
+      toast.error(msg ?? "An error occurred. Please try again.");
+    },
+  }),
+  queryCache: new QueryCache({
+    onError(error, query) {
+      // Only fire for background refetches (data was previously loaded), not initial loads
+      if (query.state.data === undefined) return;
+      const msg = extractApiError(error);
+      // Suppress 401/403 — auth-context handles these already
+      const status = (error as any)?.response?.status;
+      if (status === 401 || status === 403) return;
+      toast.error(msg ?? "Failed to refresh data. Please try again.");
+    },
+  }),
   defaultOptions: {
     queries: {
       retry: false,
@@ -297,6 +327,7 @@ function Router() {
       <Route path="/admin/platform-profit"><AdminRoute component={AdminPlatformProfit} /></Route>
       <Route path="/admin/support-tickets"><AdminRoute component={AdminSupportTickets} /></Route>
       <Route path="/admin/support"><AdminRoute component={AdminSupportTickets} /></Route>
+      <Route path="/admin/merchant-statements"><AdminRoute component={AdminMerchantStatements} /></Route>
 
       {/* Legacy/broken payout routes — redirect to canonical page */}
       <Route path="/admin/cashfree-payout"><Redirect to="/admin/payout-gateway" /></Route>
@@ -331,6 +362,7 @@ function Router() {
       <Route path="/merchant/wallet"><MerchantRoute component={MerchantWallet} /></Route>
       <Route path="/merchant/reports"><MerchantRoute component={MerchantReports} /></Route>
       <Route path="/merchant/support"><MerchantRoute component={MerchantSupport} /></Route>
+      <Route path="/merchant/account-statement"><MerchantRoute component={MerchantAccountStatement} /></Route>
       <Route path="/merchant/api-docs"><PublicPage component={MerchantApiDocs} /></Route>
       <Route path="/api-docs"><Redirect to="/merchant/api-docs" /></Route>
 

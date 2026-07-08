@@ -62,6 +62,7 @@ import utrVerificationsRouter from "./utrVerifications";
 import payinChargesRouter from "./payinCharges";
 import platformProfitRouter from "./platformProfit";
 import publicPayoutSlipRouter from "./publicPayoutSlip";
+import accountStatementRouter from "./accountStatement";
 
 const router: IRouter = Router();
 
@@ -138,6 +139,8 @@ router.use("/verification", verificationRouter);
 router.use("/admin/utr-verifications", utrVerificationsRouter);
 router.use("/admin/payin-charges", payinChargesRouter);
 router.use("/admin/platform-profit", platformProfitRouter);
+// Account statement — merchant own + admin any-merchant
+router.use("/account-statement", accountStatementRouter);
 // Public payout slip — token-authenticated, no session required; mount last to avoid path conflicts
 router.use("/public/payout-slip", publicPayoutSlipRouter);
 

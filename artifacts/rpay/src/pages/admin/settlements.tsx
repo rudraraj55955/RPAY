@@ -1163,6 +1163,21 @@ export default function AdminSettlements() {
                                 No actions available
                               </DropdownMenuItem>
                             )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const token = localStorage.getItem("rasokart_token");
+                                const a = document.createElement("a");
+                                a.href = `/api/settlements/${s.id}/pdf`;
+                                const headers = new Headers({ Authorization: `Bearer ${token}` });
+                                fetch(a.href, { headers }).then(r => r.blob()).then(blob => {
+                                  const url = URL.createObjectURL(blob);
+                                  a.href = url; a.download = `settlement-slip-${s.id}.pdf`; a.click(); URL.revokeObjectURL(url);
+                                });
+                              }}
+                            >
+                              Download Slip PDF
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

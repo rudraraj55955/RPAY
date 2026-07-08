@@ -23,7 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ChevronDown, ChevronRight, ChevronLeft, Clock, Plus, CalendarRange, X, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, ChevronLeft, Clock, Plus, CalendarRange, X, Pencil, Trash2, FileDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getApiErrorMessage } from "@/lib/utils";
 import { format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
@@ -783,6 +783,26 @@ export default function MerchantSettlements() {
                                 <p className="font-medium">{format(new Date(s.paidAt), "MMM d, yyyy HH:mm")}</p>
                               </div>
                             )}
+                          </div>
+                          <div className="mt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1.5"
+                              onClick={() => {
+                                const token = localStorage.getItem("rasokart_token");
+                                fetch(`/api/settlements/${s.id}/pdf`, {
+                                  headers: { Authorization: `Bearer ${token}` },
+                                }).then(r => r.blob()).then(blob => {
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = url; a.download = `settlement-slip-${s.id}.pdf`; a.click();
+                                  URL.revokeObjectURL(url);
+                                });
+                              }}
+                            >
+                              <FileDown className="w-3.5 h-3.5" /> Download Slip PDF
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>

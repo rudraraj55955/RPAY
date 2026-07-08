@@ -7,6 +7,7 @@ import { createNotification } from "../helpers/notifications";
 import { notifyAdminsOfSettlementStateChange } from "../helpers/adminNotifyEmail";
 import { notifyMerchantOfSettlementStateChange } from "../helpers/merchantNotifyEmail";
 import { makeRateLimiter } from "../helpers/makeRateLimiter";
+import { buildSettlementSlipPdf } from "../helpers/settlementSlipPdf";
 
 const settlementCreateLimiter = makeRateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -112,6 +113,59 @@ router.get("/", async (req, res) => {
     page: pageNum,
     limit: limitNum,
   });
+});
+
+// GET /api/settlements/:id/pdf  (merchant: own settlement | admin: any)
+router.get("/:id/pdf", async (req, res) => {
+  const user = (req as any).user;
+  const id = parseId(req.params['id'] as string);
+
+  const rows = await db
+    .select({ s: settlementsTable, merchantName: merchantsTable.businessName, merchantEmail: merchantsTable.email })
+    .from(settlementsTable)
+    .leftJoin(merchantsTable, eq(settlementsTable.merchantId, merchantsTable.id))
+    .where(eq(settlementsTable.id, id))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) {
+    res.status(404).json({ error: "Settlement not found" });
+    return;
+  }
+
+  // Merchants can only download their own settlements
+  if (user.role !== "admin" && row.s.merchantId !== user.merchantId) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  try {
+    const buf = await buildSettlementSlipPdf({
+      id: row.s.id,
+      merchantName: row.merchantName ?? `Merchant #${row.s.merchantId}`,
+      merchantEmail: row.merchantEmail ?? "",
+      status: row.s.status,
+      requestedAmount: Number(row.s.requestedAmount ?? row.s.amount),
+      amount: Number(row.s.amount),
+      currency: row.s.currency,
+      requestedNote: row.s.requestedNote,
+      adminRemark: row.s.adminRemark,
+      referenceNumber: row.s.referenceNumber,
+      periodFrom: row.s.periodFrom,
+      periodTo: row.s.periodTo,
+      transactionCount: row.s.transactionCount,
+      createdAt: row.s.createdAt,
+      processedAt: row.s.processedAt,
+      paidAt: row.s.paidAt,
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="settlement-slip-${id}.pdf"`);
+    res.send(buf);
+  } catch (err) {
+    req.log.error({ err }, "Failed to generate settlement slip PDF");
+    res.status(500).json({ error: "Failed to generate PDF" });
+  }
 });
 
 // GET /api/settlements/export/csv  (admin only)

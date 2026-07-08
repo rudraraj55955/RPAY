@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
 import { buildUpiId, buildUpiUrl } from "@/lib/upi";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 
 type VaRow = {
   id: number;
@@ -288,8 +289,15 @@ export default function AdminVirtualAccounts() {
   const deleteMutation = useDeleteVirtualAccount();
   const cleanupMutation = useRunVaCleanup();
 
+  const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
+  const [confirmDeleteVaId, setConfirmDeleteVaId] = useState<number | null>(null);
+
   const handleRunCleanup = () => {
-    if (!confirm("Run VA cleanup now?\n\nThis will:\n• Close active VAs with no activity (zero totalCollection, no transactions) older than 30 days\n• Delete closed VAs with zero balance/collection and no transactions older than 30 days")) return;
+    setShowCleanupConfirm(true);
+  };
+
+  const doCleanup = () => {
+    setShowCleanupConfirm(false);
     cleanupMutation.mutate(undefined, {
       onSuccess: (result) => {
         const parts = [];
@@ -322,10 +330,14 @@ export default function AdminVirtualAccounts() {
   };
 
   const handleDelete = (id: number) => {
-    if (!confirm("Delete this virtual account?")) return;
-    deleteMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Virtual account deleted"); qc.invalidateQueries({ queryKey: ["/api/virtual-accounts"] }); },
-      onError: () => toast.error("Failed to delete"),
+    setConfirmDeleteVaId(id);
+  };
+
+  const doDeleteVa = () => {
+    if (confirmDeleteVaId == null) return;
+    deleteMutation.mutate({ id: confirmDeleteVaId }, {
+      onSuccess: () => { toast.success("Virtual account deleted"); setConfirmDeleteVaId(null); qc.invalidateQueries({ queryKey: ["/api/virtual-accounts"] }); },
+      onError: () => { toast.error("Failed to delete"); setConfirmDeleteVaId(null); },
     });
   };
 
@@ -1322,6 +1334,28 @@ export default function AdminVirtualAccounts() {
           )}
         </SheetContent>
       </Sheet>
+
+      <RasoConfirmModal
+        open={showCleanupConfirm}
+        onOpenChange={v => { if (!v) setShowCleanupConfirm(false); }}
+        variant="warning"
+        title="Run VA Cleanup"
+        description="This will close active virtual accounts with no activity older than 30 days, and permanently delete closed accounts with zero balance and no transactions older than 30 days."
+        confirmLabel="Run Cleanup"
+        onConfirm={doCleanup}
+        loading={cleanupMutation.isPending}
+      />
+
+      <RasoConfirmModal
+        open={confirmDeleteVaId != null}
+        onOpenChange={v => { if (!v) setConfirmDeleteVaId(null); }}
+        variant="destructive"
+        title="Delete Virtual Account"
+        description="This virtual account will be permanently deleted. All associated transaction history will be removed."
+        confirmLabel="Delete"
+        onConfirm={doDeleteVa}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

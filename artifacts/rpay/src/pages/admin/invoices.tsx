@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PlusCircle, CheckCircle2, Ban, Search, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 
 const STATUS_STYLE: Record<string, string> = {
   draft: "text-muted-foreground border-muted-foreground/30",
@@ -75,11 +76,17 @@ export default function AdminInvoices() {
     });
   };
 
+  const [confirmVoidId, setConfirmVoidId] = useState<number | null>(null);
+
   const handleVoid = (id: number) => {
-    if (!confirm("Void this invoice?")) return;
-    voidMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Invoice voided"); invalidate(); },
-      onError: () => toast.error("Failed to void invoice"),
+    setConfirmVoidId(id);
+  };
+
+  const doVoid = () => {
+    if (confirmVoidId == null) return;
+    voidMutation.mutate({ id: confirmVoidId }, {
+      onSuccess: () => { toast.success("Invoice voided"); setConfirmVoidId(null); invalidate(); },
+      onError: () => { toast.error("Failed to void invoice"); setConfirmVoidId(null); },
     });
   };
 
@@ -272,6 +279,17 @@ export default function AdminInvoices() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RasoConfirmModal
+        open={confirmVoidId != null}
+        onOpenChange={v => { if (!v) setConfirmVoidId(null); }}
+        variant="warning"
+        title="Void Invoice"
+        description="This invoice will be marked as voided and cannot be re-activated. The merchant will see it as cancelled."
+        confirmLabel="Void Invoice"
+        onConfirm={doVoid}
+        loading={voidMutation.isPending}
+      />
     </div>
   );
 }

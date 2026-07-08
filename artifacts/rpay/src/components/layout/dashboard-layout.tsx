@@ -214,6 +214,7 @@ function MerchantSidebar() {
         { title: "Wallet", icon: Wallet, href: "/merchant/wallet", locked: false, lockReason: null },
         { title: "Balance Ledger", icon: BookMarked, href: "/merchant/ledger", locked: false, lockReason: null },
         { title: "Reports", icon: BarChart3, href: "/merchant/reports", locked: false, lockReason: null },
+        { title: "Account Statement", icon: FileText, href: "/merchant/account-statement", locked: false, lockReason: null },
       ],
     },
     {
@@ -387,9 +388,10 @@ const ADMIN_NAV = [
   {
     group: "Finance",
     items: [
-      { title: "Reconciliation",  icon: GitMerge,    href: "/admin/reconciliation" },
-      { title: "Reports",         icon: BarChart3,   href: "/admin/reports" },
-      { title: "Platform Profit", icon: TrendingUp,  href: "/admin/platform-profit", superAdminOnly: true as const },
+      { title: "Reconciliation",       icon: GitMerge,    href: "/admin/reconciliation" },
+      { title: "Reports",              icon: BarChart3,   href: "/admin/reports" },
+      { title: "Merchant Statements",  icon: FileText,    href: "/admin/merchant-statements" },
+      { title: "Platform Profit",      icon: TrendingUp,  href: "/admin/platform-profit", superAdminOnly: true as const },
     ],
   },
   {

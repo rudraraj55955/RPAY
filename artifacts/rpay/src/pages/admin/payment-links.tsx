@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Link2, Trash2, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 
 type LinkRow = {
   id: number;
@@ -55,19 +56,35 @@ export default function AdminPaymentLinks() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["/api/payment-links"] });
 
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void; variant?: "destructive" | "warning" }>({ open: false, title: "", description: "", onConfirm: () => {} });
+
   const handleDelete = (id: number) => {
-    if (!confirm("Delete this payment link permanently?")) return;
-    deleteMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Payment link deleted"); invalidate(); },
-      onError: () => toast.error("Failed to delete"),
+    setConfirmModal({
+      open: true,
+      title: "Delete Payment Link",
+      description: "This will permanently delete the payment link and it will no longer be accessible. This cannot be undone.",
+      variant: "destructive",
+      onConfirm: () => {
+        deleteMutation.mutate({ id }, {
+          onSuccess: () => { toast.success("Payment link deleted"); setConfirmModal(m => ({ ...m, open: false })); invalidate(); },
+          onError: () => toast.error("Failed to delete"),
+        });
+      },
     });
   };
 
   const handleForceExpire = (id: number) => {
-    if (!confirm("Force expire this payment link?")) return;
-    updateMutation.mutate({ id, data: { status: "expired" as any } }, {
-      onSuccess: () => { toast.success("Payment link expired"); invalidate(); },
-      onError: () => toast.error("Failed to update"),
+    setConfirmModal({
+      open: true,
+      title: "Force Expire Payment Link",
+      description: "This will immediately expire the payment link. It can no longer accept payments.",
+      variant: "warning",
+      onConfirm: () => {
+        updateMutation.mutate({ id, data: { status: "expired" as any } }, {
+          onSuccess: () => { toast.success("Payment link expired"); setConfirmModal(m => ({ ...m, open: false })); invalidate(); },
+          onError: () => toast.error("Failed to update"),
+        });
+      },
     });
   };
 
@@ -199,6 +216,17 @@ export default function AdminPaymentLinks() {
           </div>
         </div>
       )}
+
+      <RasoConfirmModal
+        open={confirmModal.open}
+        onOpenChange={v => setConfirmModal(m => ({ ...m, open: v }))}
+        variant={confirmModal.variant ?? "destructive"}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmLabel="Yes, Confirm"
+        onConfirm={confirmModal.onConfirm}
+        loading={deleteMutation.isPending || updateMutation.isPending}
+      />
     </div>
   );
 }

@@ -5703,6 +5703,115 @@ export interface AdminVerificationStatsResponse {
   stats: AdminVerificationStatsResponseStats;
 }
 
+export type PayinChargeSettingsRoundingMode = typeof PayinChargeSettingsRoundingMode[keyof typeof PayinChargeSettingsRoundingMode];
+
+
+export const PayinChargeSettingsRoundingMode = {
+  round: 'round',
+  ceil: 'ceil',
+  floor: 'floor',
+} as const;
+
+export interface PayinChargeSettings {
+  id: number;
+  enabled: boolean;
+  mdrPct: number;
+  fixedFee: number;
+  minFee: number;
+  /** @nullable */
+  maxFee?: number | null;
+  gstPct: number;
+  gstEnabled: boolean;
+  roundingMode: PayinChargeSettingsRoundingMode;
+  applyToOwnStaticUpi: boolean;
+  applyToDynamicQr: boolean;
+  applyToPaymentLinks: boolean;
+  applyToApiGateway: boolean;
+  updatedAt: string;
+  /** @nullable */
+  updatedByEmail?: string | null;
+}
+
+export type UpdatePayinChargeSettingsInputRoundingMode = typeof UpdatePayinChargeSettingsInputRoundingMode[keyof typeof UpdatePayinChargeSettingsInputRoundingMode];
+
+
+export const UpdatePayinChargeSettingsInputRoundingMode = {
+  round: 'round',
+  ceil: 'ceil',
+  floor: 'floor',
+} as const;
+
+export interface UpdatePayinChargeSettingsInput {
+  enabled?: boolean;
+  mdrPct?: number;
+  fixedFee?: number;
+  minFee?: number;
+  /** @nullable */
+  maxFee?: number | null;
+  gstPct?: number;
+  gstEnabled?: boolean;
+  roundingMode?: UpdatePayinChargeSettingsInputRoundingMode;
+  applyToOwnStaticUpi?: boolean;
+  applyToDynamicQr?: boolean;
+  applyToPaymentLinks?: boolean;
+  applyToApiGateway?: boolean;
+}
+
+export interface MerchantChargeOverride {
+  id: number;
+  merchantId: number;
+  useGlobal: boolean;
+  customEnabled: boolean;
+  /** @nullable */
+  mdrPct?: number | null;
+  /** @nullable */
+  fixedFee?: number | null;
+  /** @nullable */
+  minFee?: number | null;
+  /** @nullable */
+  maxFee?: number | null;
+  /** @nullable */
+  gstPct?: number | null;
+  /** @nullable */
+  gstEnabled?: boolean | null;
+  /** @nullable */
+  roundingMode?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  updatedAt: string;
+  /** @nullable */
+  updatedByEmail?: string | null;
+}
+
+export interface UpdateMerchantChargeOverrideInput {
+  useGlobal?: boolean;
+  customEnabled?: boolean;
+  /** @nullable */
+  mdrPct?: number | null;
+  /** @nullable */
+  fixedFee?: number | null;
+  /** @nullable */
+  minFee?: number | null;
+  /** @nullable */
+  maxFee?: number | null;
+  /** @nullable */
+  gstPct?: number | null;
+  /** @nullable */
+  gstEnabled?: boolean | null;
+  /** @nullable */
+  roundingMode?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface PayinChargePreview {
+  grossAmount: number;
+  payinFee: number;
+  gstAmount: number;
+  netAmount: number;
+  chargesApplied: boolean;
+}
+
 export type UpdateMyPreferencesBody = {
   reconciliationAlertEmails?: boolean;
   planExpiryAlertEmails?: boolean;
@@ -7571,4 +7680,9 @@ export const AdminListVerificationsStatus = {
   needs_info: 'needs_info',
   suspended: 'suspended',
 } as const;
+
+export type GetPayinChargePreviewParams = {
+amount: number;
+merchantId?: number;
+};
 

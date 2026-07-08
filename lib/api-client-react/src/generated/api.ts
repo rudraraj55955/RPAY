@@ -138,6 +138,7 @@ import type {
   GetLedgerBackfillLastRun200,
   GetMerchantsWebhookFailureCountsParams,
   GetMyVerificationResponse,
+  GetPayinChargePreviewParams,
   GetQrCodeStatsParams,
   GetQuietHoursQueueCount200,
   GetReconciliationRunEmailLogs200,
@@ -237,6 +238,7 @@ import type {
   Merchant,
   MerchantActivationRequest,
   MerchantBrandingInput,
+  MerchantChargeOverride,
   MerchantConnection,
   MerchantConnectionInput,
   MerchantEmailOptOutStats,
@@ -263,6 +265,8 @@ import type {
   Notification,
   NotificationListResponse,
   NotificationUnreadCounts,
+  PayinChargePreview,
+  PayinChargeSettings,
   PayinGatewayDebugCreateOrderResult,
   PayinGatewayDebugDbInsertResult,
   PayinOrderCreateResult,
@@ -394,7 +398,9 @@ import type {
   UpdateActivationRequestBody,
   UpdateCompanySettingsRequest,
   UpdateGithubSyncConfigBody,
+  UpdateMerchantChargeOverrideInput,
   UpdateMyPreferencesBody,
+  UpdatePayinChargeSettingsInput,
   UpdateProviderIntegrationBody,
   UpdateProviderProductBody,
   UpdateTicketStatusInput,
@@ -29938,4 +29944,385 @@ export const useAdminDeleteVerificationDocument = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getAdminDeleteVerificationDocumentMutationOptions(options));
     }
+
+export const getGetPayinChargeSettingsUrl = () => {
+
+
+
+
+  return `/api/admin/payin-charges`
+}
+
+/**
+ * @summary Get global payin charge settings
+ */
+export const getPayinChargeSettings = async ( options?: RequestInit): Promise<PayinChargeSettings> => {
+
+  return customFetch<PayinChargeSettings>(getGetPayinChargeSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPayinChargeSettingsQueryKey = () => {
+    return [
+    `/api/admin/payin-charges`
+    ] as const;
+    }
+
+
+export const getGetPayinChargeSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getPayinChargeSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayinChargeSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPayinChargeSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPayinChargeSettings>>> = ({ signal }) => getPayinChargeSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPayinChargeSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPayinChargeSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getPayinChargeSettings>>>
+export type GetPayinChargeSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get global payin charge settings
+ */
+
+export function useGetPayinChargeSettings<TData = Awaited<ReturnType<typeof getPayinChargeSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayinChargeSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPayinChargeSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdatePayinChargeSettingsUrl = () => {
+
+
+
+
+  return `/api/admin/payin-charges`
+}
+
+/**
+ * @summary Update global payin charge settings
+ */
+export const updatePayinChargeSettings = async (updatePayinChargeSettingsInput: UpdatePayinChargeSettingsInput, options?: RequestInit): Promise<PayinChargeSettings> => {
+
+  return customFetch<PayinChargeSettings>(getUpdatePayinChargeSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updatePayinChargeSettingsInput,)
+  }
+);}
+
+
+
+
+export const getUpdatePayinChargeSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePayinChargeSettings>>, TError,{data: BodyType<UpdatePayinChargeSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePayinChargeSettings>>, TError,{data: BodyType<UpdatePayinChargeSettingsInput>}, TContext> => {
+
+const mutationKey = ['updatePayinChargeSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePayinChargeSettings>>, {data: BodyType<UpdatePayinChargeSettingsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updatePayinChargeSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePayinChargeSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updatePayinChargeSettings>>>
+    export type UpdatePayinChargeSettingsMutationBody = BodyType<UpdatePayinChargeSettingsInput>
+    export type UpdatePayinChargeSettingsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update global payin charge settings
+ */
+export const useUpdatePayinChargeSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePayinChargeSettings>>, TError,{data: BodyType<UpdatePayinChargeSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePayinChargeSettings>>,
+        TError,
+        {data: BodyType<UpdatePayinChargeSettingsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdatePayinChargeSettingsMutationOptions(options));
+    }
+
+export const getGetMerchantChargeOverrideUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/payin-charges/merchants/${id}`
+}
+
+/**
+ * @summary Get per-merchant charge override
+ */
+export const getMerchantChargeOverride = async (id: number, options?: RequestInit): Promise<MerchantChargeOverride> => {
+
+  return customFetch<MerchantChargeOverride>(getGetMerchantChargeOverrideUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMerchantChargeOverrideQueryKey = (id: number,) => {
+    return [
+    `/api/admin/payin-charges/merchants/${id}`
+    ] as const;
+    }
+
+
+export const getGetMerchantChargeOverrideQueryOptions = <TData = Awaited<ReturnType<typeof getMerchantChargeOverride>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMerchantChargeOverride>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMerchantChargeOverrideQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMerchantChargeOverride>>> = ({ signal }) => getMerchantChargeOverride(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMerchantChargeOverride>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMerchantChargeOverrideQueryResult = NonNullable<Awaited<ReturnType<typeof getMerchantChargeOverride>>>
+export type GetMerchantChargeOverrideQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get per-merchant charge override
+ */
+
+export function useGetMerchantChargeOverride<TData = Awaited<ReturnType<typeof getMerchantChargeOverride>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMerchantChargeOverride>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMerchantChargeOverrideQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateMerchantChargeOverrideUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/payin-charges/merchants/${id}`
+}
+
+/**
+ * @summary Upsert per-merchant charge override
+ */
+export const updateMerchantChargeOverride = async (id: number,
+    updateMerchantChargeOverrideInput: UpdateMerchantChargeOverrideInput, options?: RequestInit): Promise<MerchantChargeOverride> => {
+
+  return customFetch<MerchantChargeOverride>(getUpdateMerchantChargeOverrideUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateMerchantChargeOverrideInput,)
+  }
+);}
+
+
+
+
+export const getUpdateMerchantChargeOverrideMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMerchantChargeOverride>>, TError,{id: number;data: BodyType<UpdateMerchantChargeOverrideInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMerchantChargeOverride>>, TError,{id: number;data: BodyType<UpdateMerchantChargeOverrideInput>}, TContext> => {
+
+const mutationKey = ['updateMerchantChargeOverride'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMerchantChargeOverride>>, {id: number;data: BodyType<UpdateMerchantChargeOverrideInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateMerchantChargeOverride(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMerchantChargeOverrideMutationResult = NonNullable<Awaited<ReturnType<typeof updateMerchantChargeOverride>>>
+    export type UpdateMerchantChargeOverrideMutationBody = BodyType<UpdateMerchantChargeOverrideInput>
+    export type UpdateMerchantChargeOverrideMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Upsert per-merchant charge override
+ */
+export const useUpdateMerchantChargeOverride = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMerchantChargeOverride>>, TError,{id: number;data: BodyType<UpdateMerchantChargeOverrideInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMerchantChargeOverride>>,
+        TError,
+        {id: number;data: BodyType<UpdateMerchantChargeOverrideInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateMerchantChargeOverrideMutationOptions(options));
+    }
+
+export const getGetPayinChargePreviewUrl = (params: GetPayinChargePreviewParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/payin-charges/preview?${stringifiedParams}` : `/api/admin/payin-charges/preview`
+}
+
+/**
+ * @summary Preview payin charge for a given amount
+ */
+export const getPayinChargePreview = async (params: GetPayinChargePreviewParams, options?: RequestInit): Promise<PayinChargePreview> => {
+
+  return customFetch<PayinChargePreview>(getGetPayinChargePreviewUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPayinChargePreviewQueryKey = (params?: GetPayinChargePreviewParams,) => {
+    return [
+    `/api/admin/payin-charges/preview`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPayinChargePreviewQueryOptions = <TData = Awaited<ReturnType<typeof getPayinChargePreview>>, TError = ErrorType<unknown>>(params: GetPayinChargePreviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayinChargePreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPayinChargePreviewQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPayinChargePreview>>> = ({ signal }) => getPayinChargePreview(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPayinChargePreview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPayinChargePreviewQueryResult = NonNullable<Awaited<ReturnType<typeof getPayinChargePreview>>>
+export type GetPayinChargePreviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Preview payin charge for a given amount
+ */
+
+export function useGetPayinChargePreview<TData = Awaited<ReturnType<typeof getPayinChargePreview>>, TError = ErrorType<unknown>>(
+ params: GetPayinChargePreviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayinChargePreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPayinChargePreviewQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 

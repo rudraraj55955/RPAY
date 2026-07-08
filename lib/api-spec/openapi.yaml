@@ -10306,6 +10306,112 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /admin/payin-charges:
+    get:
+      operationId: getPayinChargeSettings
+      tags: [admin]
+      summary: Get global payin charge settings
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Global payin charge settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayinChargeSettings"
+    put:
+      operationId: updatePayinChargeSettings
+      tags: [admin]
+      summary: Update global payin charge settings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePayinChargeSettingsInput"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayinChargeSettings"
+
+  /admin/payin-charges/merchants/{id}:
+    get:
+      operationId: getMerchantChargeOverride
+      tags: [admin]
+      summary: Get per-merchant charge override
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Merchant charge override
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantChargeOverride"
+    put:
+      operationId: updateMerchantChargeOverride
+      tags: [admin]
+      summary: Upsert per-merchant charge override
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMerchantChargeOverrideInput"
+      responses:
+        "200":
+          description: Updated override
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantChargeOverride"
+
+  /admin/payin-charges/preview:
+    get:
+      operationId: getPayinChargePreview
+      tags: [admin]
+      summary: Preview payin charge for a given amount
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: amount
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: merchantId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Charge preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayinChargePreview"
+
 components:
   schemas:
     CompanySettingsPublic:
@@ -17335,4 +17441,141 @@ components:
               type: integer
             total:
               type: integer
+
+    PayinChargeSettings:
+      type: object
+      required: [id, enabled, mdrPct, fixedFee, minFee, gstPct, gstEnabled, roundingMode, applyToOwnStaticUpi, applyToDynamicQr, applyToPaymentLinks, applyToApiGateway, updatedAt]
+      properties:
+        id:
+          type: integer
+        enabled:
+          type: boolean
+        mdrPct:
+          type: number
+        fixedFee:
+          type: number
+        minFee:
+          type: number
+        maxFee:
+          type: ["number", "null"]
+        gstPct:
+          type: number
+        gstEnabled:
+          type: boolean
+        roundingMode:
+          type: string
+          enum: [round, ceil, floor]
+        applyToOwnStaticUpi:
+          type: boolean
+        applyToDynamicQr:
+          type: boolean
+        applyToPaymentLinks:
+          type: boolean
+        applyToApiGateway:
+          type: boolean
+        updatedAt:
+          type: string
+        updatedByEmail:
+          type: ["string", "null"]
+
+    UpdatePayinChargeSettingsInput:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        mdrPct:
+          type: number
+        fixedFee:
+          type: number
+        minFee:
+          type: number
+        maxFee:
+          type: ["number", "null"]
+        gstPct:
+          type: number
+        gstEnabled:
+          type: boolean
+        roundingMode:
+          type: string
+          enum: [round, ceil, floor]
+        applyToOwnStaticUpi:
+          type: boolean
+        applyToDynamicQr:
+          type: boolean
+        applyToPaymentLinks:
+          type: boolean
+        applyToApiGateway:
+          type: boolean
+
+    MerchantChargeOverride:
+      type: object
+      required: [id, merchantId, useGlobal, customEnabled, updatedAt]
+      properties:
+        id:
+          type: integer
+        merchantId:
+          type: integer
+        useGlobal:
+          type: boolean
+        customEnabled:
+          type: boolean
+        mdrPct:
+          type: ["number", "null"]
+        fixedFee:
+          type: ["number", "null"]
+        minFee:
+          type: ["number", "null"]
+        maxFee:
+          type: ["number", "null"]
+        gstPct:
+          type: ["number", "null"]
+        gstEnabled:
+          type: ["boolean", "null"]
+        roundingMode:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+        updatedByEmail:
+          type: ["string", "null"]
+
+    UpdateMerchantChargeOverrideInput:
+      type: object
+      properties:
+        useGlobal:
+          type: boolean
+        customEnabled:
+          type: boolean
+        mdrPct:
+          type: ["number", "null"]
+        fixedFee:
+          type: ["number", "null"]
+        minFee:
+          type: ["number", "null"]
+        maxFee:
+          type: ["number", "null"]
+        gstPct:
+          type: ["number", "null"]
+        gstEnabled:
+          type: ["boolean", "null"]
+        roundingMode:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    PayinChargePreview:
+      type: object
+      required: [grossAmount, payinFee, gstAmount, netAmount, chargesApplied]
+      properties:
+        grossAmount:
+          type: number
+        payinFee:
+          type: number
+        gstAmount:
+          type: number
+        netAmount:
+          type: number
+        chargesApplied:
+          type: boolean
 

@@ -59,6 +59,7 @@ import verificationRouter from "./verification";
 import upigatewaySettingsRouter from "./upigatewaySettings";
 import upigatewayWebhookRouter from "./upigatewayWebhook";
 import utrVerificationsRouter from "./utrVerifications";
+import payinChargesRouter from "./payinCharges";
 
 const router: IRouter = Router();
 
@@ -133,5 +134,6 @@ router.use("/reports", reportsRouter);
 router.use("/support", supportRouter);
 router.use("/verification", verificationRouter);
 router.use("/admin/utr-verifications", utrVerificationsRouter);
+router.use("/admin/payin-charges", payinChargesRouter);
 
 export default router;

@@ -20,10 +20,14 @@ import {
   useGetMerchantsWebhookFailureCounts,
   useGetKycSummary, useListKycDocuments, useReviewKycDocument,
   useUpdateMerchantEmailPreferences,
+  useGetMerchantChargeOverride, useUpdateMerchantChargeOverride,
+  getGetMerchantChargeOverrideQueryKey,
   getListMerchantsQueryKey,
   listMerchants,
   previewMerchantPlanEmail,
   type WebhookFailureAlertLogEntry,
+  type MerchantChargeOverride,
+  type UpdateMerchantChargeOverrideInput,
 } from "@workspace/api-client-react";
 import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -42,7 +46,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw, Upload, Loader2, X, Info, KeyRound, Clock, Bell, BellOff, Activity, ExternalLink, ChevronDown, ChevronRight, CheckCircle2, Eye, Mail, Smartphone } from "lucide-react";
+import { CheckCircle, XCircle, Search, CreditCard, Calendar, History, ShieldOff, ShieldCheck, TrendingUp, TrendingDown, PauseCircle, PlayCircle, RefreshCw, AlertTriangle, Paintbrush, Users, UserCheck, UserX, RotateCcw, Upload, Loader2, X, Info, KeyRound, Clock, Bell, BellOff, Activity, ExternalLink, ChevronDown, ChevronRight, CheckCircle2, Eye, Mail, Smartphone, Percent, ReceiptText } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, differenceInSeconds } from "date-fns";
 import { getApiErrorMessage } from "@/lib/utils";
@@ -199,6 +203,140 @@ const PLAN_SUB_STATUS_COLOR: Record<string, string> = {
   suspended: "text-orange-400 border-orange-500/30 bg-orange-500/10",
   expired: "text-rose-400 border-rose-500/30 bg-rose-500/10",
 };
+
+function MerchantChargeOverrideSection({
+  merchantId,
+  chargeOverride,
+  isLoading,
+  onSave,
+  isSaving,
+}: {
+  merchantId: number;
+  chargeOverride?: MerchantChargeOverride;
+  isLoading: boolean;
+  onSave: (data: UpdateMerchantChargeOverrideInput) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const [useGlobal, setUseGlobal] = useState(true);
+  const [customEnabled, setCustomEnabled] = useState(true);
+  const [mdrPct, setMdrPct] = useState("");
+  const [fixedFee, setFixedFee] = useState("");
+  const [minFee, setMinFee] = useState("");
+  const [maxFee, setMaxFee] = useState("");
+  const [gstPct, setGstPct] = useState("");
+  const [gstEnabled, setGstEnabled] = useState(true);
+  const [roundingMode, setRoundingMode] = useState("round");
+  const [notes, setNotes] = useState("");
+  const [synced, setSynced] = useState(false);
+
+  if (chargeOverride && !synced) {
+    setSynced(true);
+    setUseGlobal(chargeOverride.useGlobal);
+    setCustomEnabled(chargeOverride.customEnabled);
+    setMdrPct(chargeOverride.mdrPct != null ? String(chargeOverride.mdrPct) : "");
+    setFixedFee(chargeOverride.fixedFee != null ? String(chargeOverride.fixedFee) : "");
+    setMinFee(chargeOverride.minFee != null ? String(chargeOverride.minFee) : "");
+    setMaxFee(chargeOverride.maxFee != null ? String(chargeOverride.maxFee) : "");
+    setGstPct(chargeOverride.gstPct != null ? String(chargeOverride.gstPct) : "");
+    setGstEnabled(chargeOverride.gstEnabled ?? true);
+    setRoundingMode(chargeOverride.roundingMode ?? "round");
+    setNotes(chargeOverride.notes ?? "");
+  }
+
+  async function handleSave() {
+    await onSave({
+      useGlobal,
+      customEnabled,
+      mdrPct: !useGlobal && mdrPct !== "" ? parseFloat(mdrPct) : null,
+      fixedFee: !useGlobal && fixedFee !== "" ? parseFloat(fixedFee) : null,
+      minFee: !useGlobal && minFee !== "" ? parseFloat(minFee) : null,
+      maxFee: !useGlobal && maxFee !== "" ? parseFloat(maxFee) : null,
+      gstPct: !useGlobal && gstPct !== "" ? parseFloat(gstPct) : null,
+      gstEnabled: !useGlobal ? gstEnabled : null,
+      roundingMode: !useGlobal ? roundingMode : null,
+      notes: notes || null,
+    });
+  }
+
+  if (isLoading) {
+    return <div className="h-8 bg-muted/40 rounded animate-pulse mt-2" />;
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-border/40 p-3 mt-2">
+      <div className="flex items-center gap-2">
+        <ReceiptText className="w-4 h-4 text-violet-400 shrink-0" />
+        <p className="text-sm font-medium">Payin Charge Override</p>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Label className="text-xs text-muted-foreground">Use global charge settings</Label>
+        <Switch checked={useGlobal} onCheckedChange={v => { setUseGlobal(v); setSynced(true); }} />
+      </div>
+
+      {!useGlobal && (
+        <div className="space-y-2.5 pt-1 border-t border-border/30">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground">Charges enabled for this merchant</Label>
+            <Switch checked={customEnabled} onCheckedChange={v => setCustomEnabled(v)} />
+          </div>
+          {customEnabled && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">MDR %</Label>
+                <Input className="h-7 text-xs" type="number" step="0.01" min="0" placeholder="Global" value={mdrPct} onChange={e => setMdrPct(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Fixed Fee (₹)</Label>
+                <Input className="h-7 text-xs" type="number" step="0.01" min="0" placeholder="Global" value={fixedFee} onChange={e => setFixedFee(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Min Fee (₹)</Label>
+                <Input className="h-7 text-xs" type="number" step="0.01" min="0" placeholder="Global" value={minFee} onChange={e => setMinFee(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Max Fee (₹)</Label>
+                <Input className="h-7 text-xs" type="number" step="0.01" min="0" placeholder="No cap" value={maxFee} onChange={e => setMaxFee(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">GST %</Label>
+                <Input className="h-7 text-xs" type="number" step="0.01" min="0" placeholder="Global" value={gstPct} onChange={e => setGstPct(e.target.value)} />
+              </div>
+              <div className="flex items-center gap-2 pt-4">
+                <Switch checked={gstEnabled} onCheckedChange={setGstEnabled} />
+                <Label className="text-xs">GST enabled</Label>
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label className="text-xs">Rounding Mode</Label>
+                <Select value={roundingMode} onValueChange={setRoundingMode}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="round">Round</SelectItem>
+                    <SelectItem value="ceil">Ceil (up)</SelectItem>
+                    <SelectItem value="floor">Floor (down)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Notes (internal)</Label>
+        <Input className="h-7 text-xs" placeholder="e.g. negotiated rate" value={notes} onChange={e => setNotes(e.target.value)} />
+      </div>
+
+      <div className="flex justify-end">
+        <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={handleSave} disabled={isSaving}>
+          {isSaving ? <><Loader2 className="w-3 h-3 animate-spin" />Saving…</> : "Save Override"}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminMerchants() {
   const [, navigate] = useLocation();
@@ -384,6 +522,11 @@ export default function AdminMerchants() {
     assignPlanMerchant?.id ?? 0,
     { query: { enabled: !!assignPlanMerchant, queryKey: ["getMerchant", assignPlanMerchant?.id ?? 0] } }
   );
+  const { data: chargeOverride, isLoading: chargeOverrideLoading } = useGetMerchantChargeOverride(
+    assignPlanMerchant?.id ?? 0,
+    { query: { enabled: !!assignPlanMerchant, queryKey: getGetMerchantChargeOverrideQueryKey(assignPlanMerchant?.id ?? 0) } }
+  );
+  const updateChargeOverrideMutation = useUpdateMerchantChargeOverride();
   const kycDocuments = kycDocumentsResponse?.data ?? [];
   const reviewKycMutation = useReviewKycDocument({
     mutation: {
@@ -3716,6 +3859,20 @@ export default function AdminMerchants() {
               </div>
             )}
           </div>
+          {/* ── Payin Charge Override ─────────────────────────────────── */}
+          <MerchantChargeOverrideSection
+            merchantId={assignPlanMerchant?.id ?? 0}
+            chargeOverride={chargeOverride}
+            isLoading={chargeOverrideLoading}
+            onSave={async (payload) => {
+              if (!assignPlanMerchant) return;
+              await updateChargeOverrideMutation.mutateAsync({ id: assignPlanMerchant.id, data: payload });
+              qc.invalidateQueries({ queryKey: getGetMerchantChargeOverrideQueryKey(assignPlanMerchant.id) });
+              toast.success("Charge override saved");
+            }}
+            isSaving={updateChargeOverrideMutation.isPending}
+          />
+
           {assignPlanMerchant?.reportScheduleChangedEmails === false && (
             <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-amber-400">
               <BellOff className="w-4 h-4 shrink-0 mt-0.5" />

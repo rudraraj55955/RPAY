@@ -9,6 +9,7 @@ import {
   useTestUpigatewayCredentials, useTestUpigatewayOrder, useCheckUpigatewayStatus,
   useListProviderIntegrations, useUpdateProviderIntegration, useDeleteProviderIntegration,
   getListProviderIntegrationsQueryKey,
+  useGetPayinChargeSettings, useUpdatePayinChargeSettings, getGetPayinChargeSettingsQueryKey,
 } from "@workspace/api-client-react";
 import type { ProviderIntegration } from "@workspace/api-client-react";
 import { getToken } from "@/lib/auth";
@@ -30,6 +31,7 @@ import {
   CreditCard, Landmark, Zap, PlusCircle, CheckCircle2, XCircle, AlertCircle,
   Eye, EyeOff, Save, FlaskConical, Copy, ExternalLink, GitMerge,
   Users, ArrowRight, Shield, Activity, Settings2, Layers, Plug, Trash2,
+  Percent, Loader2, ReceiptText, Info,
 } from "lucide-react";
 
 const authHeader = () => ({ Authorization: `Bearer ${getToken()}` });
@@ -1308,6 +1310,243 @@ function RoutingPanel() {
 
 // ── Merchant Access panel ─────────────────────────────────────────────────────
 
+// ── Payin Charges Panel ───────────────────────────────────────────────────────
+
+function PayinChargesPanel() {
+  const qc = useQueryClient();
+  const { data: settings, isLoading } = useGetPayinChargeSettings({
+    request: { headers: authHeader() },
+  } as any);
+
+  const [form, setForm] = useState<{
+    enabled: boolean;
+    mdrPct: string;
+    fixedFee: string;
+    minFee: string;
+    maxFee: string;
+    gstPct: string;
+    gstEnabled: boolean;
+    roundingMode: string;
+    applyToOwnStaticUpi: boolean;
+    applyToDynamicQr: boolean;
+    applyToPaymentLinks: boolean;
+    applyToApiGateway: boolean;
+  } | null>(null);
+
+  const [previewAmount, setPreviewAmount] = useState("1000");
+  const [previewResult, setPreviewResult] = useState<{ payinFee: number; gstAmount: number; netAmount: number; chargesApplied: boolean } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const { mutateAsync: updateSettings } = useUpdatePayinChargeSettings({
+    request: { headers: authHeader() },
+  } as any);
+
+  // Sync form when settings arrive
+  const initialized = form !== null;
+  if (settings && !initialized) {
+    setForm({
+      enabled: settings.enabled,
+      mdrPct: String(settings.mdrPct),
+      fixedFee: String(settings.fixedFee),
+      minFee: String(settings.minFee),
+      maxFee: settings.maxFee != null ? String(settings.maxFee) : "",
+      gstPct: String(settings.gstPct),
+      gstEnabled: settings.gstEnabled,
+      roundingMode: settings.roundingMode,
+      applyToOwnStaticUpi: settings.applyToOwnStaticUpi,
+      applyToDynamicQr: settings.applyToDynamicQr,
+      applyToPaymentLinks: settings.applyToPaymentLinks,
+      applyToApiGateway: settings.applyToApiGateway,
+    });
+  }
+
+  async function handleSave() {
+    if (!form) return;
+    setIsSaving(true);
+    try {
+      await updateSettings({
+        data: {
+          enabled: form.enabled,
+          mdrPct: parseFloat(form.mdrPct) || 0,
+          fixedFee: parseFloat(form.fixedFee) || 0,
+          minFee: parseFloat(form.minFee) || 0,
+          maxFee: form.maxFee !== "" ? parseFloat(form.maxFee) : null,
+          gstPct: parseFloat(form.gstPct) || 0,
+          gstEnabled: form.gstEnabled,
+          roundingMode: form.roundingMode as "round" | "ceil" | "floor",
+          applyToOwnStaticUpi: form.applyToOwnStaticUpi,
+          applyToDynamicQr: form.applyToDynamicQr,
+          applyToPaymentLinks: form.applyToPaymentLinks,
+          applyToApiGateway: form.applyToApiGateway,
+        },
+      });
+      qc.invalidateQueries({ queryKey: getGetPayinChargeSettingsQueryKey() });
+      toast.success("Payin charge settings saved");
+    } catch {
+      toast.error("Failed to save charge settings");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handlePreview() {
+    const amt = parseFloat(previewAmount);
+    if (!amt || amt <= 0) return;
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/admin/payin-charges/preview?amount=${amt}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewResult(data);
+      }
+    } catch {
+      toast.error("Preview failed");
+    }
+  }
+
+  if (isLoading || !form) {
+    return <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-8 bg-muted/40 rounded animate-pulse" />)}</div>;
+  }
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      {/* Enable toggle */}
+      <Card className="border-border/40">
+        <CardContent className="p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Payin Charges</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Deduct MDR and GST from deposits before crediting merchant balance</p>
+          </div>
+          <Switch checked={form.enabled} onCheckedChange={v => setForm(f => f ? { ...f, enabled: v } : f)} />
+        </CardContent>
+      </Card>
+
+      {form.enabled && (
+        <>
+          {/* Rate settings */}
+          <Card className="border-border/40">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2"><Percent className="w-4 h-4 text-violet-400" />Rate Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">MDR % (Merchant Discount Rate)</Label>
+                  <Input className="h-8 text-sm" type="number" step="0.01" min="0" max="100" value={form.mdrPct}
+                    onChange={e => setForm(f => f ? { ...f, mdrPct: e.target.value } : f)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Fixed Fee (₹)</Label>
+                  <Input className="h-8 text-sm" type="number" step="0.01" min="0" value={form.fixedFee}
+                    onChange={e => setForm(f => f ? { ...f, fixedFee: e.target.value } : f)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Min Fee (₹)</Label>
+                  <Input className="h-8 text-sm" type="number" step="0.01" min="0" value={form.minFee}
+                    onChange={e => setForm(f => f ? { ...f, minFee: e.target.value } : f)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Max Fee (₹, blank = no cap)</Label>
+                  <Input className="h-8 text-sm" type="number" step="0.01" min="0" placeholder="No cap" value={form.maxFee}
+                    onChange={e => setForm(f => f ? { ...f, maxFee: e.target.value } : f)} />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-3 items-center">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">GST %</Label>
+                  <Input className="h-8 text-sm" type="number" step="0.01" min="0" max="100" value={form.gstPct}
+                    onChange={e => setForm(f => f ? { ...f, gstPct: e.target.value } : f)} />
+                </div>
+                <div className="flex items-center gap-2 mt-4">
+                  <Switch checked={form.gstEnabled} onCheckedChange={v => setForm(f => f ? { ...f, gstEnabled: v } : f)} />
+                  <Label className="text-xs">GST enabled</Label>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Rounding Mode</Label>
+                <Select value={form.roundingMode} onValueChange={v => setForm(f => f ? { ...f, roundingMode: v } : f)}>
+                  <SelectTrigger className="h-8 text-sm w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="round">Round (nearest)</SelectItem>
+                    <SelectItem value="ceil">Ceil (up)</SelectItem>
+                    <SelectItem value="floor">Floor (down)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Apply-to toggles */}
+          <Card className="border-border/40">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2"><Settings2 className="w-4 h-4 text-sky-400" />Apply Charges To</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-2.5">
+              {([
+                ["applyToOwnStaticUpi", "Own Static UPI (UTR verifications)"] as const,
+                ["applyToDynamicQr", "Dynamic QR (EKQR / UPI gateway)"] as const,
+                ["applyToPaymentLinks", "Payment Links"] as const,
+                ["applyToApiGateway", "API Gateway (Cashfree payin orders)"] as const,
+              ]).map(([key, label]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">{label}</Label>
+                  <Switch
+                    checked={form[key]}
+                    onCheckedChange={v => setForm(f => f ? { ...f, [key]: v } : f)}
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Preview calculator */}
+          <Card className="border-border/40">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2"><ReceiptText className="w-4 h-4 text-emerald-400" />Charge Preview</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-3">
+              <div className="flex gap-2 items-end">
+                <div className="space-y-1.5 flex-1">
+                  <Label className="text-xs">Gross Amount (₹)</Label>
+                  <Input className="h-8 text-sm" type="number" min="1" value={previewAmount}
+                    onChange={e => setPreviewAmount(e.target.value)} />
+                </div>
+                <Button size="sm" variant="outline" className="h-8" onClick={handlePreview}>Preview</Button>
+              </div>
+              {previewResult && (
+                <div className="rounded-lg border border-border/40 bg-muted/20 p-3 text-xs space-y-1.5">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Gross Amount</span><span>₹{parseFloat(previewAmount).toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Payin Fee</span><span className="text-rose-400">−₹{previewResult.payinFee.toFixed(2)}</span></div>
+                  {previewResult.gstAmount > 0 && <div className="flex justify-between"><span className="text-muted-foreground">GST on Fee</span><span className="text-rose-400">−₹{previewResult.gstAmount.toFixed(2)}</span></div>}
+                  <Separator />
+                  <div className="flex justify-between font-semibold"><span>Net to Merchant</span><span className="text-emerald-400">₹{previewResult.netAmount.toFixed(2)}</span></div>
+                  {!previewResult.chargesApplied && (
+                    <div className="flex items-center gap-1.5 text-amber-400 mt-1"><Info className="w-3 h-3" /><span>No charges applied (disabled for this channel or merchant)</span></div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={isSaving} className="gap-1.5">
+          {isSaving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving…</> : <><Save className="w-3.5 h-3.5" />Save Charge Settings</>}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function MerchantAccessPanel() {
   return (
     <div className="space-y-4 max-w-2xl">
@@ -1390,6 +1629,7 @@ export default function AdminPaymentGateways() {
             <TabsTrigger value="configure" className="text-xs px-3">Configure</TabsTrigger>
             <TabsTrigger value="routing" className="text-xs px-3">Routing & Rules</TabsTrigger>
             <TabsTrigger value="merchant-access" className="text-xs px-3">Merchant Access</TabsTrigger>
+            <TabsTrigger value="charges" className="text-xs px-3">Payin Charges</TabsTrigger>
           </TabsList>
 
           {/* ── Overview ────────────────────────────────────────────────── */}
@@ -1482,6 +1722,11 @@ export default function AdminPaymentGateways() {
           {/* ── Merchant Access ─────────────────────────────────────────── */}
           <TabsContent value="merchant-access" className="mt-5">
             <MerchantAccessPanel />
+          </TabsContent>
+
+          {/* ── Payin Charges ───────────────────────────────────────────── */}
+          <TabsContent value="charges" className="mt-5">
+            <PayinChargesPanel />
           </TabsContent>
         </Tabs>
       </div>

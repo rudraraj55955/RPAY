@@ -19,6 +19,9 @@ export const transactionsTable = pgTable("transactions", {
   referenceId: text("reference_id"),
   description: text("description"),
   metadata: text("metadata"),
+  payinFee:  numeric("payin_fee",  { precision: 18, scale: 2 }),
+  gstAmount: numeric("gst_amount", { precision: 18, scale: 2 }),
+  netAmount: numeric("net_amount", { precision: 18, scale: 2 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

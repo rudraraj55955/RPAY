@@ -71,3 +71,4 @@ export * from "./merchantDocuments";
 export * from "./quietHoursQueue";
 export * from "./cashfreePayoutWebhookLogs";
 export * from "./demoAccountRemovals";
+export * from "./payinChargeSettings";

@@ -17,6 +17,7 @@ import { db, transactionsTable, merchantsTable, paymentLinksTable } from "@works
 import { eq, and, desc, ilike, or, count } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { mutateWallet } from "./wallets";
+import { resolveChargeSettings, calculatePayinCharge } from "../lib/chargeCalculator";
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -124,20 +125,51 @@ router.post("/:id/approve", async (req, res, next) => {
       .set({ metadata: JSON.stringify(meta) })
       .where(eq(transactionsTable.id, id));
 
-    // Credit merchant wallet
-    const amount = parseFloat(claimed.amount as string);
+    // Resolve charges and credit merchant wallet
+    const grossAmount = parseFloat(claimed.amount as string);
+    const chargeSettings = await resolveChargeSettings(claimed.merchantId);
+    const charge = calculatePayinCharge(grossAmount, chargeSettings);
+
+    // Idempotency: store fee columns on the transaction (only if not already set)
+    await db.update(transactionsTable).set({
+      payinFee:  charge.payinFee.toFixed(2),
+      gstAmount: charge.gstAmount.toFixed(2),
+      netAmount: charge.netAmount.toFixed(2),
+    }).where(eq(transactionsTable.id, id));
+
+    // Credit net amount to available; gross to totalCollection
     await mutateWallet(
       claimed.merchantId,
-      { availableDelta: amount, totalCollectionDelta: amount },
+      {
+        availableDelta:     charge.netAmount,
+        totalCollectionDelta: grossAmount,
+        totalChargesDelta:  charge.chargesApplied ? (charge.payinFee + charge.gstAmount) : 0,
+      },
       {
         txnType: "deposit",
         bucket: "available",
-        amount,
+        amount: charge.netAmount,
         referenceType: "transaction",
         referenceId: claimed.id,
-        description: `UTR ${claimed.utr} approved`,
+        description: `UTR ${claimed.utr} approved` + (charge.chargesApplied ? ` (net after ₹${(charge.payinFee + charge.gstAmount).toFixed(2)} fee)` : ""),
       },
     );
+
+    // Separate ledger entry for the charge deduction (only when fee > 0)
+    if (charge.chargesApplied && (charge.payinFee + charge.gstAmount) > 0) {
+      await mutateWallet(
+        claimed.merchantId,
+        { totalChargesDelta: 0 }, // balance already updated above; ledger entry only
+        {
+          txnType: "charge",
+          bucket: "available",
+          amount: -(charge.payinFee + charge.gstAmount),
+          referenceType: "transaction",
+          referenceId: claimed.id,
+          description: `Payin fee ₹${charge.payinFee.toFixed(2)}` + (charge.gstAmount > 0 ? ` + GST ₹${charge.gstAmount.toFixed(2)}` : ""),
+        },
+      );
+    }
 
     // If this transaction was linked to a payment link, check if it should be marked completed
     if (claimed.paymentLinkId) {
@@ -163,7 +195,7 @@ router.post("/:id/approve", async (req, res, next) => {
       }
     }
 
-    req.log.info({ txId: id, merchantId: claimed.merchantId, amount, utr: claimed.utr }, "utr_approved");
+    req.log.info({ txId: id, merchantId: claimed.merchantId, amount: grossAmount, utr: claimed.utr }, "utr_approved");
     res.json({ message: "Approved and wallet credited" });
   } catch (err) { next(err); }
 });

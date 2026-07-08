@@ -9717,3 +9717,142 @@ export const AdminDeleteVerificationDocumentResponse = zod.object({
 })
 
 
+/**
+ * @summary Get global payin charge settings
+ */
+export const GetPayinChargeSettingsResponse = zod.object({
+  "id": zod.number(),
+  "enabled": zod.boolean(),
+  "mdrPct": zod.number(),
+  "fixedFee": zod.number(),
+  "minFee": zod.number(),
+  "maxFee": zod.number().nullish(),
+  "gstPct": zod.number(),
+  "gstEnabled": zod.boolean(),
+  "roundingMode": zod.enum(['round', 'ceil', 'floor']),
+  "applyToOwnStaticUpi": zod.boolean(),
+  "applyToDynamicQr": zod.boolean(),
+  "applyToPaymentLinks": zod.boolean(),
+  "applyToApiGateway": zod.boolean(),
+  "updatedAt": zod.string(),
+  "updatedByEmail": zod.string().nullish()
+})
+
+
+/**
+ * @summary Update global payin charge settings
+ */
+export const UpdatePayinChargeSettingsBody = zod.object({
+  "enabled": zod.boolean().optional(),
+  "mdrPct": zod.number().optional(),
+  "fixedFee": zod.number().optional(),
+  "minFee": zod.number().optional(),
+  "maxFee": zod.number().nullish(),
+  "gstPct": zod.number().optional(),
+  "gstEnabled": zod.boolean().optional(),
+  "roundingMode": zod.enum(['round', 'ceil', 'floor']).optional(),
+  "applyToOwnStaticUpi": zod.boolean().optional(),
+  "applyToDynamicQr": zod.boolean().optional(),
+  "applyToPaymentLinks": zod.boolean().optional(),
+  "applyToApiGateway": zod.boolean().optional()
+})
+
+export const UpdatePayinChargeSettingsResponse = zod.object({
+  "id": zod.number(),
+  "enabled": zod.boolean(),
+  "mdrPct": zod.number(),
+  "fixedFee": zod.number(),
+  "minFee": zod.number(),
+  "maxFee": zod.number().nullish(),
+  "gstPct": zod.number(),
+  "gstEnabled": zod.boolean(),
+  "roundingMode": zod.enum(['round', 'ceil', 'floor']),
+  "applyToOwnStaticUpi": zod.boolean(),
+  "applyToDynamicQr": zod.boolean(),
+  "applyToPaymentLinks": zod.boolean(),
+  "applyToApiGateway": zod.boolean(),
+  "updatedAt": zod.string(),
+  "updatedByEmail": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get per-merchant charge override
+ */
+export const GetMerchantChargeOverrideParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetMerchantChargeOverrideResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "useGlobal": zod.boolean(),
+  "customEnabled": zod.boolean(),
+  "mdrPct": zod.number().nullish(),
+  "fixedFee": zod.number().nullish(),
+  "minFee": zod.number().nullish(),
+  "maxFee": zod.number().nullish(),
+  "gstPct": zod.number().nullish(),
+  "gstEnabled": zod.boolean().nullish(),
+  "roundingMode": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "updatedAt": zod.string(),
+  "updatedByEmail": zod.string().nullish()
+})
+
+
+/**
+ * @summary Upsert per-merchant charge override
+ */
+export const UpdateMerchantChargeOverrideParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateMerchantChargeOverrideBody = zod.object({
+  "useGlobal": zod.boolean().optional(),
+  "customEnabled": zod.boolean().optional(),
+  "mdrPct": zod.number().nullish(),
+  "fixedFee": zod.number().nullish(),
+  "minFee": zod.number().nullish(),
+  "maxFee": zod.number().nullish(),
+  "gstPct": zod.number().nullish(),
+  "gstEnabled": zod.boolean().nullish(),
+  "roundingMode": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})
+
+export const UpdateMerchantChargeOverrideResponse = zod.object({
+  "id": zod.number(),
+  "merchantId": zod.number(),
+  "useGlobal": zod.boolean(),
+  "customEnabled": zod.boolean(),
+  "mdrPct": zod.number().nullish(),
+  "fixedFee": zod.number().nullish(),
+  "minFee": zod.number().nullish(),
+  "maxFee": zod.number().nullish(),
+  "gstPct": zod.number().nullish(),
+  "gstEnabled": zod.boolean().nullish(),
+  "roundingMode": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "updatedAt": zod.string(),
+  "updatedByEmail": zod.string().nullish()
+})
+
+
+/**
+ * @summary Preview payin charge for a given amount
+ */
+export const GetPayinChargePreviewQueryParams = zod.object({
+  "amount": zod.coerce.number(),
+  "merchantId": zod.coerce.number().optional()
+})
+
+export const GetPayinChargePreviewResponse = zod.object({
+  "grossAmount": zod.number(),
+  "payinFee": zod.number(),
+  "gstAmount": zod.number(),
+  "netAmount": zod.number(),
+  "chargesApplied": zod.boolean()
+})
+
+

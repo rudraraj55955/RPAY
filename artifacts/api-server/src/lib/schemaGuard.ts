@@ -221,8 +221,57 @@ async function runGuard(): Promise<void> {
   await db.execute(sql`ALTER TABLE provider_integrations ADD COLUMN IF NOT EXISTS own_instructions TEXT`);
   logger.info({ table: "provider_integrations", columns: ["collection_type", "own_upi_id", "own_qr_image_url", "own_account_holder", "own_instructions"] }, "schema_guard_column_added");
 
-  // transactions: UTR verification review fields (stored in metadata JSON + description)
-  // No new columns needed — reuses existing status, utr, metadata, description columns.
+  // transactions: payin charge columns (nullable — safe for existing rows)
+  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payin_fee  NUMERIC(18,2)`);
+  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS gst_amount NUMERIC(18,2)`);
+  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS net_amount NUMERIC(18,2)`);
+  logger.info({ table: "transactions" }, "schema_guard_column_added");
+
+  // payin_charge_settings: global singleton table
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS payin_charge_settings (
+      id SERIAL PRIMARY KEY,
+      enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      mdr_pct NUMERIC(8,4) NOT NULL DEFAULT 0,
+      fixed_fee NUMERIC(18,2) NOT NULL DEFAULT 0,
+      min_fee NUMERIC(18,2) NOT NULL DEFAULT 0,
+      max_fee NUMERIC(18,2),
+      gst_pct NUMERIC(8,4) NOT NULL DEFAULT 18,
+      gst_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      rounding_mode TEXT NOT NULL DEFAULT 'round',
+      apply_to_own_static_upi BOOLEAN NOT NULL DEFAULT TRUE,
+      apply_to_dynamic_qr BOOLEAN NOT NULL DEFAULT TRUE,
+      apply_to_payment_links BOOLEAN NOT NULL DEFAULT TRUE,
+      apply_to_api_gateway BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by_email TEXT
+    )
+  `);
+
+  // merchant_charge_overrides: per-merchant override row
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS merchant_charge_overrides (
+      id SERIAL PRIMARY KEY,
+      merchant_id INTEGER NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+      use_global BOOLEAN NOT NULL DEFAULT TRUE,
+      custom_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      mdr_pct NUMERIC(8,4),
+      fixed_fee NUMERIC(18,2),
+      min_fee NUMERIC(18,2),
+      max_fee NUMERIC(18,2),
+      gst_pct NUMERIC(8,4),
+      gst_enabled BOOLEAN,
+      rounding_mode TEXT,
+      notes TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by_email TEXT
+    )
+  `);
+  await db.execute(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS merchant_charge_overrides_merchant_id_uniq
+    ON merchant_charge_overrides(merchant_id)
+  `);
+  logger.info({ tables: ["payin_charge_settings", "merchant_charge_overrides"] }, "schema_guard_table_created");
 
   logger.info("schema_guard_completed");
 }

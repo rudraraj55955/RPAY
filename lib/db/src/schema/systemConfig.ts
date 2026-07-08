@@ -93,6 +93,22 @@ export const SYSTEM_CONFIG_KEYS = {
   AUTO_PAYOUT_DEFAULT_MONTHLY_LIMIT: "auto_payout_default_monthly_limit",
   AUTO_PAYOUT_DEFAULT_ALLOWED_MODES: "auto_payout_default_allowed_modes",
   AUTO_PAYOUT_DEFAULT_MIN_WALLET_BALANCE: "auto_payout_default_min_wallet_balance",
+  // Payout wallet load settings
+  WALLET_LOAD_ENABLED:           "wallet_load_enabled",
+  WALLET_LOAD_ONLINE_ENABLED:    "wallet_load_online_enabled",
+  WALLET_LOAD_MANUAL_UTR_ENABLED: "wallet_load_manual_utr_enabled",
+  WALLET_LOAD_ADMIN_TOPUP_ENABLED: "wallet_load_admin_topup_enabled",
+  WALLET_LOAD_MIN_AMOUNT:        "wallet_load_min_amount",
+  WALLET_LOAD_MAX_AMOUNT:        "wallet_load_max_amount",
+  WALLET_LOAD_FEE_TYPE:          "wallet_load_fee_type",   // NONE | FLAT | PERCENTAGE
+  WALLET_LOAD_FEE_VALUE:         "wallet_load_fee_value",
+  WALLET_LOAD_GST_ON_FEE:        "wallet_load_gst_on_fee",
+  WALLET_LOAD_REQUIRE_SCREENSHOT: "wallet_load_require_screenshot",
+  WALLET_LOAD_BANK_NAME:         "wallet_load_bank_name",
+  WALLET_LOAD_ACCOUNT_NUMBER:    "wallet_load_account_number",
+  WALLET_LOAD_IFSC:              "wallet_load_ifsc",
+  WALLET_LOAD_ACCOUNT_HOLDER:    "wallet_load_account_holder",
+  WALLET_LOAD_UPI_ID:            "wallet_load_upi_id",
 } as const;
 
 export const SYSTEM_CONFIG_DEFAULTS = {
@@ -152,4 +168,19 @@ export const SYSTEM_CONFIG_DEFAULTS = {
   [SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_MONTHLY_LIMIT]: "500000",
   [SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_ALLOWED_MODES]: '["IMPS","NEFT","RTGS","UPI"]',
   [SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_MIN_WALLET_BALANCE]: "0",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_ENABLED]:           "true",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_ONLINE_ENABLED]:    "true",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_MANUAL_UTR_ENABLED]: "true",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_ADMIN_TOPUP_ENABLED]: "true",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_MIN_AMOUNT]:        "100",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_MAX_AMOUNT]:        "500000",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_FEE_TYPE]:          "NONE",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_FEE_VALUE]:         "0",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_GST_ON_FEE]:        "false",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_REQUIRE_SCREENSHOT]: "false",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_BANK_NAME]:         "",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_ACCOUNT_NUMBER]:    "",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_IFSC]:              "",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_ACCOUNT_HOLDER]:    "",
+  [SYSTEM_CONFIG_KEYS.WALLET_LOAD_UPI_ID]:            "",
 } as const;

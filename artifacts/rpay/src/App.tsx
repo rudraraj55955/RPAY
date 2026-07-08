@@ -129,10 +129,13 @@ import MerchantAccountStatement from "@/pages/merchant/account-statement";
 import AdminMerchantStatements from "@/pages/admin/merchant-statements";
 import AdminPayoutMerchants from "@/pages/admin/payout-merchants";
 import AdminPayoutMerchantDetail from "@/pages/admin/payout-merchant-detail";
+import AdminPayoutWalletLoads from "@/pages/admin/payout-wallet-loads";
 
 // Payout Merchant Pages
 import PayoutMerchantLogin from "@/pages/payout-merchant/login";
 import PayoutMerchantDashboard from "@/pages/payout-merchant/dashboard";
+import PayoutMerchantLoadFunds from "@/pages/payout-merchant/load-funds";
+import PayoutMerchantLoadHistory from "@/pages/payout-merchant/load-history";
 import PayoutMerchantPayouts from "@/pages/payout-merchant/payouts";
 import PayoutMerchantBulkPayouts from "@/pages/payout-merchant/bulk-payouts";
 import PayoutMerchantBeneficiaries from "@/pages/payout-merchant/beneficiaries";
@@ -440,6 +443,7 @@ function Router() {
       <Route path="/admin/merchant-statements"><AdminRoute component={AdminMerchantStatements} /></Route>
       <Route path="/admin/payout-merchants/:merchantId"><AdminRoute component={AdminPayoutMerchantDetail} /></Route>
       <Route path="/admin/payout-merchants"><AdminRoute component={AdminPayoutMerchants} /></Route>
+      <Route path="/admin/payout-wallet-loads"><AdminRoute component={AdminPayoutWalletLoads} /></Route>
 
       {/* Legacy/broken payout routes — redirect to canonical page */}
       <Route path="/admin/cashfree-payout"><Redirect to="/admin/payout-gateway" /></Route>
@@ -492,6 +496,8 @@ function Router() {
       <Route path="/payout-merchant/payouts"><PayoutMerchantRoute component={PayoutMerchantPayouts} /></Route>
       <Route path="/payout-merchant/bulk-payouts"><PayoutMerchantRoute component={PayoutMerchantBulkPayouts} /></Route>
       <Route path="/payout-merchant/beneficiaries"><PayoutMerchantRoute component={PayoutMerchantBeneficiaries} /></Route>
+      <Route path="/payout-merchant/wallet/load-funds"><PayoutMerchantRoute component={PayoutMerchantLoadFunds} /></Route>
+      <Route path="/payout-merchant/wallet/load-history"><PayoutMerchantRoute component={PayoutMerchantLoadHistory} /></Route>
       <Route path="/payout-merchant/wallet"><PayoutMerchantRoute component={PayoutMerchantWallet} /></Route>
       <Route path="/payout-merchant/ledger"><PayoutMerchantRoute component={PayoutMerchantLedger} /></Route>
       <Route path="/payout-merchant/profile"><PayoutMerchantRoute component={PayoutMerchantProfile} /></Route>

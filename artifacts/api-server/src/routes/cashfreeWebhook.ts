@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { db, cashfreePaymentOrdersTable, cashfreePaymentLogsTable, transactionsTable, systemConfigTable, SYSTEM_CONFIG_KEYS, PAYIN_ORDER_STATUS } from "@workspace/db";
+import { db, cashfreePaymentOrdersTable, cashfreePaymentLogsTable, transactionsTable, systemConfigTable, SYSTEM_CONFIG_KEYS, PAYIN_ORDER_STATUS, payoutWalletLoadOrdersTable } from "@workspace/db";
 import { eq, and, ne } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { verifyCashfreeWebhookSignature } from "../helpers/cashfree";
+import { creditWalletForLoad } from "./payoutWalletLoad";
 
 const router = Router();
 
@@ -93,6 +94,30 @@ router.post("/cashfree-webhook", async (req, res) => {
       processingResult = "ignored";
       errorMessage = `Non-success payment status: ${status}`;
       await insertLog({ eventType, cashfreeOrderId, merchantId: null, amount, status, rawPayload: rawBody, processingResult, errorMessage });
+      return;
+    }
+
+    // ── WALLET LOAD: orders prefixed WLOAD_ are payout wallet top-ups ──────
+    if (cashfreeOrderId.startsWith("WLOAD_")) {
+      const providerPaymentId = (payment?.["cf_payment_id"] as string | number | undefined)?.toString() ?? null;
+      const [loadOrder] = await db
+        .select()
+        .from(payoutWalletLoadOrdersTable)
+        .where(eq(payoutWalletLoadOrdersTable.internalOrderId, cashfreeOrderId))
+        .limit(1);
+
+      if (!loadOrder) {
+        logger.warn({ cashfreeOrderId }, "Cashfree wallet load webhook: load order not found");
+        await insertLog({ eventType, cashfreeOrderId, merchantId: null, amount, status, rawPayload: rawBody, processingResult: "ignored", errorMessage: "Wallet load order not found" });
+        return;
+      }
+
+      merchantId = loadOrder.merchantId;
+      const creditResult = await creditWalletForLoad(loadOrder, providerPaymentId);
+      processingResult = creditResult === "credited" ? "credited" : creditResult === "duplicate" ? "duplicate" : "error";
+      errorMessage     = creditResult === "error" ? "Wallet credit failed" : null;
+      logger.info({ cashfreeOrderId, loadId: loadOrder.loadId, creditResult }, "Cashfree wallet load webhook processed");
+      await insertLog({ eventType, cashfreeOrderId, merchantId, amount, status, rawPayload: rawBody, processingResult, errorMessage });
       return;
     }
 

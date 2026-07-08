@@ -1,9 +1,8 @@
 import { Router } from "express";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { db, usersTable, agentsTable } from "@workspace/db";
-import { eq, inArray, desc, count } from "drizzle-orm";
-import bcrypt from "bcrypt";
-import { z } from "zod/v4";
+import { eq, inArray, desc } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 const router = Router();
 
@@ -40,29 +39,27 @@ router.get("/", async (req, res) => {
   }
 });
 
-const createPayoutAdminSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(2),
-  password: z.string().min(8),
-  role: z.enum(["payout_admin", "payout_super_admin", "agent"]),
-  canManagePayoutProviderCredentials: z.boolean().optional().default(false),
-  permissionsJson: z.record(z.string(), z.boolean()).optional(),
-  mobile: z.string().optional(),
-  referralCode: z.string().optional(),
-});
-
 /**
  * POST /api/admin/payout-admins
  * Create a payout admin, payout super admin, or agent user.
  */
 router.post("/", async (req, res) => {
-  const parsed = createPayoutAdminSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
-    return;
+  const { email, name, password, role, canManagePayoutProviderCredentials, permissionsJson, mobile, referralCode } = req.body ?? {};
+
+  // Manual validation (avoids direct zod/v4 import — not a direct dep of api-server)
+  if (!email || typeof email !== "string" || !email.includes("@")) {
+    res.status(400).json({ error: "Valid email is required" }); return;
+  }
+  if (!name || typeof name !== "string" || name.trim().length < 2) {
+    res.status(400).json({ error: "Name must be at least 2 characters" }); return;
+  }
+  if (!password || typeof password !== "string" || password.length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" }); return;
+  }
+  if (!role || !["payout_admin", "payout_super_admin", "agent"].includes(role)) {
+    res.status(400).json({ error: "Role must be payout_admin, payout_super_admin, or agent" }); return;
   }
 
-  const { email, name, password, role, canManagePayoutProviderCredentials, permissionsJson, mobile, referralCode } = parsed.data;
   const adminUser = (req as any).user;
 
   try {
@@ -77,12 +74,12 @@ router.post("/", async (req, res) => {
     const [created] = await db
       .insert(usersTable)
       .values({
-        email,
-        name,
+        email: email.toLowerCase().trim(),
+        name: name.trim(),
         passwordHash,
         role,
         isActive: true,
-        canManagePayoutProviderCredentials: canManagePayoutProviderCredentials ?? false,
+        canManagePayoutProviderCredentials: canManagePayoutProviderCredentials === true,
         permissionsJson: permissionsJson ?? null,
       })
       .returning({
@@ -115,12 +112,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-const updatePermissionsSchema = z.object({
-  isActive: z.boolean().optional(),
-  canManagePayoutProviderCredentials: z.boolean().optional(),
-  permissionsJson: z.record(z.string(), z.boolean()).optional(),
-});
-
 /**
  * PATCH /api/admin/payout-admins/:id/permissions
  * Update payout admin permissions (Super Admin only can toggle canManagePayoutProviderCredentials).
@@ -129,15 +120,10 @@ router.patch("/:id/permissions", async (req, res) => {
   const id = parseInt(req.params["id"] as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  const parsed = updatePermissionsSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
-    return;
-  }
-
+  const { isActive, canManagePayoutProviderCredentials, permissionsJson } = req.body ?? {};
   const adminUser = (req as any).user;
 
-  if (parsed.data.canManagePayoutProviderCredentials !== undefined && !adminUser.isSuperAdmin) {
+  if (canManagePayoutProviderCredentials !== undefined && !adminUser.isSuperAdmin) {
     res.status(403).json({ error: "Only Super Admin can grant provider credential access" });
     return;
   }
@@ -150,10 +136,10 @@ router.patch("/:id/permissions", async (req, res) => {
     }
 
     const updateValues: Partial<typeof usersTable.$inferInsert> = {};
-    if (parsed.data.isActive !== undefined) updateValues.isActive = parsed.data.isActive;
-    if (parsed.data.canManagePayoutProviderCredentials !== undefined)
-      updateValues.canManagePayoutProviderCredentials = parsed.data.canManagePayoutProviderCredentials;
-    if (parsed.data.permissionsJson !== undefined) updateValues.permissionsJson = parsed.data.permissionsJson;
+    if (isActive !== undefined) updateValues.isActive = Boolean(isActive);
+    if (canManagePayoutProviderCredentials !== undefined)
+      updateValues.canManagePayoutProviderCredentials = Boolean(canManagePayoutProviderCredentials);
+    if (permissionsJson !== undefined) updateValues.permissionsJson = permissionsJson;
 
     const [updated] = await db
       .update(usersTable)
@@ -168,7 +154,7 @@ router.patch("/:id/permissions", async (req, res) => {
         permissionsJson: usersTable.permissionsJson,
       });
 
-    req.log.info({ adminId: adminUser.id, targetId: id, changes: parsed.data }, "payout_admin_permissions_updated");
+    req.log.info({ adminId: adminUser.id, targetId: id, changes: { isActive, canManagePayoutProviderCredentials, permissionsJson } }, "payout_admin_permissions_updated");
     res.json(updated);
   } catch (err) {
     req.log.error({ err }, "admin_update_payout_admin_permissions_error");

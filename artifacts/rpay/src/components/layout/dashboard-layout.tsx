@@ -413,6 +413,7 @@ const ADMIN_NAV = [
       { title: "OTP / SMS Settings", icon: MessageSquare, href: "/admin/otp-settings", superAdminOnly: true },
       { title: "Secure ID Provider", icon: ShieldCheck, href: "/admin/secure-id-settings", superAdminOnly: true as const },
       { title: "Settings", icon: Settings, href: "/admin/settings" },
+      { title: "API Reference", icon: BookOpen, href: "/admin/api-docs" },
     ],
   },
 ];

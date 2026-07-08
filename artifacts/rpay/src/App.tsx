@@ -44,6 +44,7 @@ import PayoutAdminAuditLogs from "@/pages/payout-admin/audit-logs";
 import PayoutAdminSettings from "@/pages/payout-admin/settings";
 
 // Admin Pages
+import AdminApiDocs from "@/pages/admin/api-docs";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminTransactions from "@/pages/admin/transactions";
 import AdminMerchants from "@/pages/admin/merchants";
@@ -444,6 +445,7 @@ function Router() {
       <Route path="/admin/payout-merchants/:merchantId"><AdminRoute component={AdminPayoutMerchantDetail} /></Route>
       <Route path="/admin/payout-merchants"><AdminRoute component={AdminPayoutMerchants} /></Route>
       <Route path="/admin/payout-wallet-loads"><AdminRoute component={AdminPayoutWalletLoads} /></Route>
+      <Route path="/admin/api-docs"><AdminRoute component={AdminApiDocs} /></Route>
 
       {/* Legacy/broken payout routes — redirect to canonical page */}
       <Route path="/admin/cashfree-payout"><Redirect to="/admin/payout-gateway" /></Route>

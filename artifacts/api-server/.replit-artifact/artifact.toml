@@ -29,4 +29,9 @@ PORT = "8080"
 NODE_ENV = "production"
 
 [services.production.health.startup]
-path = "/api/healthz"
+# Deep check: verifies DB connection, schema columns, AND bcrypt-compares every
+# documented demo/test account's password against the DB. If any credential is
+# broken (wrong hash, wrong role, deactivated), this returns 503 and Replit
+# does not route traffic to the new instance — catching seed regressions before
+# real users see them. Use /api/healthz for frequent uptime pings (no bcrypt overhead).
+path = "/api/healthz/deep"

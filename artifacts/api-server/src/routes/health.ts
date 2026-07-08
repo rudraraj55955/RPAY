@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
-import { pool } from "@workspace/db";
+import bcrypt from "bcryptjs";
+import { inArray } from "drizzle-orm";
+import { pool, db, usersTable, demoAccountRemovalsTable } from "@workspace/db";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -14,12 +16,25 @@ router.get("/healthz", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// The set of documented demo accounts. Keep in sync with seed.ts
+// DEMO_CREDENTIALS and the "Demo Credentials" table in replit.md.
+const DEMO_CREDENTIALS = [
+  { email: "admin@rasokart.com", password: "Admin@123456", role: "admin" as const },
+  { email: "merchant@demo.com", password: "Merchant@123456", role: "merchant" as const },
+  { email: "merchant2@demo.com", password: "Merchant@123456", role: "merchant" as const },
+];
+
 // Deep readiness check — verifies the DB connection AND the presence of the
 // tables/columns most likely to drift on a fresh/older VPS deploy (see
-// lib/schemaGuard.ts). Intended for deploy-time smoke tests
-// (`curl .../api/healthz/deep`) so a missing-column 502 is caught by a
-// health check immediately after deploy, instead of surfacing to a real
-// user's first login attempt.
+// lib/schemaGuard.ts). Also verifies that every documented demo/test account
+// can actually authenticate (correct password hash, correct role, active) so
+// a seed regression is caught here before traffic is routed to the new
+// instance rather than surfacing as a silent 401 to a real customer.
+//
+// Intended for deploy-time smoke tests and as the Replit autoscale startup
+// health check path (see artifact.toml services.production.health.startup).
+// The shallow /api/healthz remains available for frequent uptime pings that
+// just need to know the process is alive.
 router.get("/healthz/deep", async (_req, res) => {
   const checks: Record<string, boolean> = {};
   let dbOk = true;
@@ -51,6 +66,85 @@ router.get("/healthz/deep", async (_req, res) => {
         checks[key] = false;
         logger.error({ err, check: key }, "healthz_deep_schema_check_failed");
       }
+    }
+
+    // Demo-credential check: verify every documented login can authenticate.
+    // Respects SEED_EXCLUDE_DEMO_EMAILS (env var) and the demo_account_removals
+    // table so excluded accounts aren't flagged as broken on envs that have
+    // intentionally removed them.
+    try {
+      const envExcluded = new Set(
+        (process.env.SEED_EXCLUDE_DEMO_EMAILS ?? "")
+          .split(",")
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean),
+      );
+
+      const dbExcludedRows = await db
+        .select({ email: demoAccountRemovalsTable.email })
+        .from(demoAccountRemovalsTable);
+      const dbExcluded = new Set(dbExcludedRows.map((r) => r.email.toLowerCase()));
+
+      const activeCredentials = DEMO_CREDENTIALS.filter(
+        (c) => !envExcluded.has(c.email.toLowerCase()) && !dbExcluded.has(c.email.toLowerCase()),
+      );
+
+      if (activeCredentials.length === 0) {
+        // All demo accounts excluded — nothing to verify; treat as pass.
+        checks["demo_credentials"] = true;
+      } else {
+        const emails = activeCredentials.map((c) => c.email);
+        const rows = await db
+          .select({
+            email: usersTable.email,
+            passwordHash: usersTable.passwordHash,
+            role: usersTable.role,
+            isActive: usersTable.isActive,
+          })
+          .from(usersTable)
+          .where(inArray(usersTable.email, emails));
+
+        const byEmail = new Map(rows.map((r) => [r.email, r]));
+        let allOk = true;
+
+        for (const cred of activeCredentials) {
+          const row = byEmail.get(cred.email);
+          if (!row) {
+            allOk = false;
+            logger.error(
+              { email: cred.email },
+              "healthz_deep_demo_credential_missing: account documented in replit.md does not exist in the database",
+            );
+            continue;
+          }
+
+          const passwordOk = await bcrypt.compare(cred.password, row.passwordHash);
+          const roleOk = row.role === cred.role;
+          const activeOk = row.isActive;
+
+          if (!passwordOk || !roleOk || !activeOk) {
+            allOk = false;
+            logger.error(
+              {
+                email: cred.email,
+                passwordMatches: passwordOk,
+                expectedRole: cred.role,
+                actualRole: row.role,
+                isActive: row.isActive,
+              },
+              "healthz_deep_demo_credential_broken: documented demo account cannot authenticate as expected",
+            );
+          }
+        }
+
+        checks["demo_credentials"] = allOk;
+        if (allOk) {
+          logger.info({ accounts: emails }, "healthz_deep_demo_credentials_ok");
+        }
+      }
+    } catch (err) {
+      checks["demo_credentials"] = false;
+      logger.error({ err }, "healthz_deep_demo_credential_check_failed");
     }
   }
 

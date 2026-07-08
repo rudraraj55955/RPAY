@@ -66,6 +66,7 @@ RasoKart is a premium dark-themed payment gateway SaaS platform — admins onboa
 - Post-codegen: patch script runs automatically to fix TS2308 barrel collision
 - Seed uses merchant-scoped guards: check `WHERE merchantId = m1.id` not global table count
 - Documented demo/test logins are guarded by an automated check, not just a log line: `pnpm --filter @workspace/scripts run verify-demo-credentials` runs after migrations/seed in `scripts/post-merge.sh` (post-merge setup) and is documented as a required post-deploy step in `DEPLOY_HETZNER.md`. It exits non-zero if any account in the "Demo Credentials" table can't authenticate, blocking the merge/deploy. Keep it in sync with this table and with `seed.ts`
+- **Replit deploy gate**: `/api/healthz/deep` is configured as the autoscale startup health path (`artifact.toml` `services.production.health.startup`). It includes a `demo_credentials` check that bcrypt-compares every non-excluded documented demo account against the live DB. If any credential is broken, the endpoint returns HTTP 503 and Replit does not route traffic to the new instance. This catches seed regressions automatically without any manual post-deploy step. The shallow `/api/healthz` remains available for frequent uptime pings. When adding/removing a demo account, update `DEMO_CREDENTIALS` in both `seed.ts` and `routes/health.ts`.
 
 ## Gotchas
 

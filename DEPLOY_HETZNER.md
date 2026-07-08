@@ -23,17 +23,19 @@ pm2 restart rasokart-api
 BASE_PATH=/ pnpm --filter @workspace/rpay run build
 # nginx serves the updated dist/ folder automatically
 
-# Confirm the deploy applied schema/columns correctly:
+# Confirm the deploy applied schema/columns correctly AND that every documented
+# demo/test account can authenticate (password hash, role, active). This is the
+# same deep check Replit uses as the autoscale startup gate (see artifact.toml).
 curl -s https://rasokart.com/api/healthz/deep
 
-# Fail loudly (non-zero exit) if a documented demo/test login is broken.
-# Run this after pm2 restart so seed.ts has finished re-upserting demo accounts.
+# For Hetzner (PM2) deploys, also run the standalone credential check for a
+# more detailed per-account breakdown in the terminal output:
 pnpm --filter @workspace/scripts run verify-demo-credentials
 ```
 
-If `verify-demo-credentials` exits non-zero, do not consider the deploy complete — a documented
-demo/test account is broken (wrong password hash, wrong role, or deactivated). Investigate before
-telling anyone the deploy succeeded.
+If `/api/healthz/deep` returns `"status":"degraded"` or `"demo_credentials":false`, do not
+consider the deploy complete — a documented demo/test account is broken (wrong password hash,
+wrong role, or deactivated). Investigate `seed.ts` before telling anyone the deploy succeeded.
 
 ---
 

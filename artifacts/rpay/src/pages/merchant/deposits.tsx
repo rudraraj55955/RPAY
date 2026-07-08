@@ -994,7 +994,22 @@ export default function MerchantDeposits() {
         openSecureCheckout(result.publicOrderId, checkoutUrl);
       }
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to create deposit order");
+      const status: number | undefined = err?.status;
+      const serverError: string | undefined =
+        err?.data?.error ?? err?.data?.message ?? undefined;
+
+      if (status === 503) {
+        toast.error(
+          serverError && !serverError.includes("temporarily unavailable")
+            ? serverError
+            : "All payment gateways are currently unavailable. Our team has been notified. Please try again in a few minutes or contact support.",
+          { duration: 8000 },
+        );
+      } else if (status === 400 && serverError) {
+        toast.error(serverError);
+      } else {
+        toast.error(serverError ?? err?.message ?? "Failed to create deposit order");
+      }
     } finally {
       setCfCreating(false);
     }

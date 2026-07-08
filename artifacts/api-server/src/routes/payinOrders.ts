@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, cashfreePaymentOrdersTable, providerIntegrationsTable, PAYIN_ORDER_STATUS } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, cashfreePaymentOrdersTable, providerIntegrationsTable, PAYIN_ORDER_STATUS, routingLogsTable, notificationsTable, usersTable } from "@workspace/db";
+import { eq, and, gte, sql } from "drizzle-orm";
 import { cashfreeCreateOrder, cashfreeGetOrder } from "../helpers/cashfree";
 import { decryptSecret } from "../helpers/cryptoUtils";
 import { requireAuth } from "../middlewares/auth";
@@ -372,6 +372,75 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
     // admin never configured. This makes the failover chain authoritative.
     if (routingWasConfigured && cashfreeRoutingLogId === null) {
       req.log.warn({ event: "payin_routing_chain_exhausted", merchantId }, "payin_routing_chain_exhausted");
+
+      // ── Admin alert: rolling-window failover exhaustion ───────────────────
+      // Fire a notification to all active admins when routing failures in the
+      // last hour exceed FAILOVER_ALERT_THRESHOLD. A per-hour dedup check
+      // prevents alert floods (one alert per hour max, across all admins).
+      // This runs best-effort — never blocks or alters the 503 response.
+      const FAILOVER_ALERT_THRESHOLD = 5;
+      const FAILOVER_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+      try {
+        const windowStart = new Date(Date.now() - FAILOVER_WINDOW_MS);
+
+        // Count all routing_logs failures in the rolling window (global, all merchants)
+        const [countRow] = await db
+          .select({ count: sql<number>`COUNT(*)::int` })
+          .from(routingLogsTable)
+          .where(and(
+            gte(routingLogsTable.createdAt, windowStart),
+            eq(routingLogsTable.result, "failed"),
+          ));
+        const failureCount = countRow?.count ?? 0;
+
+        if (failureCount >= FAILOVER_ALERT_THRESHOLD) {
+          // Dedup: only alert once per hour — check if any admin already has
+          // a gateway_failover_exhausted notification from within this window.
+          const [existingAlert] = await db
+            .select({ id: notificationsTable.id })
+            .from(notificationsTable)
+            .where(and(
+              eq(notificationsTable.type, "gateway_failover_exhausted"),
+              gte(notificationsTable.createdAt, windowStart),
+            ))
+            .limit(1);
+
+          if (!existingAlert) {
+            // Fetch all active admin user IDs
+            const adminUsers = await db
+              .select({ id: usersTable.id })
+              .from(usersTable)
+              .where(and(eq(usersTable.role, "admin"), eq(usersTable.isActive, true)));
+
+            if (adminUsers.length > 0) {
+              await db.insert(notificationsTable).values(
+                adminUsers.map(u => ({
+                  userId: u.id,
+                  type: "gateway_failover_exhausted" as const,
+                  title: "Payment Gateway Failover Chain Exhausted",
+                  body: `All configured payment gateways failed ${failureCount} times in the last hour. Merchants may be unable to initiate deposits. Please review gateway health and routing configuration immediately.`,
+                  metadata: {
+                    failureCount,
+                    windowMinutes: 60,
+                    triggerMerchantId: merchantId,
+                  },
+                })),
+              ).onConflictDoNothing();
+
+              req.log.warn({
+                event: "payin_failover_exhausted_admin_notified",
+                merchantId,
+                failureCount,
+                adminCount: adminUsers.length,
+              }, "payin_failover_exhausted_admin_notified");
+            }
+          }
+        }
+      } catch (alertErr) {
+        // Best-effort — never let notification failure affect the 503 response
+        req.log.error({ event: "payin_failover_alert_failed", merchantId }, "payin_failover_alert_failed");
+      }
+
       res.status(503).json({ error: "Payment is temporarily unavailable. All configured gateways could not process the request. Please try again later or contact support." });
       return;
     }

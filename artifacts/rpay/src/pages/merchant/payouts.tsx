@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus, AlertTriangle, TrendingUp, Wallet, Lock, CheckCircle2, Clock, XCircle, RotateCcw, BadgeCheck, FileText, Download, Loader2 } from "lucide-react";
+import { Plus, AlertTriangle, TrendingUp, Wallet, Lock, CheckCircle2, Clock, XCircle, RotateCcw, BadgeCheck, FileText, Download, Loader2, Share2, Copy, Link2, MessageCircle } from "lucide-react";
 import { Link } from "wouter";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -96,6 +96,22 @@ function SlipRow({ label, value, mono = false }: { label: string; value: string 
   );
 }
 
+function buildShareText(
+  info: { receiptId: string; statusLabel: string; amount: number; payoutMode: string; utr: string | null },
+  shareUrl: string,
+): string {
+  const lines = [
+    "RasoKart Payout Receipt",
+    `Status: ${info.statusLabel}`,
+    `Amount: ₹${info.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+    `Mode: ${info.payoutMode}`,
+  ];
+  if (info.utr) lines.push(`UTR: ${info.utr}`);
+  lines.push(`Receipt ID: ${info.receiptId}`);
+  if (shareUrl) lines.push(`View Slip: ${shareUrl}`);
+  return lines.join("\n");
+}
+
 export default function MerchantPayouts() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
@@ -105,6 +121,17 @@ export default function MerchantPayouts() {
   const [slipLoading, setSlipLoading] = useState(false);
   const [slipError, setSlipError] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [sharingId, setSharingId] = useState<number | null>(null);
+  const [shareMenu, setShareMenu] = useState<{
+    payoutId: number;
+    receiptId: string;
+    statusLabel: string;
+    amount: number;
+    payoutMode: string;
+    utr: string | null;
+    shareUrl: string | null;
+    shareUrlLoading: boolean;
+  } | null>(null);
   const [beneficiaryMode, setBeneficiaryMode] = useState<"saved" | "new">("saved");
   const [selectedBeneficiaryId, setSelectedBeneficiaryId] = useState<string>("");
   const [form, setForm] = useState({
@@ -278,6 +305,65 @@ export default function MerchantPayouts() {
     } finally {
       setDownloadingId(null);
     }
+  };
+
+  const generateShareLink = async (payoutId: number): Promise<string> => {
+    const t = localStorage.getItem(TOKEN_KEY);
+    const res = await fetch(`/api/withdrawals/${payoutId}/slip/share-link`, {
+      method: "POST",
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+    });
+    if (!res.ok) throw new Error("Unable to share slip right now");
+    const { url } = await res.json() as { url: string };
+    return window.location.origin + url;
+  };
+
+  const openShareMenu = (info: { payoutId: number; receiptId: string; statusLabel: string; amount: number; payoutMode: string; utr: string | null }) => {
+    setShareMenu({ ...info, shareUrl: null, shareUrlLoading: true });
+    generateShareLink(info.payoutId)
+      .then(url => setShareMenu(prev => prev ? { ...prev, shareUrl: url, shareUrlLoading: false } : null))
+      .catch(() => {
+        setShareMenu(prev => prev ? { ...prev, shareUrlLoading: false } : null);
+        toast.error("Unable to share slip right now");
+      });
+  };
+
+  const handleShare = async (info: { payoutId: number; receiptId: string; statusLabel: string; amount: number; payoutMode: string; utr: string | null }) => {
+    if (typeof navigator.share === "function") {
+      setSharingId(info.payoutId);
+      try {
+        const fullUrl = await generateShareLink(info.payoutId);
+        const text = buildShareText(info, fullUrl);
+        let nativeShared = false;
+        if (typeof (navigator as any).canShare === "function") {
+          try {
+            const t = localStorage.getItem(TOKEN_KEY);
+            const pdfRes = await fetch(`/api/withdrawals/${info.payoutId}/slip.pdf`, {
+              headers: t ? { Authorization: `Bearer ${t}` } : {},
+            });
+            if (pdfRes.ok) {
+              const blob = await pdfRes.blob();
+              const file = new File([blob], `rasokart-payout-slip-${info.payoutId}.pdf`, { type: "application/pdf" });
+              if ((navigator as any).canShare({ files: [file] })) {
+                await navigator.share({ title: "RasoKart Payout Receipt", text, files: [file] } as ShareData);
+                toast.success("Receipt shared");
+                nativeShared = true;
+              }
+            }
+          } catch {}
+        }
+        if (!nativeShared) {
+          await navigator.share({ title: "RasoKart Payout Receipt", text, url: fullUrl });
+          toast.success("Receipt shared");
+        }
+        return;
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return;
+      } finally {
+        setSharingId(null);
+      }
+    }
+    openShareMenu(info);
   };
 
   return (
@@ -499,6 +585,25 @@ export default function MerchantPayouts() {
                                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                     : <Download className="w-3.5 h-3.5" />}
                                 </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-muted-foreground px-2"
+                                  onClick={() => handleShare({
+                                    payoutId: w.id,
+                                    receiptId: `RK-PO-${String(w.id).padStart(6, "0")}`,
+                                    statusLabel: getDisplayStatus(w.status as PayoutStatus, w.transferStatus as TransferStatus).label,
+                                    amount: Number(w.amount),
+                                    payoutMode: w.payoutMode,
+                                    utr: w.utr ?? null,
+                                  })}
+                                  disabled={sharingId === w.id}
+                                  title="Share payout slip"
+                                >
+                                  {sharingId === w.id
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    : <Share2 className="w-3.5 h-3.5" />}
+                                </Button>
                                 {w.beneficiaryId ? (
                                   <Button
                                     variant="ghost"
@@ -641,6 +746,26 @@ export default function MerchantPayouts() {
             <Button variant="outline" size="sm" onClick={() => { setSlipPayoutId(null); setSlipData(null); }}>
               Close
             </Button>
+            {slipData && slipPayoutId !== null && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleShare({
+                  payoutId: slipData.id,
+                  receiptId: slipData.receiptId,
+                  statusLabel: slipData.statusLabel,
+                  amount: slipData.amount,
+                  payoutMode: slipData.payoutMode,
+                  utr: slipData.utr,
+                })}
+                disabled={sharingId === slipPayoutId}
+              >
+                {sharingId === slipPayoutId
+                  ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  : <Share2 className="w-4 h-4 mr-2" />}
+                Share
+              </Button>
+            )}
             {slipPayoutId !== null && (
               <Button size="sm" onClick={() => downloadPdf(slipPayoutId!)} disabled={downloadingId === slipPayoutId}>
                 {downloadingId === slipPayoutId
@@ -649,6 +774,93 @@ export default function MerchantPayouts() {
                 Download PDF
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Menu Dialog */}
+      <Dialog open={shareMenu !== null} onOpenChange={o => { if (!o) setShareMenu(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Share Payout Receipt</DialogTitle>
+          </DialogHeader>
+          {shareMenu && (
+            <div className="space-y-4 py-1">
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  variant="outline"
+                  className="h-auto flex flex-col gap-2 py-4"
+                  disabled={shareMenu.shareUrlLoading || !shareMenu.shareUrl}
+                  onClick={async () => {
+                    if (!shareMenu.shareUrl) return;
+                    try {
+                      await navigator.clipboard.writeText(shareMenu.shareUrl);
+                      toast.success("Slip link copied");
+                    } catch {
+                      toast.error("Unable to copy link");
+                    }
+                  }}
+                >
+                  {shareMenu.shareUrlLoading
+                    ? <Loader2 className="w-5 h-5 animate-spin" />
+                    : <Link2 className="w-5 h-5" />}
+                  <span className="text-xs">Copy Link</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto flex flex-col gap-2 py-4"
+                  disabled={shareMenu.shareUrlLoading}
+                  onClick={async () => {
+                    const text = buildShareText(shareMenu, shareMenu.shareUrl ?? "");
+                    try {
+                      await navigator.clipboard.writeText(text);
+                      toast.success("Summary copied");
+                    } catch {
+                      toast.error("Unable to copy summary");
+                    }
+                  }}
+                >
+                  <Copy className="w-5 h-5" />
+                  <span className="text-xs">Copy Summary</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto flex flex-col gap-2 py-4"
+                  disabled={shareMenu.shareUrlLoading}
+                  onClick={() => {
+                    const text = buildShareText(shareMenu, shareMenu.shareUrl ?? "");
+                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+                  }}
+                >
+                  <MessageCircle className="w-5 h-5 text-green-400" />
+                  <span className="text-xs">WhatsApp</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto flex flex-col gap-2 py-4"
+                  disabled={downloadingId === shareMenu.payoutId}
+                  onClick={() => downloadPdf(shareMenu.payoutId)}
+                >
+                  {downloadingId === shareMenu.payoutId
+                    ? <Loader2 className="w-5 h-5 animate-spin" />
+                    : <Download className="w-5 h-5" />}
+                  <span className="text-xs">Download PDF</span>
+                </Button>
+              </div>
+
+              {shareMenu.shareUrl && (
+                <div className="rounded-md bg-muted/30 px-3 py-2 border border-border/40">
+                  <p className="text-[10px] text-muted-foreground mb-1">Share link · expires in 24 hours</p>
+                  <p className="text-xs font-mono text-foreground/70 break-all">{shareMenu.shareUrl}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShareMenu(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

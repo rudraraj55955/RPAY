@@ -61,6 +61,7 @@ import upigatewayWebhookRouter from "./upigatewayWebhook";
 import utrVerificationsRouter from "./utrVerifications";
 import payinChargesRouter from "./payinCharges";
 import platformProfitRouter from "./platformProfit";
+import publicPayoutSlipRouter from "./publicPayoutSlip";
 
 const router: IRouter = Router();
 
@@ -137,5 +138,7 @@ router.use("/verification", verificationRouter);
 router.use("/admin/utr-verifications", utrVerificationsRouter);
 router.use("/admin/payin-charges", payinChargesRouter);
 router.use("/admin/platform-profit", platformProfitRouter);
+// Public payout slip — token-authenticated, no session required; mount last to avoid path conflicts
+router.use("/public/payout-slip", publicPayoutSlipRouter);
 
 export default router;

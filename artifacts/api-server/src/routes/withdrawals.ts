@@ -14,6 +14,7 @@ import { buildPayoutSlipPdf } from "../helpers/payoutSlipPdf";
 import type { PayoutSlipData, PayoutDisplayStatus } from "../helpers/payoutSlipPdf";
 import { eq, and, count, sum, sql, inArray, ne, isNull } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { signSlipShareToken } from "../helpers/payoutSlipShare";
 import { requireModule } from "../middlewares/checkModule";
 import { checkPlanLimit, rejectWithLimitError } from "../helpers/planLimits";
 import {
@@ -1517,7 +1518,7 @@ function getSlipDisplayStatus(w: typeof withdrawalsTable.$inferSelect): {
   return { displayStatus: "PROCESSING", statusLabel: "Payout Processing", isNotFinal: true };
 }
 
-function buildSlipData(
+export function buildSlipData(
   w: typeof withdrawalsTable.$inferSelect,
   merchantName: string | null,
 ): PayoutSlipData {
@@ -1568,6 +1569,43 @@ function buildSlipData(
     walletRefunded,
   };
 }
+
+// POST /api/withdrawals/:id/slip/share-link — create a 24-hour signed share link
+router.post("/:id/slip/share-link", async (req, res, next) => {
+  try {
+    const user = (req as any).user as { id: number; email: string; role: string; merchantId?: number };
+    const id   = parseInt(req.params["id"] as string);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const isAdmin = user.role === "admin";
+    const conditions: ReturnType<typeof eq>[] = [eq(withdrawalsTable.id, id)];
+    if (!isAdmin && user.merchantId) conditions.push(eq(withdrawalsTable.merchantId, user.merchantId));
+
+    const [row] = await db
+      .select({ id: withdrawalsTable.id })
+      .from(withdrawalsTable)
+      .where(and(...conditions))
+      .limit(1);
+
+    if (!row) { res.status(404).json({ error: "Payout not found" }); return; }
+
+    const shareToken = signSlipShareToken(id);
+    const expiresAt  = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const url        = `/payout-slip/${shareToken}`;
+
+    await db.insert(auditLogsTable).values({
+      adminId:    user.id,
+      adminEmail: user.email,
+      action:     "payout_slip_shared",
+      targetType: "withdrawal",
+      targetId:   id,
+      details:    JSON.stringify({ payoutId: id, role: user.role, expiresAt }),
+      ipAddress:  req.ip ?? null,
+    }).catch(err => req.log.warn({ err }, "audit_log_insert_failed"));
+
+    res.json({ url, expiresAt });
+  } catch (err) { next(err); }
+});
 
 // GET /api/withdrawals/:id/slip — JSON slip data for modal preview
 router.get("/:id/slip", async (req, res, next) => {

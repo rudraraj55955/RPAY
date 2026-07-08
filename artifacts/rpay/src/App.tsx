@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { UserRole } from "@workspace/api-client-react";
 import { useNoIndexSync } from "@/lib/use-no-index";
 import NotFound from "@/pages/not-found";
+import PayoutSlipPublic from "@/pages/payout-slip-public";
 
 // Landing Page
 import Landing from "@/pages/landing";
@@ -339,6 +340,9 @@ function Router() {
       <Route path="/qr/:id" component={QrPayPage} />
       <Route path="/va/:id" component={VaPayPage} />
       <Route path="/checkout" component={CheckoutPage} />
+
+      {/* Public payout receipt — token-authenticated, no login required */}
+      <Route path="/payout-slip/:token" component={PayoutSlipPublic} />
 
       <Route component={NotFound} />
     </Switch>

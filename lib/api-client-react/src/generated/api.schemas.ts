@@ -307,6 +307,33 @@ export interface LoginInput {
   password: string;
 }
 
+/**
+ * Fields the merchant can update on their own profile. All fields are optional; only provided fields are updated.
+ */
+export interface MerchantProfileUpdateInput {
+  /**
+     * Legal or trading business name (max 200 chars)
+     * @maxLength 200
+     */
+  businessName?: string;
+  /**
+     * Primary contact person name (max 200 chars)
+     * @maxLength 200
+     */
+  contactName?: string;
+  /**
+     * Contact phone number (max 50 chars)
+     * @maxLength 50
+     */
+  phone?: string;
+  /**
+     * Business website URL (max 500 chars). Pass null or empty string to clear it.
+     * @maxLength 500
+     * @nullable
+     */
+  website?: string | null;
+}
+
 export interface MerchantRegisterInput {
   email: string;
   password: string;
@@ -1585,6 +1612,8 @@ export interface ApiKey {
   id: number;
   merchantId: number;
   keyPrefix: string;
+  /** @nullable */
+  label?: string | null;
   isActive: boolean;
   /** @nullable */
   lastUsedAt?: string | null;
@@ -1597,6 +1626,8 @@ export interface ApiKeyWithSecret {
   apiKey: string;
   secretKey: string;
   keyPrefix: string;
+  /** @nullable */
+  label?: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -6769,6 +6800,14 @@ export const ListWithdrawalsStatus = {
 
 export type ListPayoutBeneficiariesParams = {
 merchantId?: number;
+};
+
+export type GenerateApiKeyBody = {
+  /**
+     * Optional friendly name for this key (e.g. 'Production App')
+     * @maxLength 64
+     */
+  label?: string;
 };
 
 export type ListApiKeyHistoryParams = {

@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Search, Plus, Trash2, Link2, Copy, ExternalLink, CheckCircle2, XCircle, Hash, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 
 type LinkRow = {
   id: number;
@@ -87,6 +88,7 @@ export default function MerchantPaymentLinks() {
   const [showCreate, setShowCreate] = useState(false);
   const [editLink, setEditLink] = useState<LinkRow | null>(null);
   const [editMaxPayments, setEditMaxPayments] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -171,9 +173,13 @@ export default function MerchantPaymentLinks() {
   };
 
   const handleDelete = (id: number) => {
-    if (!confirm("Delete this payment link? It will no longer be accessible.")) return;
-    deleteMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Payment link deleted"); invalidate(); },
+    setConfirmDeleteId(id);
+  };
+
+  const doDelete = () => {
+    if (confirmDeleteId === null) return;
+    deleteMutation.mutate({ id: confirmDeleteId }, {
+      onSuccess: () => { toast.success("Payment link deleted"); invalidate(); setConfirmDeleteId(null); },
       onError: () => toast.error("Failed to delete"),
     });
   };
@@ -450,6 +456,17 @@ export default function MerchantPaymentLinks() {
           </DialogContent>
         </Dialog>
       )}
+
+      <RasoConfirmModal
+        open={confirmDeleteId !== null}
+        onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}
+        variant="destructive"
+        title="Delete Payment Link"
+        description="This link will be permanently removed and will no longer be accessible to customers."
+        confirmLabel="Delete Link"
+        onConfirm={doDelete}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

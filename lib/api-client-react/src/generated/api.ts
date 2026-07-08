@@ -131,6 +131,7 @@ import type {
   ExportVaBalanceAuditCsvParams,
   FlushQuietHoursQueue200,
   GatewayUsage,
+  GenerateApiKeyBody,
   GetAdminMerchantReportSchedule200,
   GetAdminMerchantReportScheduleHistory200,
   GetAdminMerchantReportScheduleHistoryParams,
@@ -260,6 +261,7 @@ import type {
   MerchantPlan,
   MerchantPlanWithDetails,
   MerchantProduct,
+  MerchantProfileUpdateInput,
   MerchantRegisterInput,
   MerchantSavedFilter,
   MerchantVolumeListResponse,
@@ -2039,6 +2041,78 @@ export function useExportMerchantsCsv<TData = Awaited<ReturnType<typeof exportMe
 
 
 
+
+export const getUpdateMerchantProfileUrl = () => {
+
+
+
+
+  return `/api/merchants/me`
+}
+
+/**
+ * Allows a merchant to update their own editable profile fields (business name, contact name, phone, website).
+ * @summary Update own merchant profile (merchant self-service)
+ */
+export const updateMerchantProfile = async (merchantProfileUpdateInput: MerchantProfileUpdateInput, options?: RequestInit): Promise<Merchant> => {
+
+  return customFetch<Merchant>(getUpdateMerchantProfileUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      merchantProfileUpdateInput,)
+  }
+);}
+
+
+
+
+export const getUpdateMerchantProfileMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMerchantProfile>>, TError,{data: BodyType<MerchantProfileUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMerchantProfile>>, TError,{data: BodyType<MerchantProfileUpdateInput>}, TContext> => {
+
+const mutationKey = ['updateMerchantProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMerchantProfile>>, {data: BodyType<MerchantProfileUpdateInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateMerchantProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMerchantProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateMerchantProfile>>>
+    export type UpdateMerchantProfileMutationBody = BodyType<MerchantProfileUpdateInput>
+    export type UpdateMerchantProfileMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update own merchant profile (merchant self-service)
+ */
+export const useUpdateMerchantProfile = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMerchantProfile>>, TError,{data: BodyType<MerchantProfileUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMerchantProfile>>,
+        TError,
+        {data: BodyType<MerchantProfileUpdateInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateMerchantProfileMutationOptions(options));
+    }
 
 export const getGetMerchantUrl = (id: number,) => {
 
@@ -8343,14 +8417,15 @@ export const getGenerateApiKeyUrl = () => {
 /**
  * @summary Generate new API key pair
  */
-export const generateApiKey = async ( options?: RequestInit): Promise<ApiKeyWithSecret> => {
+export const generateApiKey = async (generateApiKeyBody?: GenerateApiKeyBody, options?: RequestInit): Promise<ApiKeyWithSecret> => {
 
   return customFetch<ApiKeyWithSecret>(getGenerateApiKeyUrl(),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      generateApiKeyBody,)
   }
 );}
 
@@ -8358,8 +8433,8 @@ export const generateApiKey = async ( options?: RequestInit): Promise<ApiKeyWith
 
 
 export const getGenerateApiKeyMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateApiKey>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof generateApiKey>>, TError,void, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateApiKey>>, TError,{data?: BodyType<GenerateApiKeyBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateApiKey>>, TError,{data?: BodyType<GenerateApiKeyBody>}, TContext> => {
 
 const mutationKey = ['generateApiKey'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -8371,10 +8446,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateApiKey>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateApiKey>>, {data?: BodyType<GenerateApiKeyBody>}> = (props) => {
+          const {data} = props ?? {};
 
-
-          return  generateApiKey(requestOptions)
+          return  generateApiKey(data,requestOptions)
         }
 
 
@@ -8385,18 +8460,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type GenerateApiKeyMutationResult = NonNullable<Awaited<ReturnType<typeof generateApiKey>>>
-
+    export type GenerateApiKeyMutationBody = BodyType<GenerateApiKeyBody> | undefined
     export type GenerateApiKeyMutationError = ErrorType<unknown>
 
     /**
  * @summary Generate new API key pair
  */
 export const useGenerateApiKey = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateApiKey>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateApiKey>>, TError,{data?: BodyType<GenerateApiKeyBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof generateApiKey>>,
         TError,
-        void,
+        {data?: BodyType<GenerateApiKeyBody>},
         TContext
       > => {
       return useMutation(getGenerateApiKeyMutationOptions(options));

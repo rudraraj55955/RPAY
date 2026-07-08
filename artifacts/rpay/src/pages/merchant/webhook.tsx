@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 import { getApiErrorMessage } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Save, Webhook, ShieldCheck, RefreshCw, Copy, AlertTriangle, Eye, CheckCircle2, XCircle, Clock, Activity, FlaskConical, Zap, ChevronRight, ChevronDown, RotateCcw, ShieldOff, Shield, FlaskRound, X, BarChart2, Calendar, Bell, BellOff, TrendingDown, TrendingUp, Minus } from "lucide-react";
@@ -819,6 +820,7 @@ export default function MerchantWebhook() {
   const [failureAlertEnabled, setFailureAlertEnabled] = useState(true);
   const [failureAlertThreshold, setFailureAlertThreshold] = useState(3);
   const [newSecret, setNewSecret] = useState<string | null>(null);
+  const [confirmRotate, setConfirmRotate] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [selectedLog, setSelectedLog] = useState<CallbackLog | null>(null);
   const [retryingId, setRetryingId] = useState<number | null>(null);
@@ -915,10 +917,14 @@ onError: () => toast.error("Failed to send test event"),
   };
 
   const handleRotateSecret = () => {
-    if (!confirm("Generate a new callback signing secret? Any existing integrations using the old secret will stop working immediately.")) return;
+    setConfirmRotate(true);
+  };
+
+  const doRotateSecret = () => {
     rotateMutation.mutate(undefined, {
       onSuccess: (data) => {
         setNewSecret(data.secret);
+        setConfirmRotate(false);
         qc.invalidateQueries({ queryKey: getGetCallbackSecretQueryKey() });
       },
       onError: () => toast.error("Failed to rotate secret"),
@@ -1710,6 +1716,17 @@ onError: () => toast.error("Failed to send test event"),
           retryDelay2 ?? (retryDefaults?.delay2 ?? 900),
           retryDelay3 ?? (retryDefaults?.delay3 ?? 3600),
         ]}
+      />
+
+      <RasoConfirmModal
+        open={confirmRotate}
+        onOpenChange={open => { if (!open) setConfirmRotate(false); }}
+        variant="warning"
+        title="Rotate Callback Signing Secret"
+        description="A new secret will be generated immediately. Any existing integrations using the current secret will stop verifying webhook signatures until you update them."
+        confirmLabel="Rotate Secret"
+        onConfirm={doRotateSecret}
+        loading={rotateMutation.isPending}
       />
 
       <Dialog open={!!newSecret} onOpenChange={() => setNewSecret(null)}>

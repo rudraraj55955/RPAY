@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Search, Plus, XCircle, CheckCircle2, Trash2, Eye, Download, Building2, TrendingUp, ArrowUpDown, AlertCircle, Pencil, Copy, QrCode, History } from "lucide-react";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 import { ExportCsvButton, downloadCsvFromUrl } from "@/components/ui/export-csv-button";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -61,6 +62,7 @@ export default function MerchantVirtualAccounts() {
   const [editMode, setEditMode] = useState<"balance" | "collection">("balance");
   const [editValue, setEditValue] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     accountNumber: "", ifsc: "", bankName: "", accountHolder: "",
@@ -117,9 +119,13 @@ export default function MerchantVirtualAccounts() {
   };
 
   const handleDelete = (id: number) => {
-    if (!confirm("Delete this virtual account?")) return;
-    deleteMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("Virtual account deleted"); invalidate(); },
+    setConfirmDeleteId(id);
+  };
+
+  const doDelete = () => {
+    if (confirmDeleteId === null) return;
+    deleteMutation.mutate({ id: confirmDeleteId }, {
+      onSuccess: () => { toast.success("Virtual account deleted"); invalidate(); setConfirmDeleteId(null); },
       onError: () => toast.error("Failed to delete"),
     });
   };
@@ -942,6 +948,17 @@ export default function MerchantVirtualAccounts() {
           )}
         </SheetContent>
       </Sheet>
+
+      <RasoConfirmModal
+        open={confirmDeleteId !== null}
+        onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}
+        variant="destructive"
+        title="Delete Virtual Account"
+        description="This virtual account will be permanently removed. Any pending transactions linked to it may be affected."
+        confirmLabel="Delete Account"
+        onConfirm={doDelete}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

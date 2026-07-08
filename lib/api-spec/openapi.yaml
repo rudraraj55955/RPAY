@@ -805,6 +805,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /merchants/me:
+    patch:
+      operationId: updateMerchantProfile
+      tags: [merchants]
+      summary: Update own merchant profile (merchant self-service)
+      description: Allows a merchant to update their own editable profile fields (business name, contact name, phone, website).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantProfileUpdateInput"
+      responses:
+        "200":
+          description: Updated merchant profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Merchant"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not a merchant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /merchants/{id}:
     get:
       operationId: getMerchant
@@ -3238,6 +3270,17 @@ paths:
       operationId: generateApiKey
       tags: [api-keys]
       summary: Generate new API key pair
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  description: "Optional friendly name for this key (e.g. 'Production App')"
+                  maxLength: 64
       responses:
         "201":
           description: API key created
@@ -11003,6 +11046,27 @@ components:
         password:
           type: string
 
+    MerchantProfileUpdateInput:
+      type: object
+      description: Fields the merchant can update on their own profile. All fields are optional; only provided fields are updated.
+      properties:
+        businessName:
+          type: string
+          description: Legal or trading business name (max 200 chars)
+          maxLength: 200
+        contactName:
+          type: string
+          description: Primary contact person name (max 200 chars)
+          maxLength: 200
+        phone:
+          type: string
+          description: Contact phone number (max 50 chars)
+          maxLength: 50
+        website:
+          type: ["string", "null"]
+          description: Business website URL (max 500 chars). Pass null or empty string to clear it.
+          maxLength: 500
+
     MerchantRegisterInput:
       type: object
       required: [email, password, businessName, contactName, phone]
@@ -12299,6 +12363,8 @@ components:
           type: integer
         keyPrefix:
           type: string
+        label:
+          type: ["string", "null"]
         isActive:
           type: boolean
         lastUsedAt:
@@ -12320,6 +12386,8 @@ components:
           type: string
         keyPrefix:
           type: string
+        label:
+          type: ["string", "null"]
         isActive:
           type: boolean
         createdAt:

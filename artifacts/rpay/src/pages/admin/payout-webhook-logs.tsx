@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -65,7 +65,7 @@ export default function AdminPayoutWebhookLogs() {
     }
   }
 
-  useState(() => { fetchLogs(1); });
+  useEffect(() => { fetchLogs(1); }, []);
 
   const handlePage = (p: number) => { setPage(p); fetchLogs(p); };
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));

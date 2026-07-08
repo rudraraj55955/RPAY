@@ -3,27 +3,42 @@ import { useListApiKeys, useGenerateApiKey, useRevokeApiKey, getListApiKeysQuery
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Copy, Trash2, Eye, AlertTriangle } from "lucide-react";
+import { Plus, Copy, Trash2, Eye, AlertTriangle, Tag, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/utils";
 import { format } from "date-fns";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 
 export default function MerchantApiKeys() {
   const qc = useQueryClient();
-  const [newKey, setNewKey] = useState<{ apiKey: string; secretKey: string } | null>(null);
+  const [newKey, setNewKey] = useState<{ apiKey: string; secretKey: string; label: string | null } | null>(null);
+  const [confirmRevoke, setConfirmRevoke] = useState<number | null>(null);
+
+  // Generate dialog state
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [labelInput, setLabelInput] = useState("");
 
   const { data: keys, isLoading } = useListApiKeys();
   const generateMutation = useGenerateApiKey();
   const revokeMutation = useRevokeApiKey();
 
+  const openGenerate = () => {
+    setLabelInput("");
+    setGenerateOpen(true);
+  };
+
   const handleGenerate = () => {
-    generateMutation.mutate(undefined, {
+    const label = labelInput.trim() || undefined;
+    generateMutation.mutate({ data: label ? { label } : {} }, {
       onSuccess: (key) => {
-        setNewKey({ apiKey: key.apiKey, secretKey: key.secretKey });
+        setGenerateOpen(false);
+        setNewKey({ apiKey: key.apiKey, secretKey: key.secretKey, label: key.label ?? null });
         qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() });
       },
       onError: (err: unknown) => toast.error(getApiErrorMessage(err, "Failed to generate API key")),
@@ -31,9 +46,17 @@ export default function MerchantApiKeys() {
   };
 
   const handleRevoke = (id: number) => {
-    if (!confirm("Revoke this API key? This cannot be undone.")) return;
-    revokeMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("API key revoked"); qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() }); },
+    setConfirmRevoke(id);
+  };
+
+  const doRevoke = () => {
+    if (confirmRevoke === null) return;
+    revokeMutation.mutate({ id: confirmRevoke }, {
+      onSuccess: () => {
+        toast.success("API key revoked");
+        qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() });
+        setConfirmRevoke(null);
+      },
       onError: () => toast.error("Failed to revoke"),
     });
   };
@@ -43,63 +66,166 @@ export default function MerchantApiKeys() {
     toast.success(`${label} copied`);
   };
 
+  const copyBoth = () => {
+    if (!newKey) return;
+    navigator.clipboard.writeText(`API Key: ${newKey.apiKey}\nSecret Key: ${newKey.secretKey}`);
+    toast.success("Both credentials copied");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div><h1 className="text-3xl font-bold tracking-tight">API Keys</h1><p className="text-muted-foreground mt-1">Manage your integration credentials</p></div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={handleGenerate} disabled={generateMutation.isPending}><Plus className="w-4 h-4 mr-2" />Generate Key</Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">API Keys</h1>
+          <p className="text-muted-foreground mt-1">Manage your integration credentials</p>
         </div>
+        <Button onClick={openGenerate} disabled={generateMutation.isPending}>
+          <Plus className="w-4 h-4 mr-2" />Generate Key
+        </Button>
       </div>
 
       <Alert className="border-amber-500/30 bg-amber-500/5">
         <AlertTriangle className="w-4 h-4 text-amber-500" />
-        <AlertDescription className="text-amber-200/80">Keep your secret key safe. Never expose it in client-side code or public repositories.</AlertDescription>
+        <AlertDescription className="text-amber-200/80">
+          Keep your secret key safe. Never expose it in client-side code or public repositories.
+        </AlertDescription>
       </Alert>
 
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>API Key</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Used</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? Array.from({ length: 2 }).map((_, i) => (
-                <TableRow key={i}>{Array.from({ length: 5 }).map((_, j) => <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>)}</TableRow>
-              )) : !keys?.length ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-10">No API keys generated yet</TableCell></TableRow>
-              ) : keys.map(key => (
-                <TableRow key={key.id}>
-                  <TableCell className="font-mono text-sm">{key.keyPrefix}</TableCell>
-                  <TableCell><Badge variant={key.isActive ? "default" : "secondary"}>{key.isActive ? "Active" : "Revoked"}</Badge></TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{key.lastUsedAt ? format(new Date(key.lastUsedAt), "MMM d, HH:mm") : "Never"}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{format(new Date(key.createdAt), "MMM d, yyyy")}</TableCell>
-                  <TableCell className="text-right">
-                    {key.isActive && (
-                      <Button variant="ghost" size="icon" className="text-rose-500 hover:text-rose-400" onClick={() => handleRevoke(key.id)}><Trash2 className="w-4 h-4" /></Button>
-                    )}
-                  </TableCell>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>API Key</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last Used</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array.from({ length: 2 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 6 }).map((_, j) => (
+                        <TableCell key={j}><div className="h-4 bg-muted/50 rounded animate-pulse" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : !keys?.length ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-14">
+                      <Tag className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">No API keys generated yet</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Generate a key to start integrating</p>
+                    </TableCell>
+                  </TableRow>
+                ) : keys.map(key => (
+                  <TableRow key={key.id}>
+                    <TableCell>
+                      {key.label ? (
+                        <span className="font-medium text-sm">{key.label}</span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs italic">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm text-muted-foreground">{key.keyPrefix}</TableCell>
+                    <TableCell>
+                      <Badge variant={key.isActive ? "default" : "secondary"} className={key.isActive ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20" : ""}>
+                        {key.isActive ? "Active" : "Revoked"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {key.lastUsedAt ? format(new Date(key.lastUsedAt), "MMM d, HH:mm") : "Never"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {format(new Date(key.createdAt), "MMM d, yyyy")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {key.isActive && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
+                          onClick={() => handleRevoke(key.id)}
+                          title="Revoke key"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
 
+      {/* Generate Key Dialog */}
+      <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="w-5 h-5 text-primary" />
+              Generate API Key
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="key-label">Key Name <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                id="key-label"
+                placeholder="e.g. Production App, Mobile Backend..."
+                value={labelInput}
+                onChange={e => setLabelInput(e.target.value.slice(0, 64))}
+                maxLength={64}
+                onKeyDown={e => { if (e.key === "Enter" && !generateMutation.isPending) handleGenerate(); }}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">A friendly name to help identify this key later.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGenerateOpen(false)} disabled={generateMutation.isPending}>
+              Cancel
+            </Button>
+            <Button onClick={handleGenerate} disabled={generateMutation.isPending}>
+              {generateMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</> : "Generate Key"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke Confirm */}
+      <RasoConfirmModal
+        open={confirmRevoke !== null}
+        onOpenChange={open => { if (!open) setConfirmRevoke(null); }}
+        variant="destructive"
+        title="Revoke API Key"
+        description="This key will stop working immediately. Any integrations or applications using it will begin failing."
+        confirmLabel="Revoke Key"
+        onConfirm={doRevoke}
+        loading={revokeMutation.isPending}
+      />
+
+      {/* New Key Reveal Dialog */}
       <Dialog open={!!newKey} onOpenChange={() => setNewKey(null)}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Eye className="w-5 h-5 text-amber-500" /> Save your credentials now</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-amber-500" />
+              Save your credentials now
+              {newKey?.label && <span className="text-sm font-normal text-muted-foreground">— {newKey.label}</span>}
+            </DialogTitle>
+          </DialogHeader>
           <Alert className="border-rose-500/30 bg-rose-500/5">
             <AlertTriangle className="w-4 h-4 text-rose-500" />
-            <AlertDescription className="text-rose-200/80 font-medium">This is the only time the secret key will be shown. Copy it now — it cannot be retrieved later.</AlertDescription>
+            <AlertDescription className="text-rose-200/80 font-medium">
+              This is the only time the secret key will be shown. Copy it now — it cannot be retrieved later.
+            </AlertDescription>
           </Alert>
           {newKey && (
             <div className="space-y-4 mt-2">
@@ -107,16 +233,23 @@ export default function MerchantApiKeys() {
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">API Key</p>
                 <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-3 border border-border/50">
                   <code className="flex-1 text-sm break-all text-primary">{newKey.apiKey}</code>
-                  <Button variant="ghost" size="icon" onClick={() => copy(newKey.apiKey, "API key")}><Copy className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => copy(newKey.apiKey, "API key")}>
+                    <Copy className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Secret Key</p>
                 <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-3 border border-border/50">
                   <code className="flex-1 text-sm break-all text-amber-400">{newKey.secretKey}</code>
-                  <Button variant="ghost" size="icon" onClick={() => copy(newKey.secretKey, "Secret key")}><Copy className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => copy(newKey.secretKey, "Secret key")}>
+                    <Copy className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
+              <Button variant="outline" className="w-full text-xs" onClick={copyBoth}>
+                <Copy className="w-3.5 h-3.5 mr-2" />Copy both credentials
+              </Button>
             </div>
           )}
           <Button className="w-full mt-2" onClick={() => setNewKey(null)}>I have saved my credentials</Button>

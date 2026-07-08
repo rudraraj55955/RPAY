@@ -12,6 +12,8 @@ export interface ApiKeyWithSecret {
   apiKey: string;
   secretKey: string;
   keyPrefix: string;
+  /** @nullable */
+  label?: string | null;
   isActive: boolean;
   createdAt: string;
 }

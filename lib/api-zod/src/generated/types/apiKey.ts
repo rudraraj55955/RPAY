@@ -10,6 +10,8 @@ export interface ApiKey {
   id: number;
   merchantId: number;
   keyPrefix: string;
+  /** @nullable */
+  label?: string | null;
   isActive: boolean;
   /** @nullable */
   lastUsedAt?: string | null;

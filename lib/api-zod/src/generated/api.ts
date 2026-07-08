@@ -550,6 +550,80 @@ export const ExportMerchantsCsvQueryParams = zod.object({
 
 
 /**
+ * Allows a merchant to update their own editable profile fields (business name, contact name, phone, website).
+ * @summary Update own merchant profile (merchant self-service)
+ */
+export const updateMerchantProfileBodyBusinessNameMax = 200;
+
+export const updateMerchantProfileBodyContactNameMax = 200;
+
+export const updateMerchantProfileBodyPhoneMax = 50;
+
+export const updateMerchantProfileBodyWebsiteMax = 500;
+
+
+
+export const UpdateMerchantProfileBody = zod.object({
+  "businessName": zod.string().max(updateMerchantProfileBodyBusinessNameMax).optional().describe('Legal or trading business name (max 200 chars)'),
+  "contactName": zod.string().max(updateMerchantProfileBodyContactNameMax).optional().describe('Primary contact person name (max 200 chars)'),
+  "phone": zod.string().max(updateMerchantProfileBodyPhoneMax).optional().describe('Contact phone number (max 50 chars)'),
+  "website": zod.string().max(updateMerchantProfileBodyWebsiteMax).nullish().describe('Business website URL (max 500 chars). Pass null or empty string to clear it.')
+}).describe('Fields the merchant can update on their own profile. All fields are optional; only provided fields are updated.')
+
+export const UpdateMerchantProfileResponse = zod.object({
+  "id": zod.number(),
+  "businessName": zod.string(),
+  "contactName": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string(),
+  "website": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'suspended']),
+  "rejectionReason": zod.string().nullish(),
+  "totalDeposits": zod.number().optional(),
+  "totalWithdrawals": zod.number().optional(),
+  "balance": zod.number().optional(),
+  "logoUrl": zod.string().nullish(),
+  "brandColor": zod.string().nullish(),
+  "callbackTimestampWindowSeconds": zod.number().nullish().describe('Per-merchant replay-protection window in seconds. Null means the global default (300 s) is used.'),
+  "callbackSecretSet": zod.boolean().optional().describe('Whether the merchant has configured a callback signing secret.'),
+  "currentPlanName": zod.string().nullish(),
+  "currentPlanStatus": zod.string().nullish(),
+  "currentPlanExpiresAt": zod.string().nullish(),
+  "currentPlanIsExpired": zod.boolean().nullish(),
+  "loginAlertEmails": zod.boolean().optional().describe('Whether the merchant has enabled login alert emails. Defaults to true.'),
+  "signatureFailureAlertEmails": zod.boolean().optional().describe('Whether the merchant has enabled signature failure alert emails. Defaults to true.'),
+  "webhookFailureEmails": zod.boolean().optional().describe('Whether the merchant has enabled webhook failure alert emails. Defaults to true.'),
+  "apiKeyGeneratedEmails": zod.boolean().optional().describe('Whether the merchant has enabled API key generated notification emails. Defaults to true.'),
+  "apiKeyRevokedEmails": zod.boolean().optional().describe('Whether the merchant has enabled API key revoked notification emails. Defaults to true.'),
+  "reportScheduleChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when an admin changes their report schedule. Defaults to true.'),
+  "settlementStateChangedEmails": zod.boolean().optional().describe('Whether the merchant will receive an email when their settlement request changes state. Defaults to true.'),
+  "planExpiryAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive plan expiry alert emails. Defaults to true.'),
+  "isDemoAccount": zod.boolean().optional().describe('Whether this merchant\'s email is one of the documented demo accounts (merchant@demo.com, merchant2@demo.com, merchant3@demo.com).'),
+  "demoRemovedAt": zod.string().nullish().describe('Timestamp when an admin permanently removed this demo account via the admin portal. Null if not removed.'),
+  "reconciliationAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive reconciliation alert emails. Defaults to true.'),
+  "settlementStateEmails": zod.boolean().optional().describe('Whether the merchant will receive settlement state emails. Defaults to true.'),
+  "reportFailureAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive report failure alert emails. Defaults to true.'),
+  "weeklyDeliveryDigestEmails": zod.boolean().optional().describe('Whether the merchant will receive the weekly delivery digest email. Defaults to true.'),
+  "ekqrSyncAlertEmails": zod.boolean().optional().describe('Whether the merchant will receive EKQR sync alert emails. Defaults to true.'),
+  "planChangeEmails": zod.boolean().optional().describe('Whether the merchant will receive plan change emails. Defaults to true.'),
+  "reconciliationAlertNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications for reconciliation alerts. Defaults to true.'),
+  "planExpiryAlertNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications for plan expiry alerts. Defaults to true.'),
+  "settlementStateNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications for settlement state updates. Defaults to true.'),
+  "signatureFailureAlertNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications for signature failure alerts. Defaults to true.'),
+  "webhookFailureNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications for webhook failure alerts. Defaults to true.'),
+  "reportFailureAlertNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications for report failure alerts. Defaults to true.'),
+  "weeklyDeliveryDigestNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications for the weekly delivery digest. Defaults to true.'),
+  "apiKeyGeneratedNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications when an API key is generated. Defaults to true.'),
+  "apiKeyRevokedNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications when an API key is revoked. Defaults to true.'),
+  "loginAlertNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications for new login alerts. Defaults to true.'),
+  "reportScheduleChangedNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications when their report schedule changes. Defaults to true.'),
+  "settlementStateChangedNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications when their settlement state changes. Defaults to true.'),
+  "planChangeNotifs": zod.boolean().optional().describe('Whether the merchant has enabled in-app notifications when their plan is changed. Defaults to true.'),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Get merchant by ID
  */
 export const GetMerchantParams = zod.object({
@@ -3340,11 +3414,24 @@ export const ListApiKeysResponseItem = zod.object({
   "id": zod.number(),
   "merchantId": zod.number(),
   "keyPrefix": zod.string(),
+  "label": zod.string().nullish(),
   "isActive": zod.boolean(),
   "lastUsedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListApiKeysResponse = zod.array(ListApiKeysResponseItem)
+
+
+/**
+ * @summary Generate new API key pair
+ */
+export const generateApiKeyBodyLabelMax = 64;
+
+
+
+export const GenerateApiKeyBody = zod.object({
+  "label": zod.string().max(generateApiKeyBodyLabelMax).optional().describe('Optional friendly name for this key (e.g. \'Production App\')')
+})
 
 
 /**

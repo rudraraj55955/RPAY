@@ -398,6 +398,55 @@ router.get("/email-opt-out-stats", requireAdmin, async (req, res, next) => {
   }
 });
 
+// PATCH /api/merchants/me  (merchant updates own editable profile fields)
+router.patch("/me", async (req, res) => {
+  const user = (req as any).user;
+  if (user.role !== "merchant") {
+    res.status(403).json({ error: "Merchant access only" });
+    return;
+  }
+  const { businessName, contactName, phone, website } = req.body ?? {};
+
+  const updates: Partial<typeof merchantsTable.$inferInsert> = {};
+  if (typeof businessName === "string") {
+    const trimmed = businessName.trim();
+    if (!trimmed) { res.status(400).json({ error: "Business name cannot be empty" }); return; }
+    updates.businessName = trimmed.slice(0, 200);
+  }
+  if (typeof contactName === "string") {
+    const trimmed = contactName.trim();
+    if (!trimmed) { res.status(400).json({ error: "Contact name cannot be empty" }); return; }
+    updates.contactName = trimmed.slice(0, 200);
+  }
+  if (typeof phone === "string") {
+    const trimmed = phone.trim();
+    if (!trimmed) { res.status(400).json({ error: "Phone cannot be empty" }); return; }
+    updates.phone = trimmed.slice(0, 50);
+  }
+  if ("website" in (req.body ?? {})) {
+    const w = typeof website === "string" ? website.trim().slice(0, 500) : null;
+    updates.website = w || null;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No updatable fields provided" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(merchantsTable)
+    .set(updates)
+    .where(eq(merchantsTable.id, user.merchantId!))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Merchant not found" });
+    return;
+  }
+
+  res.json(serializeMerchant(updated));
+});
+
 // GET /api/merchants/:id  (admin, or the merchant viewing their own profile)
 router.get("/:id", async (req, res) => {
   const user = (req as any).user;

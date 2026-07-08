@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Search, Plus, Trash2, Download, QrCode, Eye, AlertTriangle, CheckCircle2, Link2, ChevronDown, ChevronRight, ScanLine, Zap, RotateCw } from "lucide-react";
 import { toast } from "sonner";
+import { RasoConfirmModal } from "@/components/ui/raso-confirm-modal";
 import { getApiErrorMessage } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { QRCodeCanvas } from "qrcode.react";
@@ -436,6 +437,7 @@ export default function MerchantQrCodes() {
   const [downloadQr, setDownloadQr] = useState<QrRow | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState<{ ids?: number[]; statusFilter?: string; count: number; label: string } | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     amount: "",
@@ -529,9 +531,13 @@ export default function MerchantQrCodes() {
   };
 
   const handleDelete = (id: number) => {
-    if (!confirm("Delete this QR code?")) return;
-    deleteMutation.mutate({ id }, {
-      onSuccess: () => { toast.success("QR code deleted"); invalidate(); },
+    setConfirmDeleteId(id);
+  };
+
+  const doDelete = () => {
+    if (confirmDeleteId === null) return;
+    deleteMutation.mutate({ id: confirmDeleteId }, {
+      onSuccess: () => { toast.success("QR code deleted"); invalidate(); setConfirmDeleteId(null); },
       onError: () => toast.error("Failed to delete"),
     });
   };
@@ -904,6 +910,17 @@ export default function MerchantQrCodes() {
           isPending={bulkDeleteMutation.isPending}
         />
       )}
+
+      <RasoConfirmModal
+        open={confirmDeleteId !== null}
+        onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}
+        variant="destructive"
+        title="Delete QR Code"
+        description="This QR code will be permanently deleted and will stop accepting payments."
+        confirmLabel="Delete QR Code"
+        onConfirm={doDelete}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

@@ -335,6 +335,10 @@ async function runGuard(): Promise<void> {
   await db.execute(sql`CREATE INDEX IF NOT EXISTS tll_created_at_idx ON tax_liability_ledger(created_at DESC)`);
   logger.info({ tables: ["platform_wallet_ledger", "tax_liability_ledger"] }, "schema_guard_table_created");
 
+  // ── api_keys: label column for named/labelled API keys ───────────────────
+  await db.execute(sql`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS label TEXT`);
+  logger.info({ table: "api_keys", column: "label" }, "schema_guard_column_added");
+
   logger.info("schema_guard_completed");
 }
 

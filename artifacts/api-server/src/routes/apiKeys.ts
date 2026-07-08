@@ -26,6 +26,7 @@ router.get("/", async (req, res) => {
     id: apiKeysTable.id,
     merchantId: apiKeysTable.merchantId,
     keyPrefix: apiKeysTable.keyPrefix,
+    label: apiKeysTable.label,
     isActive: apiKeysTable.isActive,
     lastUsedAt: apiKeysTable.lastUsedAt,
     createdAt: apiKeysTable.createdAt,
@@ -111,6 +112,9 @@ router.post("/", apiKeyCreateLimiter, requireModule("api_access"), async (req, r
     res.status(403).json({ error: "Only merchants can generate API keys" });
     return;
   }
+  const rawLabel = typeof req.body?.label === "string" ? req.body.label.trim().slice(0, 64) : null;
+  const label = rawLabel || null;
+
   const apiKey = `rasokart_live_${crypto.randomBytes(24).toString("hex")}`;
   const secretKey = `rasokart_secret_${crypto.randomBytes(32).toString("hex")}`;
   const keyPrefix = apiKey.slice(0, 20) + "...";
@@ -124,6 +128,7 @@ router.post("/", apiKeyCreateLimiter, requireModule("api_access"), async (req, r
     apiKey,
     secretKey,
     keyPrefix,
+    label,
     isActive: true,
   }).returning();
 

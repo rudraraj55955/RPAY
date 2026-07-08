@@ -97,6 +97,7 @@ import MerchantNotifications from "@/pages/merchant/notifications";
 import MerchantPaymentLinks from "@/pages/merchant/payment-links";
 import MerchantBranding from "@/pages/merchant/branding";
 import MerchantSecurity from "@/pages/merchant/security";
+import MerchantProfile from "@/pages/merchant/profile";
 import MerchantRasokartServices from "@/pages/merchant/rasokart-services";
 import MerchantVerification from "@/pages/merchant/verification";
 import MerchantWallet from "@/pages/merchant/wallet";
@@ -354,6 +355,7 @@ function Router() {
       <Route path="/merchant/ledger"><MerchantRoute component={MerchantLedger} /></Route>
       <Route path="/merchant/notifications"><MerchantRoute component={MerchantNotifications} /></Route>
       <Route path="/merchant/payment-links"><MerchantRoute component={MerchantPaymentLinks} /></Route>
+      <Route path="/merchant/profile"><MerchantRoute component={MerchantProfile} /></Route>
       <Route path="/merchant/branding"><MerchantRoute component={MerchantBranding} /></Route>
       <Route path="/merchant/security"><MerchantRoute component={MerchantSecurity} /></Route>
       <Route path="/merchant/settings"><MerchantRoute component={MerchantSecurity} /></Route>

@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { mapDbError } from "./lib/apiError";
 
 const app: Express = express();
 app.set("trust proxy", 1);
@@ -36,11 +37,13 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
-// Global error handler — returns JSON 500 instead of crashing or hanging
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  const message = err instanceof Error ? err.message : "Internal server error";
+// Global error handler — maps DB/unknown errors to safe structured JSON;
+// never forwards raw SQL, column names, stack traces, or secrets to clients.
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   logger.error({ err }, "Unhandled route error");
-  res.status(500).json({ error: message });
+  const { status, body } = mapDbError(err);
+  const requestId = (req as any).id as string | undefined;
+  res.status(status).json({ ...body, ...(requestId ? { requestId } : {}) });
 });
 
 export default app;

@@ -222,10 +222,13 @@ async function runGuard(): Promise<void> {
   logger.info({ table: "provider_integrations", columns: ["collection_type", "own_upi_id", "own_qr_image_url", "own_account_holder", "own_instructions"] }, "schema_guard_column_added");
 
   // transactions: payin charge columns (nullable — safe for existing rows)
-  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payin_fee  NUMERIC(18,2)`);
-  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS gst_amount NUMERIC(18,2)`);
-  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS net_amount NUMERIC(18,2)`);
-  logger.info({ table: "transactions" }, "schema_guard_column_added");
+  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS gross_amount  NUMERIC(12,2)`);
+  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payin_fee     NUMERIC(12,2)`);
+  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS gst_amount    NUMERIC(12,2)`);
+  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS net_amount    NUMERIC(12,2)`);
+  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fee_rate      NUMERIC(8,4)`);
+  await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fee_rule_source TEXT`);
+  logger.info({ table: "transactions", columns: ["gross_amount", "payin_fee", "gst_amount", "net_amount", "fee_rate", "fee_rule_source"] }, "schema_guard_column_added");
 
   // payin_charge_settings: global singleton table
   await db.execute(sql`

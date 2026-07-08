@@ -57,6 +57,24 @@ function copyToClipboard(text: string, label: string) {
   navigator.clipboard.writeText(text).then(() => toast.success(`${label} copied`));
 }
 
+// Guards against accidentally surfacing raw SQL or stack traces from server errors.
+function looksLikeSql(s: string | undefined | null): boolean {
+  if (!s) return false;
+  const lower = s.toLowerCase();
+  return (
+    lower.includes("insert into") ||
+    lower.includes("select ") ||
+    lower.includes("update ") ||
+    lower.includes("delete from") ||
+    lower.includes("failed query") ||
+    lower.includes("syntax error") ||
+    lower.includes("column ") && lower.includes("does not exist") ||
+    lower.includes("relation \"") ||
+    lower.includes("at object.") ||
+    lower.includes("at process.")
+  );
+}
+
 function isValidColor(color: string): boolean {
   return /^#[0-9a-f]{3,8}$/i.test(color) || /^(rgb|hsl)a?\(.+\)$/i.test(color);
 }
@@ -231,7 +249,9 @@ export default function PayPage() {
 
   async function submitUtr() {
     if (!link || !slug) return;
-    if (!utr.trim()) { setUtrError("UTR / reference number is required"); utrInputRef.current?.focus(); return; }
+    const utrTrimmed = utr.trim();
+    if (!utrTrimmed) { setUtrError("UTR / reference number is required"); utrInputRef.current?.focus(); return; }
+    if (utrTrimmed.length < 8 || utrTrimmed.length > 30) { setUtrError("UTR must be between 8 and 30 characters"); utrInputRef.current?.focus(); return; }
     if (!link.amount && !customAmount.trim()) { setUtrError("Please enter the amount you paid"); return; }
     setUtrError(null);
     setUtrState("submitting");
@@ -241,14 +261,25 @@ export default function PayPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          utr: utr.trim(),
+          utr: utrTrimmed,
           amount: link.amount ? undefined : customAmount.trim(),
           payerName: payerName.trim() || undefined,
           payerUpi: payerUpi.trim() || undefined,
         }),
       });
       const body = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(body.error ?? "Submission failed");
+      if (!r.ok) {
+        // Prefer field-level UTR error, then structured message, then error field
+        const fieldUtrError = body?.fieldErrors?.utr as string | undefined;
+        const structuredMsg = body?.message as string | undefined;
+        const legacyError = body?.error as string | undefined;
+        const raw = fieldUtrError ?? structuredMsg ?? legacyError ?? "Submission failed";
+        // Defence: never surface raw SQL or stack traces to the customer
+        const safe = looksLikeSql(raw)
+          ? "Payment could not be submitted right now. Please try again or contact support."
+          : raw;
+        throw new Error(safe);
+      }
 
       const finalAmount = link.amount ?? customAmount.trim();
       const saved: SavedUtrState = {

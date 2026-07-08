@@ -317,10 +317,18 @@ router.post("/public/:slug/utr", async (req, res, next) => {
         }
       }
 
-      res.json({ message: "Payment submitted for verification. You will be notified once confirmed.", transactionId: txn.id });
+      res.json({ ok: true, message: "Payment submitted for verification. You will be notified once confirmed.", transactionId: txn.id });
     } catch (err: any) {
       if (err?.code === "23505") {
-        res.status(409).json({ error: "This UTR has already been submitted. Please check with support if it's taking long." });
+        const msg = "This UTR/reference number has already been submitted. Please enter a new UTR or contact support.";
+        res.status(409).json({
+          ok: false,
+          code: "DUPLICATE_UTR",
+          title: "Duplicate UTR",
+          message: msg,
+          fieldErrors: { utr: msg },
+          error: msg,
+        });
         return;
       }
       throw err;

@@ -31,6 +31,35 @@ async function expirePaymentLinks() {
 }
 
 /**
+ * Return a Map<providerKey, "Payment Gateway X"> for a merchant, ordered by
+ * the date each provider was FIRST used across ALL their transactions.
+ *
+ * The ordering is completely independent of the current date range, status
+ * filter, or page — so the same provider always maps to the same letter.
+ */
+async function getStableProviderToLabel(merchantId: number): Promise<Map<string, string>> {
+  const rows = await db
+    .select({
+      connectionProvider: merchantConnectionsTable.provider,
+      firstUsed: sql<string>`MIN(${transactionsTable.createdAt})`,
+    })
+    .from(transactionsTable)
+    .leftJoin(merchantConnectionsTable, eq(transactionsTable.connectionId, merchantConnectionsTable.id))
+    .where(
+      and(
+        eq(transactionsTable.merchantId, merchantId),
+        sql`${merchantConnectionsTable.provider} IS NOT NULL`
+      )
+    )
+    .groupBy(merchantConnectionsTable.provider)
+    .orderBy(sql`MIN(${transactionsTable.createdAt}) ASC, ${merchantConnectionsTable.provider} ASC`);
+
+  return new Map<string, string>(
+    rows.map((r, i) => [r.connectionProvider!, `Payment Gateway ${String.fromCharCode(65 + i)}`])
+  );
+}
+
+/**
  * Fire-and-forget: after a deposit is recorded as 'success', check whether
  * the associated provider connection has crossed 80% or 100% of its monthly
  * limit and create the appropriate notification (with email) if so.
@@ -172,26 +201,7 @@ router.get("/", async (req, res, next) => {
     let providerToLabel: Map<string, string>;
 
     if (isMerchantUser) {
-      // Stable: first-ever usage date per provider, merchant-scoped, no other filters
-      const stableRows = await db
-        .select({
-          connectionProvider: merchantConnectionsTable.provider,
-          firstUsed: sql<string>`MIN(${transactionsTable.createdAt})`,
-        })
-        .from(transactionsTable)
-        .leftJoin(merchantConnectionsTable, eq(transactionsTable.connectionId, merchantConnectionsTable.id))
-        .where(
-          and(
-            eq(transactionsTable.merchantId, user.merchantId!),
-            sql`${merchantConnectionsTable.provider} IS NOT NULL`
-          )
-        )
-        .groupBy(merchantConnectionsTable.provider)
-        .orderBy(sql`MIN(${transactionsTable.createdAt}) ASC, ${merchantConnectionsTable.provider} ASC`);
-
-      providerToLabel = new Map<string, string>(
-        stableRows.map((r, i) => [r.connectionProvider!, `Payment Gateway ${String.fromCharCode(65 + i)}`])
-      );
+      providerToLabel = await getStableProviderToLabel(user.merchantId!);
     } else {
       // Admin: derive labels from the current filtered set (admins see raw provider names anyway)
       const allProviderRows = await db
@@ -660,8 +670,20 @@ router.get("/:id", async (req, res, next) => {
     if (rows.length === 0) { res.status(404).json({ error: "Transaction not found" }); return; }
     const r = rows[0]!;
     const isMerchantUser = user.role !== "admin";
-    // A single transaction has at most one gateway; label is always "A".
-    const payinGatewayLabel = r.connectionProvider ? "Payment Gateway A" : null;
+
+    // Use the same stable first-seen ordering as the list route so that a
+    // provider's label never changes when new gateways are added later.
+    let payinGatewayLabel: string | null = null;
+    if (r.connectionProvider) {
+      if (isMerchantUser) {
+        const labelMap = await getStableProviderToLabel(r.transaction.merchantId!);
+        payinGatewayLabel = labelMap.get(r.connectionProvider) ?? null;
+      } else {
+        // Admin sees raw provider key; label is a fallback only.
+        payinGatewayLabel = `Payment Gateway A`;
+      }
+    }
+
     res.json({
       ...r.transaction,
       amount: Number(r.transaction.amount),

@@ -648,8 +648,11 @@ function UpigatewayPayinPanel() {
           <p className="text-sm font-medium">UPIGateway Payin Orders</p>
           <p className="text-xs text-muted-foreground">Full checkout flow — collects UPI deposits via payment URL redirect</p>
           {cfg?.lastUpdatedByEmail && cfg?.lastUpdatedAt && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Last changed by <span className="font-medium text-foreground">{cfg.lastUpdatedByEmail}</span> on {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(cfg.lastUpdatedAt))}
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+              <span>
+                Last changed by <span className="font-medium text-foreground">{cfg.lastUpdatedByEmail}</span> on {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(cfg.lastUpdatedAt))}
+              </span>
+              <CredentialHistoryDialog section="upigateway" label="UPIGateway Payin" />
             </p>
           )}
         </div>

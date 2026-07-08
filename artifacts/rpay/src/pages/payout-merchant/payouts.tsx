@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRightLeft, Plus, ChevronLeft, ChevronRight, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowRightLeft, Plus, ChevronLeft, ChevronRight, Clock, CheckCircle2, XCircle, Zap, PauseCircle } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -68,6 +68,12 @@ export default function PayoutMerchantPayouts() {
     queryFn: () => apiFetch<any>("/api/payout-merchant/beneficiaries"),
   });
 
+  const { data: apStatus } = useQuery({
+    queryKey: ["payout-merchant-auto-payout"],
+    queryFn: () => apiFetch<any>("/api/payout-merchant/auto-payout"),
+    staleTime: 60_000,
+  });
+
   const createMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) =>
       apiFetch<any>("/api/withdrawals", { method: "POST", body: JSON.stringify(body) }),
@@ -115,6 +121,25 @@ export default function PayoutMerchantPayouts() {
           <Plus className="w-4 h-4" /> New Payout
         </Button>
       </div>
+
+      {apStatus?.autoPayoutEnabled && !apStatus?.autoPayoutPaused && (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-center gap-3 text-sm">
+          <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div>
+            <span className="font-medium text-emerald-400">Auto Payout Active</span>
+            <span className="text-emerald-400/70 ml-2 text-xs">Your eligible payouts are automatically approved and dispatched without manual review.</span>
+          </div>
+        </div>
+      )}
+      {apStatus?.autoPayoutEnabled && apStatus?.autoPayoutPaused && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-center gap-3 text-sm">
+          <PauseCircle className="w-4 h-4 text-amber-400 shrink-0" />
+          <div>
+            <span className="font-medium text-amber-400">Auto Payout Paused</span>
+            <span className="text-amber-400/70 ml-2 text-xs">Auto-approval is temporarily suspended. Payouts will go to manual review.</span>
+          </div>
+        </div>
+      )}
 
       <Card className="bg-card border-border/50">
         <CardContent className="p-0">

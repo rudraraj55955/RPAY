@@ -97,6 +97,155 @@ function validateCsvRow(row: Record<string, string>, idx: number): string | null
   return null;
 }
 
+// ── Global Auto Payout Card ────────────────────────────────────────────────────
+function GlobalAutoPayoutCard() {
+  const token = getToken();
+  const HDRS = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  const [cfg, setCfg] = useState<{
+    globalEnabled: boolean;
+    globalPaused: boolean;
+    defaultMaxSingleAmount: number;
+    defaultDailyLimit: number;
+    defaultMonthlyLimit: number;
+    defaultAllowedModes: string[];
+    defaultMinWalletBalance: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Editable state (null = unchanged)
+  const [globalEnabled, setGlobalEnabled] = useState<boolean | null>(null);
+  const [globalPaused, setGlobalPaused] = useState<boolean | null>(null);
+  const [maxSingle, setMaxSingle] = useState("");
+  const [dailyLimitG, setDailyLimitG] = useState("");
+  const [monthlyLimitG, setMonthlyLimitG] = useState("");
+  const [minBalance, setMinBalance] = useState("");
+  const [allowedModes, setAllowedModes] = useState<string[] | null>(null);
+
+  const MODES = ["IMPS", "NEFT", "RTGS", "UPI"];
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/payout-settings/auto-payout", { headers: HDRS });
+      if (r.ok) { const d = await r.json(); setCfg(d); }
+    } finally { setLoading(false); }
+  };
+
+  // Load on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const [_mounted] = useState(() => { setTimeout(load, 0); return true; });
+
+  const curEnabled = globalEnabled !== null ? globalEnabled : (cfg?.globalEnabled ?? false);
+  const curPaused = globalPaused !== null ? globalPaused : (cfg?.globalPaused ?? false);
+  const curModes = allowedModes !== null ? allowedModes : (cfg?.defaultAllowedModes ?? MODES);
+
+  const toggleMode = (m: string) => {
+    const base = curModes;
+    setAllowedModes(base.includes(m) ? base.filter(x => x !== m) : [...base, m]);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {};
+      if (globalEnabled !== null) body["globalEnabled"] = globalEnabled;
+      if (globalPaused !== null) body["globalPaused"] = globalPaused;
+      if (maxSingle.trim()) body["defaultMaxSingleAmount"] = Number(maxSingle);
+      if (dailyLimitG.trim()) body["defaultDailyLimit"] = Number(dailyLimitG);
+      if (monthlyLimitG.trim()) body["defaultMonthlyLimit"] = Number(monthlyLimitG);
+      if (minBalance.trim()) body["defaultMinWalletBalance"] = Number(minBalance);
+      if (allowedModes !== null) body["defaultAllowedModes"] = allowedModes;
+      if (Object.keys(body).length === 0) { toast.info("Nothing to save"); return; }
+      const r = await fetch("/api/admin/payout-settings/auto-payout", { method: "PATCH", headers: HDRS, body: JSON.stringify(body) });
+      if (!r.ok) { const e = await r.json().catch(() => ({})); toast.error((e as any).error ?? "Save failed"); return; }
+      const d = await r.json();
+      setCfg(d);
+      setGlobalEnabled(null); setGlobalPaused(null);
+      setMaxSingle(""); setDailyLimitG(""); setMonthlyLimitG(""); setMinBalance("");
+      setAllowedModes(null);
+      toast.success("Global auto-payout settings saved");
+    } finally { setSaving(false); }
+  };
+
+  if (loading) return <div className="flex items-center justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium flex items-center justify-between">
+          <span className="flex items-center gap-2"><Shield className="w-4 h-4 text-primary" />Auto Payout Approval</span>
+          {curEnabled && !curPaused && (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Active</span>
+          )}
+          {curEnabled && curPaused && (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">Paused</span>
+          )}
+          {!curEnabled && (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted/40 text-muted-foreground border border-border">OFF</span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-0 divide-y divide-border/30">
+        <div className="flex items-center justify-between py-3">
+          <div>
+            <p className="text-sm font-medium">Auto Approval Enabled</p>
+            <p className="text-xs text-muted-foreground">Eligible payouts are approved and dispatched automatically without admin action</p>
+          </div>
+          <Switch checked={curEnabled} onCheckedChange={v => setGlobalEnabled(v)} />
+        </div>
+        <div className="flex items-center justify-between py-3">
+          <div>
+            <p className="text-sm font-medium">Global Pause</p>
+            <p className="text-xs text-muted-foreground">Temporarily stop all auto-approvals without disabling per-merchant settings</p>
+          </div>
+          <Switch checked={curPaused} onCheckedChange={v => setGlobalPaused(v)} disabled={!curEnabled} />
+        </div>
+        <div className="py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Default Max Single Amount (₹)</Label>
+            {cfg && <p className="text-xs text-muted-foreground">Current: ₹{cfg.defaultMaxSingleAmount.toLocaleString("en-IN")}</p>}
+            <Input type="number" min="0" placeholder={`e.g. ${cfg?.defaultMaxSingleAmount ?? 100000}`} value={maxSingle} onChange={e => setMaxSingle(e.target.value)} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Default Daily Limit (₹)</Label>
+            {cfg && <p className="text-xs text-muted-foreground">Current: ₹{cfg.defaultDailyLimit.toLocaleString("en-IN")}</p>}
+            <Input type="number" min="0" placeholder={`e.g. ${cfg?.defaultDailyLimit ?? 1000000}`} value={dailyLimitG} onChange={e => setDailyLimitG(e.target.value)} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Default Monthly Limit (₹)</Label>
+            {cfg && <p className="text-xs text-muted-foreground">Current: ₹{cfg.defaultMonthlyLimit.toLocaleString("en-IN")}</p>}
+            <Input type="number" min="0" placeholder={`e.g. ${cfg?.defaultMonthlyLimit ?? 10000000}`} value={monthlyLimitG} onChange={e => setMonthlyLimitG(e.target.value)} className="text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Min Wallet Balance After Payout (₹)</Label>
+            {cfg && <p className="text-xs text-muted-foreground">Current: ₹{cfg.defaultMinWalletBalance.toLocaleString("en-IN")}</p>}
+            <Input type="number" min="0" placeholder={`e.g. ${cfg?.defaultMinWalletBalance ?? 0}`} value={minBalance} onChange={e => setMinBalance(e.target.value)} className="text-sm" />
+          </div>
+        </div>
+        <div className="py-3 space-y-2">
+          <Label className="text-xs">Default Allowed Payout Modes</Label>
+          <div className="flex gap-2 flex-wrap">
+            {MODES.map(m => (
+              <button key={m} onClick={() => toggleMode(m)}
+                className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${curModes.includes(m) ? "bg-primary/20 text-primary border-primary/40" : "bg-muted/30 text-muted-foreground border-border hover:border-primary/30"}`}>
+                {m}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">Payouts using modes not in this list will not be auto-approved</p>
+        </div>
+        <div className="pt-3 flex justify-end">
+          <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">
+            {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving…</> : <><Save className="w-4 h-4" />Save Auto Payout Settings</>}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Settings Tab ───────────────────────────────────────────────────────────────
 function SettingsTab() {
   const qc = useQueryClient();
@@ -537,6 +686,9 @@ function SettingsTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Section 6: Auto Payout Approval ── */}
+      <GlobalAutoPayoutCard />
 
       {/* ── Credential test result banner ── */}
       {testResult && (

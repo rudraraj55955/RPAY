@@ -30,6 +30,18 @@ export const merchantsTable = pgTable("merchants", {
   callbackSecret: text("callback_secret"),
   callbackSecretUpdatedAt: timestamp("callback_secret_updated_at", { withTimezone: true }),
   callbackTimestampWindowSeconds: integer("callback_timestamp_window_seconds"),
+  // Per-merchant auto-payout approval settings (all default OFF for safety)
+  autoPayoutEnabled: boolean("auto_payout_enabled").notNull().default(false),
+  autoPayoutMaxSingleAmount: numeric("auto_payout_max_single_amount", { precision: 18, scale: 2 }),
+  autoPayoutDailyLimit: numeric("auto_payout_daily_limit", { precision: 18, scale: 2 }),
+  autoPayoutMonthlyLimit: numeric("auto_payout_monthly_limit", { precision: 18, scale: 2 }),
+  perBeneficiaryDailyLimit: numeric("per_beneficiary_daily_limit", { precision: 18, scale: 2 }),
+  autoPayoutAllowedModes: jsonb("auto_payout_allowed_modes"),
+  autoPayoutOnlyVerifiedBeneficiaries: boolean("auto_payout_only_verified_beneficiaries").notNull().default(true),
+  autoPayoutMinWalletBalanceAfterPayout: numeric("auto_payout_min_wallet_balance_after_payout", { precision: 18, scale: 2 }).notNull().default("0"),
+  autoPayoutPaused: boolean("auto_payout_paused").notNull().default(false),
+  autoPayoutUpdatedBy: text("auto_payout_updated_by"),
+  autoPayoutUpdatedAt: timestamp("auto_payout_updated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

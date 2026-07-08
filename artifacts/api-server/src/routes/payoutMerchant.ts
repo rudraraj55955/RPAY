@@ -288,6 +288,44 @@ function mapTransferStatus(transferStatus: string | null | undefined, status: st
   return "Processing";
 }
 
+// GET /api/payout-merchant/auto-payout — merchant reads their own auto-payout status (sanitized)
+router.get("/auto-payout", requirePayoutMerchant, async (req, res, next) => {
+  try {
+    const merchantId: number = (req as any).user.merchantId;
+    const [merchant] = await db
+      .select({
+        autoPayoutEnabled: (merchantsTable as any).autoPayoutEnabled,
+        autoPayoutMaxSingleAmount: (merchantsTable as any).autoPayoutMaxSingleAmount,
+        autoPayoutDailyLimit: (merchantsTable as any).autoPayoutDailyLimit,
+        autoPayoutMonthlyLimit: (merchantsTable as any).autoPayoutMonthlyLimit,
+        autoPayoutOnlyVerifiedBeneficiaries: (merchantsTable as any).autoPayoutOnlyVerifiedBeneficiaries,
+        autoPayoutPaused: (merchantsTable as any).autoPayoutPaused,
+        autoPayoutAllowedModes: (merchantsTable as any).autoPayoutAllowedModes,
+      })
+      .from(merchantsTable)
+      .where(eq(merchantsTable.id, merchantId))
+      .limit(1);
+
+    if (!merchant) { res.status(404).json({ error: "Merchant not found" }); return; }
+
+    let allowedModes: string[] = ["IMPS", "NEFT", "RTGS", "UPI"];
+    try {
+      const raw = merchant.autoPayoutAllowedModes;
+      if (raw) allowedModes = typeof raw === "string" ? JSON.parse(raw) : (raw as string[]);
+    } catch { /* use default */ }
+
+    res.json({
+      autoPayoutEnabled: merchant.autoPayoutEnabled ?? false,
+      autoPayoutPaused: merchant.autoPayoutPaused ?? false,
+      autoPayoutMaxSingleAmount: merchant.autoPayoutMaxSingleAmount != null ? Number(merchant.autoPayoutMaxSingleAmount) : null,
+      autoPayoutDailyLimit: merchant.autoPayoutDailyLimit != null ? Number(merchant.autoPayoutDailyLimit) : null,
+      autoPayoutMonthlyLimit: merchant.autoPayoutMonthlyLimit != null ? Number(merchant.autoPayoutMonthlyLimit) : null,
+      autoPayoutOnlyVerifiedBeneficiaries: merchant.autoPayoutOnlyVerifiedBeneficiaries ?? true,
+      autoPayoutAllowedModes: allowedModes,
+    });
+  } catch (err) { next(err); }
+});
+
 function mapFailureReason(reason: string | null | undefined): string | null {
   if (!reason) return null;
   const knownReasons: Record<string, string> = {

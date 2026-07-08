@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Switch } from "@/components/ui/switch";
 import {
   ArrowLeft, Building2, Wallet, ArrowRightLeft, BookOpen, CheckCircle2, Clock,
-  XCircle, Plus, Minus, ShieldCheck, User, Users,
+  XCircle, Plus, Minus, ShieldCheck, User, Users, Shield, Save, Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -45,11 +45,24 @@ function StatusBadge({ status }: { status: string }) {
 export default function AdminPayoutMerchantDetail() {
   const { merchantId } = useParams<{ merchantId: string }>();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"overview" | "payouts" | "ledger" | "beneficiaries">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "payouts" | "ledger" | "beneficiaries" | "auto-payout">("overview");
   const [showCredit, setShowCredit] = useState(false);
   const [showDebit, setShowDebit] = useState(false);
   const [walletAmount, setWalletAmount] = useState("");
   const [walletReason, setWalletReason] = useState("");
+
+  // Auto-payout local edit state
+  const [apEnabled, setApEnabled] = useState<boolean | null>(null);
+  const [apPaused, setApPaused] = useState<boolean | null>(null);
+  const [apMaxSingle, setApMaxSingle] = useState("");
+  const [apDailyLimit, setApDailyLimit] = useState("");
+  const [apMonthlyLimit, setApMonthlyLimit] = useState("");
+  const [apPerBenDaily, setApPerBenDaily] = useState("");
+  const [apMinBalance, setApMinBalance] = useState("");
+  const [apOnlyVerified, setApOnlyVerified] = useState<boolean | null>(null);
+  const [apModes, setApModes] = useState<string[] | null>(null);
+  const [apSaving, setApSaving] = useState(false);
+  const PAYOUT_MODES = ["IMPS", "NEFT", "RTGS", "UPI"];
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-payout-merchant-detail", merchantId],
@@ -73,6 +86,47 @@ export default function AdminPayoutMerchantDetail() {
     queryFn: () => apiFetch<any>(`/api/admin/payout-merchants/${merchantId}/beneficiaries`),
     enabled: activeTab === "beneficiaries",
   });
+
+  const { data: autoPayout, isLoading: apLoading, refetch: refetchAp } = useQuery({
+    queryKey: ["admin-payout-merchant-auto-payout", merchantId],
+    queryFn: () => apiFetch<any>(`/api/admin/payout-merchants/${merchantId}/auto-payout`),
+    enabled: activeTab === "auto-payout",
+  });
+
+  const curApEnabled = apEnabled !== null ? apEnabled : (autoPayout?.autoPayoutEnabled ?? false);
+  const curApPaused = apPaused !== null ? apPaused : (autoPayout?.autoPayoutPaused ?? false);
+  const curApOnlyVerified = apOnlyVerified !== null ? apOnlyVerified : (autoPayout?.autoPayoutOnlyVerifiedBeneficiaries ?? true);
+  const curApModes = apModes !== null ? apModes : (autoPayout?.autoPayoutAllowedModes ?? PAYOUT_MODES);
+
+  const toggleApMode = (m: string) => {
+    setApModes(curApModes.includes(m) ? curApModes.filter((x: string) => x !== m) : [...curApModes, m]);
+  };
+
+  const handleSaveAutoPayout = async () => {
+    setApSaving(true);
+    try {
+      const body: Record<string, unknown> = {};
+      if (apEnabled !== null) body["autoPayoutEnabled"] = apEnabled;
+      if (apPaused !== null) body["autoPayoutPaused"] = apPaused;
+      if (apOnlyVerified !== null) body["autoPayoutOnlyVerifiedBeneficiaries"] = apOnlyVerified;
+      if (apModes !== null) body["autoPayoutAllowedModes"] = apModes;
+      if (apMaxSingle.trim()) body["autoPayoutMaxSingleAmount"] = Number(apMaxSingle);
+      if (apDailyLimit.trim()) body["autoPayoutDailyLimit"] = Number(apDailyLimit);
+      if (apMonthlyLimit.trim()) body["autoPayoutMonthlyLimit"] = Number(apMonthlyLimit);
+      if (apPerBenDaily.trim()) body["perBeneficiaryDailyLimit"] = Number(apPerBenDaily);
+      if (apMinBalance.trim()) body["autoPayoutMinWalletBalanceAfterPayout"] = Number(apMinBalance);
+      if (Object.keys(body).length === 0) { toast.info("Nothing to save"); return; }
+      await apiFetch<any>(`/api/admin/payout-merchants/${merchantId}/auto-payout`, { method: "PATCH", body: JSON.stringify(body) });
+      setApEnabled(null); setApPaused(null); setApOnlyVerified(null); setApModes(null);
+      setApMaxSingle(""); setApDailyLimit(""); setApMonthlyLimit(""); setApPerBenDaily(""); setApMinBalance("");
+      toast.success("Auto-payout settings saved");
+      void refetchAp();
+    } catch (err: any) {
+      toast.error(err.message ?? "Save failed");
+    } finally {
+      setApSaving(false);
+    }
+  };
 
   const approveMutation = useMutation({
     mutationFn: () => apiFetch<any>(`/api/admin/payout-merchants/${merchantId}/approve`, { method: "POST" }),
@@ -106,7 +160,7 @@ export default function AdminPayoutMerchantDetail() {
   }
 
   const { merchant, user, wallet, payoutStats, beneficiaryCount } = data;
-  const TABS = ["overview", "payouts", "ledger", "beneficiaries"] as const;
+  const TABS = ["overview", "payouts", "ledger", "beneficiaries", "auto-payout"] as const;
 
   return (
     <div className="space-y-6">
@@ -306,6 +360,114 @@ export default function AdminPayoutMerchantDetail() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === "auto-payout" && (
+        <div className="space-y-6">
+          {apLoading ? (
+            <div className="flex items-center justify-center py-10"><Spinner className="w-6 h-6 text-muted-foreground" /></div>
+          ) : (
+            <Card className="bg-card border-border/50">
+              <CardHeader className="px-4 py-3 border-b border-border/40">
+                <CardTitle className="text-sm font-semibold flex items-center justify-between">
+                  <span className="flex items-center gap-2"><Shield className="w-4 h-4 text-primary" />Auto Payout Approval</span>
+                  {curApEnabled && !curApPaused
+                    ? <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Active</span>
+                    : curApEnabled && curApPaused
+                      ? <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">Paused</span>
+                      : <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted/40 text-muted-foreground border border-border">OFF</span>
+                  }
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-0 divide-y divide-border/30">
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium">Auto Approval Enabled</p>
+                    <p className="text-xs text-muted-foreground">Eligible payouts from this merchant are auto-approved and dispatched</p>
+                  </div>
+                  <Switch checked={curApEnabled} onCheckedChange={v => setApEnabled(v)} />
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium">Paused</p>
+                    <p className="text-xs text-muted-foreground">Temporarily suspend auto-approval for this merchant only</p>
+                  </div>
+                  <Switch checked={curApPaused} onCheckedChange={v => setApPaused(v)} disabled={!curApEnabled} />
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium">Only Verified Beneficiaries</p>
+                    <p className="text-xs text-muted-foreground">Skip auto-approval if the beneficiary is not verified with the provider</p>
+                  </div>
+                  <Switch checked={curApOnlyVerified} onCheckedChange={v => setApOnlyVerified(v)} />
+                </div>
+                <div className="py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Max Single Amount (₹)</Label>
+                    {autoPayout?.autoPayoutMaxSingleAmount != null && (
+                      <p className="text-xs text-muted-foreground">Current: ₹{Number(autoPayout.autoPayoutMaxSingleAmount).toLocaleString("en-IN")} <span className="text-muted-foreground/60">(null = use global default)</span></p>
+                    )}
+                    {autoPayout?.autoPayoutMaxSingleAmount == null && (
+                      <p className="text-xs text-muted-foreground">Using global default</p>
+                    )}
+                    <Input type="number" min="0" placeholder="Leave blank to use global default" value={apMaxSingle} onChange={e => setApMaxSingle(e.target.value)} className="text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Daily Limit (₹)</Label>
+                    {autoPayout?.autoPayoutDailyLimit != null
+                      ? <p className="text-xs text-muted-foreground">Current: ₹{Number(autoPayout.autoPayoutDailyLimit).toLocaleString("en-IN")}</p>
+                      : <p className="text-xs text-muted-foreground">Using global default</p>
+                    }
+                    <Input type="number" min="0" placeholder="Leave blank to use global default" value={apDailyLimit} onChange={e => setApDailyLimit(e.target.value)} className="text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Monthly Limit (₹)</Label>
+                    {autoPayout?.autoPayoutMonthlyLimit != null
+                      ? <p className="text-xs text-muted-foreground">Current: ₹{Number(autoPayout.autoPayoutMonthlyLimit).toLocaleString("en-IN")}</p>
+                      : <p className="text-xs text-muted-foreground">Using global default</p>
+                    }
+                    <Input type="number" min="0" placeholder="Leave blank to use global default" value={apMonthlyLimit} onChange={e => setApMonthlyLimit(e.target.value)} className="text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Per-Beneficiary Daily Limit (₹)</Label>
+                    {autoPayout?.perBeneficiaryDailyLimit != null
+                      ? <p className="text-xs text-muted-foreground">Current: ₹{Number(autoPayout.perBeneficiaryDailyLimit).toLocaleString("en-IN")}</p>
+                      : <p className="text-xs text-muted-foreground">No per-beneficiary cap set</p>
+                    }
+                    <Input type="number" min="0" placeholder="Leave blank for no cap" value={apPerBenDaily} onChange={e => setApPerBenDaily(e.target.value)} className="text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Min Wallet Balance After Payout (₹)</Label>
+                    <p className="text-xs text-muted-foreground">Current: ₹{Number(autoPayout?.autoPayoutMinWalletBalanceAfterPayout ?? 0).toLocaleString("en-IN")}</p>
+                    <Input type="number" min="0" placeholder="e.g. 5000" value={apMinBalance} onChange={e => setApMinBalance(e.target.value)} className="text-sm" />
+                  </div>
+                </div>
+                <div className="py-3 space-y-2">
+                  <Label className="text-xs">Allowed Payout Modes</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {PAYOUT_MODES.map(m => (
+                      <button key={m} onClick={() => toggleApMode(m)}
+                        className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${curApModes.includes(m) ? "bg-primary/20 text-primary border-primary/40" : "bg-muted/30 text-muted-foreground border-border hover:border-primary/30"}`}>
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {autoPayout?.autoPayoutUpdatedBy && (
+                  <div className="pt-3 text-xs text-muted-foreground">
+                    Last updated by <span className="text-foreground">{autoPayout.autoPayoutUpdatedBy}</span>
+                    {autoPayout.autoPayoutUpdatedAt && <> on {format(new Date(autoPayout.autoPayoutUpdatedAt), "dd MMM yyyy, HH:mm")}</>}
+                  </div>
+                )}
+                <div className="pt-4 flex justify-end">
+                  <Button size="sm" onClick={handleSaveAutoPayout} disabled={apSaving} className="gap-2">
+                    {apSaving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving…</> : <><Save className="w-4 h-4" />Save Auto Payout Settings</>}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Wallet credit dialog */}

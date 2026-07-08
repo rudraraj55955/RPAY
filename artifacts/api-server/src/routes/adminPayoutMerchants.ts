@@ -381,4 +381,105 @@ router.get("/:merchantId/beneficiaries", async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── Per-merchant auto-payout settings ─────────────────────────────────────
+router.get("/:merchantId/auto-payout", async (req, res, next) => {
+  try {
+    const merchantId = parseInt(req.params["merchantId"] as string);
+    const [merchant] = await db.select({
+      id: merchantsTable.id,
+      autoPayoutEnabled: (merchantsTable as any).autoPayoutEnabled,
+      autoPayoutMaxSingleAmount: (merchantsTable as any).autoPayoutMaxSingleAmount,
+      autoPayoutDailyLimit: (merchantsTable as any).autoPayoutDailyLimit,
+      autoPayoutMonthlyLimit: (merchantsTable as any).autoPayoutMonthlyLimit,
+      perBeneficiaryDailyLimit: (merchantsTable as any).perBeneficiaryDailyLimit,
+      autoPayoutAllowedModes: (merchantsTable as any).autoPayoutAllowedModes,
+      autoPayoutOnlyVerifiedBeneficiaries: (merchantsTable as any).autoPayoutOnlyVerifiedBeneficiaries,
+      autoPayoutMinWalletBalanceAfterPayout: (merchantsTable as any).autoPayoutMinWalletBalanceAfterPayout,
+      autoPayoutPaused: (merchantsTable as any).autoPayoutPaused,
+      autoPayoutUpdatedBy: (merchantsTable as any).autoPayoutUpdatedBy,
+      autoPayoutUpdatedAt: (merchantsTable as any).autoPayoutUpdatedAt,
+    }).from(merchantsTable).where(eq(merchantsTable.id, merchantId)).limit(1);
+
+    if (!merchant) { res.status(404).json({ error: "Merchant not found" }); return; }
+
+    let allowedModes: string[] = ["IMPS", "NEFT", "RTGS", "UPI"];
+    try {
+      const raw = merchant.autoPayoutAllowedModes;
+      if (raw) allowedModes = typeof raw === "string" ? JSON.parse(raw) : (raw as string[]);
+    } catch { /* use default */ }
+
+    res.json({
+      autoPayoutEnabled: merchant.autoPayoutEnabled ?? false,
+      autoPayoutMaxSingleAmount: merchant.autoPayoutMaxSingleAmount != null ? Number(merchant.autoPayoutMaxSingleAmount) : null,
+      autoPayoutDailyLimit: merchant.autoPayoutDailyLimit != null ? Number(merchant.autoPayoutDailyLimit) : null,
+      autoPayoutMonthlyLimit: merchant.autoPayoutMonthlyLimit != null ? Number(merchant.autoPayoutMonthlyLimit) : null,
+      perBeneficiaryDailyLimit: merchant.perBeneficiaryDailyLimit != null ? Number(merchant.perBeneficiaryDailyLimit) : null,
+      autoPayoutAllowedModes: allowedModes,
+      autoPayoutOnlyVerifiedBeneficiaries: merchant.autoPayoutOnlyVerifiedBeneficiaries ?? true,
+      autoPayoutMinWalletBalanceAfterPayout: Number(merchant.autoPayoutMinWalletBalanceAfterPayout ?? 0),
+      autoPayoutPaused: merchant.autoPayoutPaused ?? false,
+      autoPayoutUpdatedBy: merchant.autoPayoutUpdatedBy ?? null,
+      autoPayoutUpdatedAt: merchant.autoPayoutUpdatedAt ? new Date(merchant.autoPayoutUpdatedAt as any).toISOString() : null,
+    });
+  } catch (err) { next(err); }
+});
+
+router.patch("/:merchantId/auto-payout", async (req, res, next) => {
+  try {
+    const admin = (req as any).user;
+    const merchantId = parseInt(req.params["merchantId"] as string);
+    const {
+      autoPayoutEnabled,
+      autoPayoutMaxSingleAmount,
+      autoPayoutDailyLimit,
+      autoPayoutMonthlyLimit,
+      perBeneficiaryDailyLimit,
+      autoPayoutAllowedModes,
+      autoPayoutOnlyVerifiedBeneficiaries,
+      autoPayoutMinWalletBalanceAfterPayout,
+      autoPayoutPaused,
+    } = req.body as Record<string, unknown>;
+
+    const [merchant] = await db.select({ id: merchantsTable.id }).from(merchantsTable).where(eq(merchantsTable.id, merchantId)).limit(1);
+    if (!merchant) { res.status(404).json({ error: "Merchant not found" }); return; }
+
+    const updatePayload: Record<string, unknown> = {
+      autoPayoutUpdatedBy: admin.email,
+      autoPayoutUpdatedAt: new Date(),
+    };
+    if (autoPayoutEnabled !== undefined) updatePayload["autoPayoutEnabled"] = Boolean(autoPayoutEnabled);
+    if (autoPayoutMaxSingleAmount !== undefined) updatePayload["autoPayoutMaxSingleAmount"] = autoPayoutMaxSingleAmount == null ? null : String(Number(autoPayoutMaxSingleAmount));
+    if (autoPayoutDailyLimit !== undefined) updatePayload["autoPayoutDailyLimit"] = autoPayoutDailyLimit == null ? null : String(Number(autoPayoutDailyLimit));
+    if (autoPayoutMonthlyLimit !== undefined) updatePayload["autoPayoutMonthlyLimit"] = autoPayoutMonthlyLimit == null ? null : String(Number(autoPayoutMonthlyLimit));
+    if (perBeneficiaryDailyLimit !== undefined) updatePayload["perBeneficiaryDailyLimit"] = perBeneficiaryDailyLimit == null ? null : String(Number(perBeneficiaryDailyLimit));
+    if (autoPayoutOnlyVerifiedBeneficiaries !== undefined) updatePayload["autoPayoutOnlyVerifiedBeneficiaries"] = Boolean(autoPayoutOnlyVerifiedBeneficiaries);
+    if (autoPayoutMinWalletBalanceAfterPayout !== undefined) updatePayload["autoPayoutMinWalletBalanceAfterPayout"] = String(Number(autoPayoutMinWalletBalanceAfterPayout));
+    if (autoPayoutPaused !== undefined) updatePayload["autoPayoutPaused"] = Boolean(autoPayoutPaused);
+    if (autoPayoutAllowedModes !== undefined && Array.isArray(autoPayoutAllowedModes)) {
+      const valid = (autoPayoutAllowedModes as string[]).filter((m: string) => ["IMPS", "NEFT", "RTGS", "UPI"].includes(m));
+      updatePayload["autoPayoutAllowedModes"] = valid;
+    }
+
+    await db.update(merchantsTable).set(updatePayload as any).where(eq(merchantsTable.id, merchantId));
+
+    const isToggle = autoPayoutEnabled !== undefined || autoPayoutPaused !== undefined;
+    const action = isToggle
+      ? (autoPayoutEnabled ? "MERCHANT_AUTO_PAYOUT_ENABLED" : autoPayoutPaused ? "MERCHANT_AUTO_PAYOUT_PAUSED" : "MERCHANT_AUTO_PAYOUT_DISABLED")
+      : "MERCHANT_AUTO_PAYOUT_LIMIT_UPDATED";
+
+    await db.insert(auditLogsTable).values({
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action,
+      targetType: "merchant",
+      targetId: merchantId,
+      details: JSON.stringify({ changes: Object.keys(updatePayload).filter(k => !k.includes("Updated")), merchantId }),
+      ipAddress: (req as any).ip ?? null,
+    } as any).catch(() => {});
+
+    req.log.info({ merchantId, adminId: admin.id, changes: Object.keys(updatePayload) }, "merchant_auto_payout_settings_updated");
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 export default router;

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, numeric, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, numeric, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -31,6 +31,11 @@ export const withdrawalsTable = pgTable("withdrawals", {
   rejectionReason: text("rejection_reason"),
   rejectedByAdminId: integer("rejected_by_admin_id"),
   rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+  // Auto-approval tracking
+  approvalType: text("approval_type").notNull().default("MANUAL"), // MANUAL | AUTO
+  approvedBySystem: boolean("approved_by_system").notNull().default(false),
+  autoApprovalRuleSnapshot: jsonb("auto_approval_rule_snapshot"),
+  approvedBy: text("approved_by"), // admin email or "SYSTEM_AUTO"
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

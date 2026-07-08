@@ -170,9 +170,239 @@ function mapWithdrawal(
     rejectedByAdminId: isAdmin ? (w.rejectedByAdminId ?? null) : null,
     approvedAt: w.approvedAt?.toISOString() ?? null,
     completedAt: w.completedAt?.toISOString() ?? null,
+    approvalType: w.approvalType,
+    approvedBySystem: w.approvedBySystem,
+    approvedBy: isAdmin ? (w.approvedBy ?? null) : (w.approvalType === "AUTO" ? "AUTO" : null),
     createdAt: w.createdAt.toISOString(),
     updatedAt: w.updatedAt.toISOString(),
   };
+}
+
+// ── Auto-payout eligibility check ─────────────────────────────────────────
+// Returns { eligible, reason, snapshot } — never throws; all DB failures
+// fall through to the manual-approval path.
+async function checkAutoPayoutEligibility(
+  merchantId: number,
+  amount: number,
+  beneficiaryId: number | null,
+  payoutMode: string,
+  withdrawalId: number
+): Promise<{ eligible: boolean; reason: string; snapshot?: Record<string, unknown> }> {
+  const globalKeys = [
+    SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_GLOBAL_ENABLED,
+    SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_GLOBAL_PAUSED,
+    SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_MAX_SINGLE_AMOUNT,
+    SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_DAILY_LIMIT,
+    SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_MONTHLY_LIMIT,
+    SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_ALLOWED_MODES,
+    SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_MIN_WALLET_BALANCE,
+  ] as string[];
+  const cfgRows = await db.select().from(systemConfigTable).where(inArray(systemConfigTable.key, globalKeys));
+  const globalCfg = new Map(cfgRows.map(r => [r.key, r.value]));
+
+  if (globalCfg.get(SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_GLOBAL_ENABLED) !== "true") {
+    return { eligible: false, reason: "global_disabled" };
+  }
+  if (globalCfg.get(SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_GLOBAL_PAUSED) === "true") {
+    return { eligible: false, reason: "global_paused" };
+  }
+
+  const [merchant] = await db.select().from(merchantsTable).where(eq(merchantsTable.id, merchantId)).limit(1);
+  if (!merchant) return { eligible: false, reason: "merchant_not_found" };
+
+  const m = merchant as typeof merchant & {
+    autoPayoutEnabled: boolean;
+    autoPayoutPaused: boolean;
+    autoPayoutMaxSingleAmount: string | null;
+    autoPayoutDailyLimit: string | null;
+    autoPayoutMonthlyLimit: string | null;
+    perBeneficiaryDailyLimit: string | null;
+    autoPayoutAllowedModes: unknown;
+    autoPayoutOnlyVerifiedBeneficiaries: boolean;
+    autoPayoutMinWalletBalanceAfterPayout: string | null;
+  };
+
+  if (!m.autoPayoutEnabled) return { eligible: false, reason: "merchant_disabled" };
+  if (m.autoPayoutPaused) return { eligible: false, reason: "merchant_paused" };
+
+  const effectiveMaxSingle = Number(m.autoPayoutMaxSingleAmount ?? globalCfg.get(SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_MAX_SINGLE_AMOUNT) ?? 10000);
+  const effectiveDailyLimit = Number(m.autoPayoutDailyLimit ?? globalCfg.get(SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_DAILY_LIMIT) ?? 50000);
+  const effectiveMonthlyLimit = Number(m.autoPayoutMonthlyLimit ?? globalCfg.get(SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_MONTHLY_LIMIT) ?? 500000);
+  const effectiveMinBalance = Number(m.autoPayoutMinWalletBalanceAfterPayout ?? globalCfg.get(SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_MIN_WALLET_BALANCE) ?? 0);
+
+  const rawModes = m.autoPayoutAllowedModes ?? globalCfg.get(SYSTEM_CONFIG_KEYS.AUTO_PAYOUT_DEFAULT_ALLOWED_MODES);
+  let allowedModes: string[] = ["IMPS", "NEFT", "RTGS", "UPI"];
+  try {
+    if (rawModes) {
+      allowedModes = typeof rawModes === "string" ? JSON.parse(rawModes) : (rawModes as string[]);
+    }
+  } catch { /* use default */ }
+
+  if (amount > effectiveMaxSingle) return { eligible: false, reason: "amount_exceeds_single_limit" };
+  if (!allowedModes.includes(payoutMode)) return { eligible: false, reason: "mode_not_allowed" };
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const [dailyAgg] = await db
+    .select({ total: sum(withdrawalsTable.amount) })
+    .from(withdrawalsTable)
+    .where(and(
+      eq(withdrawalsTable.merchantId, merchantId),
+      eq(withdrawalsTable.status, "approved"),
+      sql`${withdrawalsTable.createdAt} >= ${todayStart.toISOString()}::timestamptz`,
+      sql`${withdrawalsTable.id} != ${withdrawalId}`
+    ));
+  if (Number(dailyAgg?.total ?? 0) + amount > effectiveDailyLimit) {
+    return { eligible: false, reason: "daily_limit_exceeded" };
+  }
+
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const [monthlyAgg] = await db
+    .select({ total: sum(withdrawalsTable.amount) })
+    .from(withdrawalsTable)
+    .where(and(
+      eq(withdrawalsTable.merchantId, merchantId),
+      eq(withdrawalsTable.status, "approved"),
+      sql`${withdrawalsTable.createdAt} >= ${monthStart.toISOString()}::timestamptz`,
+      sql`${withdrawalsTable.id} != ${withdrawalId}`
+    ));
+  if (Number(monthlyAgg?.total ?? 0) + amount > effectiveMonthlyLimit) {
+    return { eligible: false, reason: "monthly_limit_exceeded" };
+  }
+
+  const perBenLimit = m.perBeneficiaryDailyLimit ? Number(m.perBeneficiaryDailyLimit) : null;
+  if (perBenLimit != null && beneficiaryId) {
+    const [benAgg] = await db
+      .select({ total: sum(withdrawalsTable.amount) })
+      .from(withdrawalsTable)
+      .where(and(
+        eq(withdrawalsTable.merchantId, merchantId),
+        eq(withdrawalsTable.beneficiaryId, beneficiaryId),
+        eq(withdrawalsTable.status, "approved"),
+        sql`${withdrawalsTable.createdAt} >= ${todayStart.toISOString()}::timestamptz`,
+        sql`${withdrawalsTable.id} != ${withdrawalId}`
+      ));
+    if (Number(benAgg?.total ?? 0) + amount > perBenLimit) {
+      return { eligible: false, reason: "per_beneficiary_daily_limit_exceeded" };
+    }
+  }
+
+  const onlyVerified = m.autoPayoutOnlyVerifiedBeneficiaries !== false;
+  if (onlyVerified && beneficiaryId) {
+    const [ben] = await db
+      .select({ providerStatus: payoutBeneficiariesTable.providerStatus })
+      .from(payoutBeneficiariesTable)
+      .where(eq(payoutBeneficiariesTable.id, beneficiaryId))
+      .limit(1);
+    if (!ben || ben.providerStatus !== "created") {
+      return { eligible: false, reason: "beneficiary_not_verified" };
+    }
+  }
+
+  if (effectiveMinBalance > 0) {
+    const [wallet] = await db
+      .select({ available: merchantWalletsTable.availableBalance })
+      .from(merchantWalletsTable)
+      .where(eq(merchantWalletsTable.merchantId, merchantId))
+      .limit(1);
+    if (Number(wallet?.available ?? 0) - amount < effectiveMinBalance) {
+      return { eligible: false, reason: "min_balance_not_maintained" };
+    }
+  }
+
+  return {
+    eligible: true,
+    reason: "eligible",
+    snapshot: {
+      effectiveMaxSingle,
+      effectiveDailyLimit,
+      effectiveMonthlyLimit,
+      effectiveMinBalance,
+      allowedModes,
+      onlyVerified,
+      perBenLimit,
+      checkedAt: new Date().toISOString(),
+    },
+  };
+}
+
+// ── Shared provider dispatch (used by auto-approve path in POST) ──────────
+// Same logic as the approve route's inline dispatch; extracted to avoid
+// duplicating the error-handling branches. The approve route keeps its own
+// inline copy so it can be audited and modified independently.
+async function dispatchPayoutTransfer(
+  req: any,
+  withdrawal: typeof withdrawalsTable.$inferSelect,
+  merchantName: string | null,
+  merchantContact: { email: string | null; phone: string | null }
+): Promise<{ transferStatus: string; providerReferenceId: string | null; utr: string | null; failureReason: string | null }> {
+  const cfg = await getPayoutConfig();
+  if (!cfg.enabled || !cfg.clientId || !cfg.clientSecret) {
+    req.log.warn({ withdrawalId: withdrawal.id }, "auto_payout_skipped_no_config");
+    return { transferStatus: "FAILED", providerReferenceId: null, utr: null, failureReason: "PAYOUT_CREDENTIAL_ERROR: Payout gateway disabled or credentials not configured" };
+  }
+
+  const amt = Number(withdrawal.amount);
+  const transferId = `RKPAY_${withdrawal.id}_${Date.now()}`;
+  const mode = withdrawal.payoutMode === "UPI" ? "upi" : "banktransfer";
+  const accountMasked = withdrawal.payoutMode === "UPI"
+    ? (withdrawal.upiId ? `${withdrawal.upiId.slice(0, 2)}***` : null)
+    : (withdrawal.bankAccount ? `****${withdrawal.bankAccount.trim().slice(-4)}` : null);
+
+  const beneficiaryRow = await resolveBeneficiaryRowForWithdrawal(withdrawal, cfg.env, merchantName);
+  if (beneficiaryRow.providerStatus === "failed" || beneficiaryRow.providerStatus === "stale") {
+    req.log.warn({ withdrawalId: withdrawal.id, merchantId: withdrawal.merchantId, accountMasked, providerStatus: beneficiaryRow.providerStatus }, "auto_payout_beneficiary_stale");
+    return { transferStatus: "FAILED", providerReferenceId: null, utr: null, failureReason: BENEFICIARY_NOT_VERIFIED_MESSAGE };
+  }
+
+  const bene = await ensureBeneficiaryProviderRegistered(req, beneficiaryRow, cfg.env, cfg.clientId, cfg.clientSecret, withdrawal.id, false, merchantContact, cfg.providerConfig);
+  if (!bene.ok) {
+    req.log.warn({ withdrawalId: withdrawal.id, merchantId: withdrawal.merchantId, accountMasked }, "auto_payout_beneficiary_not_registered");
+    return { transferStatus: "FAILED", providerReferenceId: null, utr: null, failureReason: bene.message ?? BENEFICIARY_NOT_VERIFIED_MESSAGE };
+  }
+
+  try {
+    req.log.info({ withdrawalId: withdrawal.id, merchantId: withdrawal.merchantId, accountMasked, mode, amount: amt }, "auto_payout_transfer_create_started");
+    const result = await cashfreePayoutCreateTransfer(
+      cfg.clientId, cfg.clientSecret, cfg.env,
+      {
+        transferId,
+        referenceId: transferId,
+        beneficiaryId: bene.providerBeneficiaryId,
+        beneficiaryName: withdrawal.accountHolder || merchantName || "Merchant",
+        accountNumber: withdrawal.bankAccount || undefined,
+        ifsc: withdrawal.ifscCode || undefined,
+        upiId: withdrawal.payoutMode === "UPI" ? (withdrawal.upiId ?? undefined) : undefined,
+        amount: amt,
+        remark: `AutoPayout #${withdrawal.id}`,
+      },
+      cfg.providerConfig
+    );
+    req.log.info({ withdrawalId: withdrawal.id, transferId, mode, amount: amt, httpStatus: result.httpStatus, providerStatus: result.parsed?.status, subCode: result.parsed?.subCode }, "auto_payout_transfer_attempted");
+
+    if (isBeneficiaryNotFound(result.parsed, result.httpStatus)) {
+      await invalidateBeneficiaryProviderRegistration(beneficiaryRow.id, "Provider reported beneficiary not found on auto-payout create");
+      req.log.warn({ withdrawalId: withdrawal.id, merchantId: withdrawal.merchantId, accountMasked, httpStatus: result.httpStatus }, "auto_payout_beneficiary_not_found");
+      return { transferStatus: "FAILED", providerReferenceId: null, utr: null, failureReason: SAFE_REASON_BENEFICIARY_NOT_FOUND };
+    }
+
+    const providerReferenceId = result.parsed?.referenceId ?? transferId;
+    const normalized = normalizeCashfreePayoutStatus(result.parsed?.status);
+    if (isPayoutCredentialError(result.parsed, result.httpStatus)) {
+      return { transferStatus: "FAILED", providerReferenceId, utr: null, failureReason: `PAYOUT_CREDENTIAL_ERROR: ${result.parsed?.message ?? "Invalid payout Client ID or Secret"}` };
+    } else if (normalized === "SUCCESS") {
+      return { transferStatus: "SUCCESS", providerReferenceId, utr: result.parsed?.utr ?? null, failureReason: null };
+    } else if (normalized === "FAILED") {
+      return { transferStatus: "FAILED", providerReferenceId, utr: null, failureReason: SAFE_REASON_BENEFICIARY_NOT_VERIFIED };
+    } else {
+      return { transferStatus: "PENDING", providerReferenceId, utr: null, failureReason: null };
+    }
+  } catch (err: any) {
+    req.log.warn({ err, withdrawalId: withdrawal.id }, "auto_payout_transfer_create_error");
+    return { transferStatus: "FAILED", providerReferenceId: null, utr: null, failureReason: `PAYOUT_CREDENTIAL_ERROR: ${err?.message ?? "Could not reach payout provider"}` };
+  }
 }
 
 // GET /api/withdrawals
@@ -432,11 +662,108 @@ router.post("/", requireModule("merchant_withdrawals"), async (req, res) => {
     throw e;
   }
 
-  req.log.info(
-    { merchantId, withdrawalId: createdWithdrawal.id, amount: amt },
-    "payout_requested"
-  );
-  res.status(201).json(mapWithdrawal(createdWithdrawal, null, false));
+  req.log.info({ merchantId, withdrawalId: createdWithdrawal.id, amount: amt }, "payout_requested");
+
+  // ── Auto-payout decision engine ─────────────────────────────────────────
+  let autoCheck: { eligible: boolean; reason: string; snapshot?: Record<string, unknown> };
+  try {
+    autoCheck = await checkAutoPayoutEligibility(merchantId, amt, resolvedBeneficiaryId, payoutMode, createdWithdrawal.id);
+  } catch (e: any) {
+    req.log.warn({ err: e, withdrawalId: createdWithdrawal.id }, "auto_payout_eligibility_check_failed_fallback_manual");
+    autoCheck = { eligible: false, reason: "eligibility_check_error" };
+  }
+
+  if (!autoCheck.eligible) {
+    // ── A: Manual admin approval path ──────────────────────────────────────
+    await db.insert(auditLogsTable).values({
+      adminId: 0,   // 0 = system/merchant-submitted — no admin involved
+      adminEmail: user.email,
+      action: "PAYOUT_SENT_TO_MANUAL_APPROVAL",
+      targetType: "withdrawal",
+      targetId: createdWithdrawal.id,
+      details: JSON.stringify({ amount: amt, reason: autoCheck.reason }),
+      ipAddress: (req as any).ip ?? null,
+    });
+    req.log.info({ merchantId, withdrawalId: createdWithdrawal.id, reason: autoCheck.reason }, "payout_sent_to_manual_approval");
+    res.status(201).json(mapWithdrawal(createdWithdrawal, null, false));
+    return;
+  }
+
+  // ── B: Auto-approve — atomically claim pending → approved ───────────────
+  const autoNow = new Date();
+  const [autoApproved] = await db
+    .update(withdrawalsTable)
+    .set({
+      status: "approved",
+      transferStatus: "INITIATED",
+      approvedBySystem: true,
+      approvalType: "AUTO",
+      approvedBy: "SYSTEM_AUTO",
+      approvedAt: autoNow,
+      autoApprovalRuleSnapshot: (autoCheck.snapshot ?? {}) as any,
+    })
+    .where(and(eq(withdrawalsTable.id, createdWithdrawal.id), eq(withdrawalsTable.status, "pending")))
+    .returning();
+
+  if (!autoApproved) {
+    // Concurrent state change — respond with pending state, admin will handle
+    req.log.warn({ withdrawalId: createdWithdrawal.id }, "auto_payout_claim_lost_concurrent_change");
+    res.status(201).json(mapWithdrawal(createdWithdrawal, null, false));
+    return;
+  }
+
+  // Fetch merchant contact for beneficiary registration
+  const [autoMerchantRow] = await db
+    .select({ businessName: merchantsTable.businessName, email: merchantsTable.email, phone: merchantsTable.phone })
+    .from(merchantsTable)
+    .where(eq(merchantsTable.id, merchantId))
+    .limit(1);
+  const autoMerchantName = autoMerchantRow?.businessName ?? null;
+  const autoMerchantContact = { email: autoMerchantRow?.email ?? null, phone: autoMerchantRow?.phone ?? null };
+
+  // Dispatch to provider
+  const dispatch = await dispatchPayoutTransfer(req, autoApproved, autoMerchantName, autoMerchantContact);
+  const isAutoTerminal = ["SUCCESS", "FAILED", "REVERSED"].includes(dispatch.transferStatus);
+
+  const [finalWithdrawal] = await db
+    .update(withdrawalsTable)
+    .set({
+      transferStatus: dispatch.transferStatus,
+      providerReferenceId: dispatch.providerReferenceId,
+      utr: dispatch.utr,
+      failureReason: dispatch.failureReason,
+      completedAt: isAutoTerminal ? new Date() : null,
+    })
+    .where(eq(withdrawalsTable.id, autoApproved.id))
+    .returning();
+
+  // Wallet mutations on terminal provider result
+  if (dispatch.transferStatus === "SUCCESS") {
+    await mutateWallet(
+      merchantId,
+      { holdDelta: -amt, totalPayoutDelta: amt },
+      { txnType: "payout_success", bucket: "hold", amount: -amt, referenceType: "withdrawal", referenceId: autoApproved.id, description: `Auto-payout #${autoApproved.id} successful — ₹${fmtAmt(amt)} settled`, createdBy: null }
+    );
+  } else if (dispatch.transferStatus === "FAILED" || dispatch.transferStatus === "REVERSED") {
+    await mutateWallet(
+      merchantId,
+      { holdDelta: -amt, availableDelta: amt, totalReversalsDelta: amt },
+      { txnType: "payout_failed_release", bucket: "hold", amount: amt, referenceType: "withdrawal", referenceId: autoApproved.id, description: `Auto-payout #${autoApproved.id} failed — ₹${fmtAmt(amt)} released back`, createdBy: null }
+    );
+  }
+
+  await db.insert(auditLogsTable).values({
+    adminId: 0,   // 0 = system auto-approval — no admin involved
+    adminEmail: user.email,
+    action: "PAYOUT_AUTO_APPROVED",
+    targetType: "withdrawal",
+    targetId: autoApproved.id,
+    details: JSON.stringify({ amount: amt, transferStatus: dispatch.transferStatus, providerReferenceId: dispatch.providerReferenceId, snapshot: autoCheck.snapshot }),
+    ipAddress: (req as any).ip ?? null,
+  });
+  req.log.info({ merchantId, withdrawalId: autoApproved.id, transferStatus: dispatch.transferStatus }, "payout_auto_approved");
+
+  res.status(201).json(mapWithdrawal(finalWithdrawal ?? autoApproved, autoMerchantName, false));
 });
 
 // POST /api/withdrawals/:id/approve

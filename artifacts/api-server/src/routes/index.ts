@@ -55,6 +55,7 @@ import adminOnboardingRouter from "./adminOnboarding";
 import secureIdSettingsRouter from "./secureIdSettings";
 import payoutMerchantRouter from "./payoutMerchant";
 import adminPayoutMerchantsRouter from "./adminPayoutMerchants";
+import adminPayoutSettingsRouter from "./adminPayoutSettings";
 import smartRoutingRouter from "./smartRouting";
 import moduleControlRouter from "./moduleControl";
 import merchantModuleStatusRouter from "./merchantModuleStatus";
@@ -161,6 +162,7 @@ router.use("/admin/secure-id-settings", secureIdSettingsRouter);
 // Payout merchant module — merchant-facing config + admin management
 router.use("/payout-merchant", payoutMerchantRouter);
 router.use("/admin/payout-merchants", adminPayoutMerchantsRouter);
+router.use("/admin/payout-settings", adminPayoutSettingsRouter);
 
 // Public payout slip — token-authenticated, no session required; mount last to avoid path conflicts
 router.use("/public/payout-slip", publicPayoutSlipRouter);

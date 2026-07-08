@@ -542,6 +542,27 @@ async function runGuard(): Promise<void> {
   await db.execute(sql`CREATE INDEX IF NOT EXISTS vl_created_at_idx ON verification_logs(created_at DESC)`);
   logger.info({ table: "verification_logs" }, "schema_guard_table_created");
 
+  // ── withdrawals: auto-approval tracking columns ─────────────────────────
+  await db.execute(sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS approval_type TEXT NOT NULL DEFAULT 'MANUAL'`);
+  await db.execute(sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS approved_by_system BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS auto_approval_rule_snapshot JSONB`);
+  await db.execute(sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS approved_by TEXT`);
+  logger.info({ table: "withdrawals", migration: "add_auto_approval_cols" }, "schema_guard_column_added");
+
+  // ── merchants: per-merchant auto-payout settings ─────────────────────────
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_max_single_amount NUMERIC(18,2)`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_daily_limit NUMERIC(18,2)`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_monthly_limit NUMERIC(18,2)`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS per_beneficiary_daily_limit NUMERIC(18,2)`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_allowed_modes JSONB`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_only_verified_beneficiaries BOOLEAN NOT NULL DEFAULT TRUE`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_min_wallet_balance_after_payout NUMERIC(18,2) NOT NULL DEFAULT 0`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_paused BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_updated_by TEXT`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_updated_at TIMESTAMPTZ`);
+  logger.info({ table: "merchants", migration: "add_auto_payout_cols" }, "schema_guard_column_added");
+
   logger.info("schema_guard_completed");
 }
 

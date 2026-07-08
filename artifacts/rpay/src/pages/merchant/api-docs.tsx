@@ -2233,6 +2233,303 @@ export default function ApiDocs() {
           </div>
         </Section>
 
+        <Section title="Settlement Requests API" badge="2 endpoints">
+          <p className="text-sm text-muted-foreground">
+            Request a payout of your available balance. Merchants can submit one settlement
+            request at a time; a new request is blocked while a previous one is pending or
+            being processed.
+          </p>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Endpoints</p>
+            <EndpointRow
+              method="GET"
+              path="/api/settlements"
+              description="List your settlement requests (with status and date filters)"
+            />
+            <EndpointRow
+              method="POST"
+              path="/api/settlements"
+              description="Submit a new settlement request"
+            />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Create Settlement — Request</p>
+            <CodeBlock
+              language="json"
+              code={`{
+  "requestedAmount": 5000,
+  "requestedNote": "Weekly payout for June W2"
+}`}
+            />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Create Settlement — Response</p>
+            <CodeBlock
+              language="json"
+              code={`{
+  "id": 17,
+  "merchantId": 42,
+  "amount": null,
+  "requestedAmount": "5000",
+  "requestedNote": "Weekly payout for June W2",
+  "status": "pending",
+  "createdAt": "2026-06-08T10:00:00Z",
+  "updatedAt": "2026-06-08T10:00:00Z"
+}`}
+            />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">cURL Example</p>
+            <CodeBlock
+              code={`curl -X POST https://your-domain.com/api/settlements \\
+  -H "Authorization: Bearer <your-token>" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "requestedAmount": 5000,
+    "requestedNote": "Weekly payout for June W2"
+  }'`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Try it</p>
+            <TryItPanel
+              method="GET"
+              path="/api/settlements"
+              token={globalToken}
+              commonQueryParams={["status", "dateFrom", "dateTo", "page", "limit"]}
+            />
+            <TryItPanel
+              method="POST"
+              path="/api/settlements"
+              token={globalToken}
+              defaultBody={`{
+  "requestedAmount": 5000,
+  "requestedNote": "Weekly payout"
+}`}
+              expectedBodyKeys={[
+                { key: "requestedAmount", type: "number" },
+                { key: "requestedNote", type: "string" },
+              ]}
+            />
+          </div>
+        </Section>
+
+        <Section title="API Key Management" badge="3 endpoints">
+          <p className="text-sm text-muted-foreground">
+            Programmatically generate and revoke API keys for your integration. Each key pair
+            consists of a live key (for the{" "}
+            <code className="font-mono bg-muted px-1 rounded">X-Api-Key</code> header) and a
+            secret key (for signing callbacks). The secret is shown only once at creation time.
+          </p>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Endpoints</p>
+            <EndpointRow
+              method="GET"
+              path="/api/api-keys"
+              description="List all API keys for your account (secrets are never returned)"
+            />
+            <EndpointRow
+              method="POST"
+              path="/api/api-keys"
+              description="Generate a new API key pair — secret is shown once"
+            />
+            <EndpointRow
+              method="DELETE"
+              path="/api/api-keys/{id}"
+              description="Revoke an API key permanently"
+            />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Generate Key — Request</p>
+            <CodeBlock
+              language="json"
+              code={`{
+  "label": "Production App"
+}`}
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              <code className="font-mono bg-muted px-1 rounded">label</code> is optional (max 64 chars).
+              Omit the body entirely to create an unlabelled key.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Generate Key — Response</p>
+            <CodeBlock
+              language="json"
+              code={`{
+  "id": 3,
+  "merchantId": 42,
+  "keyPrefix": "rasokart_live_abc123...",
+  "label": "Production App",
+  "isActive": true,
+  "apiKey": "rasokart_live_<full key — shown once>",
+  "secretKey": "rasokart_secret_<full secret — shown once>",
+  "createdAt": "2026-06-08T10:00:00Z"
+}`}
+            />
+            <p className="text-xs text-amber-400/80 mt-1.5 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3 shrink-0" />
+              Both <code className="font-mono bg-muted px-1 rounded">apiKey</code> and{" "}
+              <code className="font-mono bg-muted px-1 rounded">secretKey</code> are returned only
+              once. Store them securely — they cannot be retrieved again.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">cURL Example</p>
+            <CodeBlock
+              code={`curl -X POST https://your-domain.com/api/api-keys \\
+  -H "Authorization: Bearer <your-token>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"label": "Production App"}'`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Try it</p>
+            <TryItPanel method="GET" path="/api/api-keys" token={globalToken} />
+            <TryItPanel
+              method="POST"
+              path="/api/api-keys"
+              token={globalToken}
+              defaultBody={`{
+  "label": "Production App"
+}`}
+              expectedBodyKeys={[
+                { key: "label", type: "string" },
+              ]}
+            />
+            <TryItPanel method="DELETE" path="/api/api-keys/{id}" token={globalToken} />
+          </div>
+        </Section>
+
+        <Section title="Webhook Configuration" badge="2 endpoints">
+          <p className="text-sm text-muted-foreground">
+            Configure the URL RasoKart delivers event notifications to, which event types to
+            subscribe to, and how retries behave on delivery failures. Your webhook secret is
+            used to verify the{" "}
+            <code className="font-mono bg-muted px-1 rounded">X-Signature</code> header on every
+            outbound request — see the Callback Security section for verification code.
+          </p>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Endpoints</p>
+            <EndpointRow
+              method="GET"
+              path="/api/webhooks"
+              description="Retrieve your current webhook configuration"
+            />
+            <EndpointRow
+              method="PUT"
+              path="/api/webhooks"
+              description="Create or replace your webhook configuration"
+            />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">
+              Update Webhook Config — Request
+            </p>
+            <CodeBlock
+              language="json"
+              code={`{
+  "url": "https://your-server.com/rasokart-webhook",
+  "isActive": true,
+  "events": ["payment.success", "payment.failed", "va.credited"],
+  "secret": "your-signing-secret",
+  "maxRetries": 3,
+  "retryDelay1": 60,
+  "retryDelay2": 300,
+  "retryDelay3": 900,
+  "failureAlertEnabled": true,
+  "failureAlertThreshold": 3
+}`}
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              <code className="font-mono bg-muted px-1 rounded">url</code> and{" "}
+              <code className="font-mono bg-muted px-1 rounded">events</code> are required. All
+              other fields are optional and fall back to platform defaults.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">
+              Update Webhook Config — Response
+            </p>
+            <CodeBlock
+              language="json"
+              code={`{
+  "id": 1,
+  "merchantId": 42,
+  "url": "https://your-server.com/rasokart-webhook",
+  "isActive": true,
+  "events": ["payment.success", "payment.failed", "va.credited"],
+  "maxRetries": 3,
+  "retryDelay1": 60,
+  "retryDelay2": 300,
+  "retryDelay3": 900,
+  "failureAlertEnabled": true,
+  "failureAlertThreshold": 3,
+  "createdAt": "2026-06-08T10:00:00Z",
+  "updatedAt": "2026-06-08T10:05:00Z",
+  "globalMaxRetries": 5
+}`}
+            />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">cURL Example</p>
+            <CodeBlock
+              code={`curl -X PUT https://your-domain.com/api/webhooks \\
+  -H "Authorization: Bearer <your-token>" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "url": "https://your-server.com/rasokart-webhook",
+    "isActive": true,
+    "events": ["payment.success", "payment.failed"]
+  }'`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Try it</p>
+            <TryItPanel method="GET" path="/api/webhooks" token={globalToken} />
+            <TryItPanel
+              method="PUT"
+              path="/api/webhooks"
+              token={globalToken}
+              defaultBody={`{
+  "url": "https://your-server.com/rasokart-webhook",
+  "isActive": true,
+  "events": ["payment.success", "payment.failed", "va.credited"],
+  "maxRetries": 3,
+  "failureAlertEnabled": true,
+  "failureAlertThreshold": 3
+}`}
+              expectedBodyKeys={[
+                { key: "url", type: "string" },
+                { key: "isActive", type: "boolean" },
+                { key: "events", type: "array" },
+                { key: "secret", type: "string" },
+                { key: "maxRetries", type: "integer" },
+                { key: "retryDelay1", type: "integer" },
+                { key: "retryDelay2", type: "integer" },
+                { key: "retryDelay3", type: "integer" },
+                { key: "failureAlertEnabled", type: "boolean" },
+                { key: "failureAlertThreshold", type: "integer" },
+              ]}
+            />
+          </div>
+        </Section>
+
         <Section title="Webhook Events Reference" badge="5 event types">
           <p className="text-sm text-muted-foreground">
             RasoKart sends POST requests to your configured webhook URL when events occur.

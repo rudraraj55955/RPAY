@@ -7,7 +7,7 @@ export const usersTable = pgTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
-  role: text("role").notNull().default("merchant"), // admin | merchant
+  role: text("role").notNull().default("merchant"), // admin | merchant | payout_merchant | payout_admin | payout_super_admin | agent
   isActive: boolean("is_active").notNull().default(true),
   isSuperAdmin: boolean("is_super_admin").notNull().default(false),
   merchantId: integer("merchant_id"),
@@ -46,6 +46,8 @@ export const usersTable = pgTable("users", {
   notifPrefsDisabledAt: timestamp("notif_prefs_disabled_at", { withTimezone: true }),
   notifReminderSentAt: timestamp("notif_reminder_sent_at", { withTimezone: true }),
   notifFieldDisabledAt: jsonb("notif_field_disabled_at").$type<Record<string, string>>(),
+  canManagePayoutProviderCredentials: boolean("can_manage_payout_provider_credentials").notNull().default(false),
+  permissionsJson: jsonb("permissions_json").$type<Record<string, boolean>>(),
   quietHoursStart: text("quiet_hours_start"),
   quietHoursEnd: text("quiet_hours_end"),
   quietHoursTimezone: text("quiet_hours_timezone"),

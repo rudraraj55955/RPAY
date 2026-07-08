@@ -9,6 +9,8 @@ import { useAuth } from "@/lib/auth-context";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { PayoutMerchantLayout } from "@/components/layout/payout-merchant-layout";
+import { PayoutAdminLayout } from "@/components/layout/payout-admin-layout";
+import { AgentLayout } from "@/components/layout/agent-layout";
 import { PageErrorBoundary } from "@/components/error-boundary";
 import { Spinner } from "@/components/ui/spinner";
 import { UserRole } from "@workspace/api-client-react";
@@ -28,6 +30,18 @@ import MerchantPending from "@/pages/merchant/pending";
 import MerchantSuspended from "@/pages/merchant/suspended";
 import AgentLogin from "@/pages/agent/login";
 import AgentDashboard from "@/pages/agent/dashboard";
+import AgentPayoutMerchants from "@/pages/agent/payout-merchants";
+import AgentCommission from "@/pages/agent/commission";
+import AgentProfile from "@/pages/agent/profile";
+
+// Payout Admin Pages
+import PayoutAdminLogin from "@/pages/payout-admin/login";
+import PayoutAdminDashboard from "@/pages/payout-admin/dashboard";
+import PayoutAdminMerchants from "@/pages/payout-admin/payout-merchants";
+import PayoutAdminPayouts from "@/pages/payout-admin/payouts";
+import PayoutAdminAgents from "@/pages/payout-admin/agents";
+import PayoutAdminAuditLogs from "@/pages/payout-admin/audit-logs";
+import PayoutAdminSettings from "@/pages/payout-admin/settings";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -117,6 +131,7 @@ import AdminPayoutMerchants from "@/pages/admin/payout-merchants";
 import AdminPayoutMerchantDetail from "@/pages/admin/payout-merchant-detail";
 
 // Payout Merchant Pages
+import PayoutMerchantLogin from "@/pages/payout-merchant/login";
 import PayoutMerchantDashboard from "@/pages/payout-merchant/dashboard";
 import PayoutMerchantPayouts from "@/pages/payout-merchant/payouts";
 import PayoutMerchantBulkPayouts from "@/pages/payout-merchant/bulk-payouts";
@@ -277,22 +292,29 @@ function PayoutMerchantRoute({ component: Component }: { component: React.Compon
 
   useEffect(() => {
     if (!isLoading && !user) {
-      setLocation("/merchant/login", { replace: true } as Parameters<typeof setLocation>[1]);
-    } else if (!isLoading && user?.role !== UserRole.merchant) {
-      setLocation("/", { replace: true } as Parameters<typeof setLocation>[1]);
-    } else if (!isLoading && user?.role === UserRole.merchant) {
-      const merchantType = (user as any).merchantType;
-      if (merchantType === "NORMAL" || (!merchantType && merchantType !== "BOTH")) {
-        // Normal payin merchant tried to access payout-merchant routes
-        setLocation("/merchant/dashboard", { replace: true } as Parameters<typeof setLocation>[1]);
+      setLocation("/payout-merchant/login", { replace: true } as Parameters<typeof setLocation>[1]);
+    } else if (!isLoading && user) {
+      const role = user.role as string;
+      if (role === UserRole.payout_merchant) {
+        // Dedicated payout_merchant role — always allowed here
+      } else if (role === UserRole.merchant) {
+        const merchantType = (user as any).merchantType;
+        if (merchantType === "NORMAL") {
+          // Normal payin merchant tried to access payout-merchant routes
+          setLocation("/merchant/dashboard", { replace: true } as Parameters<typeof setLocation>[1]);
+        }
+      } else {
+        // Other role — send to their home
+        setLocation("/", { replace: true } as Parameters<typeof setLocation>[1]);
       }
     }
   }, [user, isLoading]);
 
   if (isLoading) return <AuthSpinner />;
-  if (!user || user.role !== UserRole.merchant) return <AuthSpinner />;
-  const merchantType = (user as any).merchantType;
-  if (merchantType === "NORMAL") return <AuthSpinner />;
+  if (!user) return <AuthSpinner />;
+  const role = user.role as string;
+  if (role !== UserRole.payout_merchant && role !== UserRole.merchant) return <AuthSpinner />;
+  if (role === UserRole.merchant && (user as any).merchantType === "NORMAL") return <AuthSpinner />;
 
   return (
     <PayoutMerchantLayout>
@@ -300,6 +322,28 @@ function PayoutMerchantRoute({ component: Component }: { component: React.Compon
         <Component />
       </PageErrorBoundary>
     </PayoutMerchantLayout>
+  );
+}
+
+function PayoutAdminRoute({ component: Component }: { component: React.ComponentType }) {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.payout_admin, UserRole.payout_super_admin]}>
+      <PayoutAdminLayout>
+        <Component />
+      </PayoutAdminLayout>
+    </ProtectedRoute>
+  );
+}
+
+function AgentRoute({ component: Component }: { component: React.ComponentType }) {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.agent]}>
+      <AgentLayout>
+        <PageErrorBoundary>
+          <Component />
+        </PageErrorBoundary>
+      </AgentLayout>
+    </ProtectedRoute>
   );
 }
 
@@ -325,8 +369,11 @@ function Router() {
       <Route path="/merchant" component={SmartMerchantEntry} />
       <Route path="/agent" component={AgentLogin} />
 
-      {/* Agent dashboard */}
-      <Route path="/agent/dashboard"><AdminRoute component={AgentDashboard} /></Route>
+      {/* Agent Routes */}
+      <Route path="/agent/dashboard"><AgentRoute component={AgentDashboard} /></Route>
+      <Route path="/agent/payout-merchants"><AgentRoute component={AgentPayoutMerchants} /></Route>
+      <Route path="/agent/commission"><AgentRoute component={AgentCommission} /></Route>
+      <Route path="/agent/profile"><AgentRoute component={AgentProfile} /></Route>
       <Route path="/merchant/apply" component={MerchantRegister} />
       <Route path="/merchant/pending" component={MerchantPending} />
       <Route path="/merchant/suspended" component={MerchantSuspended} />
@@ -334,6 +381,8 @@ function Router() {
       {/* Login aliases — smart: redirect if already authenticated for that role */}
       <Route path="/admin/login" component={SmartAdminLogin} />
       <Route path="/merchant/login" component={SmartMerchantLogin} />
+      <Route path="/payout-admin/login" component={PayoutAdminLogin} />
+      <Route path="/payout-merchant/login" component={PayoutMerchantLogin} />
       <Route path="/merchant/register"><Redirect to="/merchant/apply" /></Route>
 
       {/* Admin Routes */}
@@ -428,6 +477,15 @@ function Router() {
       <Route path="/merchant/support"><MerchantRoute component={MerchantSupport} /></Route>
       <Route path="/merchant/account-statement"><MerchantRoute component={MerchantAccountStatement} /></Route>
       <Route path="/merchant/api-docs"><PublicPage component={MerchantApiDocs} /></Route>
+
+      {/* Payout Admin Routes */}
+      <Route path="/payout-admin/dashboard"><PayoutAdminRoute component={PayoutAdminDashboard} /></Route>
+      <Route path="/payout-admin/payout-merchants"><PayoutAdminRoute component={PayoutAdminMerchants} /></Route>
+      <Route path="/payout-admin/payouts"><PayoutAdminRoute component={PayoutAdminPayouts} /></Route>
+      <Route path="/payout-admin/agents"><PayoutAdminRoute component={PayoutAdminAgents} /></Route>
+      <Route path="/payout-admin/audit-logs"><PayoutAdminRoute component={PayoutAdminAuditLogs} /></Route>
+      <Route path="/payout-admin/settings"><PayoutAdminRoute component={PayoutAdminSettings} /></Route>
+      <Route path="/payout-admin"><Redirect to="/payout-admin/login" /></Route>
 
       {/* Payout Merchant Routes */}
       <Route path="/payout-merchant/dashboard"><PayoutMerchantRoute component={PayoutMerchantDashboard} /></Route>

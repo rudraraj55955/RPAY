@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,24 +10,22 @@ import { AuthLayout } from "@/components/layout/auth-layout";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { RateLimitBanner } from "@/components/ui/rate-limit-banner";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
 });
-
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function AgentLogin() {
+export default function PayoutMerchantLogin() {
   const [_, setLocation] = useLocation();
   const { login: setAuthToken } = useAuth();
+  const [rateLimitSeconds, setRateLimitSeconds] = useState<number | null>(null);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
 
   const loginMutation = useLogin();
@@ -36,19 +35,41 @@ export default function AgentLogin() {
       { data },
       {
         onSuccess: (res) => {
+          const role = res.user.role as string;
+          if (role !== UserRole.payout_merchant && role !== UserRole.merchant) {
+            toast.error("Unauthorized. Payout Merchant access required.");
+            return;
+          }
           setAuthToken(res.token);
-          toast.success("Welcome back, Agent.");
-          setLocation("/agent/dashboard");
+          toast.success("Welcome to your Payout Portal.");
+          setLocation("/payout-merchant/dashboard");
         },
         onError: (err) => {
-          toast.error(err.message || "Login failed");
+          const e = err as unknown as Record<string, unknown>;
+          if (e["status"] === 429) {
+            const headers = e["headers"] as Headers | undefined;
+            const resetHeader = headers?.get("RateLimit-Reset") ?? headers?.get("ratelimit-reset");
+            const seconds = resetHeader ? parseInt(resetHeader, 10) : 60;
+            setRateLimitSeconds(Number.isFinite(seconds) && seconds > 0 ? seconds : 60);
+            return;
+          }
+          toast.error(e["message"] as string || "Login failed");
         },
       }
     );
   };
 
   return (
-    <AuthLayout title="Agent Portal" subtitle="Sign in to your RasoKart agent account">
+    <AuthLayout title="Payout Merchant Portal" subtitle="Sign in to your RasoKart Payout account">
+      {rateLimitSeconds !== null && (
+        <div className="mb-6">
+          <RateLimitBanner
+            retryAfterSeconds={rateLimitSeconds}
+            message="Too many login attempts. Please wait before trying again."
+            onDismiss={() => { setRateLimitSeconds(null); form.reset(); }}
+          />
+        </div>
+      )}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
@@ -58,7 +79,11 @@ export default function AgentLogin() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="agent@rasokart.com" {...field} />
+                  <Input
+                    placeholder="merchant@example.com"
+                    disabled={rateLimitSeconds !== null}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -71,7 +96,12 @@ export default function AgentLogin() {
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input type="password" placeholder="••••••••" {...field} />
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    disabled={rateLimitSeconds !== null}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -80,15 +110,12 @@ export default function AgentLogin() {
           <Button
             type="submit"
             className="w-full"
-            disabled={loginMutation.isPending}
+            disabled={loginMutation.isPending || rateLimitSeconds !== null}
           >
             {loginMutation.isPending ? "Authenticating..." : "Sign in"}
           </Button>
-
           <div className="text-center text-sm text-muted-foreground">
-            <Link href="/" className="text-primary hover:underline">
-              ← Back to RasoKart
-            </Link>
+            <Link href="/" className="text-primary hover:underline">← Back to RasoKart</Link>
           </div>
         </form>
       </Form>

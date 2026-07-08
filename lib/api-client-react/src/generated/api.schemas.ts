@@ -350,7 +350,16 @@ export type UserRole = typeof UserRole[keyof typeof UserRole];
 export const UserRole = {
   admin: 'admin',
   merchant: 'merchant',
+  payout_merchant: 'payout_merchant',
+  payout_admin: 'payout_admin',
+  payout_super_admin: 'payout_super_admin',
+  agent: 'agent',
 } as const;
+
+/**
+ * Granular permission flags for payout admins (e.g. canTopUpWallet, canApprovePayouts, canManageAgents).
+ */
+export type UserPermissionsJson = { [key: string]: unknown };
 
 /**
  * Map of notification field name to ISO timestamp of when that specific field was disabled. Only present for fields that are currently disabled. Null or empty if all are enabled.
@@ -372,6 +381,10 @@ export interface User {
   isActive?: boolean;
   /** True only for the Super Admin who may edit company branding/support settings; other admins get a read-only view. */
   isSuperAdmin?: boolean;
+  /** When true (granted only by Super Admin), this payout_admin/payout_super_admin user may view and edit payout provider API credentials. */
+  canManagePayoutProviderCredentials?: boolean;
+  /** Granular permission flags for payout admins (e.g. canTopUpWallet, canApprovePayouts, canManageAgents). */
+  permissionsJson?: UserPermissionsJson;
   /** @nullable */
   merchantId?: number | null;
   /** @nullable */

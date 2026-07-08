@@ -563,6 +563,32 @@ async function runGuard(): Promise<void> {
   await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS auto_payout_updated_at TIMESTAMPTZ`);
   logger.info({ table: "merchants", migration: "add_auto_payout_cols" }, "schema_guard_column_added");
 
+  // ── users: payout admin permission columns ───────────────────────────────
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS can_manage_payout_provider_credentials BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions_json JSONB`);
+  logger.info({ table: "users", migration: "add_payout_admin_permission_cols" }, "schema_guard_column_added");
+
+  // ── agents table ─────────────────────────────────────────────────────────
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS agents (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      name TEXT NOT NULL,
+      mobile TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      referral_code TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'active',
+      wallet_balance NUMERIC(18,2) NOT NULL DEFAULT 0,
+      total_commission_earned NUMERIC(18,2) NOT NULL DEFAULT 0,
+      total_commission_paid NUMERIC(18,2) NOT NULL DEFAULT 0,
+      created_by_admin_id INTEGER,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  logger.info({ table: "agents" }, "schema_guard_table_created");
+
   logger.info("schema_guard_completed");
 }
 

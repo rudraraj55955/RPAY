@@ -11251,7 +11251,7 @@ components:
           type: string
         role:
           type: string
-          enum: [admin, merchant]
+          enum: [admin, merchant, payout_merchant, payout_admin, payout_super_admin, agent]
         name:
           type: string
         isActive:
@@ -11259,6 +11259,13 @@ components:
         isSuperAdmin:
           type: boolean
           description: True only for the Super Admin who may edit company branding/support settings; other admins get a read-only view.
+        canManagePayoutProviderCredentials:
+          type: boolean
+          description: When true (granted only by Super Admin), this payout_admin/payout_super_admin user may view and edit payout provider API credentials.
+        permissionsJson:
+          type: object
+          description: Granular permission flags for payout admins (e.g. canTopUpWallet, canApprovePayouts, canManageAgents).
+          additionalProperties: true
         merchantId:
           type: ["integer", "null"]
         merchantStatus:

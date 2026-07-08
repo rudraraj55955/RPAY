@@ -7,6 +7,7 @@
  */
 import type { UserBadgeSnoozedUntil } from './userBadgeSnoozedUntil';
 import type { UserNotifFieldDisabledAt } from './userNotifFieldDisabledAt';
+import type { UserPermissionsJson } from './userPermissionsJson';
 import type { UserRole } from './userRole';
 
 export interface User {
@@ -17,6 +18,10 @@ export interface User {
   isActive?: boolean;
   /** True only for the Super Admin who may edit company branding/support settings; other admins get a read-only view. */
   isSuperAdmin?: boolean;
+  /** When true (granted only by Super Admin), this payout_admin/payout_super_admin user may view and edit payout provider API credentials. */
+  canManagePayoutProviderCredentials?: boolean;
+  /** Granular permission flags for payout admins (e.g. canTopUpWallet, canApprovePayouts, canManageAgents). */
+  permissionsJson?: UserPermissionsJson;
   /** @nullable */
   merchantId?: number | null;
   /** @nullable */

@@ -6,15 +6,9 @@ import { UserRole } from "@workspace/api-client-react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  allowedRoles?: UserRole[];
+  allowedRoles?: string[];
 }
 
-/**
- * Shows a full-screen spinner while programmatically navigating.
- * Never returns null — this prevents the blank-screen flash that
- * wouter's <Redirect> component causes (it returns null and uses
- * useLayoutEffect, leaving a brief blank frame before navigation).
- */
 function AuthRedirect({ to }: { to: string }) {
   const [, setLocation] = useLocation();
   useEffect(() => {
@@ -25,6 +19,26 @@ function AuthRedirect({ to }: { to: string }) {
       <Spinner className="w-8 h-8 text-primary" />
     </div>
   );
+}
+
+function getHomePath(role: string): string {
+  switch (role) {
+    case UserRole.admin:             return "/admin/dashboard";
+    case UserRole.merchant:          return "/merchant/dashboard";
+    case UserRole.payout_merchant:   return "/payout-merchant/dashboard";
+    case UserRole.payout_admin:
+    case UserRole.payout_super_admin: return "/payout-admin/dashboard";
+    case UserRole.agent:             return "/agent/dashboard";
+    default:                         return "/";
+  }
+}
+
+function getLoginPath(location: string): string {
+  if (location.startsWith("/payout-admin"))    return "/payout-admin/login";
+  if (location.startsWith("/payout-merchant")) return "/payout-merchant/login";
+  if (location.startsWith("/agent"))           return "/agent";
+  if (location.startsWith("/admin"))           return "/admin";
+  return "/merchant";
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -40,13 +54,11 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (!user) {
-    const loginPath = location.startsWith("/admin") ? "/admin" : "/merchant";
-    return <AuthRedirect to={loginPath} />;
+    return <AuthRedirect to={getLoginPath(location)} />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    const homePath = user.role === UserRole.admin ? "/admin/dashboard" : "/merchant/dashboard";
-    return <AuthRedirect to={homePath} />;
+    return <AuthRedirect to={getHomePath(user.role)} />;
   }
 
   return <>{children}</>;

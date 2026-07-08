@@ -9,6 +9,7 @@
     "github-sync": "tsx ./src/github-sync.ts",
     "fix-credentials": "tsx ./src/fix-credentials.ts",
     "verify-demo-credentials": "tsx ./src/verify-demo-credentials.ts",
+    "verify-settings-persistence": "tsx ./src/verify-settings-persistence.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

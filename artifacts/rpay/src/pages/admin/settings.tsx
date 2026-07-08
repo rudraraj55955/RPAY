@@ -297,17 +297,18 @@ export default function AdminSettings() {
   const { data: smtpConfig, isLoading: smtpConfigLoading } = useQuery<SmtpConfig>({
     queryKey: ["/api/settings/smtp"],
     queryFn: () => apiGet("/settings/smtp"),
-    onSuccess: (d: SmtpConfig) => {
-      if (!smtpInitialized) {
-        setSmtpHost(d.host ?? "");
-        setSmtpPort(d.port ?? "587");
-        setSmtpUser(d.user ?? "");
-        setSmtpFrom(d.from ?? "");
-        setSmtpPass("");
-        setSmtpInitialized(true);
-      }
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (!smtpInitialized && smtpConfig) {
+      setSmtpHost(smtpConfig.host ?? "");
+      setSmtpPort(smtpConfig.port ?? "587");
+      setSmtpUser(smtpConfig.user ?? "");
+      setSmtpFrom(smtpConfig.from ?? "");
+      setSmtpPass("");
+      setSmtpInitialized(true);
+    }
+  }, [smtpInitialized, smtpConfig]);
 
   const smtpChanged =
     smtpHost !== (smtpConfig?.host ?? "") ||
@@ -353,15 +354,16 @@ export default function AdminSettings() {
   const { data, isLoading } = useQuery<SettingsData>({
     queryKey: ["/api/settings"],
     queryFn: () => apiGet("/settings"),
-    onSuccess: (d: SettingsData) => {
-      if (!initialized) {
-        setFinanceEmail(d.finance_report_email ?? "");
-        const raw = d.reconciliation_schedule;
-        setScheduleMode(raw === "weekly" || raw === "off" ? raw : "daily");
-        setInitialized(true);
-      }
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (!initialized && data) {
+      setFinanceEmail(data.finance_report_email ?? "");
+      const raw = data.reconciliation_schedule;
+      setScheduleMode(raw === "weekly" || raw === "off" ? raw : "daily");
+      setInitialized(true);
+    }
+  }, [initialized, data]);
 
   const recipientCount = financeEmail.trim()
     ? financeEmail.split(",").map(e => e.trim()).filter(e => e.length > 0).length
@@ -481,13 +483,14 @@ export default function AdminSettings() {
   const { data: qrCleanupData, isLoading: qrCleanupLoading } = useQuery<{ retentionDays: number; lastRunAt: string | null; lastDeleted: number | null }>({
     queryKey: ["/api/system-config/qr-cleanup"],
     queryFn: () => apiGet("/system-config/qr-cleanup"),
-    onSuccess: (d: { retentionDays: number; lastRunAt: string | null; lastDeleted: number | null }) => {
-      if (!retentionInitialized) {
-        setRetentionDays(d.retentionDays);
-        setRetentionInitialized(true);
-      }
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (!retentionInitialized && qrCleanupData) {
+      setRetentionDays(qrCleanupData.retentionDays);
+      setRetentionInitialized(true);
+    }
+  }, [retentionInitialized, qrCleanupData]);
 
   const currentRetentionDays = qrCleanupData?.retentionDays ?? 30;
   const retentionUnchanged = retentionDays === currentRetentionDays;
@@ -504,24 +507,26 @@ export default function AdminSettings() {
   const { data: vaCleanupData, isLoading: vaCleanupLoading } = useQuery<{ retentionDays: number; lastRunAt: string | null; lastDeleted: number | null }>({
     queryKey: ["/api/system-config/va-cleanup"],
     queryFn: () => apiGet("/system-config/va-cleanup"),
-    onSuccess: (d: { retentionDays: number; lastRunAt: string | null; lastDeleted: number | null }) => {
-      if (!vaRetentionInitialized) {
-        setVaRetentionDays(d.retentionDays);
-        setVaRetentionInitialized(true);
-      }
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (!vaRetentionInitialized && vaCleanupData) {
+      setVaRetentionDays(vaCleanupData.retentionDays);
+      setVaRetentionInitialized(true);
+    }
+  }, [vaRetentionInitialized, vaCleanupData]);
 
   const { data: testEmailRetentionData, isLoading: testEmailRetentionLoading } = useQuery<{ retentionDays: number }>({
     queryKey: ["/api/system-config/test-email-retention"],
     queryFn: () => apiGet("/system-config/test-email-retention"),
-    onSuccess: (d: { retentionDays: number }) => {
-      if (!testEmailRetentionInitialized) {
-        setTestEmailRetentionDays(d.retentionDays);
-        setTestEmailRetentionInitialized(true);
-      }
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (!testEmailRetentionInitialized && testEmailRetentionData) {
+      setTestEmailRetentionDays(testEmailRetentionData.retentionDays);
+      setTestEmailRetentionInitialized(true);
+    }
+  }, [testEmailRetentionInitialized, testEmailRetentionData]);
 
   const currentVaRetentionDays = vaCleanupData?.retentionDays ?? 30;
   const vaRetentionUnchanged = vaRetentionDays === currentVaRetentionDays;
@@ -615,13 +620,14 @@ export default function AdminSettings() {
   const { data: auditLogRetentionData, isLoading: auditLogRetentionLoading } = useQuery<{ retentionDays: number }>({
     queryKey: ["/api/system-config/audit-report-retention"],
     queryFn: () => apiGet("/system-config/audit-report-retention"),
-    onSuccess: (d: { retentionDays: number }) => {
-      if (!auditLogRetentionInitialized) {
-        setAuditLogRetentionDays(d.retentionDays);
-        setAuditLogRetentionInitialized(true);
-      }
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (!auditLogRetentionInitialized && auditLogRetentionData) {
+      setAuditLogRetentionDays(auditLogRetentionData.retentionDays);
+      setAuditLogRetentionInitialized(true);
+    }
+  }, [auditLogRetentionInitialized, auditLogRetentionData]);
 
   const currentAuditLogRetentionDays = auditLogRetentionData?.retentionDays ?? 90;
   const auditLogRetentionUnchanged = auditLogRetentionDays === currentAuditLogRetentionDays;
@@ -664,28 +670,30 @@ export default function AdminSettings() {
   const { data: storageCleanupConfig, isLoading: storageConfigLoading } = useQuery<{ enabled: boolean; hour: number }>({
     queryKey: ["/api/system-config/storage-cleanup"],
     queryFn: () => apiGet("/system-config/storage-cleanup"),
-    onSuccess: (d: { enabled: boolean; hour: number }) => {
-      if (!storageScheduleInitialized) {
-        setStorageScheduleEnabled(d.enabled);
-        setStorageScheduleHour(d.hour);
-        setStorageScheduleInitialized(true);
-      }
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (!storageScheduleInitialized && storageCleanupConfig) {
+      setStorageScheduleEnabled(storageCleanupConfig.enabled);
+      setStorageScheduleHour(storageCleanupConfig.hour);
+      setStorageScheduleInitialized(true);
+    }
+  }, [storageScheduleInitialized, storageCleanupConfig]);
 
   const { data: webhookRetriesData, isLoading: webhookRetriesLoading } = useQuery<{ maxAttempts: number; delay1: number; delay2: number; delay3: number }>({
     queryKey: ["/api/system-config/webhook-retries"],
     queryFn: () => apiGet("/system-config/webhook-retries"),
-    onSuccess: (d: { maxAttempts: number; delay1: number; delay2: number; delay3: number }) => {
-      if (!retryInitialized) {
-        setRetryMaxAttempts(d.maxAttempts);
-        setRetryDelay1(d.delay1);
-        setRetryDelay2(d.delay2);
-        setRetryDelay3(d.delay3);
-        setRetryInitialized(true);
-      }
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (!retryInitialized && webhookRetriesData) {
+      setRetryMaxAttempts(webhookRetriesData.maxAttempts);
+      setRetryDelay1(webhookRetriesData.delay1);
+      setRetryDelay2(webhookRetriesData.delay2);
+      setRetryDelay3(webhookRetriesData.delay3);
+      setRetryInitialized(true);
+    }
+  }, [retryInitialized, webhookRetriesData]);
 
   const currentStorageEnabled = storageCleanupConfig?.enabled ?? true;
   const currentStorageHour = storageCleanupConfig?.hour ?? 3;
@@ -722,14 +730,15 @@ export default function AdminSettings() {
   const { data: reportRetryData, isLoading: reportRetryLoading } = useQuery<{ maxAttempts: number; backoffBaseMs: number }>({
     queryKey: ["/api/settings/report-delivery-retries"],
     queryFn: () => apiGet("/settings/report-delivery-retries"),
-    onSuccess: (d: { maxAttempts: number; backoffBaseMs: number }) => {
-      if (!reportRetryInitialized) {
-        setReportRetryMaxAttempts(d.maxAttempts);
-        setReportRetryBackoffMs(d.backoffBaseMs);
-        setReportRetryInitialized(true);
-      }
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (!reportRetryInitialized && reportRetryData) {
+      setReportRetryMaxAttempts(reportRetryData.maxAttempts);
+      setReportRetryBackoffMs(reportRetryData.backoffBaseMs);
+      setReportRetryInitialized(true);
+    }
+  }, [reportRetryInitialized, reportRetryData]);
 
   const currentReportRetryMaxAttempts = reportRetryData?.maxAttempts ?? 3;
   const currentReportRetryBackoffMs = reportRetryData?.backoffBaseMs ?? 1000;
@@ -1001,16 +1010,14 @@ export default function AdminSettings() {
     }
   }, [retryingFromModal, githubSyncHistory, selectedSyncRun?.id]);
 
-  const { data: quietHoursFlushData, isLoading: quietHoursFlushLoading } = useGetQuietHoursFlushConfig({
-    query: {
-      onSuccess: (d: { intervalSeconds: number }) => {
-        if (!quietHoursFlushInitialized) {
-          setQuietHoursFlushInterval(d.intervalSeconds);
-          setQuietHoursFlushInitialized(true);
-        }
-      },
-    },
-  } as any);
+  const { data: quietHoursFlushData, isLoading: quietHoursFlushLoading } = useGetQuietHoursFlushConfig();
+
+  useEffect(() => {
+    if (!quietHoursFlushInitialized && quietHoursFlushData) {
+      setQuietHoursFlushInterval(quietHoursFlushData.intervalSeconds);
+      setQuietHoursFlushInitialized(true);
+    }
+  }, [quietHoursFlushInitialized, quietHoursFlushData]);
 
   const currentQuietHoursFlushInterval = quietHoursFlushData?.intervalSeconds ?? 60;
   const quietHoursFlushUnchanged = quietHoursFlushInterval === currentQuietHoursFlushInterval;

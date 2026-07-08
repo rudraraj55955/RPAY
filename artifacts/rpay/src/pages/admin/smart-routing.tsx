@@ -225,7 +225,15 @@ export default function AdminSmartRouting() {
     mutationFn: (data: Record<string, unknown>) => editingRule
       ? apiReq(`/rules/${editingRule.id}`, "PUT", data)
       : apiReq(`/configs/${selectedConfigId}/rules`, "POST", data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["smart-routing-rules", selectedConfigId] }); setRuleDialogOpen(false); toast.success(editingRule ? "Rule updated" : "Rule added"); },
+    onSuccess: (result: { warning?: string }) => {
+      qc.invalidateQueries({ queryKey: ["smart-routing-rules", selectedConfigId] });
+      setRuleDialogOpen(false);
+      if (result?.warning) {
+        toast.warning(result.warning, { duration: 8000 });
+      } else {
+        toast.success(editingRule ? "Rule updated" : "Rule added");
+      }
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -483,21 +491,36 @@ export default function AdminSmartRouting() {
                     return acc;
                   }, {});
                   const clashes = Object.entries(priorityCounts).filter(([, keys]) => keys.length > 1);
-                  if (clashes.length === 0) return null;
+                  const allFallback = enabledRules.length > 0 && enabledRules.every(r => r.isFallbackOnly);
                   return (
-                    <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-sm font-medium text-amber-300">Priority conflict detected</p>
-                        <ul className="mt-1 space-y-0.5">
-                          {clashes.map(([pri, keys]) => (
-                            <li key={pri} className="text-xs text-amber-200/80">
-                              Priority <span className="font-mono font-semibold">#{pri}</span> is shared by: {keys.map(k => <span key={k} className="font-mono">{k}</span>).reduce((a, b) => <>{a}, {b}</>)}. The oldest rule wins silently — edit one to use a unique priority.
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
+                    <>
+                      {allFallback && (
+                        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 mb-2">
+                          <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium text-red-300">No primary rules — routing will always fail</p>
+                            <p className="text-xs text-red-200/70 mt-1">
+                              Every enabled rule is marked <span className="font-semibold">Fallback Only</span>. The router suppresses fallback rules until a primary attempt has been made, so no provider will ever be tried and every payment order will be dropped immediately. Set at least one rule to <span className="font-semibold">Primary</span> role to restore routing.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {clashes.length > 0 && (
+                        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium text-amber-300">Priority conflict detected</p>
+                            <ul className="mt-1 space-y-0.5">
+                              {clashes.map(([pri, keys]) => (
+                                <li key={pri} className="text-xs text-amber-200/80">
+                                  Priority <span className="font-mono font-semibold">#{pri}</span> is shared by: {keys.map(k => <span key={k} className="font-mono">{k}</span>).reduce((a, b) => <>{a}, {b}</>)}. The oldest rule wins silently — edit one to use a unique priority.
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   );
                 })()}
                 <Card className="bg-zinc-900 border-zinc-800">
@@ -566,23 +589,31 @@ export default function AdminSmartRouting() {
                     .filter(r => r.isEnabled)
                     .sort((a, b) => a.priority - b.priority);
                   if (sortedEnabled.length === 0) return null;
+                  const allFallback = sortedEnabled.every(r => r.isFallbackOnly);
                   return (
-                    <Card className="bg-zinc-900 border-zinc-800">
+                    <Card className={`border-zinc-800 ${allFallback ? "bg-red-950/20" : "bg-zinc-900"}`}>
                       <CardHeader className="pb-3">
                         <CardTitle className="text-zinc-300 text-sm flex items-center gap-2">
                           <ChevronsDown className="w-4 h-4 text-violet-400" />
                           Failover Chain
+                          {allFallback && (
+                            <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs ml-1">
+                              <AlertTriangle className="w-3 h-3 mr-1 inline" />Broken
+                            </Badge>
+                          )}
                         </CardTitle>
-                        <CardDescription className="text-zinc-500 text-xs">
-                          Order in which providers are tried on failure. Fallback-only providers are skipped until a primary attempt has been made.
+                        <CardDescription className={`text-xs ${allFallback ? "text-red-300/70" : "text-zinc-500"}`}>
+                          {allFallback
+                            ? "All rules are Fallback Only — no primary will ever be attempted, so no provider in this chain will be tried."
+                            : "Order in which providers are tried on failure. Fallback-only providers are skipped until a primary attempt has been made."}
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="pt-0">
                         <div className="space-y-1">
                           {sortedEnabled.map((rule, idx) => (
                             <div key={rule.id}>
-                              <div className={`flex items-center gap-3 p-2.5 rounded-lg border ${rule.isFallbackOnly ? "bg-amber-500/5 border-amber-500/20" : "bg-blue-500/5 border-blue-500/20"}`}>
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${rule.isFallbackOnly ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"}`}>
+                              <div className={`flex items-center gap-3 p-2.5 rounded-lg border ${allFallback ? "bg-red-500/5 border-red-500/20 opacity-60" : rule.isFallbackOnly ? "bg-amber-500/5 border-amber-500/20" : "bg-blue-500/5 border-blue-500/20"}`}>
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${allFallback ? "bg-red-500/20 text-red-400" : rule.isFallbackOnly ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"}`}>
                                   {idx + 1}
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -608,12 +639,21 @@ export default function AdminSmartRouting() {
                               )}
                             </div>
                           ))}
-                          <div className="flex items-center gap-3 p-2.5 rounded-lg border border-dashed border-zinc-700 mt-1">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-zinc-800 text-zinc-500">
-                              ✕
+                          {allFallback ? (
+                            <div className="flex items-center gap-3 p-2.5 rounded-lg border border-dashed border-red-500/40 mt-1 bg-red-500/5">
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-red-500/20 text-red-400">
+                                ✕
+                              </div>
+                              <p className="text-xs text-red-300/80">No primary attempt is ever made — all providers are skipped and every payment order fails immediately</p>
                             </div>
-                            <p className="text-xs text-zinc-500">No more providers — payment order fails and merchant is notified</p>
-                          </div>
+                          ) : (
+                            <div className="flex items-center gap-3 p-2.5 rounded-lg border border-dashed border-zinc-700 mt-1">
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-zinc-800 text-zinc-500">
+                                ✕
+                              </div>
+                              <p className="text-xs text-zinc-500">No more providers — payment order fails and merchant is notified</p>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

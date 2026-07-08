@@ -166,7 +166,22 @@ router.post("/configs/:id/rules", async (req, res, next) => {
     }).returning();
 
     req.log.info({ configId, providerKey, priority, isFallbackOnly, maxRetries }, "Routing rule created");
-    res.json({ ...row!, createdAt: row!.createdAt.toISOString(), updatedAt: row!.updatedAt.toISOString() });
+
+    // Warn if all enabled rules in this config are now fallback-only (no primary will ever be attempted)
+    const allRulesAfter = await db.select({ isFallbackOnly: routingRulesTable.isFallbackOnly })
+      .from(routingRulesTable)
+      .where(and(eq(routingRulesTable.configId, configId), eq(routingRulesTable.isEnabled, true)));
+    const allFallbackOnly = allRulesAfter.length > 0 && allRulesAfter.every(r => r.isFallbackOnly);
+    if (allFallbackOnly) {
+      req.log.warn({ configId }, "All enabled routing rules are fallback-only — no primary route exists; routing will fail for every order");
+    }
+
+    res.json({
+      ...row!,
+      createdAt: row!.createdAt.toISOString(),
+      updatedAt: row!.updatedAt.toISOString(),
+      ...(allFallbackOnly ? { warning: "All enabled rules in this config are now fallback-only. No primary route exists — every payment order will fail immediately. Set at least one rule to primary (isFallbackOnly: false) to restore routing." } : {}),
+    });
   } catch (err) {
     const isRoutingPriorityConflict = (err as any)?.code === "23505" &&
       (!(err as any)?.constraint || (err as any)?.constraint === "routing_rules_enabled_priority_uniq");
@@ -240,7 +255,22 @@ router.put("/rules/:id", async (req, res, next) => {
     const [updated] = await db.update(routingRulesTable).set(updateSet as any).where(eq(routingRulesTable.id, id)).returning();
 
     req.log.info({ id, ...updateSet }, "Routing rule updated");
-    res.json({ ...updated!, createdAt: updated!.createdAt.toISOString(), updatedAt: updated!.updatedAt.toISOString() });
+
+    // Warn if all enabled rules in this config are now fallback-only (no primary will ever be attempted)
+    const allRulesAfter = await db.select({ isFallbackOnly: routingRulesTable.isFallbackOnly })
+      .from(routingRulesTable)
+      .where(and(eq(routingRulesTable.configId, existing.configId), eq(routingRulesTable.isEnabled, true)));
+    const allFallbackOnly = allRulesAfter.length > 0 && allRulesAfter.every(r => r.isFallbackOnly);
+    if (allFallbackOnly) {
+      req.log.warn({ configId: existing.configId, ruleId: id }, "All enabled routing rules are fallback-only — no primary route exists; routing will fail for every order");
+    }
+
+    res.json({
+      ...updated!,
+      createdAt: updated!.createdAt.toISOString(),
+      updatedAt: updated!.updatedAt.toISOString(),
+      ...(allFallbackOnly ? { warning: "All enabled rules in this config are now fallback-only. No primary route exists — every payment order will fail immediately. Set at least one rule to primary (isFallbackOnly: false) to restore routing." } : {}),
+    });
   } catch (err) {
     const isRoutingPriorityConflict = (err as any)?.code === "23505" &&
       (!(err as any)?.constraint || (err as any)?.constraint === "routing_rules_enabled_priority_uniq");

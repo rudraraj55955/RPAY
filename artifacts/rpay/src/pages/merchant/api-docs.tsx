@@ -432,6 +432,8 @@ interface SharedTryItPreset {
   queryParams: { key: string; value: string }[];
   body: string;
   expiresAt?: string;
+  /** Per-panel bearer token — only present when the sharer explicitly unchecked "Strip auth token". */
+  localToken?: string;
 }
 
 interface SharedPresetReadResult {
@@ -522,6 +524,7 @@ function decodeSharedPreset(encoded: string): SharedTryItPreset | null {
         ),
         body: parsed.body,
         expiresAt: typeof parsed.expiresAt === "string" ? parsed.expiresAt : undefined,
+        localToken: typeof parsed.localToken === "string" ? parsed.localToken : undefined,
       };
     }
     return null;
@@ -602,7 +605,8 @@ function TryItPanel({
   const panelRef = useRef<HTMLDivElement>(null);
 
   const [open, setOpen] = useState(() => !!sharedMatch);
-  const [localToken, setLocalToken] = useState(token);
+  // If the sharer explicitly included their token (stripToken was unchecked), hydrate it.
+  const [localToken, setLocalToken] = useState(() => sharedMatch?.localToken ?? token);
   const [body, setBody] = useState(() => sharedMatch?.body ?? defaultBody);
   const [pathValues, setPathValues] = useState<Record<string, string>>(
     () => sharedMatch?.pathValues ?? {}
@@ -758,8 +762,12 @@ function TryItPanel({
   const [showShareWarning, setShowShareWarning] = useState(false);
   const [pendingShareExpiry, setPendingShareExpiry] = useState<number | null>(null);
   const [shareCredentialWarnings, setShareCredentialWarnings] = useState<string[]>([]);
+  // Checked by default — omits the per-panel bearer token from the encoded URL to prevent
+  // accidental credential leakage. The page-level "Shared Bearer Token" field is never
+  // included in share links regardless of this setting.
+  const [stripToken, setStripToken] = useState(true);
 
-  const doShare = useCallback((expiryMinutes: number | null) => {
+  const doShare = useCallback((expiryMinutes: number | null, shouldStripToken: boolean) => {
     const expiresAt =
       expiryMinutes != null
         ? new Date(Date.now() + expiryMinutes * 60 * 1000).toISOString()
@@ -773,6 +781,8 @@ function TryItPanel({
         .map((row) => ({ key: row.key, value: row.value })),
       body,
       expiresAt,
+      // Only embed the per-panel token when the user explicitly unchecked "Strip auth token".
+      localToken: shouldStripToken ? undefined : (localToken || undefined),
     });
     navigator.clipboard.writeText(shareUrl);
     setShareCopied(true);
@@ -782,7 +792,7 @@ function TryItPanel({
       : "no expiry";
     toast.success(`Share link copied (${label}) — opening it pre-loads this exact request`);
     setTimeout(() => setShareCopied(false), 2000);
-  }, [method, path, pathValues, queryParams, body]);
+  }, [method, path, pathValues, queryParams, body, localToken]);
 
   const handleShare = useCallback((expiryMinutes: number | null) => {
     const filteredParams = queryParams
@@ -796,8 +806,8 @@ function TryItPanel({
       setShowShareWarning(true);
       return;
     }
-    doShare(expiryMinutes);
-  }, [queryParams, body, pathValues, doShare]);
+    doShare(expiryMinutes, stripToken);
+  }, [queryParams, body, pathValues, doShare, stripToken]);
 
   const handleCopyAllHeaders = useCallback(() => {
     if (!response) return;
@@ -1155,7 +1165,24 @@ function TryItPanel({
                   {shareCopied ? "Link copied!" : "Share"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-56 p-2" align="start">
+              <PopoverContent className="w-64 p-2" align="start">
+                <label className="flex items-center gap-2 px-2 py-1.5 mb-1 rounded cursor-pointer hover:bg-accent/60 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={stripToken}
+                    onChange={(e) => setStripToken(e.target.checked)}
+                    className="accent-primary w-3.5 h-3.5 shrink-0"
+                  />
+                  <span className="text-xs font-medium">Strip auth token</span>
+                  <ShieldCheck className={`w-3 h-3 shrink-0 ml-auto ${stripToken ? "text-emerald-400" : "text-muted-foreground"}`} />
+                </label>
+                {!stripToken && (
+                  <p className="text-[10px] text-amber-400/80 px-2 pb-1.5 flex items-start gap-1">
+                    <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                    Bearer token will be embedded in the URL — only share with trusted recipients.
+                  </p>
+                )}
+                <div className="border-t border-border/30 my-1" />
                 <p className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">
                   Link expires in…
                 </p>
@@ -1306,7 +1333,7 @@ function TryItPanel({
               className="gap-1.5"
               onClick={() => {
                 setShowShareWarning(false);
-                doShare(pendingShareExpiry);
+                doShare(pendingShareExpiry, stripToken);
               }}
             >
               <Share2 className="w-3 h-3" />

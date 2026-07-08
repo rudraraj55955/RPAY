@@ -342,6 +342,7 @@ const ADMIN_NAV = [
       { title: "UPI Approvals", icon: CheckCircle2, href: "/admin/utr-verifications" },
       { title: "Payouts", icon: Landmark, href: "/admin/payouts" },
       { title: "Payout Beneficiaries", icon: BadgeCheck, href: "/admin/payout-beneficiaries" },
+      { title: "Payout Merchants", icon: Store, href: "/admin/payout-merchants" },
       { title: "Settlements", icon: FileText, href: "/admin/settlements" },
       { title: "Transactions", icon: ArrowRightLeft, href: "/admin/transactions" },
       { title: "Balance Ledger", icon: BookMarked, href: "/admin/ledger" },

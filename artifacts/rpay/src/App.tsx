@@ -8,6 +8,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { useAuth } from "@/lib/auth-context";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { PayoutMerchantLayout } from "@/components/layout/payout-merchant-layout";
 import { PageErrorBoundary } from "@/components/error-boundary";
 import { Spinner } from "@/components/ui/spinner";
 import { UserRole } from "@workspace/api-client-react";
@@ -112,6 +113,17 @@ import AdminPlatformProfit from "@/pages/admin/platform-profit";
 import MerchantSupport from "@/pages/merchant/support";
 import MerchantAccountStatement from "@/pages/merchant/account-statement";
 import AdminMerchantStatements from "@/pages/admin/merchant-statements";
+import AdminPayoutMerchants from "@/pages/admin/payout-merchants";
+import AdminPayoutMerchantDetail from "@/pages/admin/payout-merchant-detail";
+
+// Payout Merchant Pages
+import PayoutMerchantDashboard from "@/pages/payout-merchant/dashboard";
+import PayoutMerchantPayouts from "@/pages/payout-merchant/payouts";
+import PayoutMerchantBulkPayouts from "@/pages/payout-merchant/bulk-payouts";
+import PayoutMerchantBeneficiaries from "@/pages/payout-merchant/beneficiaries";
+import PayoutMerchantWallet from "@/pages/payout-merchant/wallet";
+import PayoutMerchantLedger from "@/pages/payout-merchant/ledger";
+import PayoutMerchantProfile from "@/pages/payout-merchant/profile";
 
 function extractApiError(error: unknown): string | null {
   if (!error) return null;
@@ -194,7 +206,7 @@ function SmartAdminLogin() {
 
 /**
  * /merchant — show spinner while resolving, redirect merchant to dashboard, else show login.
- * Never shows the login form to an already-authenticated merchant.
+ * Payout-only merchants go to /payout-merchant/dashboard instead.
  */
 function SmartMerchantEntry() {
   const { user, isLoading } = useAuth();
@@ -202,7 +214,11 @@ function SmartMerchantEntry() {
 
   useEffect(() => {
     if (!isLoading && user?.role === UserRole.merchant) {
-      setLocation("/merchant/dashboard", { replace: true } as Parameters<typeof setLocation>[1]);
+      const merchantType = (user as any).merchantType;
+      const dest = merchantType === "PAYOUT_ONLY"
+        ? "/payout-merchant/dashboard"
+        : "/merchant/dashboard";
+      setLocation(dest, { replace: true } as Parameters<typeof setLocation>[1]);
     }
   }, [user, isLoading]);
 
@@ -219,7 +235,11 @@ function SmartMerchantLogin() {
 
   useEffect(() => {
     if (!isLoading && user?.role === UserRole.merchant) {
-      setLocation("/merchant/dashboard", { replace: true } as Parameters<typeof setLocation>[1]);
+      const merchantType = (user as any).merchantType;
+      const dest = merchantType === "PAYOUT_ONLY"
+        ? "/payout-merchant/dashboard"
+        : "/merchant/dashboard";
+      setLocation(dest, { replace: true } as Parameters<typeof setLocation>[1]);
     }
   }, [user, isLoading]);
 
@@ -248,6 +268,38 @@ function MerchantRoute({ component: Component }: { component: React.ComponentTyp
         </PageErrorBoundary>
       </DashboardLayout>
     </ProtectedRoute>
+  );
+}
+
+function PayoutMerchantRoute({ component: Component }: { component: React.ComponentType }) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      setLocation("/merchant/login", { replace: true } as Parameters<typeof setLocation>[1]);
+    } else if (!isLoading && user?.role !== UserRole.merchant) {
+      setLocation("/", { replace: true } as Parameters<typeof setLocation>[1]);
+    } else if (!isLoading && user?.role === UserRole.merchant) {
+      const merchantType = (user as any).merchantType;
+      if (merchantType === "NORMAL" || (!merchantType && merchantType !== "BOTH")) {
+        // Normal payin merchant tried to access payout-merchant routes
+        setLocation("/merchant/dashboard", { replace: true } as Parameters<typeof setLocation>[1]);
+      }
+    }
+  }, [user, isLoading]);
+
+  if (isLoading) return <AuthSpinner />;
+  if (!user || user.role !== UserRole.merchant) return <AuthSpinner />;
+  const merchantType = (user as any).merchantType;
+  if (merchantType === "NORMAL") return <AuthSpinner />;
+
+  return (
+    <PayoutMerchantLayout>
+      <PageErrorBoundary>
+        <Component />
+      </PageErrorBoundary>
+    </PayoutMerchantLayout>
   );
 }
 
@@ -337,6 +389,8 @@ function Router() {
       <Route path="/admin/support-tickets"><AdminRoute component={AdminSupportTickets} /></Route>
       <Route path="/admin/support"><AdminRoute component={AdminSupportTickets} /></Route>
       <Route path="/admin/merchant-statements"><AdminRoute component={AdminMerchantStatements} /></Route>
+      <Route path="/admin/payout-merchants/:merchantId"><AdminRoute component={AdminPayoutMerchantDetail} /></Route>
+      <Route path="/admin/payout-merchants"><AdminRoute component={AdminPayoutMerchants} /></Route>
 
       {/* Legacy/broken payout routes — redirect to canonical page */}
       <Route path="/admin/cashfree-payout"><Redirect to="/admin/payout-gateway" /></Route>
@@ -374,6 +428,17 @@ function Router() {
       <Route path="/merchant/support"><MerchantRoute component={MerchantSupport} /></Route>
       <Route path="/merchant/account-statement"><MerchantRoute component={MerchantAccountStatement} /></Route>
       <Route path="/merchant/api-docs"><PublicPage component={MerchantApiDocs} /></Route>
+
+      {/* Payout Merchant Routes */}
+      <Route path="/payout-merchant/dashboard"><PayoutMerchantRoute component={PayoutMerchantDashboard} /></Route>
+      <Route path="/payout-merchant/payouts"><PayoutMerchantRoute component={PayoutMerchantPayouts} /></Route>
+      <Route path="/payout-merchant/bulk-payouts"><PayoutMerchantRoute component={PayoutMerchantBulkPayouts} /></Route>
+      <Route path="/payout-merchant/beneficiaries"><PayoutMerchantRoute component={PayoutMerchantBeneficiaries} /></Route>
+      <Route path="/payout-merchant/wallet"><PayoutMerchantRoute component={PayoutMerchantWallet} /></Route>
+      <Route path="/payout-merchant/ledger"><PayoutMerchantRoute component={PayoutMerchantLedger} /></Route>
+      <Route path="/payout-merchant/profile"><PayoutMerchantRoute component={PayoutMerchantProfile} /></Route>
+      {/* Redirect /payout-merchant root to dashboard */}
+      <Route path="/payout-merchant"><Redirect to="/payout-merchant/dashboard" /></Route>
       <Route path="/api-docs"><Redirect to="/merchant/api-docs" /></Route>
 
       <Route path="/upi-collection-api"><PublicPage component={UpiCollectionApi} /></Route>

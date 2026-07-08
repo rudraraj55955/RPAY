@@ -53,6 +53,8 @@ import smsLogsRouter from "./smsLogs";
 import onboardingRouter from "./onboarding";
 import adminOnboardingRouter from "./adminOnboarding";
 import secureIdSettingsRouter from "./secureIdSettings";
+import payoutMerchantRouter from "./payoutMerchant";
+import adminPayoutMerchantsRouter from "./adminPayoutMerchants";
 import smartRoutingRouter from "./smartRouting";
 import moduleControlRouter from "./moduleControl";
 import merchantModuleStatusRouter from "./merchantModuleStatus";
@@ -155,6 +157,10 @@ router.use("/admin/sms-logs", smsLogsRouter);
 router.use("/onboarding", onboardingRouter);
 router.use("/admin/onboarding", adminOnboardingRouter);
 router.use("/admin/secure-id-settings", secureIdSettingsRouter);
+
+// Payout merchant module — merchant-facing config + admin management
+router.use("/payout-merchant", payoutMerchantRouter);
+router.use("/admin/payout-merchants", adminPayoutMerchantsRouter);
 
 // Public payout slip — token-authenticated, no session required; mount last to avoid path conflicts
 router.use("/public/payout-slip", publicPayoutSlipRouter);

@@ -1,7 +1,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, ArrowDownLeft, Landmark, QrCode, Store, ArrowRightLeft } from "lucide-react";
+import { LayoutDashboard, ArrowDownLeft, Landmark, QrCode, Store, ArrowRightLeft, Wallet, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const adminItems = [
@@ -20,6 +20,14 @@ const merchantItems = [
   { title: "Txns", icon: ArrowRightLeft, href: "/merchant/transactions" },
 ];
 
+const payoutMerchantItems = [
+  { title: "Dashboard", icon: LayoutDashboard, href: "/payout-merchant/dashboard" },
+  { title: "Payouts", icon: ArrowRightLeft, href: "/payout-merchant/payouts" },
+  { title: "Beneficiaries", icon: Users, href: "/payout-merchant/beneficiaries" },
+  { title: "Wallet", icon: Wallet, href: "/payout-merchant/wallet" },
+  { title: "Ledger", icon: Landmark, href: "/payout-merchant/ledger" },
+];
+
 export function MobileBottomNav() {
   const { user } = useAuth();
   const [location] = useLocation();
@@ -27,7 +35,9 @@ export function MobileBottomNav() {
   if (!user) return null;
 
   const isAdmin = (user as { role?: string }).role === UserRole.admin;
-  const items = isAdmin ? adminItems : merchantItems;
+  const isPayoutMerchant = !isAdmin && (user as any).merchantType === "PAYOUT_ONLY";
+
+  const items = isAdmin ? adminItems : isPayoutMerchant ? payoutMerchantItems : merchantItems;
 
   return (
     <nav

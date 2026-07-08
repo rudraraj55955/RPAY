@@ -443,9 +443,20 @@ router.get("/me", requireAuth, async (req, res, next) => {
   try {
     const user = (req as any).user;
     let merchantStatus: string | null = null;
+    let merchantType = "NORMAL";
+    let payoutServiceEnabled = false;
+    let payinServiceEnabled = true;
     if (user.role === "merchant" && user.merchantId) {
-      const [merchant] = await db.select({ status: merchantsTable.status }).from(merchantsTable).where(eq(merchantsTable.id, user.merchantId)).limit(1);
+      const [merchant] = await db.select({
+        status: merchantsTable.status,
+        merchantType: merchantsTable.merchantType,
+        payoutServiceEnabled: merchantsTable.payoutServiceEnabled,
+        payinServiceEnabled: merchantsTable.payinServiceEnabled,
+      }).from(merchantsTable).where(eq(merchantsTable.id, user.merchantId)).limit(1);
       merchantStatus = merchant?.status ?? null;
+      merchantType = (merchant as any)?.merchantType ?? "NORMAL";
+      payoutServiceEnabled = (merchant as any)?.payoutServiceEnabled ?? false;
+      payinServiceEnabled = (merchant as any)?.payinServiceEnabled ?? true;
     }
     const [row] = await db
       .select({
@@ -513,6 +524,9 @@ router.get("/me", requireAuth, async (req, res, next) => {
       isSuperAdmin: user.isSuperAdmin ?? false,
       merchantId: user.merchantId,
       merchantStatus,
+      merchantType,
+      payoutServiceEnabled,
+      payinServiceEnabled,
       reconciliationAlertEmails: row?.reconciliationAlertEmails ?? true,
       planExpiryAlertEmails: row?.planExpiryAlertEmails ?? true,
       settlementStateEmails: row?.settlementStateEmails ?? true,

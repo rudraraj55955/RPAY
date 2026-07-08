@@ -405,6 +405,18 @@ async function runGuard(): Promise<void> {
   `);
   logger.info({ table: "merchant_tryit_presets" }, "schema_guard_table_created");
 
+  // ── merchants: payout merchant type & service flags ──────────────────────────
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS merchant_type TEXT NOT NULL DEFAULT 'NORMAL'`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS payout_service_enabled BOOLEAN NOT NULL DEFAULT false`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS payin_service_enabled BOOLEAN NOT NULL DEFAULT true`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS collection_service_enabled BOOLEAN NOT NULL DEFAULT true`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS onboarding_type TEXT NOT NULL DEFAULT 'NORMAL'`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS agent_id INTEGER`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS approved_for_payout_at TIMESTAMPTZ`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS payout_limits_json JSONB`);
+  await db.execute(sql`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS payout_fee_json JSONB`);
+  logger.info({ table: "merchants", migration: "add_payout_merchant_cols" }, "schema_guard_column_added");
+
   // ── merchant_kyc_data new columns (aadhaar_status, udyam, bank_holder_name) ─
   await db.execute(sql`ALTER TABLE merchant_kyc_data ADD COLUMN IF NOT EXISTS aadhaar_status TEXT DEFAULT 'PENDING'`);
   await db.execute(sql`ALTER TABLE merchant_kyc_data ADD COLUMN IF NOT EXISTS bank_holder_name TEXT`);

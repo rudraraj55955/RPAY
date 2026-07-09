@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, cashfreePaymentOrdersTable, providerIntegrationsTable, PAYIN_ORDER_STATUS, routingLogsTable, notificationsTable, usersTable } from "@workspace/db";
+import { db, cashfreePaymentOrdersTable, providerIntegrationsTable, PAYIN_ORDER_STATUS, routingLogsTable, notificationsTable, usersTable, systemConfigTable, SYSTEM_CONFIG_KEYS } from "@workspace/db";
 import { eq, and, gte, sql } from "drizzle-orm";
 import { cashfreeCreateOrder, cashfreeGetOrder } from "../helpers/cashfree";
 import { decryptSecret } from "../helpers/cryptoUtils";
@@ -40,10 +40,14 @@ router.get("/payin/status", requireAuth, async (req, res, next) => {
       return;
     }
     const cfg = await loadPayinConfig();
+    const [chainExhaustedRow] = await db.select().from(systemConfigTable)
+      .where(eq(systemConfigTable.key, SYSTEM_CONFIG_KEYS.PAYIN_CHAIN_EXHAUSTED_SINCE))
+      .limit(1);
     res.json({
       enabled: cfg.enabled && cfg.upiEnabled && cfg.merchantPayinEnabled,
       minAmount: cfg.minAmount,
       maxAmount: cfg.maxAmount,
+      routingHealthy: !chainExhaustedRow,
     });
   } catch (err) { next(err); }
 });

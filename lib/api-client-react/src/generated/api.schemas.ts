@@ -4643,6 +4643,8 @@ export interface PayinOrderStatusCheck {
   enabled: boolean;
   minAmount: number;
   maxAmount: number;
+  /** False when the payin routing chain is currently exhausted (all configured gateways recently failed) and deposits would immediately fail. */
+  routingHealthy: boolean;
 }
 
 export interface AdminPayinOrderRow {

@@ -8118,7 +8118,8 @@ export const DebugPayinGatewayDbInsertResponse = zod.object({
 export const GetPayinStatusResponse = zod.object({
   "enabled": zod.boolean(),
   "minAmount": zod.number(),
-  "maxAmount": zod.number()
+  "maxAmount": zod.number(),
+  "routingHealthy": zod.boolean().describe('False when the payin routing chain is currently exhausted (all configured gateways recently failed) and deposits would immediately fail.')
 })
 
 

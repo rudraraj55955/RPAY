@@ -16363,7 +16363,7 @@ components:
 
     PayinOrderStatusCheck:
       type: object
-      required: [enabled, minAmount, maxAmount]
+      required: [enabled, minAmount, maxAmount, routingHealthy]
       properties:
         enabled:
           type: boolean
@@ -16371,6 +16371,9 @@ components:
           type: number
         maxAmount:
           type: number
+        routingHealthy:
+          type: boolean
+          description: False when the payin routing chain is currently exhausted (all configured gateways recently failed) and deposits would immediately fail.
 
     AdminPayinOrderRow:
       type: object

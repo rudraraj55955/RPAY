@@ -889,6 +889,7 @@ export default function MerchantDeposits() {
 
   const { data: payinStatusData } = useGetPayinStatus();
   const cashfreeEnabled = payinStatusData?.enabled ?? false;
+  const routingHealthy = payinStatusData?.routingHealthy ?? true;
 
   // "Gateways unavailable" banner — set when a deposit attempt hits the 503
   // routing-chain-exhausted error, cleared automatically once a
@@ -1218,10 +1219,29 @@ export default function MerchantDeposits() {
             </Tooltip>
           </TooltipProvider>
           {cashfreeEnabled && (
-            <Button size="sm" variant="outline" onClick={() => setShowCashfree(true)} className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/50">
-              <CreditCard className="w-4 h-4 mr-2" />
-              Deposit via UPI
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowCashfree(true)}
+                      disabled={!routingHealthy}
+                      className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/50 disabled:opacity-50"
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Deposit via UPI
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!routingHealthy && (
+                  <TooltipContent side="bottom">
+                    Payment gateways are temporarily unavailable. Please try again shortly.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           )}
           <Button size="sm" onClick={() => setShowSimulate(true)}>
             <Plus className="w-4 h-4 mr-2" />

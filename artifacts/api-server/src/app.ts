@@ -39,15 +39,15 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
-// TEMPORARY: deployment patch download — remove after VPS deploy
-app.get("/api/_deploy/rasokart-payout-patch.tgz", (req: Request, res: Response) => {
-  const filePath = "/tmp/rasokart-payout-patch.tgz";
+// TEMPORARY: deployment dist-only patch download — remove after VPS deploy
+app.get("/api/_deploy/rasokart-dist-only.tgz", (req: Request, res: Response) => {
+  const filePath = "/tmp/rasokart-dist-only.tgz";
   if (!fs.existsSync(filePath)) {
     res.status(404).json({ error: "patch file not found" });
     return;
   }
   res.setHeader("Content-Type", "application/octet-stream");
-  res.setHeader("Content-Disposition", "attachment; filename=rasokart-payout-patch.tgz");
+  res.setHeader("Content-Disposition", "attachment; filename=rasokart-dist-only.tgz");
   res.sendFile(path.resolve(filePath));
 });
 

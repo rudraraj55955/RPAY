@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import { CreateSettlementBody } from "@workspace/api-zod";
 import { db, settlementsTable, merchantsTable, ledgerEntriesTable, usersTable, auditLogsTable } from "@workspace/db";
 import { eq, and, count, sql, gte, lte, sum } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
@@ -232,9 +233,20 @@ router.post("/", settlementCreateLimiter, requireModule("merchant_settlements"),
     return;
   }
 
-  const { requestedAmount, requestedNote } = req.body as { requestedAmount?: number; requestedNote?: string };
-  if (!requestedAmount || typeof requestedAmount !== "number" || requestedAmount <= 0) {
-    res.status(400).json({ error: "requestedAmount must be a positive number" });
+  const parsed = CreateSettlementBody.safeParse(req.body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    res.status(400).json({
+      error: issue ? `${issue.path.join(".") || "body"}: ${issue.message}` : "Invalid request body",
+      field: issue?.path.join(".") ?? null,
+      issues: parsed.error.issues.map((i) => ({ field: i.path.join("."), message: i.message })),
+    });
+    return;
+  }
+
+  const { requestedAmount, requestedNote } = parsed.data;
+  if (requestedAmount <= 0) {
+    res.status(400).json({ error: "requestedAmount: must be a positive number", field: "requestedAmount" });
     return;
   }
 

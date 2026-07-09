@@ -55,25 +55,42 @@ export default function PayoutMerchantLogin() {
         return;
       }
 
-      const body = await res.json() as {
-        token: string;
-        user: { role: string; merchantType?: string };
-      };
+      const body = (await res.json()) as Record<string, unknown>;
 
-      const role = body.user.role;
-      const merchantType = body.user.merchantType;
+      const candidateUsers: unknown[] = [
+        (body as Record<string, unknown>)["user"],
+        ((body as Record<string, unknown>)["data"] as Record<string, unknown> | undefined)?.["user"],
+        body,
+      ];
+
+      let role: string | undefined;
+      let merchantType: string | undefined;
+      for (const candidate of candidateUsers) {
+        if (candidate && typeof candidate === "object") {
+          const c = candidate as Record<string, unknown>;
+          if (role === undefined && typeof c["role"] === "string") role = c["role"] as string;
+          if (merchantType === undefined && typeof c["merchantType"] === "string") {
+            merchantType = c["merchantType"] as string;
+          }
+        }
+      }
+      if (merchantType === undefined && typeof body["merchantType"] === "string") {
+        merchantType = body["merchantType"] as string;
+      }
+
+      const token = (body["token"] as string | undefined) ?? "";
 
       if (role !== "merchant" && role !== "payout_merchant") {
         toast.error("Unauthorized. Payout Merchant access required.");
         return;
       }
 
-      if (role === "merchant" && merchantType !== "PAYOUT_ONLY" && merchantType !== "BOTH") {
+      if (!(role === "merchant" && merchantType === "PAYOUT_ONLY") && merchantType !== "BOTH" && role !== "payout_merchant") {
         toast.error("This portal is for Payout merchants only. Please use the regular merchant login.");
         return;
       }
 
-      setAuthToken(body.token);
+      setAuthToken(token);
       toast.success("Welcome to your Payout Portal.");
       setLocation("/payout-merchant/dashboard");
     } catch {
@@ -147,7 +164,7 @@ export default function PayoutMerchantLogin() {
             <Link href="/" className="text-primary hover:underline">← Back to RasoKart</Link>
           </div>
           <div className="text-center text-xs text-muted-foreground/40 pt-2">
-            Login Build: payout-login-fix-v2
+            Login Build: payout-login-guard-fix-v1
           </div>
         </form>
       </Form>

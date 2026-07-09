@@ -182,6 +182,11 @@ interface TryItPanelProps {
   requiresAuth?: boolean;
   commonQueryParams?: string[];
   expectedBodyKeys?: BodyFieldSchema[];
+  /**
+   * Name of a custom header used for API-key style auth instead of (or alongside)
+   * the Bearer token — e.g. "X-Api-Key" for the payment callback endpoint.
+   */
+  apiKeyHeader?: string;
 }
 
 function looksLikeCredential(value: string): boolean {
@@ -813,6 +818,7 @@ function TryItPanel({
   requiresAuth = true,
   commonQueryParams = [],
   expectedBodyKeys = [],
+  apiKeyHeader,
 }: TryItPanelProps) {
   const shared = useContext(SharedPresetContext);
   const sharedMatch =
@@ -822,6 +828,7 @@ function TryItPanel({
   const [open, setOpen] = useState(() => !!sharedMatch);
   // If the sharer explicitly included their token (stripToken was unchecked), hydrate it.
   const [localToken, setLocalToken] = useState(() => sharedMatch?.localToken ?? token);
+  const [apiKeyValue, setApiKeyValue] = useState("");
   const [tokenWarningDismissed, setTokenWarningDismissed] = useState(false);
   const showTokenWarning = !!sharedMatch?.localToken && !tokenWarningDismissed;
   const [redactedNoteDismissed, setRedactedNoteDismissed] = useState(false);
@@ -989,6 +996,9 @@ function TryItPanel({
     if (activeToken) {
       parts.push(`  -H 'Authorization: Bearer ${activeToken}'`);
     }
+    if (apiKeyHeader && apiKeyValue) {
+      parts.push(`  -H '${apiKeyHeader}: ${apiKeyValue}'`);
+    }
     if (hasBody) {
       parts.push(`  -H 'Content-Type: application/json'`);
       if (body.trim()) {
@@ -997,7 +1007,7 @@ function TryItPanel({
       }
     }
     return parts.join(" \\\n");
-  }, [method, url, hasBody, body, localToken, token, requiresAuth]);
+  }, [method, url, hasBody, body, localToken, token, requiresAuth, apiKeyHeader, apiKeyValue]);
 
   const handleCopyCurl = useCallback(() => {
     const curl = buildCurlCommand();
@@ -1120,6 +1130,7 @@ function TryItPanel({
       const headers: Record<string, string> = {};
       const activeToken = requiresAuth ? (localToken || token) : undefined;
       if (activeToken) headers["Authorization"] = `Bearer ${activeToken}`;
+      if (apiKeyHeader && apiKeyValue) headers[apiKeyHeader] = apiKeyValue;
       if (hasBody) headers["Content-Type"] = "application/json";
 
       const res = await fetch(url, {
@@ -1159,7 +1170,7 @@ function TryItPanel({
     } finally {
       setLoading(false);
     }
-  }, [url, method, body, localToken, token, hasBody, requiresAuth]);
+  }, [url, method, body, localToken, token, hasBody, requiresAuth, apiKeyHeader, apiKeyValue]);
 
   const statusColor =
     response == null
@@ -1355,6 +1366,20 @@ function TryItPanel({
                 value={localToken}
                 onChange={(e) => setLocalToken(e.target.value)}
                 placeholder="Paste your JWT token here"
+                className="h-7 text-xs font-mono bg-black/40"
+              />
+            </div>
+          )}
+
+          {apiKeyHeader && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">
+                <code className="font-mono">{apiKeyHeader}</code> header
+              </Label>
+              <Input
+                value={apiKeyValue}
+                onChange={(e) => setApiKeyValue(e.target.value)}
+                placeholder="Paste your API key here"
                 className="h-7 text-xs font-mono bg-black/40"
               />
             </div>
@@ -2986,6 +3011,114 @@ export default function ApiDocs() {
                 { key: "retryDelay3", type: "integer" },
                 { key: "failureAlertEnabled", type: "boolean" },
                 { key: "failureAlertThreshold", type: "integer" },
+              ]}
+            />
+          </div>
+        </Section>
+
+        <Section title="Payment Callbacks API" badge="1 endpoint">
+          <p className="text-sm text-muted-foreground">
+            Notify RasoKart that a payment was received against one of your QR codes. Unlike the
+            rest of the API, this endpoint is authenticated with your{" "}
+            <code className="font-mono bg-muted px-1 rounded">X-Api-Key</code> header instead of a
+            Bearer token — it's designed to be called from your own back-end or payment provider
+            integration, not from a logged-in browser session.
+          </p>
+
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+            <ShieldCheck className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-300">Authentication</p>
+              <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                <li>
+                  <code className="font-mono bg-muted px-1 rounded">X-Api-Key</code> — required.
+                  One of your active API keys, generated on the API Keys page.
+                </li>
+                <li>
+                  <code className="font-mono bg-muted px-1 rounded">X-Signature</code> — required
+                  only if you've set a Callback Secret on the Webhook Settings page. Signs the raw
+                  request body with HMAC-SHA256 — see the Callback Security section below.
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Endpoint</p>
+            <EndpointRow
+              method="POST"
+              path="/api/callbacks"
+              description="Mark a QR code as paid and record the payment event"
+            />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Request Body</p>
+            <CodeBlock
+              language="json"
+              code={`{
+  "orderId": "ORDER-1234",
+  "merchantReference": "REF-5678",
+  "amount": "500.00",
+  "transactionId": 101
+}`}
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Either <code className="font-mono bg-muted px-1 rounded">orderId</code> or{" "}
+              <code className="font-mono bg-muted px-1 rounded">merchantReference</code> is
+              required to match an active QR code — <code className="font-mono bg-muted px-1 rounded">orderId</code> takes
+              priority if both are supplied.{" "}
+              <code className="font-mono bg-muted px-1 rounded">amount</code> and{" "}
+              <code className="font-mono bg-muted px-1 rounded">transactionId</code> are optional.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Response</p>
+            <CodeBlock
+              language="json"
+              code={`{
+  "success": true,
+  "qrCodeId": 1,
+  "status": "used",
+  "callbackFired": true
+}`}
+            />
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">cURL Example</p>
+            <CodeBlock
+              code={`curl -X POST https://your-domain.com/api/callbacks \\
+  -H "X-Api-Key: rasokart_live_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "orderId": "ORDER-1234",
+    "amount": "500.00",
+    "transactionId": 101
+  }'`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Try it</p>
+            <TryItPanel
+              method="POST"
+              path="/api/callbacks"
+              token=""
+              requiresAuth={false}
+              apiKeyHeader="X-Api-Key"
+              defaultBody={`{
+  "orderId": "ORDER-1234",
+  "merchantReference": "REF-5678",
+  "amount": "500.00",
+  "transactionId": 101
+}`}
+              expectedBodyKeys={[
+                { key: "orderId", type: "string" },
+                { key: "merchantReference", type: "string" },
+                { key: "amount", type: "string" },
+                { key: "transactionId", type: "integer" },
               ]}
             />
           </div>

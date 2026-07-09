@@ -43,6 +43,7 @@ import type {
   AdminVerificationDetailResponse,
   AdminVerificationListResponse,
   AdminVerificationStatsResponse,
+  AlertCooldownStatus,
   ApiKey,
   ApiKeyWithSecret,
   ApiMonitoringStats,
@@ -21543,6 +21544,83 @@ export const useResetWebhookFailureAlertCooldown = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getResetWebhookFailureAlertCooldownMutationOptions(options));
     }
+
+export const getGetAlertCooldownStatusUrl = () => {
+
+
+
+
+  return `/api/system-config/alert-cooldown-status`
+}
+
+/**
+ * @summary Get last-sent timestamps and cooldown windows for webhook-failure and EKQR stuck-QR alerts (admin only)
+ */
+export const getAlertCooldownStatus = async ( options?: RequestInit): Promise<AlertCooldownStatus> => {
+
+  return customFetch<AlertCooldownStatus>(getGetAlertCooldownStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAlertCooldownStatusQueryKey = () => {
+    return [
+    `/api/system-config/alert-cooldown-status`
+    ] as const;
+    }
+
+
+export const getGetAlertCooldownStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAlertCooldownStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAlertCooldownStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAlertCooldownStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAlertCooldownStatus>>> = ({ signal }) => getAlertCooldownStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAlertCooldownStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAlertCooldownStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAlertCooldownStatus>>>
+export type GetAlertCooldownStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get last-sent timestamps and cooldown windows for webhook-failure and EKQR stuck-QR alerts (admin only)
+ */
+
+export function useGetAlertCooldownStatus<TData = Awaited<ReturnType<typeof getAlertCooldownStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAlertCooldownStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAlertCooldownStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetSignatureFailureAlertHistoryUrl = (params?: GetSignatureFailureAlertHistoryParams,) => {
   const normalizedParams = new URLSearchParams();

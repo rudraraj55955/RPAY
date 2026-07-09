@@ -49,6 +49,8 @@ export * from './adminVerificationListItemStatus';
 export * from './adminVerificationListResponse';
 export * from './adminVerificationStatsResponse';
 export * from './adminVerificationStatsResponseStats';
+export * from './alertCooldownEntry';
+export * from './alertCooldownStatus';
 export * from './apiKey';
 export * from './apiKeyWithSecret';
 export * from './apiMonitoringStats';

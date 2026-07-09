@@ -29,7 +29,7 @@ dateTo?: Date;
  */
 merchantId?: number;
 /**
- * Sub-filter for setting/config logs. For action=setting_updated, matches details->>'key'. For action=system_config_updated, matches details->>'section'.
+ * Sub-filter for setting/config logs. For action=setting_updated, matches details->>'key'. For action=system_config_updated, matches details->>'section'. For action=provider_integration_updated, matches details->>'providerKey'.
  */
 settingKey?: string;
 /**

@@ -4107,6 +4107,18 @@ export interface WebhookFailureAlertHistoryResponse {
   total: number;
 }
 
+export interface AlertCooldownEntry {
+  lastSentAt?: string | null;
+  cooldownHours: number;
+  cooldownActive: boolean;
+  cooldownExpiresAt?: string | null;
+}
+
+export interface AlertCooldownStatus {
+  webhookFailure: AlertCooldownEntry;
+  ekqr: AlertCooldownEntry;
+}
+
 export interface WebhookFailureAlertConfig {
   /**
      * Number of hours to suppress duplicate webhook failure alert emails for the same merchant. Default is 1.
@@ -7389,7 +7401,7 @@ dateTo?: string;
  */
 merchantId?: number;
 /**
- * Sub-filter for setting/config logs. For action=setting_updated, matches details->>'key'. For action=system_config_updated, matches details->>'section'.
+ * Sub-filter for setting/config logs. For action=setting_updated, matches details->>'key'. For action=system_config_updated, matches details->>'section'. For action=provider_integration_updated, matches details->>'providerKey'.
  */
 settingKey?: string;
 /**

@@ -946,6 +946,79 @@ router.delete("/webhook-failure-alert-history", async (req, res, next) => {
   }
 });
 
+// GET /api/system-config/alert-cooldown-status
+// Returns last-sent timestamps and cooldown window for the webhook-failure and EKQR stuck-QR alerts.
+router.get("/alert-cooldown-status", async (req, res, next) => {
+  try {
+    // Fetch all needed config keys in one query
+    const configRows = await db
+      .select()
+      .from(systemConfigTable)
+      .where(
+        inArray(systemConfigTable.key, [
+          SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS,
+          SYSTEM_CONFIG_KEYS.EKQR_SYNC_ALERT_COOLDOWN_HOURS,
+          "ekqr_sync_alert_last_sent_at",
+        ])
+      );
+    const configMap = new Map(configRows.map((r) => [r.key, r.value]));
+
+    // Webhook failure: most recent alert log entry
+    const [latestWebhookLog] = await db
+      .select({ sentAt: webhookFailureAlertLogsTable.sentAt })
+      .from(webhookFailureAlertLogsTable)
+      .orderBy(desc(webhookFailureAlertLogsTable.sentAt))
+      .limit(1);
+
+    const webhookCooldownHours = parseInt(
+      configMap.get(SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS) ??
+        SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.WEBHOOK_FAILURE_ALERT_COOLDOWN_HOURS]
+    );
+    const webhookLastSentAt = latestWebhookLog?.sentAt?.toISOString() ?? null;
+    const webhookSentDate = webhookLastSentAt ? new Date(webhookLastSentAt) : null;
+    const webhookSentValid = webhookSentDate != null && !isNaN(webhookSentDate.getTime());
+    const webhookCooldownExpiresAt = webhookSentValid
+      ? new Date(webhookSentDate!.getTime() + webhookCooldownHours * 60 * 60 * 1000).toISOString()
+      : null;
+    const webhookCooldownActive = webhookCooldownExpiresAt
+      ? new Date(webhookCooldownExpiresAt) > new Date()
+      : false;
+
+    // EKQR: last_sent_at stored in system_config
+    const ekqrCooldownHours = parseInt(
+      configMap.get(SYSTEM_CONFIG_KEYS.EKQR_SYNC_ALERT_COOLDOWN_HOURS) ??
+        SYSTEM_CONFIG_DEFAULTS[SYSTEM_CONFIG_KEYS.EKQR_SYNC_ALERT_COOLDOWN_HOURS]
+    );
+    const ekqrRawLastSent = configMap.get("ekqr_sync_alert_last_sent_at") ?? null;
+    const ekqrSentDate = ekqrRawLastSent ? new Date(ekqrRawLastSent) : null;
+    const ekqrSentValid = ekqrSentDate != null && !isNaN(ekqrSentDate.getTime());
+    const ekqrLastSentAt = ekqrSentValid ? ekqrSentDate!.toISOString() : null;
+    const ekqrCooldownExpiresAt = ekqrSentValid
+      ? new Date(ekqrSentDate!.getTime() + ekqrCooldownHours * 60 * 60 * 1000).toISOString()
+      : null;
+    const ekqrCooldownActive = ekqrCooldownExpiresAt
+      ? new Date(ekqrCooldownExpiresAt) > new Date()
+      : false;
+
+    res.json({
+      webhookFailure: {
+        lastSentAt: webhookLastSentAt,
+        cooldownHours: webhookCooldownHours,
+        cooldownActive: webhookCooldownActive,
+        cooldownExpiresAt: webhookCooldownExpiresAt,
+      },
+      ekqr: {
+        lastSentAt: ekqrLastSentAt,
+        cooldownHours: ekqrCooldownHours,
+        cooldownActive: ekqrCooldownActive,
+        cooldownExpiresAt: ekqrCooldownExpiresAt,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/system-config/signature-failure-alert-history
 router.get("/signature-failure-alert-history", async (req, res, next) => {
   try {

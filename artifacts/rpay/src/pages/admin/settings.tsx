@@ -12,7 +12,7 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetGithubSyncStatus, getGetGithubSyncStatusQueryKey, useGetGithubSyncHistory, getGetGithubSyncHistoryQueryKey, useRunGithubSync, useGetGithubSyncRunLog, useGetGithubSyncDivergence, useRunGithubSyncLogCleanup, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry, type GithubSyncHistoryEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetGithubSyncStatus, getGetGithubSyncStatusQueryKey, useGetGithubSyncHistory, getGetGithubSyncHistoryQueryKey, useRunGithubSync, useGetGithubSyncRunLog, useGetGithubSyncDivergence, useRunGithubSyncLogCleanup, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, getGetAlertCooldownStatusQueryOptions, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry, type GithubSyncHistoryEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -863,6 +863,10 @@ export default function AdminSettings() {
 
 
   const { data: webhookAlertConfigData, isLoading: webhookAlertConfigLoading } = useGetWebhookFailureAlertConfig();
+  const { data: alertCooldownStatus } = useQuery({
+    ...getGetAlertCooldownStatusQueryOptions(),
+    refetchInterval: 60_000,
+  });
 
   useEffect(() => {
     if (webhookAlertConfigData && !webhookAlertCooldownInitialized) {
@@ -3063,6 +3067,26 @@ export default function AdminSettings() {
                 <p className="text-xs text-muted-foreground">
                   Receive an email when a merchant's webhook permanently fails after all retry attempts are exhausted.
                 </p>
+                {alertCooldownStatus?.webhookFailure && (
+                  alertCooldownStatus.webhookFailure.cooldownActive && alertCooldownStatus.webhookFailure.cooldownExpiresAt
+                    ? (
+                      <span
+                        className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-xs text-amber-400"
+                        title={`A real alert was suppressed — cooldown expires at ${new Date(alertCooldownStatus.webhookFailure.cooldownExpiresAt).toLocaleString()}`}
+                      >
+                        <Clock className="w-3 h-3 shrink-0" />
+                        Cooldown active until {new Date(alertCooldownStatus.webhookFailure.cooldownExpiresAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    ) : alertCooldownStatus.webhookFailure.lastSentAt ? (
+                      <span
+                        className="mt-1 inline-flex items-center gap-1 rounded-full bg-muted/30 border border-border/50 px-2 py-0.5 text-xs text-muted-foreground"
+                        title={`Last alert sent at ${new Date(alertCooldownStatus.webhookFailure.lastSentAt).toLocaleString()}`}
+                      >
+                        <Clock className="w-3 h-3 shrink-0" />
+                        Last sent {formatTimeAgo(alertCooldownStatus.webhookFailure.lastSentAt)}
+                      </span>
+                    ) : null
+                )}
               </div>
               <Switch
                 checked={webhookFailureEnabled}
@@ -3165,6 +3189,26 @@ export default function AdminSettings() {
                 <p className="text-xs text-muted-foreground">
                   Receive an email when EKQR QR codes exceed the stuck-code threshold after automatic retries are exhausted.
                 </p>
+                {alertCooldownStatus?.ekqr && (
+                  alertCooldownStatus.ekqr.cooldownActive && alertCooldownStatus.ekqr.cooldownExpiresAt
+                    ? (
+                      <span
+                        className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-xs text-amber-400"
+                        title={`A real alert was suppressed — cooldown expires at ${new Date(alertCooldownStatus.ekqr.cooldownExpiresAt).toLocaleString()}`}
+                      >
+                        <Clock className="w-3 h-3 shrink-0" />
+                        Cooldown active until {new Date(alertCooldownStatus.ekqr.cooldownExpiresAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    ) : alertCooldownStatus.ekqr.lastSentAt ? (
+                      <span
+                        className="mt-1 inline-flex items-center gap-1 rounded-full bg-muted/30 border border-border/50 px-2 py-0.5 text-xs text-muted-foreground"
+                        title={`Last alert sent at ${new Date(alertCooldownStatus.ekqr.lastSentAt).toLocaleString()}`}
+                      >
+                        <Clock className="w-3 h-3 shrink-0" />
+                        Last sent {formatTimeAgo(alertCooldownStatus.ekqr.lastSentAt)}
+                      </span>
+                    ) : null
+                )}
               </div>
               <Switch
                 checked={ekqrSyncAlertEnabled}

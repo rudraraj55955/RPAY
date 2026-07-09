@@ -5793,7 +5793,7 @@ export const ListAdminAuditLogsQueryParams = zod.object({
   "dateFrom": zod.date().optional().describe('Filter logs on or after this date (ISO 8601, e.g. 2025-01-01)'),
   "dateTo": zod.date().optional().describe('Filter logs on or before this date (ISO 8601, e.g. 2025-12-31)'),
   "merchantId": zod.coerce.number().optional().describe('Filter logs by merchant ID — matches rows where target_id equals the merchant, as well as bulk-action rows whose details.merchantIds array includes the merchant'),
-  "settingKey": zod.coerce.string().optional().describe('Sub-filter for setting\/config logs. For action=setting_updated, matches details->>\'key\'. For action=system_config_updated, matches details->>\'section\'.'),
+  "settingKey": zod.coerce.string().optional().describe('Sub-filter for setting\/config logs. For action=setting_updated, matches details->>\'key\'. For action=system_config_updated, matches details->>\'section\'. For action=provider_integration_updated, matches details->>\'providerKey\'.'),
   "performedBy": zod.enum(['system', 'admin']).optional().describe('Filter by actor type: \'system\' returns only automated\/scheduler entries (adminEmail=\'system\' or adminId=0); \'admin\' returns only human-initiated entries.'),
   "actorEmail": zod.coerce.string().optional().describe('Filter logs by actor email using a partial case-insensitive match (ilike). Useful for narrowing down to a specific admin user\'s actions.')
 })
@@ -7281,6 +7281,25 @@ export const ResetWebhookFailureAlertCooldownResponse = zod.object({
   "reset": zod.boolean(),
   "merchantId": zod.number().nullish(),
   "deleted": zod.number()
+})
+
+
+/**
+ * @summary Get last-sent timestamps and cooldown windows for webhook-failure and EKQR stuck-QR alerts (admin only)
+ */
+export const GetAlertCooldownStatusResponse = zod.object({
+  "webhookFailure": zod.object({
+  "lastSentAt": zod.coerce.date().nullish(),
+  "cooldownHours": zod.number(),
+  "cooldownActive": zod.boolean(),
+  "cooldownExpiresAt": zod.coerce.date().nullish()
+}),
+  "ekqr": zod.object({
+  "lastSentAt": zod.coerce.date().nullish(),
+  "cooldownHours": zod.number(),
+  "cooldownActive": zod.boolean(),
+  "cooldownExpiresAt": zod.coerce.date().nullish()
+})
 })
 
 

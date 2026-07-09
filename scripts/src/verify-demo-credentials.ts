@@ -20,14 +20,7 @@
 import bcrypt from "bcryptjs";
 import { inArray } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
-
-// Keep in sync with the "Demo Credentials" table in replit.md and with
-// DEMO_CREDENTIALS in artifacts/api-server/src/seed.ts.
-const DEMO_CREDENTIALS = [
-  { email: "admin@rasokart.com", password: "Admin@123456", role: "admin" as const },
-  { email: "merchant@demo.com", password: "Merchant@123456", role: "merchant" as const },
-  { email: "merchant2@demo.com", password: "Merchant@123456", role: "merchant" as const },
-];
+import { DEMO_CREDENTIALS } from "@workspace/demo-credentials";
 
 async function run() {
   console.log("=== RasoKart Demo Credential Verification ===\n");
@@ -67,7 +60,7 @@ async function run() {
   }
 
   console.log(
-    `\n${allOk ? "✅ All documented demo accounts can authenticate." : "❌ One or more documented demo accounts are broken — see replit.md 'Demo Credentials' and seed.ts."}`,
+    `\n${allOk ? "✅ All documented demo accounts can authenticate." : "❌ One or more documented demo accounts are broken — see replit.md 'Demo Credentials' and lib/demo-credentials/src/index.ts."}`,
   );
   process.exit(allOk ? 0 : 1);
 }

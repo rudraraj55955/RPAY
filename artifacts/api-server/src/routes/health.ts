@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { inArray } from "drizzle-orm";
 import { pool, db, usersTable, demoAccountRemovalsTable } from "@workspace/db";
+import { DEMO_CREDENTIALS } from "@workspace/demo-credentials";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -16,13 +17,8 @@ router.get("/healthz", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-// The set of documented demo accounts. Keep in sync with seed.ts
-// DEMO_CREDENTIALS and the "Demo Credentials" table in replit.md.
-const DEMO_CREDENTIALS = [
-  { email: "admin@rasokart.com", password: "Admin@123456", role: "admin" as const },
-  { email: "merchant@demo.com", password: "Merchant@123456", role: "merchant" as const },
-  { email: "merchant2@demo.com", password: "Merchant@123456", role: "merchant" as const },
-];
+// DEMO_CREDENTIALS imported from @workspace/demo-credentials — single source
+// of truth. Edit lib/demo-credentials/src/index.ts to add/remove accounts.
 
 // Deep readiness check — verifies the DB connection AND the presence of the
 // tables/columns most likely to drift on a fresh/older VPS deploy (see

@@ -182,6 +182,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/demo-credentials':
+        specifier: workspace:*
+        version: link:../../lib/demo-credentials
       '@workspace/mailer':
         specifier: workspace:*
         version: link:../../lib/mailer
@@ -727,6 +730,8 @@ importers:
         specifier: ^0.31.10
         version: 0.31.10
 
+  lib/demo-credentials: {}
+
   lib/mailer:
     dependencies:
       nodemailer:
@@ -764,6 +769,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../lib/db
+      '@workspace/demo-credentials':
+        specifier: workspace:*
+        version: link:../lib/demo-credentials
       '@workspace/mailer':
         specifier: workspace:*
         version: link:../lib/mailer

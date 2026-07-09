@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@workspace/db": "workspace:*",
+    "@workspace/demo-credentials": "workspace:*",
     "@workspace/mailer": "workspace:*",
     "bcryptjs": "^3.0.3"
   },

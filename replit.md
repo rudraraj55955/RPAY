@@ -32,6 +32,7 @@ RasoKart is a premium dark-themed payment gateway SaaS platform — admins onboa
 - `lib/api-client-react/src/generated/` — Orval-generated React Query hooks
 - `lib/api-zod/src/generated/` — Orval-generated Zod validators
 - `lib/api-spec/patch-zod-barrel.mjs` — post-codegen patch (removes TS2308 barrel collision)
+- `lib/demo-credentials/src/index.ts` — **single source of truth** for all documented demo/test accounts; seed.ts, routes/health.ts, and scripts/verify-demo-credentials.ts all import from here
 - `PRODUCTION_READINESS.md` — full production audit report
 - `DEPLOY_HETZNER.md` — Hetzner VPS deployment guide
 

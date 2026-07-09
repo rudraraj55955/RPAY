@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { and, count, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { DEMO_CREDENTIALS } from "@workspace/demo-credentials";
 import { logger } from "./lib/logger";
 import { ensureSchemaGuard } from "./lib/schemaGuard";
 import {
@@ -113,16 +114,11 @@ const PLAN_TIERS = [
   },
 ];
 
-// Source of truth: the "Demo Credentials" table in replit.md. Keep these two
-// in sync — if you add/remove/change a documented demo account, update both.
-// verifyDemoCredentials() below asserts every one of these can actually log
-// in right after seeding, so a missing/broken demo account fails loudly at
-// startup instead of surfacing later as a silent 401 someone has to debug.
-const DEMO_CREDENTIALS = [
-  { email: "admin@rasokart.com", password: "Admin@123456", role: "admin" as const },
-  { email: "merchant@demo.com", password: "Merchant@123456", role: "merchant" as const },
-  { email: "merchant2@demo.com", password: "Merchant@123456", role: "merchant" as const },
-];
+// DEMO_CREDENTIALS is imported from @workspace/demo-credentials — the single
+// source of truth. To add, remove, or change a documented demo account, update
+// lib/demo-credentials/src/index.ts and the "Demo Credentials" table in
+// replit.md. seed.ts, routes/health.ts, and scripts/verify-demo-credentials.ts
+// all import from there automatically.
 
 // ── Deliberate demo-account exclusion ─────────────────────────────────────
 // SEED_EXCLUDE_DEMO_EMAILS: optional comma-separated list of demo merchant

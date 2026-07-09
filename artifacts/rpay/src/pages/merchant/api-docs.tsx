@@ -838,6 +838,8 @@ function TryItPanel({
       preset.queryParams.map((row) => ({ id: ++queryParamRowId, key: row.key, value: row.value }))
     );
     setBody(preset.body);
+    const warnings = collectCredentialWarnings(preset.queryParams, preset.body, preset.pathValues);
+    setPresetLoadWarnings(warnings.length > 0 ? { id: preset.id, warnings } : null);
     toast.success(`Loaded preset "${preset.name}"`);
   }, []);
 
@@ -848,6 +850,7 @@ function TryItPanel({
         persistPresetsForEndpoint(method, path, next);
         return next;
       });
+      setPresetLoadWarnings((prev) => (prev && prev.id === id ? null : prev));
     },
     [method, path]
   );
@@ -891,6 +894,7 @@ function TryItPanel({
   const [pendingShareExpiry, setPendingShareExpiry] = useState<number | null>(null);
   const [shareCredentialWarnings, setShareCredentialWarnings] = useState<string[]>([]);
   const [presetCredentialWarnings, setPresetCredentialWarnings] = useState<string[]>([]);
+  const [presetLoadWarnings, setPresetLoadWarnings] = useState<{ id: string; warnings: string[] } | null>(null);
   // Checked by default — omits the per-panel bearer token from the encoded URL to prevent
   // accidental credential leakage. The page-level "Shared Bearer Token" field is never
   // included in share links regardless of this setting.
@@ -1098,6 +1102,25 @@ function TryItPanel({
                   </div>
                 ))}
               </div>
+            )}
+            {presetLoadWarnings && (
+              <p className="text-[10px] text-amber-500/80 pl-0.5 flex items-start gap-1">
+                <AlertTriangle className="w-2.5 h-2.5 shrink-0 mt-px" />
+                <span>
+                  This preset contains{" "}
+                  {presetLoadWarnings.warnings.length === 1 ? (
+                    <span className="font-mono">{presetLoadWarnings.warnings[0]}</span>
+                  ) : (
+                    presetLoadWarnings.warnings.map((w, i) => (
+                      <span key={w}>
+                        {i > 0 && (i === presetLoadWarnings.warnings.length - 1 ? " and " : ", ")}
+                        <span className="font-mono">{w}</span>
+                      </span>
+                    ))
+                  )}{" "}
+                  that look{presetLoadWarnings.warnings.length === 1 ? "s" : ""} like a saved token or API key — it may be outdated or rotated.
+                </span>
+              </p>
             )}
             <div className="flex items-center gap-1.5">
               <Input

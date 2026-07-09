@@ -638,6 +638,7 @@ function TryItPanel({
   );
   const [presetName, setPresetName] = useState("");
   const [presetCredentialWarnings, setPresetCredentialWarnings] = useState<string[]>([]);
+  const [presetLoadWarnings, setPresetLoadWarnings] = useState<{ id: string; warnings: string[] } | null>(null);
 
   const suggestedExpiryMinutes = useMemo(
     () => (sharedMatch?.expiresAt ? findClosestExpiryOption(sharedMatch.expiresAt) : null),
@@ -806,6 +807,8 @@ function TryItPanel({
         preset.queryParams.map((row) => ({ id: ++queryParamRowId, key: row.key, value: row.value }))
       );
       setBody(preset.body);
+      const warnings = collectCredentialWarnings(preset.queryParams, preset.body, preset.pathValues);
+      setPresetLoadWarnings(warnings.length > 0 ? { id: preset.id, warnings } : null);
       toast.success(`Preset "${preset.name}" loaded`);
     },
     []
@@ -816,6 +819,7 @@ function TryItPanel({
       const updated = presets.filter((p) => p.id !== id);
       setPresets(updated);
       persistPresetsForEndpoint(method, path, updated);
+      setPresetLoadWarnings((prev) => (prev && prev.id === id ? null : prev));
     },
     [presets, method, path]
   );
@@ -930,6 +934,25 @@ function TryItPanel({
                   </div>
                 ))}
             </div>
+            {presetLoadWarnings && (
+              <p className="text-[10px] text-amber-500/80 pl-0.5 flex items-start gap-1">
+                <AlertTriangle className="w-2.5 h-2.5 shrink-0 mt-px" />
+                <span>
+                  This preset contains{" "}
+                  {presetLoadWarnings.warnings.length === 1 ? (
+                    <span className="font-mono">{presetLoadWarnings.warnings[0]}</span>
+                  ) : (
+                    presetLoadWarnings.warnings.map((w, i) => (
+                      <span key={w}>
+                        {i > 0 && (i === presetLoadWarnings.warnings.length - 1 ? " and " : ", ")}
+                        <span className="font-mono">{w}</span>
+                      </span>
+                    ))
+                  )}{" "}
+                  that look{presetLoadWarnings.warnings.length === 1 ? "s" : ""} like a saved token or API key — it may be outdated or rotated.
+                </span>
+              </p>
+            )}
             <div className="flex items-center gap-1.5">
               <Input
                 value={presetName}

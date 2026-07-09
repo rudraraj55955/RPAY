@@ -659,7 +659,7 @@ export default function MerchantLogin() {
         </Link>
       </div>
       <div className="text-center text-xs text-muted-foreground/40 pt-2">
-        Login Build: merchant-login-hard-redirect-fix-v1
+        Login Build: merchant-login-hard-redirect-fix-v1 / merchant-route-guard-fix-v1
       </div>
     </AuthLayout>
   );

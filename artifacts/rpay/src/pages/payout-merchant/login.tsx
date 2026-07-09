@@ -3,7 +3,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/lib/auth-context";
-import { setToken } from "@/lib/auth";
+import { setToken, setStoredUser } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
 import { AuthLayout } from "@/components/layout/auth-layout";
@@ -66,10 +66,11 @@ export default function PayoutMerchantLogin() {
 
       let role: string | undefined;
       let merchantType: string | undefined;
+      let rawUser: Record<string, unknown> | undefined;
       for (const candidate of candidateUsers) {
         if (candidate && typeof candidate === "object") {
           const c = candidate as Record<string, unknown>;
-          if (role === undefined && typeof c["role"] === "string") role = c["role"] as string;
+          if (role === undefined && typeof c["role"] === "string") { role = c["role"] as string; rawUser = c; }
           if (merchantType === undefined && typeof c["merchantType"] === "string") {
             merchantType = c["merchantType"] as string;
           }
@@ -96,14 +97,16 @@ export default function PayoutMerchantLogin() {
         return;
       }
 
-      // Write the token to the same storage key/context the protected
-      // payout-merchant routes read from BEFORE navigating, so the route
-      // guard never sees a stale/empty auth state on the first render of
-      // the destination route.
+      // Write token + user to the exact storage keys the payout-merchant
+      // route guard reads (localStorage AND sessionStorage), synchronously,
+      // BEFORE navigating. Then do a hard redirect instead of relying on
+      // React/wouter navigation + stale context state — this guarantees the
+      // destination route's very first render already sees valid auth.
       setToken(token);
+      setStoredUser({ ...(rawUser ?? {}), role, merchantType });
       setAuthToken(token);
       toast.success("Welcome to your Payout Portal.");
-      setLocation("/payout-merchant/dashboard", { replace: true } as Parameters<typeof setLocation>[1]);
+      window.location.href = "/payout-merchant/dashboard";
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -175,7 +178,7 @@ export default function PayoutMerchantLogin() {
             <Link href="/" className="text-primary hover:underline">← Back to RasoKart</Link>
           </div>
           <div className="text-center text-xs text-muted-foreground/40 pt-2">
-            Login Build: payout-login-redirect-fix-v1
+            Login Build: payout-login-hard-redirect-fix-v2
           </div>
         </form>
       </Form>

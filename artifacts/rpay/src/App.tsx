@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { useAuth } from "@/lib/auth-context";
+import { getToken, getStoredUser } from "@/lib/auth";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { PayoutMerchantLayout } from "@/components/layout/payout-merchant-layout";
@@ -294,15 +295,25 @@ function PayoutMerchantRoute({ component: Component }: { component: React.Compon
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
 
+  // Fallback for the moment right after a hard redirect from login: the
+  // AuthProvider's /api/auth/me query may not have resolved yet, but the
+  // token + user JSON were already written to storage before navigating.
+  // Trust that immediately so a valid PAYOUT_ONLY session is never bounced
+  // back to login while the context is still catching up.
+  const fallbackToken = getToken();
+  const fallbackUser = getStoredUser();
+  const effectiveUser = user ?? (fallbackToken && fallbackUser ? fallbackUser : null);
+  const effectiveIsLoading = isLoading && !effectiveUser;
+
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!effectiveIsLoading && !effectiveUser) {
       setLocation("/payout-merchant/login", { replace: true } as Parameters<typeof setLocation>[1]);
-    } else if (!isLoading && user) {
-      const role = user.role as string;
+    } else if (!effectiveIsLoading && effectiveUser) {
+      const role = effectiveUser.role as string;
       if (role === UserRole.payout_merchant) {
         // Dedicated payout_merchant role — always allowed here
       } else if (role === UserRole.merchant) {
-        const merchantType = (user as any).merchantType;
+        const merchantType = (effectiveUser as any).merchantType;
         if (merchantType === "NORMAL") {
           // Normal payin merchant tried to access payout-merchant routes
           setLocation("/merchant/dashboard", { replace: true } as Parameters<typeof setLocation>[1]);
@@ -312,13 +323,13 @@ function PayoutMerchantRoute({ component: Component }: { component: React.Compon
         setLocation("/", { replace: true } as Parameters<typeof setLocation>[1]);
       }
     }
-  }, [user, isLoading]);
+  }, [effectiveUser, effectiveIsLoading]);
 
-  if (isLoading) return <AuthSpinner />;
-  if (!user) return <AuthSpinner />;
-  const role = user.role as string;
+  if (effectiveIsLoading) return <AuthSpinner />;
+  if (!effectiveUser) return <AuthSpinner />;
+  const role = effectiveUser.role as string;
   if (role !== UserRole.payout_merchant && role !== UserRole.merchant) return <AuthSpinner />;
-  if (role === UserRole.merchant && (user as any).merchantType === "NORMAL") return <AuthSpinner />;
+  if (role === UserRole.merchant && (effectiveUser as any).merchantType === "NORMAL") return <AuthSpinner />;
 
   return (
     <PayoutMerchantLayout>

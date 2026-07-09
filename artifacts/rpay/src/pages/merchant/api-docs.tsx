@@ -336,6 +336,16 @@ interface SavedQueryPreset {
 
 const TRY_IT_PRESETS_STORAGE_KEY = "rasokart_tryit_presets";
 
+// Keep these in sync with the server-side constants in
+// artifacts/api-server/src/routes/tryItPresets.ts — enforcing the same caps
+// here gives instant feedback, but the PUT route is the source of truth.
+const MAX_TOTAL_PRESETS = 100;
+const MAX_PRESETS_PER_ENDPOINT = 20;
+
+function countAllPresets(all: Record<string, SavedQueryPreset[]>): number {
+  return Object.values(all).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+}
+
 function presetsStorageKeyFor(method: string, path: string): string {
   return `${method} ${path}`;
 }
@@ -914,14 +924,32 @@ function TryItPanel({
       queryParams: filteredParams.map((row) => ({ key: row.key, value: row.value })),
       body,
     };
-    setPresets((prev) => {
-      const next = [...prev.filter((p) => p.name !== name), newPreset];
-      persistPresetsForEndpoint(method, path, next);
-      return next;
+
+    const isReplacingExisting = presets.some((p) => p.name === name);
+    const nextForEndpoint = [...presets.filter((p) => p.name !== name), newPreset];
+    if (nextForEndpoint.length > MAX_PRESETS_PER_ENDPOINT) {
+      toast.error(
+        `This endpoint already has ${MAX_PRESETS_PER_ENDPOINT} saved presets, the max allowed. Delete an unused preset before saving a new one.`
+      );
+      return;
+    }
+    if (!isReplacingExisting) {
+      const totalCount = countAllPresets(loadAllPresets());
+      if (totalCount >= MAX_TOTAL_PRESETS) {
+        toast.error(
+          `You've reached the limit of ${MAX_TOTAL_PRESETS} saved presets across all endpoints. Delete some unused presets before saving more.`
+        );
+        return;
+      }
+    }
+
+    setPresets(() => {
+      persistPresetsForEndpoint(method, path, nextForEndpoint);
+      return nextForEndpoint;
     });
     setPresetName("");
     toast.success(`Saved preset "${name}"`);
-  }, [presetName, pathValues, queryParams, body, method, path]);
+  }, [presetName, pathValues, queryParams, body, method, path, presets]);
 
   const handleLoadPreset = useCallback((preset: SavedQueryPreset) => {
     setPathValues({ ...preset.pathValues });
@@ -1882,8 +1910,11 @@ function ManagePresetsDialog({
           return;
         }
         const existing = loadAllPresets();
+        let totalCount = countAllPresets(existing);
         let imported = 0;
         let skipped = 0;
+        let cappedByEndpoint = 0;
+        let cappedByTotal = 0;
         for (const key of Object.keys(parsed.presets)) {
           const incoming = parsed.presets[key];
           if (!Array.isArray(incoming)) continue;
@@ -1893,21 +1924,38 @@ function ManagePresetsDialog({
           for (const preset of incoming) {
             if (existingNames.has(preset.name)) {
               skipped++;
-            } else {
-              toAdd.push({
-                ...preset,
-                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-              });
-              existingNames.add(preset.name);
-              imported++;
+              continue;
             }
+            if (existingForKey.length + toAdd.length >= MAX_PRESETS_PER_ENDPOINT) {
+              cappedByEndpoint++;
+              continue;
+            }
+            if (totalCount >= MAX_TOTAL_PRESETS) {
+              cappedByTotal++;
+              continue;
+            }
+            toAdd.push({
+              ...preset,
+              id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            });
+            existingNames.add(preset.name);
+            imported++;
+            totalCount++;
           }
           if (toAdd.length > 0) {
             existing[key] = [...existingForKey, ...toAdd];
           }
         }
         saveAllPresets(existing);
-        if (imported === 0 && skipped === 0) {
+        if (cappedByTotal > 0) {
+          toast.error(
+            `Imported ${imported} preset${imported === 1 ? "" : "s"}, but ${cappedByTotal} were skipped — you're at the ${MAX_TOTAL_PRESETS}-preset limit. Delete some unused presets and re-import.`
+          );
+        } else if (cappedByEndpoint > 0) {
+          toast.error(
+            `Imported ${imported} preset${imported === 1 ? "" : "s"}, but ${cappedByEndpoint} were skipped — their endpoint is at the ${MAX_PRESETS_PER_ENDPOINT}-preset limit.`
+          );
+        } else if (imported === 0 && skipped === 0) {
           toast.info("The file contained no presets.");
         } else if (imported === 0) {
           toast.info(`All ${skipped} preset${skipped === 1 ? "" : "s"} already exist — nothing new was imported.`);

@@ -19,6 +19,7 @@ import {
   GitMerge, Activity, BarChart2, ScrollText, Plus, Pencil, Trash2,
   RefreshCw, ArrowUpDown, CheckCircle2, XCircle, Clock, AlertTriangle,
   ShieldCheck, Zap, Settings2, ChevronsDown, Shield, FlaskConical, Loader2,
+  Copy, Download,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 
@@ -154,6 +155,35 @@ function resultBadge(result: string) {
     case "skipped": return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Skipped</Badge>;
     default: return <Badge variant="outline">{result}</Badge>;
   }
+}
+
+function buildSimulateReportText(result: SimulateResult) {
+  const lines: string[] = [];
+  lines.push("Smart Routing — Failover Simulation Report");
+  lines.push(`Generated: ${new Date().toLocaleString()}`);
+  lines.push("");
+  lines.push(`Config: ${result.configName}`);
+  lines.push(`Strategy: ${STRATEGY_LABELS[result.strategy] ?? result.strategy}`);
+  lines.push(`Amount: ₹${result.amount.toLocaleString("en-IN")}`);
+  lines.push(`Payment Mode: ${result.paymentMode ?? "Any"}`);
+  lines.push(`Total Providers: ${result.totalProviders}`);
+  if (result.warning) lines.push(`Warning: ${result.warning}`);
+  lines.push("");
+  if (result.steps.length === 0) {
+    lines.push("No providers match — payment would fail immediately.");
+  } else {
+    lines.push("Failover Chain:");
+    result.steps.forEach((step, idx) => {
+      lines.push(
+        `  ${idx + 1}. ${step.providerKey} — priority #${step.priority}${step.isFallbackOnly ? " (fallback only)" : ""}` +
+        `${step.maxRetries > 1 ? `, up to ${step.maxRetries} attempts` : ""}` +
+        `${result.strategy === "percentage" ? `, ${step.weightPercent}% weight` : ""}` +
+        `${step.notes ? ` — ${step.notes}` : ""}`
+      );
+    });
+    lines.push("  → No more providers — payment order fails");
+  }
+  return lines.join("\n");
 }
 
 async function apiReq(path: string, method = "GET", body?: unknown) {
@@ -385,6 +415,31 @@ export default function AdminSmartRouting() {
     } finally {
       setSimLoading(false);
     }
+  }
+
+  async function copySimulateReport() {
+    if (!simResult) return;
+    try {
+      await navigator.clipboard.writeText(buildSimulateReportText(simResult));
+      toast.success("Report copied to clipboard");
+    } catch {
+      toast.error("Failed to copy report");
+    }
+  }
+
+  function downloadSimulateReport() {
+    if (!simResult) return;
+    const text = buildSimulateReportText(simResult);
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    a.href = url;
+    a.download = `failover-simulation-${simResult.configName}-${ts}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
   function openSimulate() {
@@ -1406,15 +1461,37 @@ export default function AdminSmartRouting() {
             </div>
           )}
 
-          <DialogFooter className="mt-2">
-            <Button variant="ghost" onClick={() => setSimulateOpen(false)} className="text-zinc-400">Close</Button>
-            <Button
-              onClick={runSimulate}
-              disabled={simLoading || !simAmount}
-              className="bg-violet-600 hover:bg-violet-500 text-white"
-            >
-              {simLoading ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Simulating…</> : <><FlaskConical className="w-4 h-4 mr-1.5" />Run Simulation</>}
-            </Button>
+          <DialogFooter className="mt-2 sm:justify-between">
+            <div className="flex items-center gap-2">
+              {simResult && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={copySimulateReport}
+                    className="border-zinc-700 text-zinc-300 hover:text-white"
+                  >
+                    <Copy className="w-4 h-4 mr-1.5" />Copy report
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={downloadSimulateReport}
+                    className="border-zinc-700 text-zinc-300 hover:text-white"
+                  >
+                    <Download className="w-4 h-4 mr-1.5" />Download
+                  </Button>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => setSimulateOpen(false)} className="text-zinc-400">Close</Button>
+              <Button
+                onClick={runSimulate}
+                disabled={simLoading || !simAmount}
+                className="bg-violet-600 hover:bg-violet-500 text-white"
+              >
+                {simLoading ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Simulating…</> : <><FlaskConical className="w-4 h-4 mr-1.5" />Run Simulation</>}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -480,9 +480,10 @@ router.post("/test-email", async (req, res, next) => {
 router.get("/credential-rotation-alert/preview", (_req, res) => {
   const html = buildCredentialRotationHtml({
     gateway: "cashfree",
-    changedFields: ["Client ID", "Client Secret"],
+    changedFields: ["Client ID (TEST — no real credential was changed)", "Client Secret (TEST)"],
     actorEmail: "admin@rasokart.com",
     timestamp: new Date().toISOString(),
+    isTest: true,
   });
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(html);

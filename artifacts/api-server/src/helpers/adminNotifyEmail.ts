@@ -791,10 +791,21 @@ export function buildCredentialRotationHtml(opts: {
   changedFields: string[];
   actorEmail: string;
   timestamp: string;
+  isTest?: boolean;
 }): string {
-  const { gateway, changedFields, actorEmail, timestamp } = opts;
+  const { gateway, changedFields, actorEmail, timestamp, isTest } = opts;
   const gatewayLabel = GATEWAY_LABELS[gateway] ?? gateway;
   const settingsLink = `${APP_DOMAIN}/admin/payment-gateways`;
+
+  const testBanner = isTest ? `
+    <div style="background: #78350f; border: 2px solid #f59e0b; border-radius: 6px; padding: 14px 18px; margin-bottom: 20px; text-align: center;">
+      <p style="margin: 0; color: #fde68a; font-size: 15px; font-weight: 700; letter-spacing: 0.3px;">
+        ⚠️ THIS IS A TEST — no credentials were changed
+      </p>
+      <p style="margin: 6px 0 0; color: #fbbf24; font-size: 12px;">
+        This email was sent manually from Admin Settings to verify delivery. It does not indicate any real credential rotation event.
+      </p>
+    </div>` : "";
 
   return `
 <!DOCTYPE html>
@@ -807,6 +818,7 @@ export function buildCredentialRotationHtml(opts: {
       <p style="margin: 4px 0 0; color: #fca5a5; font-size: 13px;">${gatewayLabel} credentials were rotated</p>
     </div>
     <div style="padding: 24px;">
+      ${testBanner}
       <p style="margin: 0 0 16px; color: #f87171; font-size: 14px; font-weight: 600;">
         🔐 Credentials for the <strong>${gatewayLabel}</strong> payment gateway were changed. If this wasn't expected, investigate immediately.
       </p>
@@ -901,7 +913,7 @@ export async function notifyAdminsOfCredentialRotation(opts: {
     const recipients = Array.from(new Set([...adminEmails.map(e => e.toLowerCase()), ...extraRecipients]));
 
     const timestamp = new Date().toISOString();
-    const html = buildCredentialRotationHtml({ ...opts, timestamp });
+    const html = buildCredentialRotationHtml({ ...opts, timestamp, isTest: opts.isTest });
     const gatewayLabel = GATEWAY_LABELS[opts.gateway] ?? opts.gateway;
     const subject = `[RasoKart] 🔐 ${gatewayLabel} credentials changed — action may be required${opts.isTest ? " (TEST)" : ""}`;
 

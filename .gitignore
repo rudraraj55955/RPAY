@@ -57,3 +57,4 @@ Thumbs.db
 backups/
 *.dump
 *.sql.gz
+scripts/test-results/

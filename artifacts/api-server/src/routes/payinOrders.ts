@@ -8,7 +8,7 @@ import { loadPayinConfig } from "../helpers/payinConfig";
 import { ensurePayinOrdersSchemaGuard } from "../helpers/payinSchemaGuard";
 import { getMerchantDailyPaidTotal } from "../helpers/payinDailyLimit";
 import { insertPayinOrderWithFallback } from "../helpers/payinOrderInsert";
-import { selectProvider, recordRoutingResult, recordChainExhaustedStart, maybeNotifyGatewayRecovery } from "../helpers/smartRouter";
+import { selectProvider, recordRoutingResult, recordChainExhaustedStart, maybeNotifyGatewayRecovery, validateRoutingConfig } from "../helpers/smartRouter";
 import { createCustomGatewayOrder } from "../helpers/customGatewayClient";
 import { loadUpigatewayConfig, upigatewayCreateOrder } from "../helpers/upigatewayPayin";
 
@@ -147,6 +147,30 @@ router.post("/payin/orders", requireAuth, async (req, res) => {
     // When a routing config IS present and all its rules fail, we stop — we do
     // NOT silently append implicit Cashfree. Admins control the chain entirely.
     req.log.info({ event: "payin_smart_routing_started", merchantId }, "payin_smart_routing_started");
+
+    // Pre-flight validation: catch a routing config that exists but has no
+    // rule (primary or fallback) covering this amount/payment mode BEFORE
+    // attempting any provider dispatch. Without this, selectProvider simply
+    // returns null on the first attempt and the merchant only learns the
+    // order failed, not why.
+    const routingValidation = await validateRoutingConfig(
+      undefined,
+      depositAmount,
+      "upi",
+      { merchantId, logger: req.log },
+    ).catch(() => ({ valid: true, configId: null, configName: null } as const));
+
+    if (!routingValidation.valid) {
+      req.log.warn({
+        event: "payin_routing_misconfigured",
+        merchantId,
+        configId: routingValidation.configId,
+        configName: routingValidation.configName,
+        amount: depositAmount,
+      }, "payin_routing_misconfigured");
+      res.status(422).json({ error: "No active routing rule covers this amount/payment mode. Please contact support." });
+      return;
+    }
 
     // Large safety cap so the loop can never run indefinitely even if there is
     // a bug in the exclusion logic. In practice selectProvider returns null

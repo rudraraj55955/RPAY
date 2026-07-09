@@ -355,6 +355,111 @@ export async function maybeNotifyGatewayRecovery(logger?: Logger): Promise<void>
   }
 }
 
+export interface RoutingConfigValidation {
+  valid: boolean;
+  configId: number | null;
+  configName: string | null;
+  reason?: string;
+}
+
+/**
+ * Pre-flight check run at order-create time, BEFORE any provider dispatch is
+ * attempted. Mirrors the same config/rule lookup + amount/payment-mode filter
+ * that `selectProvider` applies, but only asks "does ANY rule (primary or
+ * fallback) cover this order?" — it never selects a specific provider and
+ * never writes a normal routing log entry.
+ *
+ * If no enabled config exists at all, routing falls back to the hardcoded
+ * Cashfree path elsewhere in the payin flow — that's not a misconfiguration,
+ * so this returns valid:true with configId:null in that case.
+ *
+ * If a config exists but no enabled rule (primary or fallback-only) covers
+ * the given amount/paymentMode, this is a genuine misconfiguration: every
+ * order at this amount/mode would silently exhaust the routing chain. A
+ * structured "misconfigured" row is written to routing_logs so it surfaces
+ * in Routing Logs, and the caller should reject the order with a 422.
+ */
+export async function validateRoutingConfig(
+  configName: string | undefined,
+  amount: number,
+  paymentMode?: string,
+  ctx?: { merchantId?: number; logger?: Logger },
+): Promise<RoutingConfigValidation> {
+  const name = configName ?? "default";
+
+  const [config] = await db.select().from(routingConfigsTable)
+    .where(and(
+      eq(routingConfigsTable.configName, name),
+      eq(routingConfigsTable.isEnabled, true),
+    )).limit(1);
+
+  // No enabled config at all — not a misconfiguration, the caller has its
+  // own fallback path (e.g. hardcoded Cashfree).
+  if (!config) {
+    return { valid: true, configId: null, configName: null };
+  }
+
+  const rules = await db.select().from(routingRulesTable)
+    .where(and(
+      eq(routingRulesTable.configId, config.id),
+      eq(routingRulesTable.isEnabled, true),
+    ));
+
+  const covering = rules.filter(r => {
+    if (r.minAmount != null && amount < Number(r.minAmount)) return false;
+    if (r.maxAmount != null && amount > Number(r.maxAmount)) return false;
+    if (r.allowedPaymentModes && paymentMode) {
+      try {
+        const modes: string[] = JSON.parse(r.allowedPaymentModes);
+        if (modes.length > 0 && !modes.includes("all") && !modes.includes(paymentMode)) return false;
+      } catch { /* ignore parse error */ }
+    }
+    return true;
+  });
+
+  // A fallback-only rule is never eligible on the first attempt (selectProvider
+  // gates it behind allowFallbackOnly, which only flips true once a primary has
+  // already been tried and failed). So preflight coverage requires at least one
+  // PRIMARY (non-fallback-only) rule — an all-fallback config must still 422,
+  // because the very first live attempt would return null with nothing tried.
+  const coveringPrimary = covering.filter(r => !r.isFallbackOnly);
+
+  if (coveringPrimary.length > 0) {
+    return { valid: true, configId: config.id, configName: config.configName };
+  }
+
+  const reason = rules.length === 0
+    ? `Routing config "${config.configName}" has no enabled rules`
+    : covering.length > 0
+      ? `Only fallback-only rules cover amount=${amount}${paymentMode ? ` mode=${paymentMode}` : ""} — no primary rule to attempt first`
+      : `No active routing rule covers amount=${amount}${paymentMode ? ` mode=${paymentMode}` : ""}`;
+
+  ctx?.logger?.warn({
+    event: "routing_config_misconfigured",
+    configId: config.id,
+    configName: config.configName,
+    amount,
+    paymentMode: paymentMode ?? null,
+    ruleCount: rules.length,
+    reason,
+  }, "routing_config_misconfigured");
+
+  await db.insert(routingLogsTable).values({
+    merchantId: ctx?.merchantId ?? 0,
+    configId: config.id,
+    configName: config.configName,
+    strategyUsed: config.strategy,
+    attemptNumber: 0,
+    providerKey: "none",
+    result: "misconfigured",
+    amount: String(amount),
+    paymentMode: paymentMode ?? null,
+    errorMessage: reason,
+  }).catch(() => { /* best-effort — validation must not fail on logging error */ });
+
+  return { valid: false, configId: config.id, configName: config.configName, reason };
+}
+
 /**
  * Convenience: load cashfree credentials from system_config.
  * Used by the smart router to try Cashfree as a provider.

@@ -90,7 +90,7 @@ function PasswordLoginTab({
           setStoredUser(res.user as unknown as Record<string, unknown>);
           setAuthToken(res.token);
           toast.success("Welcome back.");
-          window.location.href = "/merchant/dashboard";
+          window.location.replace("/merchant/dashboard");
         },
         onError: (err) => {
           const { status, message, headers } = getErrorInfo(err);
@@ -270,7 +270,7 @@ function OtpLoginTab({ onRateLimited }: { onRateLimited: (seconds: number) => vo
           setStoredUser(res.user as unknown as Record<string, unknown>);
           setAuthToken(res.token);
           toast.success("Welcome back.");
-          window.location.href = "/merchant/dashboard";
+          window.location.replace("/merchant/dashboard");
         },
         onError: (err) => {
           const { status, message, headers } = getErrorInfo(err);
@@ -659,7 +659,7 @@ export default function MerchantLogin() {
         </Link>
       </div>
       <div className="text-center text-xs text-muted-foreground/40 pt-2">
-        Login Build: merchant-login-hard-redirect-fix-v1 / merchant-route-guard-fix-v1
+        Login Build: merchant-login-final-redirect-fix-v1
       </div>
     </AuthLayout>
   );

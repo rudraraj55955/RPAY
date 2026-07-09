@@ -82,12 +82,7 @@ export default function PayoutMerchantLogin() {
 
       const token = (body["token"] as string | undefined) ?? "";
 
-      if (role !== "merchant" && role !== "payout_merchant") {
-        toast.error("Unauthorized. Payout Merchant access required.");
-        return;
-      }
-
-      if (!(role === "merchant" && merchantType === "PAYOUT_ONLY") && merchantType !== "BOTH" && role !== "payout_merchant") {
+      if (!(role === "merchant" && merchantType === "PAYOUT_ONLY")) {
         toast.error("This portal is for Payout merchants only. Please use the regular merchant login.");
         return;
       }
@@ -106,7 +101,7 @@ export default function PayoutMerchantLogin() {
       setStoredUser({ ...(rawUser ?? {}), role, merchantType });
       setAuthToken(token);
       toast.success("Welcome to your Payout Portal.");
-      window.location.href = "/payout-merchant/dashboard";
+      window.location.replace("/payout-merchant/dashboard");
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -178,7 +173,7 @@ export default function PayoutMerchantLogin() {
             <Link href="/" className="text-primary hover:underline">← Back to RasoKart</Link>
           </div>
           <div className="text-center text-xs text-muted-foreground/40 pt-2">
-            Login Build: payout-login-hard-redirect-fix-v2
+            Login Build: payout-login-final-redirect-fix-v1
           </div>
         </form>
       </Form>

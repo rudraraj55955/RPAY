@@ -591,6 +591,15 @@ function AdminSidebar() {
 export function DashboardLayout({ children, publicMode = false }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
+  // Hooks must run unconditionally on every render (React rules-of-hooks).
+  // Previously this was called after an early `if (!user) return ...`
+  // below, so the very first render right after a hard-redirect login (user
+  // still null while /api/auth/me resolves) skipped this hook, and the next
+  // render (user populated) called it — a hook-count mismatch that crashed
+  // the whole dashboard with "Rendered more hooks than during the previous
+  // render". Calling it here, before any early return, keeps hook order
+  // stable across both renders.
+  const { companyName, supportPhone } = useCompanySettings();
 
   if (!publicMode && !user) {
     return (
@@ -601,7 +610,6 @@ export function DashboardLayout({ children, publicMode = false }: DashboardLayou
   }
 
   const isAdmin = user?.role === UserRole.admin;
-  const { companyName, supportPhone } = useCompanySettings();
   const portalName = location.startsWith("/admin") ? "RasoKart Admin"
     : location.startsWith("/merchant") ? "RasoKart Merchant"
     : location.startsWith("/agent") ? "RasoKart Agent"

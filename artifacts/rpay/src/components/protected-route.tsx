@@ -1,5 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { getToken, getStoredUser } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Spinner } from "@/components/ui/spinner";
 import { UserRole } from "@workspace/api-client-react";
@@ -45,7 +46,17 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
 
-  if (isLoading) {
+  // Fallback for the moment right after a hard redirect from a login page:
+  // the AuthProvider's /api/auth/me query may not have resolved yet, but the
+  // token + user JSON were already written to storage before navigating.
+  // Trust that immediately so a valid session is never bounced back to
+  // login while the context is still catching up.
+  const fallbackToken = getToken();
+  const fallbackUser = getStoredUser() as { role: string } | null;
+  const effectiveUser = user ?? (fallbackToken && fallbackUser ? fallbackUser : null);
+  const effectiveIsLoading = isLoading && !effectiveUser;
+
+  if (effectiveIsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Spinner className="w-8 h-8 text-primary" />
@@ -53,12 +64,12 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     );
   }
 
-  if (!user) {
+  if (!effectiveUser) {
     return <AuthRedirect to={getLoginPath(location)} />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <AuthRedirect to={getHomePath(user.role)} />;
+  if (allowedRoles && !allowedRoles.includes(effectiveUser.role)) {
+    return <AuthRedirect to={getHomePath(effectiveUser.role)} />;
   }
 
   return <>{children}</>;

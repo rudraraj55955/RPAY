@@ -11,6 +11,7 @@ import {
   UserRole,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth-context";
+import { setToken, setStoredUser } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
 import { AuthLayout } from "@/components/layout/auth-layout";
@@ -80,9 +81,16 @@ function PasswordLoginTab({
             toast.error("Unauthorized. Merchant access required.");
             return;
           }
+          // Write token + user to the exact storage keys the merchant route
+          // guard reads (localStorage AND sessionStorage), synchronously,
+          // BEFORE navigating. Then do a hard redirect instead of relying on
+          // React/wouter navigation + stale context state — this guarantees
+          // the destination route's very first render already sees valid auth.
+          setToken(res.token);
+          setStoredUser(res.user as unknown as Record<string, unknown>);
           setAuthToken(res.token);
           toast.success("Welcome back.");
-          setLocation("/merchant/dashboard");
+          window.location.href = "/merchant/dashboard";
         },
         onError: (err) => {
           const { status, message, headers } = getErrorInfo(err);
@@ -258,9 +266,11 @@ function OtpLoginTab({ onRateLimited }: { onRateLimited: (seconds: number) => vo
             toast.error("Unauthorized. Merchant access required.");
             return;
           }
+          setToken(res.token);
+          setStoredUser(res.user as unknown as Record<string, unknown>);
           setAuthToken(res.token);
           toast.success("Welcome back.");
-          setLocation("/merchant/dashboard");
+          window.location.href = "/merchant/dashboard";
         },
         onError: (err) => {
           const { status, message, headers } = getErrorInfo(err);
@@ -647,6 +657,9 @@ export default function MerchantLogin() {
         <Link href="/merchant/apply" className="text-primary hover:underline">
           Apply for an account
         </Link>
+      </div>
+      <div className="text-center text-xs text-muted-foreground/40 pt-2">
+        Login Build: merchant-login-hard-redirect-fix-v1
       </div>
     </AuthLayout>
   );

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useLogin, UserRole } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth-context";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
@@ -21,6 +20,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function PayoutMerchantLogin() {
   const [_, setLocation] = useLocation();
   const { login: setAuthToken } = useAuth();
+  const [isPending, setIsPending] = useState(false);
   const [rateLimitSeconds, setRateLimitSeconds] = useState<number | null>(null);
 
   const form = useForm<LoginFormValues>({
@@ -28,41 +28,59 @@ export default function PayoutMerchantLogin() {
     defaultValues: { email: "", password: "" },
   });
 
-  const loginMutation = useLogin();
+  const onSubmit = async (data: LoginFormValues) => {
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: data.email.trim().toLowerCase(),
+          password: data.password,
+        }),
+      });
 
-  const onSubmit = (data: LoginFormValues) => {
-    loginMutation.mutate(
-      { data },
-      {
-        onSuccess: (res) => {
-          const role = res.user.role as string;
-          const merchantType = (res.user as any).merchantType as string | undefined;
-          if (role !== UserRole.payout_merchant && role !== UserRole.merchant) {
-            toast.error("Unauthorized. Payout Merchant access required.");
-            return;
-          }
-          // Block NORMAL pay-in merchants — only PAYOUT_ONLY or BOTH allowed here
-          if (role === UserRole.merchant && merchantType !== "PAYOUT_ONLY" && merchantType !== "BOTH") {
-            toast.error("This portal is for Payout merchants only. Please use the regular merchant login.");
-            return;
-          }
-          setAuthToken(res.token);
-          toast.success("Welcome to your Payout Portal.");
-          setLocation("/payout-merchant/dashboard");
-        },
-        onError: (err) => {
-          const e = err as unknown as Record<string, unknown>;
-          if (e["status"] === 429) {
-            const headers = e["headers"] as Headers | undefined;
-            const resetHeader = headers?.get("RateLimit-Reset") ?? headers?.get("ratelimit-reset");
-            const seconds = resetHeader ? parseInt(resetHeader, 10) : 60;
-            setRateLimitSeconds(Number.isFinite(seconds) && seconds > 0 ? seconds : 60);
-            return;
-          }
-          toast.error(e["message"] as string || "Login failed");
-        },
+      if (res.status === 429) {
+        const resetHeader =
+          res.headers.get("RateLimit-Reset") ?? res.headers.get("ratelimit-reset");
+        const seconds = resetHeader ? parseInt(resetHeader, 10) : 60;
+        setRateLimitSeconds(Number.isFinite(seconds) && seconds > 0 ? seconds : 60);
+        return;
       }
-    );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg = (body as Record<string, unknown>)["message"] as string | undefined;
+        toast.error(msg || "Invalid credentials");
+        return;
+      }
+
+      const body = await res.json() as {
+        token: string;
+        user: { role: string; merchantType?: string };
+      };
+
+      const role = body.user.role;
+      const merchantType = body.user.merchantType;
+
+      if (role !== "merchant" && role !== "payout_merchant") {
+        toast.error("Unauthorized. Payout Merchant access required.");
+        return;
+      }
+
+      if (role === "merchant" && merchantType !== "PAYOUT_ONLY" && merchantType !== "BOTH") {
+        toast.error("This portal is for Payout merchants only. Please use the regular merchant login.");
+        return;
+      }
+
+      setAuthToken(body.token);
+      toast.success("Welcome to your Payout Portal.");
+      setLocation("/payout-merchant/dashboard");
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -86,6 +104,10 @@ export default function PayoutMerchantLogin() {
                 <FormLabel>Email</FormLabel>
                 <FormControl>
                   <Input
+                    type="email"
+                    autoComplete="email"
+                    autoCorrect="off"
+                    autoCapitalize="none"
                     placeholder="merchant@example.com"
                     disabled={rateLimitSeconds !== null}
                     {...field}
@@ -104,6 +126,7 @@ export default function PayoutMerchantLogin() {
                 <FormControl>
                   <Input
                     type="password"
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     disabled={rateLimitSeconds !== null}
                     {...field}
@@ -116,9 +139,9 @@ export default function PayoutMerchantLogin() {
           <Button
             type="submit"
             className="w-full"
-            disabled={loginMutation.isPending || rateLimitSeconds !== null}
+            disabled={isPending || rateLimitSeconds !== null}
           >
-            {loginMutation.isPending ? "Authenticating..." : "Sign in"}
+            {isPending ? "Authenticating..." : "Sign in"}
           </Button>
           <div className="text-center text-sm text-muted-foreground">
             <Link href="/" className="text-primary hover:underline">← Back to RasoKart</Link>

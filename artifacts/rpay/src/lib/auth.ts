@@ -49,6 +49,29 @@ export function setLegacyAuthKeys(token: string, user: Record<string, unknown>) 
   }
 }
 
+/**
+ * Single entry point called directly from a login success branch (never from
+ * a useEffect, never gated on auth-context state). Persists the token/user
+ * under every key any guard in the app might read (both the real
+ * rasokart_* keys and the generic token/authToken/user/authUser aliases, in
+ * both localStorage and sessionStorage), then performs a real full-page
+ * navigation via `window.location.href`. A real navigation (not
+ * `.replace`/pushState) guarantees the next page is served fresh from the
+ * server and picks up the just-written storage with no SPA router state to
+ * fight with.
+ */
+export function saveAuthAndRedirect(
+  token: string,
+  user: Record<string, unknown>,
+  targetPath: string
+) {
+  if (typeof window === "undefined") return;
+  setToken(token);
+  setStoredUser(user);
+  setLegacyAuthKeys(token, user);
+  window.location.href = targetPath;
+}
+
 export function getStoredUser(): Record<string, unknown> | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(USER_KEY) ?? sessionStorage.getItem(USER_KEY);

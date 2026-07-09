@@ -10,8 +10,7 @@ import {
   useResetMerchantPassword,
   UserRole,
 } from "@workspace/api-client-react";
-import { useAuth } from "@/lib/auth-context";
-import { setToken, setStoredUser, setLegacyAuthKeys } from "@/lib/auth";
+import { saveAuthAndRedirect } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
 import { AuthLayout } from "@/components/layout/auth-layout";
@@ -58,7 +57,6 @@ function PasswordLoginTab({
   onAccountSuspended: (suspended: boolean) => void;
 }) {
   const [_, setLocation] = useLocation();
-  const { login: setAuthToken } = useAuth();
   const [rateLimitSeconds, setRateLimitSeconds] = useState<number | null>(null);
 
   const form = useForm<PasswordLoginValues>({
@@ -81,17 +79,14 @@ function PasswordLoginTab({
             toast.error("Unauthorized. Merchant access required.");
             return;
           }
-          // Write token + user to the exact storage keys the merchant route
-          // guard reads (localStorage AND sessionStorage), synchronously,
-          // BEFORE navigating. Then do a hard redirect instead of relying on
-          // React/wouter navigation + stale context state — this guarantees
-          // the destination route's very first render already sees valid auth.
-          setToken(res.token);
-          setStoredUser(res.user as unknown as Record<string, unknown>);
-          setLegacyAuthKeys(res.token, res.user as unknown as Record<string, unknown>);
-          setAuthToken(res.token);
+          // marker: merchant-active-login-hardredirect-v3
+          // Persist token/user to every storage key any guard could read,
+          // then perform a REAL full-page navigation (window.location.href,
+          // not .replace, not React/wouter navigate) directly in this
+          // success branch — before any return, not inside a useEffect, not
+          // gated on auth-context state resolving.
           toast.success("Welcome back.");
-          window.location.replace("/merchant/dashboard");
+          saveAuthAndRedirect(res.token, res.user as unknown as Record<string, unknown>, "/merchant/dashboard");
         },
         onError: (err) => {
           const { status, message, headers } = getErrorInfo(err);
@@ -151,6 +146,9 @@ function PasswordLoginTab({
         <Button type="submit" className="w-full" disabled={loginMutation.isPending || rateLimitSeconds !== null}>
           {loginMutation.isPending ? "Authenticating..." : "Sign in"}
         </Button>
+        <div className="text-center text-xs text-muted-foreground/40 pt-2">
+          Login Build: merchant-active-login-hardredirect-v3
+        </div>
       </form>
     </Form>
   );
@@ -170,7 +168,6 @@ type OtpCodeValues = z.infer<typeof otpCodeSchema>;
 
 function OtpLoginTab({ onRateLimited }: { onRateLimited: (seconds: number) => void }) {
   const [_, setLocation] = useLocation();
-  const { login: setAuthToken } = useAuth();
   const [stage, setStage] = useState<"identifier" | "otp">("identifier");
   const [identifier, setIdentifier] = useState("");
   const [resendIn, setResendIn] = useState(0);
@@ -267,12 +264,9 @@ function OtpLoginTab({ onRateLimited }: { onRateLimited: (seconds: number) => vo
             toast.error("Unauthorized. Merchant access required.");
             return;
           }
-          setToken(res.token);
-          setStoredUser(res.user as unknown as Record<string, unknown>);
-          setLegacyAuthKeys(res.token, res.user as unknown as Record<string, unknown>);
-          setAuthToken(res.token);
+          // marker: merchant-active-login-hardredirect-v3
           toast.success("Welcome back.");
-          window.location.replace("/merchant/dashboard");
+          saveAuthAndRedirect(res.token, res.user as unknown as Record<string, unknown>, "/merchant/dashboard");
         },
         onError: (err) => {
           const { status, message, headers } = getErrorInfo(err);

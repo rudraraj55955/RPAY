@@ -19,9 +19,10 @@ import {
   GitMerge, Activity, BarChart2, ScrollText, Plus, Pencil, Trash2,
   RefreshCw, ArrowUpDown, CheckCircle2, XCircle, Clock, AlertTriangle,
   ShieldCheck, Zap, Settings2, ChevronsDown, Shield, FlaskConical, Loader2,
-  Copy, Download,
+  Copy, Download, Info,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -133,6 +134,7 @@ type SimulateResult = {
   totalProviders: number;
   isDeterministic: boolean;
   warning: string | null;
+  wouldFail: boolean;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1324,8 +1326,25 @@ export default function AdminSmartRouting() {
             </DialogTitle>
           </DialogHeader>
 
-          <p className="text-xs text-zinc-500 -mt-2 mb-1">
+          <p className="text-xs text-zinc-500 -mt-2 mb-1 flex items-center gap-1.5">
             Dry-run the routing engine for any amount and payment mode. No real payment is created, no routing log is written — the result shows exactly which providers would be attempted in order.
+            <TooltipProvider>
+              <UiTooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-violet-400 shrink-0 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-sm bg-zinc-900 border-zinc-700 text-zinc-200">
+                  <p className="text-xs mb-1.5">
+                    This same check is available via the API (see the "SmartRouting" section of the API reference) — use it in CI/CD to catch a routing config change that would leave zero providers for a payment mode:
+                  </p>
+                  <pre className="text-[10px] bg-zinc-950 border border-zinc-800 rounded p-2 overflow-x-auto whitespace-pre-wrap">
+{`curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \\
+  "$API_BASE/api/smart-routing/simulate?amount=1000&paymentMode=upi" \\
+  | jq -e '.wouldFail == false'`}
+                  </pre>
+                </TooltipContent>
+              </UiTooltip>
+            </TooltipProvider>
           </p>
 
           {/* Inputs */}

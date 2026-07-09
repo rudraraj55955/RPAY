@@ -9267,6 +9267,12 @@ export const GetRoutingLogsResponse = zod.object({
 
 
 /**
+ * Dry-runs the routing engine for a given amount and payment mode without making any real gateway calls or writing routing logs. Also suitable for automated CI/CD checks: the response includes a top-level `wouldFail` boolean that is `true` when the config change under test would leave zero viable providers for the given amount/payment mode (either no matching rules, or every matching rule is Fallback Only). Example for a pipeline check:
+``` curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "$API_BASE/api/smart-routing/simulate?amount=1000&paymentMode=upi" \
+  | jq -e '.wouldFail == false'
+```
+A non-zero exit code from `jq -e` (i.e. `wouldFail` is `true`) can be wired to fail the pipeline before a bad routing config reaches production.
  * @summary Dry-run the failover chain for a given amount and payment mode (admin)
  */
 export const SimulateRoutingQueryParams = zod.object({
@@ -9292,7 +9298,8 @@ export const SimulateRoutingResponse = zod.object({
 })),
   "totalProviders": zod.number(),
   "isDeterministic": zod.boolean().optional().describe('True for priority\/success_rate (exact). False for percentage\/round_robin (representative ordering shown).'),
-  "warning": zod.string().nullish()
+  "warning": zod.string().nullish(),
+  "wouldFail": zod.boolean().describe('True when totalProviders is 0, or when every matching rule is Fallback Only (no primary attempt would ever be made). Intended for automated CI\/CD checks that alert when a routing config change would leave a payment mode with no viable providers.')
 })
 
 

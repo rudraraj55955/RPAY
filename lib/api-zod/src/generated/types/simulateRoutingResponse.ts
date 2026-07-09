@@ -17,4 +17,6 @@ export interface SimulateRoutingResponse {
   /** True for priority/success_rate (exact). False for percentage/round_robin (representative ordering shown). */
   isDeterministic?: boolean;
   warning?: string | null;
+  /** True when totalProviders is 0, or when every matching rule is Fallback Only (no primary attempt would ever be made). Intended for automated CI/CD checks that alert when a routing config change would leave a payment mode with no viable providers. */
+  wouldFail: boolean;
 }

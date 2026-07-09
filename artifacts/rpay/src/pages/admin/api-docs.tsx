@@ -2000,6 +2000,58 @@ export default function AdminApiDocs() {
             </div>
           </Section>
 
+          {/* ── Smart Routing ──────────────────────────────────────────────── */}
+          <Section title="Smart Routing" badge="admin-only">
+            <p className="text-sm text-muted-foreground">
+              Configure failover strategies, manage provider rules, inspect routing decision
+              logs, and dry-run the failover chain for a given amount/payment mode.
+            </p>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2">Endpoints</p>
+              <EndpointRow method="GET" path="/api/smart-routing/configs" description="List routing configs" />
+              <EndpointRow method="POST" path="/api/smart-routing/configs" description="Create a routing config" />
+              <EndpointRow method="PUT" path="/api/smart-routing/configs/{id}" description="Update a routing config" />
+              <EndpointRow method="GET" path="/api/smart-routing/configs/{id}/rules" description="List rules for a config" />
+              <EndpointRow method="POST" path="/api/smart-routing/configs/{id}/rules" description="Add a rule to a config" />
+              <EndpointRow method="PUT" path="/api/smart-routing/rules/{id}" description="Update a rule" />
+              <EndpointRow method="DELETE" path="/api/smart-routing/rules/{id}" description="Delete a rule" />
+              <EndpointRow method="GET" path="/api/smart-routing/metrics" description="Provider success-rate metrics" />
+              <EndpointRow method="GET" path="/api/smart-routing/logs" description="Routing decision logs" />
+              <EndpointRow method="GET" path="/api/smart-routing/simulate" description="Dry-run the failover chain (no real calls made)" />
+              <EndpointRow method="GET" path="/api/smart-routing/status" description="Smart routing health summary" />
+              <EndpointRow method="GET" path="/api/smart-routing/failover-events" description="Chain-exhaustion (failover) events" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2">
+                Simulate — CI/CD failover check
+              </p>
+              <p className="text-sm text-muted-foreground mb-2">
+                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">GET /api/smart-routing/simulate</code>{" "}
+                returns a top-level <code className="text-xs bg-muted px-1.5 py-0.5 rounded">wouldFail</code> boolean —{" "}
+                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">true</code> when the current routing config
+                would leave zero viable providers for the given amount/payment mode (no matching rules, or every
+                matching rule is Fallback Only). Wire this into a pipeline check to catch a bad routing config
+                change before it reaches production:
+              </p>
+              <CodeBlock
+                code={`curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \\
+  "$API_BASE/api/smart-routing/simulate?amount=1000&paymentMode=upi" \\
+  | jq -e '.wouldFail == false'
+
+# Exit code is non-zero when wouldFail is true — fail the pipeline on that.`}
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Try it</p>
+              <TryItPanel
+                method="GET"
+                path="/api/smart-routing/simulate"
+                token={globalToken}
+                commonQueryParams={["amount", "paymentMode", "configName"]}
+              />
+            </div>
+          </Section>
+
           {/* ── Plans ──────────────────────────────────────────────────────── */}
           <Section title="Plans" badge="4 endpoints">
             <p className="text-sm text-muted-foreground">

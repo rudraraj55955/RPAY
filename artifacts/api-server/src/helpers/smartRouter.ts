@@ -546,6 +546,11 @@ export interface SimulateRoutingResult {
    *  False for percentage / round_robin where actual selection is random/counter-based. */
   isDeterministic: boolean;
   warning: string | null;
+  /** True when totalProviders === 0, or when the warning indicates every matching
+   *  rule is fallback-only (so no primary attempt would ever be made). Intended for
+   *  automated CI/CD checks that alert when a routing config change would leave a
+   *  payment mode with no viable providers. */
+  wouldFail: boolean;
 }
 
 /**
@@ -610,6 +615,7 @@ export async function simulateRouting(params: {
       totalProviders: 0,
       isDeterministic: true,
       warning: "No providers match the given amount and payment mode — this payment would fail immediately.",
+      wouldFail: true,
     };
   }
 
@@ -736,5 +742,6 @@ export async function simulateRouting(params: {
     totalProviders: steps.length,
     isDeterministic,
     warning,
+    wouldFail: steps.length === 0 || allFallbackOnly,
   };
 }

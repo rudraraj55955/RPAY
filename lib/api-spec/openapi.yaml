@@ -9766,6 +9766,22 @@ paths:
   /smart-routing/simulate:
     get:
       summary: Dry-run the failover chain for a given amount and payment mode (admin)
+      description: >-
+        Dry-runs the routing engine for a given amount and payment mode without making any
+        real gateway calls or writing routing logs. Also suitable for automated CI/CD checks:
+        the response includes a top-level `wouldFail` boolean that is `true` when the config
+        change under test would leave zero viable providers for the given amount/payment mode
+        (either no matching rules, or every matching rule is Fallback Only). Example for a
+        pipeline check:
+
+        ```
+        curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+          "$API_BASE/api/smart-routing/simulate?amount=1000&paymentMode=upi" \
+          | jq -e '.wouldFail == false'
+        ```
+
+        A non-zero exit code from `jq -e` (i.e. `wouldFail` is `true`) can be wired to fail the
+        pipeline before a bad routing config reaches production.
       operationId: simulateRouting
       tags: [SmartRouting]
       security:
@@ -17394,7 +17410,7 @@ components:
 
     SimulateRoutingResponse:
       type: object
-      required: [configName, strategy, amount, steps, totalProviders]
+      required: [configName, strategy, amount, steps, totalProviders, wouldFail]
       properties:
         configName:
           type: string
@@ -17437,6 +17453,13 @@ components:
         warning:
           type: string
           nullable: true
+        wouldFail:
+          type: boolean
+          description: >-
+            True when totalProviders is 0, or when every matching rule is Fallback Only
+            (no primary attempt would ever be made). Intended for automated CI/CD checks
+            that alert when a routing config change would leave a payment mode with no
+            viable providers.
 
     RoutingStatusResponse:
       type: object

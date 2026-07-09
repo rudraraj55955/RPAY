@@ -28398,6 +28398,12 @@ export const getSimulateRoutingUrl = (params: SimulateRoutingParams,) => {
 }
 
 /**
+ * Dry-runs the routing engine for a given amount and payment mode without making any real gateway calls or writing routing logs. Also suitable for automated CI/CD checks: the response includes a top-level `wouldFail` boolean that is `true` when the config change under test would leave zero viable providers for the given amount/payment mode (either no matching rules, or every matching rule is Fallback Only). Example for a pipeline check:
+``` curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "$API_BASE/api/smart-routing/simulate?amount=1000&paymentMode=upi" \
+  | jq -e '.wouldFail == false'
+```
+A non-zero exit code from `jq -e` (i.e. `wouldFail` is `true`) can be wired to fail the pipeline before a bad routing config reaches production.
  * @summary Dry-run the failover chain for a given amount and payment mode (admin)
  */
 export const simulateRouting = async (params: SimulateRoutingParams, options?: RequestInit): Promise<SimulateRoutingResponse> => {

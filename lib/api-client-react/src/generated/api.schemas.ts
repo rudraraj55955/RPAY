@@ -14,6 +14,50 @@ export interface CompanySettingsPublic {
   footerText?: string | null;
 }
 
+export interface DummyDataFinding {
+  table: string;
+  count: number;
+  sampleIds: number[];
+  reason: string;
+}
+
+export interface DummyDataDryRunResult {
+  findings: DummyDataFinding[];
+  totalRows: number;
+  protectedDemoMerchantCount: number;
+  deletableDummyMerchantCount: number;
+}
+
+export interface DummyDataCleanupConfirmRequest {
+  /** Must be exactly "CLEAN_DUMMY_DATA" to proceed. */
+  confirm: string;
+}
+
+export interface DummyDataCleanupRowResult {
+  table: string;
+  rowsDeleted: number;
+}
+
+export interface DummyDataCleanupResult {
+  results: DummyDataCleanupRowResult[];
+  totalRowsDeleted: number;
+}
+
+export interface DummyDataCleanupHistoryEntry {
+  id: number;
+  adminId: number;
+  adminEmail: string;
+  action: string;
+  targetType: string;
+  targetId: number | null;
+  details: string | null;
+  createdAt: string;
+}
+
+export interface DummyDataCleanupHistoryResult {
+  history: DummyDataCleanupHistoryEntry[];
+}
+
 export interface CompanySettings {
   id: number;
   companyName: string;

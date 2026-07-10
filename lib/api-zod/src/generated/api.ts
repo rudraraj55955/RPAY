@@ -8108,6 +8108,55 @@ export const UpdateAdminCompanySettingsResponse = zod.object({
 
 
 /**
+ * @summary Detect dummy/demo/test rows without deleting anything (Super Admin only)
+ */
+export const DryRunDummyDataCleanupResponse = zod.object({
+  "findings": zod.array(zod.object({
+  "table": zod.string(),
+  "count": zod.number(),
+  "sampleIds": zod.array(zod.number()),
+  "reason": zod.string()
+})),
+  "totalRows": zod.number(),
+  "protectedDemoMerchantCount": zod.number(),
+  "deletableDummyMerchantCount": zod.number()
+})
+
+
+/**
+ * @summary Permanently delete confirmed dummy/demo/test rows (Super Admin only)
+ */
+export const ConfirmDummyDataCleanupBody = zod.object({
+  "confirm": zod.string().describe('Must be exactly \"CLEAN_DUMMY_DATA\" to proceed.')
+})
+
+export const ConfirmDummyDataCleanupResponse = zod.object({
+  "results": zod.array(zod.object({
+  "table": zod.string(),
+  "rowsDeleted": zod.number()
+})),
+  "totalRowsDeleted": zod.number()
+})
+
+
+/**
+ * @summary Cleanup run history (Super Admin only)
+ */
+export const GetDummyDataCleanupHistoryResponse = zod.object({
+  "history": zod.array(zod.object({
+  "id": zod.number(),
+  "adminId": zod.number(),
+  "adminEmail": zod.string(),
+  "action": zod.string(),
+  "targetType": zod.string(),
+  "targetId": zod.number().nullable(),
+  "details": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
  * @summary Fire a diagnostic create-order request at the live Payin gateway (admin only, sanitized response)
  */
 export const DebugPayinGatewayCreateOrderBody = zod.object({

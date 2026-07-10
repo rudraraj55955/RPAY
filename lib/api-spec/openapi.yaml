@@ -8538,6 +8538,75 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/dummy-data-cleanup/dry-run:
+    get:
+      operationId: dryRunDummyDataCleanup
+      tags: [dummy-data-cleanup]
+      summary: Detect dummy/demo/test rows without deleting anything (Super Admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Detected dummy data findings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DummyDataDryRunResult"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden — Super Admin only
+
+  /admin/dummy-data-cleanup/confirm:
+    post:
+      operationId: confirmDummyDataCleanup
+      tags: [dummy-data-cleanup]
+      summary: Permanently delete confirmed dummy/demo/test rows (Super Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DummyDataCleanupConfirmRequest"
+      responses:
+        "200":
+          description: Cleanup executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DummyDataCleanupResult"
+        "400":
+          description: Confirmation phrase mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden — Super Admin only
+
+  /admin/dummy-data-cleanup/history:
+    get:
+      operationId: getDummyDataCleanupHistory
+      tags: [dummy-data-cleanup]
+      summary: Cleanup run history (Super Admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Cleanup history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DummyDataCleanupHistoryResult"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden — Super Admin only
+
   /admin/payin-gateway/debug-create-order:
     post:
       operationId: debugPayinGatewayCreateOrder
@@ -10841,6 +10910,97 @@ components:
         footerText:
           type: string
           nullable: true
+
+    DummyDataFinding:
+      type: object
+      required: [table, count, sampleIds, reason]
+      properties:
+        table:
+          type: string
+        count:
+          type: integer
+        sampleIds:
+          type: array
+          items:
+            type: integer
+        reason:
+          type: string
+
+    DummyDataDryRunResult:
+      type: object
+      required: [findings, totalRows, protectedDemoMerchantCount, deletableDummyMerchantCount]
+      properties:
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/DummyDataFinding"
+        totalRows:
+          type: integer
+        protectedDemoMerchantCount:
+          type: integer
+        deletableDummyMerchantCount:
+          type: integer
+
+    DummyDataCleanupConfirmRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm:
+          type: string
+          description: Must be exactly "CLEAN_DUMMY_DATA" to proceed.
+
+    DummyDataCleanupRowResult:
+      type: object
+      required: [table, rowsDeleted]
+      properties:
+        table:
+          type: string
+        rowsDeleted:
+          type: integer
+
+    DummyDataCleanupResult:
+      type: object
+      required: [results, totalRowsDeleted]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/DummyDataCleanupRowResult"
+        totalRowsDeleted:
+          type: integer
+
+    DummyDataCleanupHistoryEntry:
+      type: object
+      required: [id, adminId, adminEmail, action, targetType, targetId, details, createdAt]
+      properties:
+        id:
+          type: integer
+        adminId:
+          type: integer
+        adminEmail:
+          type: string
+        action:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: integer
+          nullable: true
+        details:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    DummyDataCleanupHistoryResult:
+      type: object
+      required: [history]
+      properties:
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/DummyDataCleanupHistoryEntry"
 
     CompanySettings:
       type: object

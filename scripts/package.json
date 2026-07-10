@@ -14,7 +14,8 @@
     "test:ekqr-disable-guard": "playwright test --config=playwright.config.ts e2e/ekqr-disable-guard.spec.ts",
     "test:settings-persistence": "playwright test --config=playwright.config.ts e2e/settings-persistence.spec.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "verify-alert-email-samples": "tsx ./src/verify-alert-email-samples.ts"
+    "verify-alert-email-samples": "tsx ./src/verify-alert-email-samples.ts",
+    "cleanup:dummy-data": "tsx ./src/cleanup-dummy-data.ts"
   },
   "dependencies": {
     "@workspace/db": "workspace:*",

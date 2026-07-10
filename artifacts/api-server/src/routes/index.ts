@@ -78,6 +78,7 @@ import utrVerificationsRouter from "./utrVerifications";
 import payinChargesRouter from "./payinCharges";
 import platformProfitRouter from "./platformProfit";
 import publicPayoutSlipRouter from "./publicPayoutSlip";
+import dummyDataCleanupRouter from "./dummyDataCleanup";
 import accountStatementRouter from "./accountStatement";
 import tryItPresetsRouter from "./tryItPresets";
 import adminTryItPresetsRouter from "./adminTryItPresets";
@@ -192,5 +193,8 @@ router.use("/admin/payout-wallet-loads", adminPayoutWalletLoadsRouter);
 
 // Public payout slip — token-authenticated, no session required; mount last to avoid path conflicts
 router.use("/public/payout-slip", publicPayoutSlipRouter);
+
+// Data Hygiene — Super Admin only dummy/demo data detection + cleanup
+router.use("/admin/dummy-data-cleanup", dummyDataCleanupRouter);
 
 export default router;

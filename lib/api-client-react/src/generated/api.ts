@@ -114,6 +114,10 @@ import type {
   DeleteAdminMerchantReportSchedule200,
   DeleteReportSchedule200,
   DeleteRoutingRule200,
+  DummyDataCleanupConfirmRequest,
+  DummyDataCleanupHistoryResult,
+  DummyDataCleanupResult,
+  DummyDataDryRunResult,
   EkqrConfig,
   EkqrConfigInput,
   EkqrPaymentWebhook200,
@@ -24969,6 +24973,231 @@ export const useUpdateAdminCompanySettings = <TError = ErrorType<ErrorResponse |
       > => {
       return useMutation(getUpdateAdminCompanySettingsMutationOptions(options));
     }
+
+export const getDryRunDummyDataCleanupUrl = () => {
+
+
+
+
+  return `/api/admin/dummy-data-cleanup/dry-run`
+}
+
+/**
+ * @summary Detect dummy/demo/test rows without deleting anything (Super Admin only)
+ */
+export const dryRunDummyDataCleanup = async ( options?: RequestInit): Promise<DummyDataDryRunResult> => {
+
+  return customFetch<DummyDataDryRunResult>(getDryRunDummyDataCleanupUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDryRunDummyDataCleanupQueryKey = () => {
+    return [
+    `/api/admin/dummy-data-cleanup/dry-run`
+    ] as const;
+    }
+
+
+export const getDryRunDummyDataCleanupQueryOptions = <TData = Awaited<ReturnType<typeof dryRunDummyDataCleanup>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof dryRunDummyDataCleanup>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDryRunDummyDataCleanupQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof dryRunDummyDataCleanup>>> = ({ signal }) => dryRunDummyDataCleanup({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof dryRunDummyDataCleanup>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DryRunDummyDataCleanupQueryResult = NonNullable<Awaited<ReturnType<typeof dryRunDummyDataCleanup>>>
+export type DryRunDummyDataCleanupQueryError = ErrorType<void>
+
+
+/**
+ * @summary Detect dummy/demo/test rows without deleting anything (Super Admin only)
+ */
+
+export function useDryRunDummyDataCleanup<TData = Awaited<ReturnType<typeof dryRunDummyDataCleanup>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof dryRunDummyDataCleanup>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDryRunDummyDataCleanupQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getConfirmDummyDataCleanupUrl = () => {
+
+
+
+
+  return `/api/admin/dummy-data-cleanup/confirm`
+}
+
+/**
+ * @summary Permanently delete confirmed dummy/demo/test rows (Super Admin only)
+ */
+export const confirmDummyDataCleanup = async (dummyDataCleanupConfirmRequest: DummyDataCleanupConfirmRequest, options?: RequestInit): Promise<DummyDataCleanupResult> => {
+
+  return customFetch<DummyDataCleanupResult>(getConfirmDummyDataCleanupUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      dummyDataCleanupConfirmRequest,)
+  }
+);}
+
+
+
+
+export const getConfirmDummyDataCleanupMutationOptions = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmDummyDataCleanup>>, TError,{data: BodyType<DummyDataCleanupConfirmRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmDummyDataCleanup>>, TError,{data: BodyType<DummyDataCleanupConfirmRequest>}, TContext> => {
+
+const mutationKey = ['confirmDummyDataCleanup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmDummyDataCleanup>>, {data: BodyType<DummyDataCleanupConfirmRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  confirmDummyDataCleanup(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmDummyDataCleanupMutationResult = NonNullable<Awaited<ReturnType<typeof confirmDummyDataCleanup>>>
+    export type ConfirmDummyDataCleanupMutationBody = BodyType<DummyDataCleanupConfirmRequest>
+    export type ConfirmDummyDataCleanupMutationError = ErrorType<ErrorResponse | void>
+
+    /**
+ * @summary Permanently delete confirmed dummy/demo/test rows (Super Admin only)
+ */
+export const useConfirmDummyDataCleanup = <TError = ErrorType<ErrorResponse | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmDummyDataCleanup>>, TError,{data: BodyType<DummyDataCleanupConfirmRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof confirmDummyDataCleanup>>,
+        TError,
+        {data: BodyType<DummyDataCleanupConfirmRequest>},
+        TContext
+      > => {
+      return useMutation(getConfirmDummyDataCleanupMutationOptions(options));
+    }
+
+export const getGetDummyDataCleanupHistoryUrl = () => {
+
+
+
+
+  return `/api/admin/dummy-data-cleanup/history`
+}
+
+/**
+ * @summary Cleanup run history (Super Admin only)
+ */
+export const getDummyDataCleanupHistory = async ( options?: RequestInit): Promise<DummyDataCleanupHistoryResult> => {
+
+  return customFetch<DummyDataCleanupHistoryResult>(getGetDummyDataCleanupHistoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDummyDataCleanupHistoryQueryKey = () => {
+    return [
+    `/api/admin/dummy-data-cleanup/history`
+    ] as const;
+    }
+
+
+export const getGetDummyDataCleanupHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getDummyDataCleanupHistory>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDummyDataCleanupHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDummyDataCleanupHistoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDummyDataCleanupHistory>>> = ({ signal }) => getDummyDataCleanupHistory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDummyDataCleanupHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDummyDataCleanupHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getDummyDataCleanupHistory>>>
+export type GetDummyDataCleanupHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Cleanup run history (Super Admin only)
+ */
+
+export function useGetDummyDataCleanupHistory<TData = Awaited<ReturnType<typeof getDummyDataCleanupHistory>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDummyDataCleanupHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDummyDataCleanupHistoryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getDebugPayinGatewayCreateOrderUrl = () => {
 

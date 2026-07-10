@@ -8020,6 +8020,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /github-sync/cleanup-logs/last:
+    get:
+      operationId: getGithubSyncLastCleanup
+      tags: [github-sync]
+      summary: Get metadata about the most recent orphaned log file cleanup run
+      description: Returns the outcome of the most recent orphaned-log-file cleanup, whether triggered by the nightly scheduler, the startup sweep, or an admin manually clicking "Run cleanup". Persists across server restarts and page refreshes.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Last cleanup run metadata, or hasRun=false if cleanup has never run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GithubSyncLastCleanup"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /github-sync/divergence:
     get:
       operationId: getGithubSyncDivergence
@@ -11093,6 +11121,24 @@ components:
           items:
             $ref: "#/components/schemas/GithubSyncHistoryEntry"
           description: Past sync runs, newest first, capped at 50
+
+    GithubSyncLastCleanup:
+      type: object
+      required: [hasRun]
+      properties:
+        hasRun:
+          type: boolean
+          description: Whether the orphaned log file cleanup has ever run (nightly scheduler, startup sweep, or manual trigger)
+        deleted:
+          type: integer
+          description: Number of orphaned log files deleted in the last run. Only present when hasRun is true.
+        errors:
+          type: integer
+          description: Number of files that could not be deleted in the last run due to filesystem errors. Only present when hasRun is true.
+        ranAt:
+          type: string
+          format: date-time
+          description: ISO timestamp of when the last cleanup run completed. Only present when hasRun is true.
 
     GithubSyncDivergence:
       type: object

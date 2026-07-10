@@ -173,6 +173,7 @@ import type {
   GithubSyncConfig,
   GithubSyncDivergence,
   GithubSyncHistory,
+  GithubSyncLastCleanup,
   GithubSyncRunLog,
   GithubSyncStatus,
   HealthStatus,
@@ -23259,6 +23260,84 @@ export const useRunGithubSyncLogCleanup = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getRunGithubSyncLogCleanupMutationOptions(options));
     }
+
+export const getGetGithubSyncLastCleanupUrl = () => {
+
+
+
+
+  return `/api/github-sync/cleanup-logs/last`
+}
+
+/**
+ * Returns the outcome of the most recent orphaned-log-file cleanup, whether triggered by the nightly scheduler, the startup sweep, or an admin manually clicking "Run cleanup". Persists across server restarts and page refreshes.
+ * @summary Get metadata about the most recent orphaned log file cleanup run
+ */
+export const getGithubSyncLastCleanup = async ( options?: RequestInit): Promise<GithubSyncLastCleanup> => {
+
+  return customFetch<GithubSyncLastCleanup>(getGetGithubSyncLastCleanupUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGithubSyncLastCleanupQueryKey = () => {
+    return [
+    `/api/github-sync/cleanup-logs/last`
+    ] as const;
+    }
+
+
+export const getGetGithubSyncLastCleanupQueryOptions = <TData = Awaited<ReturnType<typeof getGithubSyncLastCleanup>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGithubSyncLastCleanup>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGithubSyncLastCleanupQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGithubSyncLastCleanup>>> = ({ signal }) => getGithubSyncLastCleanup({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGithubSyncLastCleanup>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGithubSyncLastCleanupQueryResult = NonNullable<Awaited<ReturnType<typeof getGithubSyncLastCleanup>>>
+export type GetGithubSyncLastCleanupQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get metadata about the most recent orphaned log file cleanup run
+ */
+
+export function useGetGithubSyncLastCleanup<TData = Awaited<ReturnType<typeof getGithubSyncLastCleanup>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGithubSyncLastCleanup>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGithubSyncLastCleanupQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetGithubSyncDivergenceUrl = () => {
 

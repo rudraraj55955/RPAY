@@ -196,6 +196,17 @@ export interface GithubSyncHistory {
   entries: GithubSyncHistoryEntry[];
 }
 
+export interface GithubSyncLastCleanup {
+  /** Whether the orphaned log file cleanup has ever run (nightly scheduler, startup sweep, or manual trigger) */
+  hasRun: boolean;
+  /** Number of orphaned log files deleted in the last run. Only present when hasRun is true. */
+  deleted?: number;
+  /** Number of files that could not be deleted in the last run due to filesystem errors. Only present when hasRun is true. */
+  errors?: number;
+  /** ISO timestamp of when the last cleanup run completed. Only present when hasRun is true. */
+  ranAt?: string;
+}
+
 export interface GithubSyncDivergence {
   /** Whether the divergence check could actually be performed (false if GITHUB_TOKEN is missing or the fetch failed) */
   checked: boolean;

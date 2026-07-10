@@ -7655,6 +7655,18 @@ export const RunGithubSyncLogCleanupResponse = zod.object({
 
 
 /**
+ * Returns the outcome of the most recent orphaned-log-file cleanup, whether triggered by the nightly scheduler, the startup sweep, or an admin manually clicking "Run cleanup". Persists across server restarts and page refreshes.
+ * @summary Get metadata about the most recent orphaned log file cleanup run
+ */
+export const GetGithubSyncLastCleanupResponse = zod.object({
+  "hasRun": zod.boolean().describe('Whether the orphaned log file cleanup has ever run (nightly scheduler, startup sweep, or manual trigger)'),
+  "deleted": zod.number().optional().describe('Number of orphaned log files deleted in the last run. Only present when hasRun is true.'),
+  "errors": zod.number().optional().describe('Number of files that could not be deleted in the last run due to filesystem errors. Only present when hasRun is true.'),
+  "ranAt": zod.coerce.date().optional().describe('ISO timestamp of when the last cleanup run completed. Only present when hasRun is true.')
+})
+
+
+/**
  * Performs a read-only fetch (no push) against the remote and reports whether it has diverged from the local history, so the UI can warn before a force-push discards those commits.
  * @summary Check whether the remote GitHub branch has commits not present locally
  */

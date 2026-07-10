@@ -5,7 +5,7 @@ import { logger } from "../lib/logger";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { db, systemSettingsTable, auditLogsTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
-import { runGithubSyncLogCleanup } from "../helpers/githubSyncLogCleanupScheduler";
+import { runGithubSyncLogCleanup, getLastGithubSyncLogCleanupResult } from "../helpers/githubSyncLogCleanupScheduler";
 
 const router = Router();
 router.use(requireAuth);
@@ -292,11 +292,25 @@ router.get("/divergence", (req, res) => {
   }
 });
 
+// GET /api/github-sync/cleanup-logs/last
+router.get("/cleanup-logs/last", async (req, res, next) => {
+  try {
+    const result = await getLastGithubSyncLogCleanupResult();
+    if (!result) {
+      res.json({ hasRun: false });
+      return;
+    }
+    res.json({ hasRun: true, deleted: result.deleted, errors: result.errors, ranAt: result.ranAt });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/github-sync/cleanup-logs
 router.post("/cleanup-logs", async (req, res, next) => {
   try {
     const user = (req as any).user;
-    const result = runGithubSyncLogCleanup();
+    const result = await runGithubSyncLogCleanup();
 
     try {
       await db.insert(auditLogsTable).values({

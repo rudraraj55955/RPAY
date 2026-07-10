@@ -251,6 +251,7 @@ export * from './githubSyncDivergence';
 export * from './githubSyncHistory';
 export * from './githubSyncHistoryEntry';
 export * from './githubSyncHistoryEntryStatus';
+export * from './githubSyncLastCleanup';
 export * from './githubSyncRunLog';
 export * from './githubSyncStatus';
 export * from './githubSyncStatusStatus';

@@ -12,7 +12,7 @@ import { Settings, Mail, Save, CheckCircle2, AlertCircle, Send, Calendar, Bell, 
 import { toast } from "sonner";
 import { getToken } from "@/lib/auth";
 import { getApiErrorMessage } from "@/lib/utils";
-import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetGithubSyncStatus, getGetGithubSyncStatusQueryKey, useGetGithubSyncHistory, getGetGithubSyncHistoryQueryKey, useRunGithubSync, useGetGithubSyncRunLog, useGetGithubSyncDivergence, useRunGithubSyncLogCleanup, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, getGetAlertCooldownStatusQueryOptions, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry, type GithubSyncHistoryEntry } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMyPreferences, getGetMeQueryKey, getListAdminAuditLogsQueryKey, useGetLedgerBackfillLastRun, useRunLedgerBackfill, getGetLedgerBackfillLastRunQueryKey, useRunStorageCleanup, useListStorageCleanupRuns, getListStorageCleanupRunsQueryKey, useGetSignatureFailureAlertHistory, useClearSignatureFailureAlertHistory, getGetSignatureFailureAlertHistoryQueryKey, useGetWebhookFailureAlertHistory, useClearWebhookFailureAlertHistory, getGetWebhookFailureAlertHistoryQueryKey, useGetWebhookFailureAlertConfig, useUpdateWebhookFailureAlertConfig, getGetWebhookFailureAlertConfigQueryKey, useResetWebhookFailureAlertCooldown, useGetCleanupStats, getGetCleanupStatsQueryKey, useGetGithubSyncConfig, useUpdateGithubSyncConfig, getGetGithubSyncConfigQueryKey, useGetGithubSyncStatus, getGetGithubSyncStatusQueryKey, useGetGithubSyncHistory, getGetGithubSyncHistoryQueryKey, useRunGithubSync, useGetGithubSyncRunLog, useGetGithubSyncDivergence, useRunGithubSyncLogCleanup, useGetGithubSyncLastCleanup, getGetGithubSyncLastCleanupQueryKey, useGetQrCleanupHistory, useGetVaCleanupHistory, useClearQrCleanupHistory, useClearVaCleanupHistory, getGetQrCleanupHistoryQueryKey, getGetVaCleanupHistoryQueryKey, useListMerchants, useGetQuietHoursFlushConfig, useUpdateQuietHoursFlushConfig, getGetQuietHoursFlushConfigQueryKey, getGetAlertCooldownStatusQueryOptions, type AdminAuditLog, type StorageCleanupRun, type SignatureFailureAlertLogEntry, type WebhookFailureAlertLogEntry, type CleanupRunHistoryEntry, type GithubSyncHistoryEntry } from "@workspace/api-client-react";
 
 function formatTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -1061,10 +1061,12 @@ export default function AdminSettings() {
   };
 
   const [githubSyncLogCleanupResult, setGithubSyncLogCleanupResult] = useState<{ deleted: number; errors: number } | null>(null);
+  const { data: githubSyncLastCleanup } = useGetGithubSyncLastCleanup();
   const { mutate: runLogCleanupNow, isPending: runningLogCleanup } = useRunGithubSyncLogCleanup({
     mutation: {
       onSuccess: (res) => {
         setGithubSyncLogCleanupResult(res);
+        qc.invalidateQueries({ queryKey: getGetGithubSyncLastCleanupQueryKey() });
         if (res.errors > 0) {
           toast.warning(`Cleanup finished — deleted ${res.deleted} orphaned log file${res.deleted !== 1 ? "s" : ""}, ${res.errors} error${res.errors !== 1 ? "s" : ""}.`);
         } else if (res.deleted === 0) {
@@ -3611,15 +3613,27 @@ export default function AdminSettings() {
               <p className="text-xs text-muted-foreground mt-0.5">
                 Remove <span className="font-mono">.github-sync-logs/</span> files whose IDs are no longer in the sync history. Runs automatically every night at 03:00; use this to trigger it immediately after a crash or manual history reset.
               </p>
-              {githubSyncLogCleanupResult != null && (
+              {(githubSyncLogCleanupResult != null || githubSyncLastCleanup?.hasRun) && (
                 <p className="text-xs mt-1.5 text-muted-foreground">
-                  Last run:{" "}
-                  {githubSyncLogCleanupResult.deleted === 0 && githubSyncLogCleanupResult.errors === 0
-                    ? "no orphaned files found"
-                    : [
-                        githubSyncLogCleanupResult.deleted > 0 && `${githubSyncLogCleanupResult.deleted} file${githubSyncLogCleanupResult.deleted !== 1 ? "s" : ""} deleted`,
-                        githubSyncLogCleanupResult.errors > 0 && `${githubSyncLogCleanupResult.errors} error${githubSyncLogCleanupResult.errors !== 1 ? "s" : ""}`,
-                      ].filter(Boolean).join(", ")}
+                  {(() => {
+                    const deleted = githubSyncLogCleanupResult?.deleted ?? githubSyncLastCleanup?.deleted ?? 0;
+                    const errors = githubSyncLogCleanupResult?.errors ?? githubSyncLastCleanup?.errors ?? 0;
+                    const summary = deleted === 0 && errors === 0
+                      ? "no orphaned files found"
+                      : [
+                          deleted > 0 && `${deleted} file${deleted !== 1 ? "s" : ""} deleted`,
+                          errors > 0 && `${errors} error${errors !== 1 ? "s" : ""}`,
+                        ].filter(Boolean).join(", ");
+                    const ranAt = githubSyncLastCleanup?.hasRun ? githubSyncLastCleanup.ranAt : undefined;
+                    return (
+                      <>
+                        Last run: {summary}
+                        {ranAt && (
+                          <span title={new Date(ranAt).toLocaleString()}> ({formatTimeAgo(ranAt)})</span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </p>
               )}
             </div>

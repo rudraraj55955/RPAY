@@ -21,7 +21,7 @@ router.get("/dashboard", async (req, res) => {
     const [pendingPayoutCount] = await db
       .select({ count: count() })
       .from(withdrawalsTable)
-      .where(eq(withdrawalsTable.localStatus, "PENDING_ADMIN_APPROVAL"));
+      .where(eq(withdrawalsTable.status, "pending"));
 
     const [todayPayoutCount] = await db
       .select({ count: count() })
@@ -99,8 +99,8 @@ router.get("/payouts", async (req, res) => {
         id: withdrawalsTable.id,
         merchantId: withdrawalsTable.merchantId,
         amount: withdrawalsTable.amount,
-        mode: withdrawalsTable.mode,
-        localStatus: withdrawalsTable.localStatus,
+        mode: withdrawalsTable.payoutMode,
+        localStatus: withdrawalsTable.status,
         transferStatus: withdrawalsTable.transferStatus,
         approvalType: withdrawalsTable.approvalType,
         approvedBySystem: withdrawalsTable.approvedBySystem,

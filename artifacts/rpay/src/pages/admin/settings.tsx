@@ -3568,17 +3568,27 @@ export default function AdminSettings() {
                           {entry.repo ?? "—"}
                         </td>
                         <td className="px-3 py-2">
-                          {entry.status === "success" ? (
-                            <span className="text-emerald-400 font-medium">success</span>
-                          ) : entry.status === "skipped" ? (
-                            <span className="text-amber-400 font-medium" title="Push was skipped because the remote has commits not present locally. Resolve the divergence to resume syncing.">
-                              skipped (diverged)
-                            </span>
-                          ) : (
-                            <span className="text-red-400 font-medium underline decoration-dotted" title={entry.errorMessage ?? ""}>
-                              failure{entry.errorMessage ? ` — ${entry.errorMessage.slice(0, 60)}${entry.errorMessage.length > 60 ? "…" : ""}` : ""}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {entry.status === "success" ? (
+                              <span className="text-emerald-400 font-medium">success</span>
+                            ) : entry.status === "skipped" ? (
+                              <span className="text-amber-400 font-medium" title="Push was skipped because the remote has commits not present locally. Resolve the divergence to resume syncing.">
+                                skipped (diverged)
+                              </span>
+                            ) : (
+                              <span className="text-red-400 font-medium underline decoration-dotted" title={entry.errorMessage ?? ""}>
+                                failure{entry.errorMessage ? ` — ${entry.errorMessage.slice(0, 60)}${entry.errorMessage.length > 60 ? "…" : ""}` : ""}
+                              </span>
+                            )}
+                            {entry.retryOf != null && (
+                              <span
+                                className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+                                title={`Retry of run ${entry.retryOf}`}
+                              >
+                                Retry
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

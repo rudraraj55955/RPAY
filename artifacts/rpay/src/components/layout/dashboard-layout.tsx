@@ -1,12 +1,12 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Spinner } from "@/components/ui/spinner";
-import { UserRole, useGetMyPlanUsage, useGetCallbackSecret, useListApiKeys, useGetSecurityComplianceSummary, useGetKycSummary, useListMerchantReportSchedules, useListNotifications, useGetMe, ListNotificationsIsRead, useGetReportDeliveryHealth, useGetReportSchedule } from "@workspace/api-client-react";
+import { UserRole, useGetMyPlanUsage, useGetCallbackSecret, useListApiKeys, useGetSecurityComplianceSummary, useGetKycSummary, useListMerchantReportSchedules, useListNotifications, useGetMe, ListNotificationsIsRead, useGetReportDeliveryHealth, useGetReportSchedule, useGetGithubSyncStatus, useGetGithubSyncDivergence } from "@workspace/api-client-react";
 
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, SidebarFooter, SidebarTrigger } from "@/components/ui/sidebar";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
-import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap, GitMerge, Link2, Paintbrush, Settings, ShieldAlert, ShieldCheck, X, Download, ShieldOff, Layers, ToggleLeft, BadgeCheck, BarChart3, Wallet, Headphones, Code2, CheckCircle2, TrendingUp, User, MessageSquare } from "lucide-react";
+import { LogOut, LayoutDashboard, Store, ArrowRightLeft, Landmark, FileText, Webhook, KeyRound, Users, Package, Plug, BookOpen, QrCode, Building2, CreditCard, ArrowDownLeft, Activity, Shield, UserCog, Sliders, Eye, LayoutGrid, Lock, Receipt, BookMarked, Zap, GitMerge, Link2, Paintbrush, Settings, ShieldAlert, ShieldCheck, X, Download, ShieldOff, Layers, ToggleLeft, BadgeCheck, BarChart3, Wallet, Headphones, Code2, CheckCircle2, TrendingUp, User, MessageSquare, GitCompareArrows } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NotificationBell } from "@/components/notification-bell";
@@ -168,6 +168,83 @@ function CallbackSecretBanner() {
 interface DashboardLayoutProps {
   children: ReactNode;
   publicMode?: boolean;
+}
+
+const SYNC_BANNER_SESSION_KEY = "rasokart_admin_sync_banner_dismissed_signature";
+
+function AdminSyncStatusBanner() {
+  const { data: syncStatus } = useGetGithubSyncStatus({
+    query: { refetchInterval: 60_000, queryKey: ["/api/github-sync/status"] },
+  });
+  const { data: divergence } = useGetGithubSyncDivergence({
+    query: { refetchInterval: 60_000, queryKey: ["/api/github-sync/divergence"] },
+  });
+
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const githubOk = syncStatus?.status === "success" && !(divergence?.checked && divergence.diverged);
+  const signature = `${syncStatus?.status ?? "unknown"}|${syncStatus?.syncedAt ?? ""}|${divergence?.diverged ? "diverged" : "clean"}`;
+
+  const [dismissedSignature, setDismissedSignature] = useState<string | null>(
+    () => sessionStorage.getItem(SYNC_BANNER_SESSION_KEY)
+  );
+
+  const isDismissed = dismissedSignature === signature;
+  const shouldShow = !githubOk && !isDismissed;
+
+  if (!shouldShow) return null;
+
+  const githubLabel = syncStatus == null
+    ? "Checking..."
+    : syncStatus.status === "success"
+    ? "Synced"
+    : syncStatus.status === "running"
+    ? "Sync in progress"
+    : syncStatus.status === "never"
+    ? "Not yet synced"
+    : syncStatus.status === "skipped"
+    ? "Skipped (needs review)"
+    : "Push failed";
+
+  const divergedLabel = divergence?.checked && divergence.diverged
+    ? "Diverged — remote has changes not present here"
+    : null;
+
+  return (
+    <Card className="border-amber-500/40 bg-amber-950/20 rounded-lg">
+      <CardContent className="p-3 space-y-1.5">
+        <div className="flex items-start gap-2">
+          <GitCompareArrows className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0 space-y-1">
+            <p className="text-xs font-medium text-amber-300">Deployment Sync Status</p>
+            <div className="text-[11px] text-amber-200/80 space-y-0.5">
+              <p>Replit code: <span className="font-medium">Up to date</span></p>
+              <p>GitHub sync: <span className="font-medium">{githubLabel}</span>{syncStatus?.syncedAt ? ` · ${format(new Date(syncStatus.syncedAt), "d MMM, HH:mm")}` : ""}</p>
+              {divergedLabel && <p className="text-red-300">{divergedLabel}</p>}
+              <p>VPS deploy: <span className="font-medium">Pending — deploy manually from your VPS</span></p>
+              <p className="text-amber-200/50">Last checked: {format(now, "HH:mm:ss")}</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 p-0 text-amber-400/60 hover:text-amber-400 hover:bg-amber-500/10 shrink-0"
+            onClick={() => {
+              sessionStorage.setItem(SYNC_BANNER_SESSION_KEY, signature);
+              setDismissedSignature(signature);
+            }}
+            aria-label="Dismiss sync status warning for this session"
+          >
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function MerchantSidebar() {
@@ -662,6 +739,7 @@ export function DashboardLayout({ children, publicMode = false }: DashboardLayou
             )}
           </SidebarContent>
           <SidebarFooter className="p-4 space-y-2">
+            {!publicMode && isAdmin && <AdminSyncStatusBanner />}
             <InstallAppButton
               appName={portalName}
               variant="ghost"

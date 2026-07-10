@@ -53,6 +53,9 @@ import smsLogsRouter from "./smsLogs";
 import onboardingRouter from "./onboarding";
 import adminOnboardingRouter from "./adminOnboarding";
 import secureIdSettingsRouter from "./secureIdSettings";
+import merchantKycRouter from "./merchantKyc";
+import adminMerchantKycRouter from "./adminMerchantKyc";
+import merchantKycSettingsRouter from "./merchantKycSettings";
 import payoutMerchantRouter from "./payoutMerchant";
 import adminPayoutMerchantsRouter from "./adminPayoutMerchants";
 import adminPayoutSettingsRouter from "./adminPayoutSettings";
@@ -165,6 +168,9 @@ router.use("/admin/sms-logs", smsLogsRouter);
 router.use("/onboarding", onboardingRouter);
 router.use("/admin/onboarding", adminOnboardingRouter);
 router.use("/admin/secure-id-settings", secureIdSettingsRouter);
+router.use("/merchant-kyc", merchantKycRouter);
+router.use("/admin/merchant-kyc-settings", merchantKycSettingsRouter);
+router.use("/admin/merchant-kyc", adminMerchantKycRouter);
 
 // Payout merchant module — merchant-facing config + admin management
 router.use("/payout-merchant", payoutMerchantRouter);

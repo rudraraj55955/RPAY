@@ -81,6 +81,9 @@ import AdminOtpSettings from "@/pages/admin/otp-settings";
 import AdminSecureIdSettings from "@/pages/admin/secure-id-settings";
 import AdminMerchantOnboarding from "@/pages/admin/merchant-onboarding";
 import MerchantOnboarding from "@/pages/merchant/onboarding";
+import MerchantAutoKyc from "@/pages/merchant/auto-kyc";
+import AdminMerchantKyc from "@/pages/admin/merchant-kyc";
+import AdminMerchantKycSettings from "@/pages/admin/merchant-kyc-settings";
 import AdminPaymentGateway from "@/pages/admin/payment-gateway";
 import AdminPayoutGateway from "@/pages/admin/payout-gateway";
 import AdminPaymentGateways from "@/pages/admin/payment-gateways";
@@ -436,6 +439,9 @@ function Router() {
       <Route path="/admin/secure-id-settings"><AdminRoute component={AdminSecureIdSettings} /></Route>
       <Route path="/admin/merchant-onboarding"><AdminRoute component={AdminMerchantOnboarding} /></Route>
       <Route path="/merchant/onboarding"><MerchantRoute component={MerchantOnboarding} /></Route>
+      <Route path="/merchant/auto-kyc"><MerchantRoute component={MerchantAutoKyc} /></Route>
+      <Route path="/admin/merchant-kyc"><AdminRoute component={AdminMerchantKyc} /></Route>
+      <Route path="/admin/merchant-kyc-settings"><AdminRoute component={AdminMerchantKycSettings} /></Route>
       <Route path="/admin/payment-gateways"><AdminRoute component={AdminPaymentGateways} /></Route>
       <Route path="/admin/upi-gateways"><AdminRoute component={AdminUpiGateways} /></Route>
       <Route path="/admin/payin-gateway"><AdminRoute component={AdminPaymentGateway} /></Route>

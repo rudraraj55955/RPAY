@@ -557,6 +557,95 @@ async function runGuard(): Promise<void> {
   await db.execute(sql`CREATE INDEX IF NOT EXISTS vl_created_at_idx ON verification_logs(created_at DESC)`);
   logger.info({ table: "verification_logs" }, "schema_guard_table_created");
 
+  // ── merchant_kyc_verifications (new dedicated auto-KYC pipeline) ──────────
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS merchant_kyc_verifications (
+      id SERIAL PRIMARY KEY,
+      merchant_id INTEGER NOT NULL UNIQUE,
+      pan_number_masked TEXT,
+      pan_number_hash TEXT,
+      pan_name TEXT,
+      pan_type TEXT,
+      pan_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      pan_verified_at TIMESTAMPTZ,
+      pan_reference_id_encrypted TEXT,
+      pan_reference_id_iv TEXT,
+      pan_reference_id_tag TEXT,
+      aadhaar_last4 TEXT,
+      aadhaar_number_hash TEXT,
+      aadhaar_name TEXT,
+      aadhaar_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      aadhaar_verified_at TIMESTAMPTZ,
+      aadhaar_reference_id_encrypted TEXT,
+      aadhaar_reference_id_iv TEXT,
+      aadhaar_reference_id_tag TEXT,
+      aadhaar_otp_session_encrypted TEXT,
+      aadhaar_otp_session_iv TEXT,
+      aadhaar_otp_session_tag TEXT,
+      name_match_score INTEGER,
+      verification_status TEXT NOT NULL DEFAULT 'PENDING',
+      failure_reason TEXT,
+      consent_ip TEXT,
+      consent_user_agent TEXT,
+      consent_at TIMESTAMPTZ,
+      admin_decision_by TEXT,
+      admin_decision_at TIMESTAMPTZ,
+      admin_decision_note TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS mkv_status_idx ON merchant_kyc_verifications(verification_status)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS mkv_pan_hash_idx ON merchant_kyc_verifications(pan_number_hash)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS mkv_aadhaar_hash_idx ON merchant_kyc_verifications(aadhaar_number_hash)`);
+  logger.info({ table: "merchant_kyc_verifications" }, "schema_guard_table_created");
+
+  // ── kyc_verification_logs (masked audit trail for auto-KYC pipeline) ──────
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS kyc_verification_logs (
+      id SERIAL PRIMARY KEY,
+      merchant_id INTEGER NOT NULL,
+      verification_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      request_masked TEXT,
+      response_masked TEXT,
+      provider_reference_id_encrypted TEXT,
+      provider_reference_id_iv TEXT,
+      provider_reference_id_tag TEXT,
+      error_reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS kvl_merchant_id_idx ON kyc_verification_logs(merchant_id)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS kvl_created_at_idx ON kyc_verification_logs(created_at DESC)`);
+  logger.info({ table: "kyc_verification_logs" }, "schema_guard_table_created");
+
+  // ── merchant_kyc_settings (Super Admin auto-KYC provider config) ──────────
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS merchant_kyc_settings (
+      id SERIAL PRIMARY KEY,
+      pan_api_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      aadhaar_api_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      mode TEXT NOT NULL DEFAULT 'test',
+      client_id_encrypted TEXT,
+      client_id_iv TEXT,
+      client_id_tag TEXT,
+      client_secret_encrypted TEXT,
+      client_secret_iv TEXT,
+      client_secret_tag TEXT,
+      base_url TEXT,
+      min_name_match_score INTEGER NOT NULL DEFAULT 80,
+      auto_approve_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      duplicate_check_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      daily_verification_limit INTEGER NOT NULL DEFAULT 200,
+      per_merchant_attempt_limit INTEGER NOT NULL DEFAULT 5,
+      updated_by_email TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  logger.info({ table: "merchant_kyc_settings" }, "schema_guard_table_created");
+
   // ── withdrawals: auto-approval tracking columns ─────────────────────────
   await db.execute(sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS approval_type TEXT NOT NULL DEFAULT 'MANUAL'`);
   await db.execute(sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS approved_by_system BOOLEAN NOT NULL DEFAULT FALSE`);

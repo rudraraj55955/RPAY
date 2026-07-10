@@ -204,6 +204,7 @@ function MerchantSidebar() {
         { title: "Profile", icon: User, href: "/merchant/profile", locked: false, lockReason: null, badge: null },
         { title: "Verification", icon: BadgeCheck, href: "/merchant/verification", locked: false, lockReason: null, badge: isKycVerified ? "Verified" : null },
         { title: "Secure Onboarding", icon: ShieldCheck, href: "/merchant/onboarding", locked: false, lockReason: null, badge: null },
+        { title: "KYC Verification", icon: ShieldCheck, href: "/merchant/auto-kyc", locked: false, lockReason: null, badge: null },
       ],
     },
     {
@@ -331,6 +332,7 @@ const ADMIN_NAV = [
       { title: "KYC Review", icon: BadgeCheck, href: "/admin/kyc-review" },
       { title: "Verifications", icon: ShieldCheck, href: "/admin/merchant-verifications" },
       { title: "Secure Onboarding", icon: ShieldCheck, href: "/admin/merchant-onboarding" },
+      { title: "Auto KYC", icon: ShieldCheck, href: "/admin/merchant-kyc" },
       { title: "Plans", icon: CreditCard, href: "/admin/plans" },
       { title: "Invoices", icon: Receipt, href: "/admin/invoices" },
     ],
@@ -412,6 +414,7 @@ const ADMIN_NAV = [
       { title: "Company Branding", icon: Paintbrush, href: "/admin/company-branding" },
       { title: "OTP / SMS Settings", icon: MessageSquare, href: "/admin/otp-settings", superAdminOnly: true },
       { title: "Secure ID Provider", icon: ShieldCheck, href: "/admin/secure-id-settings", superAdminOnly: true as const },
+      { title: "Merchant Auto KYC Settings", icon: ShieldCheck, href: "/admin/merchant-kyc-settings", superAdminOnly: true as const },
       { title: "Settings", icon: Settings, href: "/admin/settings" },
       { title: "API Reference", icon: BookOpen, href: "/admin/api-docs" },
     ],

@@ -35,3 +35,4 @@
 - [React Query v5 useQuery onSuccess no-op](rq5-usequery-onsuccess-noop.md) — generated hooks' `query: { onSuccess }` silently never fires in RQ v5; use useEffect to hydrate state from `data`, and test reload-persistence in e2e.
 - [Payout status sync correction](payout-status-sync.md) — FAILED+providerReferenceId rows need cf_transfer_id GET fallback + separate FAILED→SUCCESS wallet correction path (not the normal hold path).
 - [Per-admin notification dedup for event feeds](notif-per-admin-dedup.md) — admin-alert notifications insert one row per admin recipient; dedupe by (createdAt, metadata keys) when building an events list/history view.
+- [Auto KYC no-creds failsafe](auto-kyc-no-creds-failsafe.md) — verify provider-backed KYC routes fail safe (generic error, zero DB writes) when no live credentials exist; that IS the verifiable contract in dev.

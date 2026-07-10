@@ -35,6 +35,15 @@ export function decryptValue(enc: EncryptedValue): string {
   return decrypted.toString("utf8");
 }
 
+/**
+ * One-way, deterministic hash for duplicate-detection lookups (e.g. PAN/Aadhaar
+ * dedupe) where we must never store or compare the raw value, only detect
+ * whether the same value was seen before.
+ */
+export function hashValue(plaintext: string): string {
+  return crypto.createHmac("sha256", ENCRYPTION_KEY).update(plaintext.trim().toUpperCase()).digest("hex");
+}
+
 export function safeDecrypt(
   encrypted: string | null | undefined,
   iv: string | null | undefined,

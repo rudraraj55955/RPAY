@@ -22,4 +22,8 @@ export interface GithubSyncHistoryEntry {
   hasLog?: boolean;
   /** ID of the earlier failed sync run that this run was retrying, if this run was triggered as a retry. */
   retryOf?: string;
+  /** Human-readable explanation of why the run was skipped, e.g. "Remote was ahead by 3 commit(s) at the time of the skip". Only present when status is "skipped". */
+  skipReason?: string;
+  /** Number of commits the remote was ahead of local HEAD at the time the sync was skipped due to divergence. Only present when status is "skipped". */
+  remoteAheadBy?: number;
 }

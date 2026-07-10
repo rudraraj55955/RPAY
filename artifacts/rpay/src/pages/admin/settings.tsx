@@ -3576,7 +3576,15 @@ export default function AdminSettings() {
                             {entry.status === "success" ? (
                               <span className="text-emerald-400 font-medium">success</span>
                             ) : entry.status === "skipped" ? (
-                              <span className="text-amber-400 font-medium" title="Push was skipped because the remote has commits not present locally. Resolve the divergence to resume syncing.">
+                              <span
+                                className="text-amber-400 font-medium underline decoration-dotted"
+                                title={
+                                  entry.skipReason ??
+                                  (entry.remoteAheadBy != null
+                                    ? `Remote was ahead by ${entry.remoteAheadBy} commit(s) at the time of the skip`
+                                    : "Push was skipped because the remote has commits not present locally. Resolve the divergence to resume syncing.")
+                                }
+                              >
                                 skipped (diverged)
                               </span>
                             ) : (

@@ -28,6 +28,8 @@ interface GithubSyncHistoryEntry {
   errorMessage?: string;
   hasLog?: boolean;
   retryOf?: string;
+  skipReason?: string;
+  remoteAheadBy?: number;
 }
 
 function countConsecutiveFailures(): number {
@@ -184,7 +186,15 @@ function writeLogFile(id: string, content: string): boolean {
   }
 }
 
-function writeStatus(status: "success" | "failure" | "skipped", id: string, logLines: string[], errorMessage?: string, retryOf?: string) {
+function writeStatus(
+  status: "success" | "failure" | "skipped",
+  id: string,
+  logLines: string[],
+  errorMessage?: string,
+  retryOf?: string,
+  skipReason?: string,
+  remoteAheadBy?: number,
+) {
   const syncedAt = new Date().toISOString();
   const payload: Record<string, string> = {
     id,
@@ -198,12 +208,18 @@ function writeStatus(status: "success" | "failure" | "skipped", id: string, logL
   if (retryOf) {
     payload["retryOf"] = retryOf;
   }
+  if (skipReason) {
+    payload["skipReason"] = skipReason;
+  }
+  if (remoteAheadBy !== undefined) {
+    payload["remoteAheadBy"] = String(remoteAheadBy);
+  }
   try {
     writeFileSync(STATUS_FILE, JSON.stringify(payload, null, 2), "utf-8");
   } catch {
   }
   const hasLog = logLines.length > 0 && writeLogFile(id, logLines.join("\n"));
-  appendHistory({ id, status, syncedAt, repo: GITHUB_REPO, errorMessage, hasLog, retryOf });
+  appendHistory({ id, status, syncedAt, repo: GITHUB_REPO, errorMessage, hasLog, retryOf, skipReason, remoteAheadBy });
 }
 
 function appendHistory(entry: GithubSyncHistoryEntry) {
@@ -386,7 +402,8 @@ async function main() {
           // Skip the push — record as "skipped" so it's visually distinct from a real success
           // and does not increment the failure streak counter.
           log("GITHUB_SYNC: Push skipped to protect remote history. Admins have been alerted.");
-          writeStatus("skipped", runId, logLines, undefined, retryOf);
+          const skipReason = `Remote was ahead by ${remoteAheadBy} commit(s) at the time of the skip`;
+          writeStatus("skipped", runId, logLines, undefined, retryOf, skipReason, remoteAheadBy);
           return;
         }
 

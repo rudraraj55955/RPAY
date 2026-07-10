@@ -7690,7 +7690,9 @@ export const GetGithubSyncHistoryResponse = zod.object({
   "repo": zod.string().describe('GitHub repository that was synced'),
   "errorMessage": zod.string().optional().describe('Error detail when status is \"failure\"'),
   "hasLog": zod.boolean().optional().describe('Whether a full captured log is available for this run via \/github-sync\/history\/{id}\/log'),
-  "retryOf": zod.string().optional().describe('ID of the earlier failed sync run that this run was retrying, if this run was triggered as a retry.')
+  "retryOf": zod.string().optional().describe('ID of the earlier failed sync run that this run was retrying, if this run was triggered as a retry.'),
+  "skipReason": zod.string().optional().describe('Human-readable explanation of why the run was skipped, e.g. \"Remote was ahead by 3 commit(s) at the time of the skip\". Only present when status is \"skipped\".'),
+  "remoteAheadBy": zod.number().optional().describe('Number of commits the remote was ahead of local HEAD at the time the sync was skipped due to divergence. Only present when status is \"skipped\".')
 })).describe('Past sync runs, newest first, capped at 50')
 })
 
